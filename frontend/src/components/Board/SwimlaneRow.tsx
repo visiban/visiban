@@ -7,11 +7,12 @@ interface Props {
   columns: Column[];
   cards: Card[];
   boardId: number;
+  collapsedColumnIds: Set<number>;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
 }
 
-export default function SwimlaneRow({ customer, columns, cards, boardId, onCardClick, onCardAdded }: Props) {
+export default function SwimlaneRow({ customer, columns, cards, boardId, collapsedColumnIds, onCardClick, onCardAdded }: Props) {
   const [collapsed, setCollapsed] = useState(customer.is_collapsed);
 
   return (
@@ -42,17 +43,21 @@ export default function SwimlaneRow({ customer, columns, cards, boardId, onCardC
         </div>
       ) : (
         <>
-          {columns.map((col) => (
-            <BoardCell
-              key={col.id}
-              column={col}
-              customer={customer}
-              cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
-              boardId={boardId}
-              onCardClick={onCardClick}
-              onCardAdded={onCardAdded}
-            />
-          ))}
+          {columns.map((col) =>
+            collapsedColumnIds.has(col.id) ? (
+              <div key={col.id} className="w-10 shrink-0 border-r border-gray-100" />
+            ) : (
+              <BoardCell
+                key={col.id}
+                column={col}
+                customer={customer}
+                cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
+                boardId={boardId}
+                onCardClick={onCardClick}
+                onCardAdded={onCardAdded}
+              />
+            )
+          )}
           {/* Spacer matching the fixed-width "+ Col" button in the header */}
           <div className="w-20 shrink-0" />
         </>

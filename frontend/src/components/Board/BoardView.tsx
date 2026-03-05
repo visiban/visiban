@@ -32,6 +32,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
+
+  const toggleColumn = (id: number) => setCollapsedColumns((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -86,6 +93,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                 cards={board.cards.filter((c) => c.column === col.id)}
                 boardId={board.id}
                 onColumnUpdated={onColumnUpdated}
+                collapsed={collapsedColumns.has(col.id)}
+                onToggleCollapse={() => toggleColumn(col.id)}
               />
             ))}
 
@@ -107,6 +116,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               columns={board.columns}
               cards={board.cards.filter((c) => c.customer === customer.id)}
               boardId={board.id}
+              collapsedColumnIds={collapsedColumns}
               onCardClick={setSelectedCard}
               onCardAdded={onCardAdded}
             />
