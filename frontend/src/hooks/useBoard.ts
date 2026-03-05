@@ -68,5 +68,9 @@ export function useBoard(boardId: number) {
     setBoard((b) => b ? { ...b, customers: [...b.customers, customer] } : b);
   }, []);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer };
+  const updateCard = useCallback((card: Card) => {
+    setBoard((b) => b ? { ...b, cards: b.cards.map((c) => c.id === card.id ? card : c) } : b);
+  }, []);
+
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard };
 }

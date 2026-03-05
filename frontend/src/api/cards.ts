@@ -1,5 +1,14 @@
 import client from "./client";
-import type { Card, CardMovement, CardComment } from "../types";
+import type { Card, CardMovement, CardComment, Priority } from "../types";
+
+export interface CardPatch {
+  title?: string;
+  description?: string;
+  priority?: Priority;
+  due_date?: string | null;
+  assignee_id?: number | null;
+  label_ids?: number[];
+}
 
 export const createCard = (boardId: number, data: {
   column: number;
@@ -10,8 +19,8 @@ export const createCard = (boardId: number, data: {
   due_date?: string;
 }) => client.post<Card>(`/api/boards/${boardId}/cards/`, data).then((r) => r.data);
 
-export const updateCard = (boardId: number, cardId: number, data: Partial<Card>) =>
-  client.put<Card>(`/api/boards/${boardId}/cards/${cardId}/`, data).then((r) => r.data);
+export const updateCard = (boardId: number, cardId: number, data: CardPatch) =>
+  client.patch<Card>(`/api/boards/${boardId}/cards/${cardId}/`, data).then((r) => r.data);
 
 export const deleteCard = (boardId: number, cardId: number) =>
   client.delete(`/api/boards/${boardId}/cards/${cardId}/`);
