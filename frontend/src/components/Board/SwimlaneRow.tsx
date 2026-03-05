@@ -1,0 +1,64 @@
+import { useState } from "react";
+import type { Card, Column, Customer } from "../../types";
+import BoardCell from "./BoardCell";
+
+interface Props {
+  customer: Customer;
+  columns: Column[];
+  cards: Card[];
+  boardId: number;
+  onCardClick: (card: Card) => void;
+  onCardAdded: (card: Card) => void;
+}
+
+export default function SwimlaneRow({ customer, columns, cards, boardId, onCardClick, onCardAdded }: Props) {
+  const [collapsed, setCollapsed] = useState(customer.is_collapsed);
+
+  return (
+    <div className="flex border-b border-gray-200 even:bg-gray-50 odd:bg-white">
+      {/* Customer name sidebar */}
+      <div
+        className="w-[220px] shrink-0 flex items-start gap-2 px-3 py-3 sticky left-0 bg-gray-800 border-r border-gray-700"
+      >
+        <span
+          className="w-1 self-stretch rounded-full shrink-0"
+          style={{ backgroundColor: customer.color }}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white truncate">{customer.name}</p>
+          <p className="text-xs text-gray-400 truncate">{customer.contact_email}</p>
+        </div>
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="text-gray-400 hover:text-white transition text-xs mt-0.5"
+          title={collapsed ? "Expand" : "Collapse"}
+        >
+          {collapsed ? "▶" : "▼"}
+        </button>
+      </div>
+
+      {/* Cells */}
+      {!collapsed && (
+        <div className="flex flex-1 min-w-0">
+          {columns.map((col) => (
+            <BoardCell
+              key={col.id}
+              column={col}
+              customer={customer}
+              cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
+              boardId={boardId}
+              onCardClick={onCardClick}
+              onCardAdded={onCardAdded}
+            />
+          ))}
+        </div>
+      )}
+
+      {collapsed && (
+        <div className="flex flex-1 items-center px-4 text-sm text-gray-400 italic">
+          {cards.length} card{cards.length !== 1 ? "s" : ""} hidden
+        </div>
+      )}
+    </div>
+  );
+}
