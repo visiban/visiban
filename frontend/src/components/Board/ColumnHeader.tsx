@@ -22,7 +22,7 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, 
   if (collapsed) {
     return (
       <div
-        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
+        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition overflow-hidden"
         onClick={onToggleCollapse}
         title={`Expand "${column.name}"`}
       >
@@ -34,7 +34,13 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, 
         >
           {cardCount}
         </span>
-        <span className="text-gray-400 text-xs mt-auto">▶</span>
+        <span
+          className="text-xs font-semibold text-gray-500 flex-1 flex items-center"
+          style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+        >
+          {column.name}
+        </span>
+        <span className="text-gray-400 text-xs">▶</span>
       </div>
     );
   }
