@@ -1,13 +1,12 @@
 import { useState } from "react";
 import {
   DndContext,
-  DragEndEvent,
   DragOverlay,
-  DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import type { BoardFull, Card } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import SwimlaneRow from "./SwimlaneRow";
