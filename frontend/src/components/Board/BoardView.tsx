@@ -7,22 +7,28 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import type { BoardFull, Card } from "../../types";
+import type { BoardFull, Card, Column, Customer } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
 import CardDetail from "../Card/CardDetail";
+import AddColumnModal from "./AddColumnModal";
+import AddCustomerModal from "../Customer/AddCustomerModal";
 
 interface Props {
   board: BoardFull;
   onMoveCard: (cardId: number, columnId: number, customerId: number, position: number) => void;
   onCardAdded: (card: Card) => void;
   onCardDeleted: (cardId: number) => void;
+  onColumnAdded: (column: Column) => void;
+  onCustomerAdded: (customer: Customer) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onColumnAdded, onCustomerAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [showAddColumn, setShowAddColumn] = useState(false);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -58,11 +64,15 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex flex-col h-full overflow-hidden">
           {/* Column headers */}
-          <div
-            className="flex sticky top-0 z-10 bg-gray-50 border-b border-gray-200"
-            style={{ gridTemplateColumns: `220px repeat(${board.columns.length}, minmax(200px, 1fr))` }}
-          >
-            <div className="w-[220px] shrink-0 bg-gray-800" />
+          <div className="flex sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
+            <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center">
+              <button
+                onClick={() => setShowAddCustomer(true)}
+                className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
+              >
+                + Customer
+              </button>
+            </div>
             {board.columns.map((col) => (
               <ColumnHeader
                 key={col.id}
@@ -70,6 +80,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                 cardCount={board.cards.filter((c) => c.column === col.id).length}
               />
             ))}
+            <div className="flex items-center px-2 border-r border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowAddColumn(true)}
+                className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
+              >
+                + Column
+              </button>
+            </div>
           </div>
 
           {/* Swimlane rows */}
@@ -86,8 +104,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               />
             ))}
             {board.customers.length === 0 && (
-              <div className="flex items-center justify-center h-64 text-gray-400">
-                No customers yet. Add a customer to get started.
+              <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+                <p>No customers yet.</p>
+                <button
+                  onClick={() => setShowAddCustomer(true)}
+                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                >
+                  + Add first customer
+                </button>
               </div>
             )}
           </div>
@@ -104,6 +128,22 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           board={board}
           onClose={() => setSelectedCard(null)}
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
+        />
+      )}
+
+      {showAddColumn && (
+        <AddColumnModal
+          boardId={board.id}
+          onAdded={(col) => { onColumnAdded(col); setShowAddColumn(false); }}
+          onClose={() => setShowAddColumn(false)}
+        />
+      )}
+
+      {showAddCustomer && (
+        <AddCustomerModal
+          boardId={board.id}
+          onAdded={(cust) => { onCustomerAdded(cust); setShowAddCustomer(false); }}
+          onClose={() => setShowAddCustomer(false)}
         />
       )}
     </>

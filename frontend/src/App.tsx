@@ -5,7 +5,7 @@ import LoginPage from "./components/Auth/LoginPage";
 import BoardSelector from "./components/Layout/BoardSelector";
 import BoardView from "./components/Board/BoardView";
 import Navbar from "./components/Layout/Navbar";
-import type { Board, User, Card } from "./types";
+import type { Board, User } from "./types";
 
 export default function App() {
   const { user, loading, logout } = useAuth();
@@ -42,7 +42,7 @@ function BoardPage({
   onLogout: () => void;
   onBack: () => void;
 }) {
-  const { board, loading, error, moveCard, addCard, removeCard } = useBoard(boardId);
+  const { board, loading, error, moveCard, addCard, removeCard, addColumn, addCustomer } = useBoard(boardId);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -65,6 +65,8 @@ function BoardPage({
             onMoveCard={moveCard}
             onCardAdded={addCard}
             onCardDeleted={removeCard}
+            onColumnAdded={addColumn}
+            onCustomerAdded={addCustomer}
           />
         )}
       </div>
