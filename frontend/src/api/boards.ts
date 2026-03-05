@@ -20,7 +20,7 @@ export const deleteBoard = (id: number) =>
   client.delete(`/api/boards/${id}/`);
 
 // Columns
-export const createColumn = (boardId: number, data: { name: string; color?: string; wip_limit?: number }) =>
+export const createColumn = (boardId: number, data: { name: string; color?: string; wip_limit?: number; weight_limit?: number }) =>
   client.post<Column>(`/api/boards/${boardId}/columns/`, data).then((r) => r.data);
 
 export const updateColumn = (boardId: number, colId: number, data: Partial<Column>) =>

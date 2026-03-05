@@ -17,7 +17,7 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 class ColumnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Column
-        fields = ["id", "name", "position", "color", "wip_limit"]
+        fields = ["id", "name", "position", "color", "wip_limit", "weight_limit"]
 
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -72,7 +72,7 @@ class CardSerializer(serializers.ModelSerializer):
         fields = [
             "id", "column", "customer", "title", "description", "priority",
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
-            "position", "created_by", "created_at", "updated_at", "last_moved_at",
+            "weight", "position", "created_by", "created_at", "updated_at", "last_moved_at",
         ]
         read_only_fields = ["created_by", "created_at", "updated_at"]
 

@@ -1,27 +1,34 @@
 import { useState } from "react";
-import { createCustomer } from "../../api/boards";
-import type { Customer } from "../../types";
+import { updateColumn } from "../../api/boards";
+import type { Column } from "../../types";
 
 interface Props {
   boardId: number;
-  onAdded: (customer: Customer) => void;
+  column: Column;
+  onUpdated: (column: Column) => void;
   onClose: () => void;
 }
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
+const COLORS = ["#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 
-export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [color, setColor] = useState(COLORS[0]);
+export default function EditColumnModal({ boardId, column, onUpdated, onClose }: Props) {
+  const [name, setName] = useState(column.name);
+  const [color, setColor] = useState(column.color);
+  const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
+  const [weightLimit, setWeightLimit] = useState(column.weight_limit?.toString() ?? "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const customer = await createCustomer(boardId, { name: name.trim(), contact_email: email.trim(), color });
-      onAdded(customer);
+      const updated = await updateColumn(boardId, column.id, {
+        name: name.trim(),
+        color,
+        wip_limit: wipLimit ? parseInt(wipLimit) : null,
+        weight_limit: weightLimit ? parseInt(weightLimit) : null,
+      });
+      onUpdated(updated);
       onClose();
     } finally {
       setSaving(false);
@@ -31,7 +38,7 @@ export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Swimlane</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Edit Column</h2>
 
         <div className="flex flex-col gap-3">
           <div>
@@ -41,23 +48,34 @@ export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onClose(); }}
-              placeholder="Swimlane name"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
             />
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Contact email</label>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@example.com"
-              type="email"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
-            />
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">WIP limit</label>
+              <input
+                value={wipLimit}
+                onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
+                placeholder="None"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Weight limit</label>
+              <input
+                value={weightLimit}
+                onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
+                placeholder="None"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+              />
+            </div>
           </div>
+
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Color</label>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2">
               {COLORS.map((c) => (
                 <button
                   key={c}
@@ -77,7 +95,7 @@ export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
             disabled={!name.trim() || saving}
             className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
-            {saving ? "Adding…" : "Add Swimlane"}
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

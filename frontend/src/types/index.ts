@@ -20,6 +20,7 @@ export interface Column {
   position: number;
   color: string;
   wip_limit: number | null;
+  weight_limit: number | null;
 }
 
 export interface Customer {
@@ -51,6 +52,7 @@ export interface Card {
   assignee: User | null;
   labels: Label[];
   due_date: string | null;
+  weight: number;
   position: number;
   created_by: number;
   created_at: string;

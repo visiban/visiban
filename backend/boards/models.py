@@ -46,6 +46,7 @@ class Column(models.Model):
     position = models.IntegerField(default=0)
     color = models.CharField(max_length=7, default="#6B7280")
     wip_limit = models.IntegerField(null=True, blank=True)
+    weight_limit = models.IntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "columns"
@@ -110,6 +111,7 @@ class Card(models.Model):
     )
     labels = models.ManyToManyField(Label, blank=True, related_name="cards")
     due_date = models.DateField(null=True, blank=True)
+    weight = models.IntegerField(default=1)
     position = models.IntegerField(default=0)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

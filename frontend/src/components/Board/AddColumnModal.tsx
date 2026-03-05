@@ -14,6 +14,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLORS[0]);
   const [wipLimit, setWipLimit] = useState("");
+  const [weightLimit, setWeightLimit] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -24,6 +25,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
         name: name.trim(),
         color,
         wip_limit: wipLimit ? parseInt(wipLimit) : undefined,
+        weight_limit: weightLimit ? parseInt(weightLimit) : undefined,
       });
       onAdded(column);
       onClose();
@@ -49,14 +51,25 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
             />
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">WIP limit (optional)</label>
-            <input
-              value={wipLimit}
-              onChange={(e) => setWipLimit(e.target.value.replace(/\D/, ""))}
-              placeholder="e.g. 5"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">WIP limit (optional)</label>
+              <input
+                value={wipLimit}
+                onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
+                placeholder="e.g. 5"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Weight limit (optional)</label>
+              <input
+                value={weightLimit}
+                onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
+                placeholder="e.g. 20"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+              />
+            </div>
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Color</label>

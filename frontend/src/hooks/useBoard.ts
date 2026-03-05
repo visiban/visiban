@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getBoardFull } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
-import type { BoardFull, Card, Column, Customer } from "../types";
+import type { BoardFull, Card, Column, Customer, Label } from "../types";
 
 export function useBoard(boardId: number) {
   const [board, setBoard] = useState<BoardFull | null>(null);
@@ -72,5 +72,13 @@ export function useBoard(boardId: number) {
     setBoard((b) => b ? { ...b, cards: b.cards.map((c) => c.id === card.id ? card : c) } : b);
   }, []);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard };
+  const updateColumn = useCallback((column: Column) => {
+    setBoard((b) => b ? { ...b, columns: b.columns.map((c) => c.id === column.id ? column : c) } : b);
+  }, []);
+
+  const addLabel = useCallback((label: Label) => {
+    setBoard((b) => b ? { ...b, labels: [...b.labels, label] } : b);
+  }, []);
+
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel };
 }
