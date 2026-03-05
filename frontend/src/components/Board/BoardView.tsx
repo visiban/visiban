@@ -44,7 +44,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     const { over, active } = e;
     if (!over) return;
 
-    // Droppable IDs are "cell:{columnId}:{customerId}"
     const [, colId, custId] = String(over.id).split(":");
     const cardId = Number(active.id);
     const card = board.cards.find((c) => c.id === cardId);
@@ -52,22 +51,25 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
     const targetColumnId = Number(colId);
     const targetCustomerId = Number(custId);
-
     const siblings = board.cards
       .filter((c) => c.column === targetColumnId && c.customer === targetCustomerId && c.id !== cardId)
       .sort((a, b) => a.position - b.position);
 
-    const position = siblings.length;
-    onMoveCard(cardId, targetColumnId, targetCustomerId, position);
+    onMoveCard(cardId, targetColumnId, targetCustomerId, siblings.length);
   };
 
   return (
     <>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex flex-col h-full overflow-hidden">
-          {/* Column headers */}
-          <div className="flex sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
-            <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center">
+        {/*
+          Single scroll container — header and body share the same horizontal
+          scroll so fixed-width columns always line up.
+        */}
+        <div className="flex-1 overflow-auto">
+          {/* Header row — sticky to the top of the scroll container */}
+          <div className="flex sticky top-0 z-10 border-b border-gray-200 bg-gray-50">
+            {/* Corner — also sticky to the left */}
+            <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center sticky left-0 z-20">
               <button
                 onClick={() => setShowAddCustomer(true)}
                 className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
@@ -75,6 +77,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                 + Customer
               </button>
             </div>
+
             {board.columns.map((col) => (
               <ColumnHeader
                 key={col.id}
@@ -84,7 +87,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                 onColumnUpdated={onColumnUpdated}
               />
             ))}
-            <div className="flex items-center px-2 border-r border-gray-200 bg-gray-50">
+
+            <div className="flex items-center px-3 bg-gray-50 border-l border-gray-200 shrink-0">
               <button
                 onClick={() => setShowAddColumn(true)}
                 className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
@@ -95,30 +99,29 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           </div>
 
           {/* Swimlane rows */}
-          <div className="overflow-y-auto flex-1">
-            {board.customers.map((customer) => (
-              <SwimlaneRow
-                key={customer.id}
-                customer={customer}
-                columns={board.columns}
-                cards={board.cards.filter((c) => c.customer === customer.id)}
-                boardId={board.id}
-                onCardClick={setSelectedCard}
-                onCardAdded={onCardAdded}
-              />
-            ))}
-            {board.customers.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
-                <p>No customers yet.</p>
-                <button
-                  onClick={() => setShowAddCustomer(true)}
-                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                  + Add first customer
-                </button>
-              </div>
-            )}
-          </div>
+          {board.customers.map((customer) => (
+            <SwimlaneRow
+              key={customer.id}
+              customer={customer}
+              columns={board.columns}
+              cards={board.cards.filter((c) => c.customer === customer.id)}
+              boardId={board.id}
+              onCardClick={setSelectedCard}
+              onCardAdded={onCardAdded}
+            />
+          ))}
+
+          {board.customers.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+              <p>No customers yet.</p>
+              <button
+                onClick={() => setShowAddCustomer(true)}
+                className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+              >
+                + Add first customer
+              </button>
+            </div>
+          )}
         </div>
 
         <DragOverlay>

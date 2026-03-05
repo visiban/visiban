@@ -21,7 +21,7 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated }
   return (
     <>
       <div
-        className="flex-1 min-w-[200px] px-3 py-3 border-r border-gray-200 bg-gray-50 group cursor-pointer hover:bg-gray-100 transition"
+        className="w-[240px] shrink-0 px-3 py-3 border-r border-gray-200 bg-gray-50 group cursor-pointer hover:bg-gray-100 transition"
         onClick={() => setEditing(true)}
         title="Click to edit column"
       >
