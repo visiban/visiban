@@ -20,11 +20,12 @@ interface Props {
   onMoveCard: (cardId: number, columnId: number, customerId: number, position: number) => void;
   onCardAdded: (card: Card) => void;
   onCardDeleted: (cardId: number) => void;
+  onCardUpdated: (card: Card) => void;
   onColumnAdded: (column: Column) => void;
   onCustomerAdded: (customer: Customer) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onColumnAdded, onCustomerAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onCustomerAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
@@ -128,6 +129,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           board={board}
           onClose={() => setSelectedCard(null)}
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
+          onUpdated={onCardUpdated}
         />
       )}
 
