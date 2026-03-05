@@ -8,6 +8,7 @@ export interface CardPatch {
   due_date?: string | null;
   assignee_id?: number | null;
   label_ids?: number[];
+  weight?: number;
 }
 
 export const createCard = (boardId: number, data: {

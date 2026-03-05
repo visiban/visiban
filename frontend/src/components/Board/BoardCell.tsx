@@ -36,7 +36,7 @@ export default function BoardCell({ column, customer, cards, boardId, onCardClic
       }`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {cards.map((card) => (
             <CardItem key={card.id} card={card} onClick={() => onCardClick(card)} />
           ))}

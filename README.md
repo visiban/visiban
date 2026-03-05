@@ -9,6 +9,8 @@ A self-hosted Kanban board with customer-based swimlanes and automatic card move
 - **Time-in-stage metrics** — see how long a card spent in each stage
 - **OAuth login** — Google, GitHub, and GitLab
 - **WIP limits** — optional per-column work-in-progress limits
+- **Card weights** — assign a numeric weight to each card (default 1) to represent effort or complexity
+- **Weight limits** — optional per-column cap on total card weight; shown alongside WIP count in the column header
 - **Labels, priority, assignees, due dates, comments** on cards
 - **Optimistic drag-and-drop** — instant UI updates with rollback on failure
 
@@ -132,7 +134,7 @@ GET  /api/boards/                          List boards
 POST /api/boards/                          Create board
 GET  /api/boards/{id}/full/                Full board state (columns, customers, cards)
 
-POST /api/boards/{id}/columns/             Create column
+POST /api/boards/{id}/columns/             Create column (name, color, wip_limit, weight_limit)
 POST /api/boards/{id}/columns/reorder/     Reorder columns
 
 POST /api/boards/{id}/customers/           Create customer/swimlane

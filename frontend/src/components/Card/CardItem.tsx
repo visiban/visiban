@@ -27,35 +27,45 @@ export default function CardItem({ card, onClick, overlay }: Props) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`bg-white rounded-lg shadow-sm border-l-4 px-3 py-2 cursor-pointer hover:shadow-md transition select-none ${
+      className={`w-[130px] bg-white rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition select-none flex flex-col overflow-hidden ${
         isDragging && !overlay ? "opacity-30" : ""
       } ${overlay ? "shadow-xl rotate-2 opacity-95" : ""}`}
-      style={{ borderLeftColor: PRIORITY_COLORS[card.priority] ?? "#6B7280" }}
     >
-      <div className="flex items-start gap-1.5">
-        <p className="text-sm text-gray-800 font-medium flex-1 leading-snug">{card.title}</p>
-        {isRecent && (
-          <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0 mt-1" title="Recently moved" />
-        )}
-      </div>
+      {/* Priority strip */}
+      <div className="h-1 shrink-0" style={{ backgroundColor: PRIORITY_COLORS[card.priority] ?? "#6B7280" }} />
 
-      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-        {card.labels.map((label) => (
-          <span
-            key={label.id}
-            className="text-xs px-1.5 py-0.5 rounded-full text-white font-medium"
-            style={{ backgroundColor: label.color }}
-          >
-            {label.name}
-          </span>
-        ))}
+      <div className="p-2 flex flex-col gap-1.5 flex-1">
+        {/* Title */}
+        <p className="text-xs text-gray-800 font-medium leading-snug line-clamp-3">{card.title}</p>
+
+        {/* Footer row */}
+        <div className="flex items-center justify-between mt-auto gap-1">
+          {/* Label dots */}
+          <div className="flex gap-1 flex-wrap">
+            {card.labels.slice(0, 4).map((label) => (
+              <span
+                key={label.id}
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: label.color }}
+                title={label.name}
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {isRecent && (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" title="Recently moved" />
+            )}
+            {/* Weight badge */}
+            <span className="text-xs text-gray-400 font-medium" title="Weight">
+              {card.weight}
+            </span>
+          </div>
+        </div>
+
+        {/* Due date */}
         {card.due_date && (
-          <span className="text-xs text-gray-400 ml-auto">{card.due_date}</span>
-        )}
-        {card.assignee && (
-          <span className="text-xs bg-gray-100 text-gray-600 rounded-full px-1.5 py-0.5">
-            {card.assignee.first_name || card.assignee.username}
-          </span>
+          <p className="text-xs text-gray-400 leading-none">{card.due_date}</p>
         )}
       </div>
     </div>

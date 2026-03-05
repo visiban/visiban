@@ -155,6 +155,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated 
                 </div>
               </div>
 
+              {/* Weight */}
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Weight</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { const w = Math.max(1, localCard.weight - 1); setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
+                    className="w-7 h-7 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition text-sm font-medium"
+                  >−</button>
+                  <span className="text-sm font-semibold text-gray-700 w-6 text-center">{localCard.weight}</span>
+                  <button
+                    onClick={() => { const w = localCard.weight + 1; setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
+                    className="w-7 h-7 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition text-sm font-medium"
+                  >+</button>
+                </div>
+              </div>
+
               {/* Due date */}
               <div>
                 <p className="text-xs text-gray-400 mb-1">Due date</p>

@@ -78,7 +78,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               <ColumnHeader
                 key={col.id}
                 column={col}
-                cardCount={board.cards.filter((c) => c.column === col.id).length}
+                cards={board.cards.filter((c) => c.column === col.id)}
               />
             ))}
             <div className="flex items-center px-2 border-r border-gray-200 bg-gray-50">
