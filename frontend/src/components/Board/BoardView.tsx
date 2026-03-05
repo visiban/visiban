@@ -88,12 +88,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               />
             ))}
 
-            <div className="flex items-center px-3 bg-gray-50 border-l border-gray-200 shrink-0">
+            <div className="w-20 shrink-0 flex items-center px-2 bg-gray-50 border-l border-gray-200">
               <button
                 onClick={() => setShowAddColumn(true)}
                 className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
               >
-                + Column
+                + Col
               </button>
             </div>
           </div>

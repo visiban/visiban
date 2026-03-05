@@ -32,12 +32,12 @@ export default function BoardCell({ column, customer, cards, boardId, onCardClic
     <div
       ref={setNodeRef}
       onContextMenu={(e) => { e.preventDefault(); setAdding(true); }}
-      className={`w-[240px] shrink-0 min-h-[80px] p-2 border-r border-gray-200 transition-colors ${
+      className={`flex-1 min-w-[180px] min-h-[80px] p-2 border-r border-gray-200 transition-colors ${
         isOver ? "bg-blue-50" : ""
       }`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
           {cards.map((card) => (
             <CardItem key={card.id} card={card} onClick={() => onCardClick(card)} />
           ))}

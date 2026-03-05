@@ -41,17 +41,21 @@ export default function SwimlaneRow({ customer, columns, cards, boardId, onCardC
           {cards.length} card{cards.length !== 1 ? "s" : ""} hidden
         </div>
       ) : (
-        columns.map((col) => (
-          <BoardCell
-            key={col.id}
-            column={col}
-            customer={customer}
-            cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
-            boardId={boardId}
-            onCardClick={onCardClick}
-            onCardAdded={onCardAdded}
-          />
-        ))
+        <>
+          {columns.map((col) => (
+            <BoardCell
+              key={col.id}
+              column={col}
+              customer={customer}
+              cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
+              boardId={boardId}
+              onCardClick={onCardClick}
+              onCardAdded={onCardAdded}
+            />
+          ))}
+          {/* Spacer matching the fixed-width "+ Col" button in the header */}
+          <div className="w-20 shrink-0" />
+        </>
       )}
     </div>
   );

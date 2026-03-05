@@ -27,7 +27,7 @@ export default function CardItem({ card, onClick, overlay }: Props) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`w-[130px] bg-white rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition select-none flex flex-col overflow-hidden ${
+      className={`aspect-square bg-white rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition select-none flex flex-col overflow-hidden ${
         isDragging && !overlay ? "opacity-30" : ""
       } ${overlay ? "shadow-xl rotate-2 opacity-95" : ""}`}
     >
