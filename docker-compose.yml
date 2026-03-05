@@ -4,15 +4,15 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: kanboard
-      POSTGRES_USER: kanboard
-      POSTGRES_PASSWORD: kanboard
+      POSTGRES_DB: visiban
+      POSTGRES_USER: visiban
+      POSTGRES_PASSWORD: visiban
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kanboard"]
+      test: ["CMD-SHELL", "pg_isready -U visiban"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://kanboard:kanboard@db:5432/kanboard
+      DATABASE_URL: postgres://visiban:visiban@db:5432/visiban
     volumes:
       - ./backend:/app
     ports:

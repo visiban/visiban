@@ -1,4 +1,4 @@
-# KanBoard
+# Visiban
 
 A self-hosted Kanban board with customer-based swimlanes and automatic card movement tracking. Lightweight alternative to Trello/Smartsheet focused on pipeline visibility per customer, with a full audit trail of every card movement between stages.
 
@@ -69,7 +69,7 @@ Scopes: `read_user`, `openid`, `email`
 ```
 visiban/
 ├── backend/
-│   ├── kanboard/        # Django project settings
+│   ├── visiban/         # Django project settings
 │   ├── accounts/        # Custom user model, auth views
 │   ├── boards/          # Board, Column, Customer, Card, CardMovement models + API
 │   ├── manage.py
