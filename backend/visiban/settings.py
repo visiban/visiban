@@ -49,7 +49,7 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
 ]
 
-ROOT_URLCONF = "kanboard.urls"
+ROOT_URLCONF = "visiban.urls"
 
 TEMPLATES = [
     {
@@ -67,7 +67,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "kanboard.wsgi.application"
+WSGI_APPLICATION = "visiban.wsgi.application"
 
 DATABASES = {
     "default": env.db("DATABASE_URL"),
