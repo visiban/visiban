@@ -31,6 +31,7 @@ export default function BoardCell({ column, customer, cards, boardId, onCardClic
   return (
     <div
       ref={setNodeRef}
+      onContextMenu={(e) => { e.preventDefault(); setAdding(true); }}
       className={`w-[240px] shrink-0 min-h-[80px] p-2 border-r border-gray-200 transition-colors ${
         isOver ? "bg-blue-50" : ""
       }`}
