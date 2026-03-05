@@ -109,10 +109,18 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF
+CSRF_TRUSTED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_HTTPONLY = False  # Must be False so JS can read it
+SESSION_COOKIE_SAMESITE = "Lax"
+
 # django-allauth
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
+LOGIN_REDIRECT_URL = "http://localhost:5173"
+ACCOUNT_LOGOUT_REDIRECT_URL = "http://localhost:5173"
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {

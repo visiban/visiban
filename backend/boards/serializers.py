@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from accounts.models import User
 from accounts.serializers import UserSerializer
 from .models import (
     Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment
@@ -62,7 +63,7 @@ class CardSerializer(serializers.ModelSerializer):
     )
     assignee = UserSerializer(read_only=True)
     assignee_id = serializers.PrimaryKeyRelatedField(
-        write_only=True, queryset=None, source="assignee", required=False, allow_null=True
+        write_only=True, read_only=False, queryset=User.objects.all(), source="assignee", required=False, allow_null=True
     )
     last_moved_at = serializers.SerializerMethodField()
 
@@ -74,15 +75,6 @@ class CardSerializer(serializers.ModelSerializer):
             "position", "created_by", "created_at", "updated_at", "last_moved_at",
         ]
         read_only_fields = ["created_by", "created_at", "updated_at"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        request = self.context.get("request")
-        if request:
-            board = self.context.get("board")
-            if board:
-                from accounts.models import User
-                self.fields["assignee_id"].queryset = User.objects.filter(boards=board)
 
     def get_last_moved_at(self, obj):
         movement = obj.movements.first()

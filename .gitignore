@@ -17,6 +17,7 @@ venv/
 # Django
 staticfiles/
 media/
+*.sqlite3
 
 # Node
 node_modules/
