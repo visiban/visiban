@@ -5,7 +5,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="bg-gray-800 rounded-2xl shadow-2xl p-10 w-full max-w-sm">
         <h1 className="text-3xl font-bold text-white mb-2 text-center">Visiban</h1>
-        <p className="text-gray-400 text-center mb-8 text-sm">Customer pipeline board</p>
+        <p className="text-gray-400 text-center mb-8 text-sm">Swimlane pipeline board</p>
 
         <div className="flex flex-col gap-3">
           <a

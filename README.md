@@ -1,17 +1,21 @@
 # Visiban
 
-A self-hosted Kanban board with customer-based swimlanes and automatic card movement tracking. Lightweight alternative to Trello/Smartsheet focused on pipeline visibility per customer, with a full audit trail of every card movement between stages.
+A self-hosted Kanban board with swimlane rows and automatic card movement tracking. Lightweight alternative to Trello/Smartsheet focused on pipeline visibility per swimlane, with a full audit trail of every card movement between stages.
 
 ## Features
 
-- **Customer swimlanes** — each customer is a horizontal row; columns are pipeline stages
-- **Movement history** — every drag automatically logs from/to column, from/to customer, who moved it, and when
+- **Swimlanes** — each row represents an entity (customer, project, team); columns are pipeline stages
+- **Movement history** — every drag automatically logs from/to column, from/to swimlane, who moved it, and when
 - **Time-in-stage metrics** — see how long a card spent in each stage
 - **OAuth login** — Google, GitHub, and GitLab
-- **WIP limits** — optional per-column work-in-progress limits
+- **WIP limits** — optional per-column work-in-progress card count limit; header turns red when exceeded
 - **Card weights** — assign a numeric weight to each card (default 1) to represent effort or complexity
-- **Weight limits** — optional per-column cap on total card weight; shown alongside WIP count in the column header
-- **Labels, priority, assignees, due dates, comments** on cards
+- **Weight limits** — optional per-column cap on total card weight; header turns orange when exceeded
+- **Editable columns** — click any column header to update its name, colour, WIP limit, or weight limit
+- **Square card tiles** — compact tiles auto-fill column width; multiple cards visible per swimlane cell
+- **Right-click to add** — right-click any cell to instantly open the add-card input
+- **Labels** — board-scoped, reusable across all cards; create with a colour picker directly from the card detail panel
+- **Priority, assignees, due dates, comments** on cards — all editable inline
 - **Optimistic drag-and-drop** — instant UI updates with rollback on failure
 
 ## Tech Stack
@@ -132,17 +136,22 @@ visiban/
 ```
 GET  /api/boards/                          List boards
 POST /api/boards/                          Create board
-GET  /api/boards/{id}/full/                Full board state (columns, customers, cards)
+GET  /api/boards/{id}/full/                Full board state (columns, swimlanes, cards, labels)
 
 POST /api/boards/{id}/columns/             Create column (name, color, wip_limit, weight_limit)
+PATCH /api/boards/{id}/columns/{id}/       Update column (name, color, wip_limit, weight_limit)
 POST /api/boards/{id}/columns/reorder/     Reorder columns
 
-POST /api/boards/{id}/customers/           Create customer/swimlane
+POST /api/boards/{id}/customers/           Create swimlane (name, contact_email, color)
 POST /api/boards/{id}/customers/reorder/   Reorder swimlanes
 
+POST /api/boards/{id}/labels/              Create board-scoped label (name, color)
+
 POST /api/boards/{id}/cards/               Create card
+PATCH /api/boards/{id}/cards/{id}/         Update card (title, description, priority, due_date, weight, assignee_id, label_ids)
 POST /api/boards/{id}/cards/{id}/move/     Move card (triggers audit log)
 GET  /api/boards/{id}/cards/{id}/movements/ Movement history
+POST /api/boards/{id}/cards/{id}/comments/ Add comment
 ```
 
 ## Running Tests

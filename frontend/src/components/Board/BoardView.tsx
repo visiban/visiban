@@ -75,7 +75,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                 onClick={() => setShowAddCustomer(true)}
                 className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
               >
-                + Customer
+                + Swimlane
               </button>
             </div>
 
@@ -114,12 +114,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
           {board.customers.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
-              <p>No customers yet.</p>
+              <p>No swimlanes yet.</p>
               <button
                 onClick={() => setShowAddCustomer(true)}
                 className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
               >
-                + Add first customer
+                + Add first swimlane
               </button>
             </div>
           )}

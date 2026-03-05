@@ -31,7 +31,7 @@ export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Customer</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Swimlane</h2>
 
         <div className="flex flex-col gap-3">
           <div>
@@ -41,7 +41,7 @@ export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onClose(); }}
-              placeholder="Customer name"
+              placeholder="Swimlane name"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
             />
           </div>
@@ -77,7 +77,7 @@ export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
             disabled={!name.trim() || saving}
             className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
           >
-            {saving ? "Adding…" : "Add Customer"}
+            {saving ? "Adding…" : "Add Swimlane"}
           </button>
         </div>
       </div>
