@@ -7,7 +7,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import type { BoardFull, Card, Column, Customer } from "../../types";
+import type { BoardFull, Card, Column, Customer, Label } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
@@ -24,9 +24,10 @@ interface Props {
   onColumnAdded: (column: Column) => void;
   onColumnUpdated: (column: Column) => void;
   onCustomerAdded: (customer: Customer) => void;
+  onLabelAdded: (label: Label) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onCustomerAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onCustomerAdded, onLabelAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
@@ -136,6 +137,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onClose={() => setSelectedCard(null)}
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
           onUpdated={onCardUpdated}
+          onLabelAdded={onLabelAdded}
         />
       )}
 

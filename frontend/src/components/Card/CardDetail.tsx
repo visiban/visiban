@@ -11,6 +11,7 @@ interface Props {
   onClose: () => void;
   onDeleted: (id: number) => void;
   onUpdated: (card: Card) => void;
+  onLabelAdded: (label: Label) => void;
 }
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
@@ -22,7 +23,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
 
 const LABEL_COLORS = ["#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6"];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onLabelAdded }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [commentBody, setCommentBody] = useState("");
@@ -64,6 +65,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated 
   const handleCreateLabel = async () => {
     if (!newLabelName.trim()) return;
     const label = await createLabel(board.id, { name: newLabelName.trim(), color: newLabelColor });
+    onLabelAdded(label);
     const updatedLabelIds = [...localCard.labels.map((l) => l.id), label.id];
     const updated = await updateCard(board.id, localCard.id, { label_ids: updatedLabelIds });
     setLocalCard(updated);
