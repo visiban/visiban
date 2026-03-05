@@ -52,7 +52,7 @@ function BoardPage({
           ← Boards
         </button>
       </div>
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {loading && (
           <div className="flex items-center justify-center h-full text-gray-400">Loading board…</div>
         )}
