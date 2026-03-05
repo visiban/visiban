@@ -22,10 +22,11 @@ interface Props {
   onCardDeleted: (cardId: number) => void;
   onCardUpdated: (card: Card) => void;
   onColumnAdded: (column: Column) => void;
+  onColumnUpdated: (column: Column) => void;
   onCustomerAdded: (customer: Customer) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onCustomerAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onCustomerAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
@@ -79,6 +80,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                 key={col.id}
                 column={col}
                 cards={board.cards.filter((c) => c.column === col.id)}
+                boardId={board.id}
+                onColumnUpdated={onColumnUpdated}
               />
             ))}
             <div className="flex items-center px-2 border-r border-gray-200 bg-gray-50">
