@@ -27,9 +27,10 @@ A self-hosted Kanban board with customer-based swimlanes and automatic card move
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- Docker and Docker Compose (for the Docker path)
+- Python 3.12+ and Node.js 18+ (for local development)
 
-### Setup
+### Docker (recommended)
 
 1. Clone the repo and copy the environment template:
 
@@ -50,6 +51,49 @@ docker compose up --build
 - Backend API: http://localhost:8000
 - Frontend: http://localhost:5173
 - Admin: http://localhost:8000/admin
+
+### Local Development (without Docker)
+
+**Backend**
+
+```bash
+cd backend
+
+# Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp ../.env.example .env
+# Edit .env and set DATABASE_URL to use SQLite for local dev:
+#   DATABASE_URL=sqlite:///db.sqlite3
+
+# Run migrations and create a superuser
+python manage.py migrate
+python manage.py createsuperuser  # optional
+
+# Start the dev server
+python manage.py runserver
+```
+
+Backend runs at http://localhost:8000.
+
+**Frontend**
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
+```
+
+Frontend runs at http://localhost:5173.
 
 ### OAuth Setup
 
@@ -102,7 +146,11 @@ GET  /api/boards/{id}/cards/{id}/movements/ Movement history
 ## Running Tests
 
 ```bash
+# Docker
 docker compose run --rm backend python manage.py test
+
+# Local
+cd backend && python manage.py test
 ```
 
 ## License
