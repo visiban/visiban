@@ -114,6 +114,7 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, 
         <EditColumnModal
           boardId={boardId}
           column={column}
+          cardCount={cardCount}
           onUpdated={(col) => { onColumnUpdated(col); setEditing(false); }}
           onDeleted={(id) => { onColumnDeleted(id); setEditing(false); }}
           onClose={() => setEditing(false)}

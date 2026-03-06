@@ -5,6 +5,7 @@ import type { Column } from "../../types";
 interface Props {
   boardId: number;
   column: Column;
+  cardCount: number;
   onUpdated: (column: Column) => void;
   onDeleted: (columnId: number) => void;
   onClose: () => void;
@@ -12,7 +13,7 @@ interface Props {
 
 const COLORS = ["#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 
-export default function EditColumnModal({ boardId, column, onUpdated, onDeleted, onClose }: Props) {
+export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onDeleted, onClose }: Props) {
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
   const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
@@ -90,16 +91,22 @@ export default function EditColumnModal({ boardId, column, onUpdated, onDeleted,
         </div>
 
         <div className="flex items-center mt-5">
-          <button
-            onClick={() => {
-              if (confirm(`Delete column "${column.name}"? All cards in this column will also be deleted.`)) {
-                onDeleted(column.id);
-              }
-            }}
-            className="text-sm text-red-500 hover:text-red-700 transition"
-          >
-            Delete column
-          </button>
+          {cardCount > 0 ? (
+            <span className="text-sm text-gray-400" title={`Move or delete the ${cardCount} card${cardCount === 1 ? "" : "s"} in this column first`}>
+              Cannot delete — {cardCount} card{cardCount === 1 ? "" : "s"} remaining
+            </span>
+          ) : (
+            <button
+              onClick={() => {
+                if (confirm(`Delete column "${column.name}"?`)) {
+                  onDeleted(column.id);
+                }
+              }}
+              className="text-sm text-red-500 hover:text-red-700 transition"
+            >
+              Delete column
+            </button>
+          )}
           <div className="flex gap-2 ml-auto">
             <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
             <button
