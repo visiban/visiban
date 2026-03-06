@@ -7,6 +7,7 @@ import {
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
+import MoveBoardModal from "../components/Board/MoveBoardModal";
 import type { Board, Group, GroupMembership, User } from "../types";
 
 interface Props {
@@ -27,6 +28,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [movingBoard, setMovingBoard] = useState<Board | null>(null);
   const [showCreateSubgroup, setShowCreateSubgroup] = useState(false);
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [boardName, setBoardName] = useState("");
@@ -192,14 +194,25 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
               </div>
               <div className="flex flex-col gap-2">
                 {boards.map((b) => (
-                  <button
-                    key={b.id}
-                    onClick={() => navigate(`/boards/${b.id}`)}
-                    className="w-full bg-gray-800 hover:bg-gray-700 text-white text-left px-4 py-3 rounded-xl transition"
-                  >
-                    <p className="font-medium">{b.name}</p>
-                    {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
-                  </button>
+                  <div key={b.id} className="group/board relative flex items-center">
+                    <button
+                      onClick={() => navigate(`/boards/${b.id}`)}
+                      className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-left px-4 py-3 rounded-xl transition"
+                    >
+                      <p className="font-medium">{b.name}</p>
+                      {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
+                    </button>
+                    <button
+                      onClick={() => setMovingBoard(b)}
+                      title="Move to another group"
+                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 transition text-gray-500 hover:text-blue-400 p-1"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />
+                        <path d="M12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
+                      </svg>
+                    </button>
+                  </div>
                 ))}
                 {isAdmin && (
                   creatingBoard ? (
@@ -286,6 +299,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
           </div>
         </div>
       </main>
+
+      {movingBoard && (
+        <MoveBoardModal
+          board={movingBoard}
+          onMoved={(updated) => {
+            // Remove from this group's list if moved elsewhere
+            if (updated.group !== groupId) {
+              setBoards((prev) => prev.filter((b) => b.id !== updated.id));
+            }
+            setMovingBoard(null);
+          }}
+          onClose={() => setMovingBoard(null)}
+        />
+      )}
 
       {showCreateSubgroup && (
         <CreateGroupModal

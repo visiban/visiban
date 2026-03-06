@@ -5,6 +5,7 @@ import { listGroups } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
+import MoveBoardModal from "../components/Board/MoveBoardModal";
 import type { Board, Group, User } from "../types";
 
 interface Props {
@@ -23,6 +24,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [boardName, setBoardName] = useState("");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [movingBoard, setMovingBoard] = useState<Board | null>(null);
 
   useEffect(() => {
     listBoards()
@@ -101,17 +103,29 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                     <p className="font-medium">{b.name}</p>
                     {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
                   </button>
-                  {b.owner.id === user.id && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                     <button
-                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition text-gray-500 hover:text-red-400 p-1"
-                      title="Delete board"
+                      onClick={(e) => { e.stopPropagation(); setMovingBoard(b); }}
+                      className="text-gray-500 hover:text-blue-400 p-1"
+                      title="Move to group"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />
+                        <path d="M12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
                       </svg>
                     </button>
-                  )}
+                    {b.owner.id === user.id && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); }}
+                        className="text-gray-500 hover:text-red-400 p-1"
+                        title="Delete board"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
               {personalBoards.length === 0 && !creatingBoard && (
@@ -144,6 +158,20 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           )}
         </section>
       </main>
+
+      {movingBoard && (
+        <MoveBoardModal
+          board={movingBoard}
+          onMoved={(updated) => {
+            // If moved to a group, remove from personal list
+            if (updated.group !== null) {
+              setBoards((prev) => prev.filter((b) => b.id !== updated.id));
+            }
+            setMovingBoard(null);
+          }}
+          onClose={() => setMovingBoard(null)}
+        />
+      )}
 
       {showCreateGroup && (
         <CreateGroupModal
