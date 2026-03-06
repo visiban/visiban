@@ -40,7 +40,7 @@ export default function CardItem({ card, onClick, overlay }: Props) {
 
         {/* Footer row */}
         <div className="flex items-center justify-between mt-auto gap-1">
-          {/* Label dots + attachment count */}
+          {/* Label dots + attachment count + checklist progress */}
           <div className="flex items-center gap-1 flex-wrap">
             {card.labels.slice(0, 4).map((label) => (
               <span
@@ -50,6 +50,14 @@ export default function CardItem({ card, onClick, overlay }: Props) {
                 title={label.name}
               />
             ))}
+            {card.checklist_total > 0 && (
+              <span
+                className={`flex items-center gap-0.5 text-xs font-medium ${card.checklist_done === card.checklist_total ? "text-green-500" : "text-gray-400"}`}
+                title={`${card.checklist_done}/${card.checklist_total} checklist items done`}
+              >
+                ✓ {card.checklist_done}/{card.checklist_total}
+              </span>
+            )}
             {card.attachment_count > 0 && (
               <span
                 className="flex items-center gap-0.5 text-xs text-gray-400"

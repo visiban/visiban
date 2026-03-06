@@ -39,6 +39,14 @@ function activityLabel(a: CardActivity): { line1: string; detail?: string } {
       return { line1: `Attached: ${a.to_value || "file"}` };
     case "attachment_deleted":
       return { line1: `Removed: ${a.from_value || "file"}` };
+    case "checklist_item_added":
+      return { line1: `Added checklist item: "${a.to_value}"` };
+    case "checklist_item_checked":
+      return { line1: `Checked: "${a.to_value}"` };
+    case "checklist_item_unchecked":
+      return { line1: `Unchecked: "${a.to_value}"` };
+    case "checklist_item_deleted":
+      return { line1: `Removed checklist item: "${a.from_value}"` };
     default:
       return { line1: (a.event_type as string).replace(/_/g, " ") };
   }
