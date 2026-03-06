@@ -7,12 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment
+from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist
 from .permissions import IsBoardMember, IsBoardAdminOrOwner, get_board_role
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     ColumnSerializer, SwimlaneSerializer, LabelSerializer,
-    CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer, CardAttachmentSerializer,
+    CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
 )
 from accounts.models import User
 from accounts.serializers import UserSerializer
@@ -394,4 +394,30 @@ class CardViewSet(viewsets.ModelViewSet):
         attachment.file.delete(save=False)
         attachment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["get", "post"], url_path="checklist")
+    def checklist(self, request, board_pk=None, pk=None):
+        board = self._board()
+        card = get_object_or_404(Card, pk=pk, board=board)
+        if request.method == "GET":
+            items = card.checklist_items.all()
+            return Response(CardChecklistSerializer(items, many=True).data)
+        serializer = CardChecklistSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        position = card.checklist_items.count()
+        item = serializer.save(card=card, position=position)
+        return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
+    def checklist_item(self, request, board_pk=None, pk=None, item_pk=None):
+        board = self._board()
+        card = get_object_or_404(Card, pk=pk, board=board)
+        item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
+        if request.method == "DELETE":
+            item.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = CardChecklistSerializer(item, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from .models import (
-    Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment
+    Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist
 )
 
 
@@ -64,6 +64,12 @@ class CardActivitySerializer(serializers.ModelSerializer):
         fields = ["id", "event_type", "from_value", "to_value", "actor", "created_at"]
 
 
+class CardChecklistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CardChecklist
+        fields = ["id", "text", "is_checked", "position"]
+
+
 class CardSerializer(serializers.ModelSerializer):
     labels = LabelSerializer(many=True, read_only=True)
     label_ids = serializers.PrimaryKeyRelatedField(
@@ -75,6 +81,8 @@ class CardSerializer(serializers.ModelSerializer):
     )
     last_moved_at = serializers.SerializerMethodField()
     attachment_count = serializers.SerializerMethodField()
+    checklist_total = serializers.SerializerMethodField()
+    checklist_done = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -82,7 +90,7 @@ class CardSerializer(serializers.ModelSerializer):
             "id", "column", "swimlane", "title", "description", "priority",
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
-            "last_moved_at", "attachment_count",
+            "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
         ]
         read_only_fields = ["created_by", "created_at", "updated_at"]
 
@@ -92,6 +100,12 @@ class CardSerializer(serializers.ModelSerializer):
 
     def get_attachment_count(self, obj):
         return obj.attachments.count()
+
+    def get_checklist_total(self, obj):
+        return obj.checklist_items.count()
+
+    def get_checklist_done(self, obj):
+        return obj.checklist_items.filter(is_checked=True).count()
 
 
 class CardAttachmentSerializer(serializers.ModelSerializer):

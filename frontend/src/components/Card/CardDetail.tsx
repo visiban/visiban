@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { BoardFull, Card, CardAttachment, CardComment, Label, Priority } from "../../types";
+import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority } from "../../types";
 import { userDisplayName } from "../../types";
-import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment } from "../../api/cards";
+import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import CardMovementTimeline from "./CardMovementTimeline";
@@ -35,11 +35,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [checklist, setChecklist] = useState<CardChecklistItem[]>([]);
+  const [newItemText, setNewItemText] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getCardComments(board.id, card.id).then(setComments);
     getCardAttachments(board.id, card.id).then(setAttachments);
+    getChecklist(board.id, card.id).then(setChecklist);
   }, [board.id, card.id]);
 
   const save = async (patch: CardPatch) => {
@@ -106,6 +109,29 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     setAttachments((prev) => prev.filter((a) => a.id !== id));
     setLocalCard((c) => ({ ...c, attachment_count: Math.max(0, c.attachment_count - 1) }));
     onUpdated({ ...localCard, attachment_count: Math.max(0, localCard.attachment_count - 1) });
+  };
+
+  const handleAddChecklistItem = async () => {
+    if (!newItemText.trim()) return;
+    const item = await addChecklistItem(board.id, card.id, newItemText.trim());
+    setChecklist((prev) => [...prev, item]);
+    setNewItemText("");
+    onUpdated({ ...localCard, checklist_total: localCard.checklist_total + 1 });
+  };
+
+  const handleToggleChecklistItem = async (item: CardChecklistItem) => {
+    const updated = await updateChecklistItem(board.id, card.id, item.id, { is_checked: !item.is_checked });
+    setChecklist((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
+    const doneDelta = updated.is_checked ? 1 : -1;
+    onUpdated({ ...localCard, checklist_done: localCard.checklist_done + doneDelta });
+  };
+
+  const handleDeleteChecklistItem = async (itemId: number) => {
+    const item = checklist.find((i) => i.id === itemId);
+    await deleteChecklistItem(board.id, card.id, itemId);
+    setChecklist((prev) => prev.filter((i) => i.id !== itemId));
+    const doneDelta = item?.is_checked ? -1 : 0;
+    onUpdated({ ...localCard, checklist_total: localCard.checklist_total - 1, checklist_done: localCard.checklist_done + doneDelta });
   };
 
   const handleDelete = async () => {
@@ -298,6 +324,65 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       + New label
                     </button>
                   )}
+                </div>
+              </div>
+
+              {/* Checklist */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-gray-400">
+                    Checklist
+                    {checklist.length > 0 && (
+                      <span className="ml-1.5 text-gray-500">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
+                    )}
+                  </p>
+                </div>
+                {checklist.length > 0 && (
+                  <>
+                    {/* Progress bar */}
+                    <div className="h-1.5 bg-gray-100 rounded-full mb-3 overflow-hidden">
+                      <div
+                        className="h-full bg-green-500 rounded-full transition-all"
+                        style={{ width: `${Math.round((checklist.filter((i) => i.is_checked).length / checklist.length) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5 mb-2">
+                      {checklist.map((item) => (
+                        <div key={item.id} className="flex items-center gap-2 group">
+                          <input
+                            type="checkbox"
+                            checked={item.is_checked}
+                            onChange={() => handleToggleChecklistItem(item)}
+                            className="w-4 h-4 rounded accent-green-500 shrink-0 cursor-pointer"
+                          />
+                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-gray-400" : "text-gray-700"}`}>
+                            {item.text}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteChecklistItem(item.id)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition text-xs shrink-0"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    value={newItemText}
+                    onChange={(e) => setNewItemText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
+                    placeholder="Add an item…"
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400"
+                  />
+                  <button
+                    onClick={handleAddChecklistItem}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2"
+                  >
+                    Add
+                  </button>
                 </div>
               </div>
 

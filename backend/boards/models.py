@@ -198,6 +198,20 @@ class CardActivity(models.Model):
         ordering = ["-created_at"]
 
 
+class CardChecklist(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="checklist_items")
+    text = models.CharField(max_length=500)
+    is_checked = models.BooleanField(default=False)
+    position = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = "card_checklist_items"
+        ordering = ["position"]
+
+    def __str__(self):
+        return self.text
+
+
 class CardAttachment(models.Model):
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="attachments")
     file = models.FileField(upload_to="attachments/%Y/%m/")

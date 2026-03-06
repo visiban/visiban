@@ -47,6 +47,13 @@ export interface Label {
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
+export interface CardChecklistItem {
+  id: number;
+  text: string;
+  is_checked: boolean;
+  position: number;
+}
+
 export interface CardAttachment {
   id: number;
   filename: string;
@@ -73,6 +80,8 @@ export interface Card {
   updated_at: string;
   last_moved_at: string | null;
   attachment_count: number;
+  checklist_total: number;
+  checklist_done: number;
 }
 
 export interface CardMovement {

@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardMovement, CardComment, Priority } from "../types";
+import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, Priority } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -59,3 +59,16 @@ export const uploadCardAttachment = (boardId: number, cardId: number, file: File
 
 export const deleteCardAttachment = (boardId: number, cardId: number, attachmentId: number) =>
   client.delete(`/api/boards/${boardId}/cards/${cardId}/attachments/${attachmentId}/`);
+
+// Checklists
+export const getChecklist = (boardId: number, cardId: number) =>
+  client.get<CardChecklistItem[]>(`/api/boards/${boardId}/cards/${cardId}/checklist/`).then((r) => r.data);
+
+export const addChecklistItem = (boardId: number, cardId: number, text: string) =>
+  client.post<CardChecklistItem>(`/api/boards/${boardId}/cards/${cardId}/checklist/`, { text }).then((r) => r.data);
+
+export const updateChecklistItem = (boardId: number, cardId: number, itemId: number, data: Partial<CardChecklistItem>) =>
+  client.patch<CardChecklistItem>(`/api/boards/${boardId}/cards/${cardId}/checklist/${itemId}/`, data).then((r) => r.data);
+
+export const deleteChecklistItem = (boardId: number, cardId: number, itemId: number) =>
+  client.delete(`/api/boards/${boardId}/cards/${cardId}/checklist/${itemId}/`);
