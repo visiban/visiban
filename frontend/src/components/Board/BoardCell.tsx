@@ -32,7 +32,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, filteredCa
   return (
     <div
       ref={setNodeRef}
-      onContextMenu={(e) => { e.preventDefault(); setAdding(true); }}
+      onContextMenu={(e) => { if (column.allow_card_creation) { e.preventDefault(); setAdding(true); } }}
       className={`flex-1 min-w-[180px] min-h-[80px] p-2 border-r border-gray-200 transition-colors ${
         isOver ? "bg-blue-50" : ""
       }`}
@@ -49,28 +49,30 @@ export default function BoardCell({ column, swimlane, cards, boardId, filteredCa
         </div>
       </SortableContext>
 
-      {adding ? (
-        <div className="mt-1.5">
-          <input
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAdding(false); }}
-            placeholder="Card title..."
-            className="w-full text-sm border border-blue-400 rounded px-2 py-1 outline-none"
-          />
-          <div className="flex gap-1 mt-1">
-            <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded hover:bg-blue-700">Add</button>
-            <button onClick={() => setAdding(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+      {column.allow_card_creation && (
+        adding ? (
+          <div className="mt-1.5">
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAdding(false); }}
+              placeholder="Card title..."
+              className="w-full text-sm border border-blue-400 rounded px-2 py-1 outline-none"
+            />
+            <div className="flex gap-1 mt-1">
+              <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded hover:bg-blue-700">Add</button>
+              <button onClick={() => setAdding(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setAdding(true)}
-          className="mt-1 w-full text-left text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded px-1 py-0.5 transition"
-        >
-          + Add card
-        </button>
+        ) : (
+          <button
+            onClick={() => setAdding(true)}
+            className="mt-1 w-full text-left text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded px-1 py-0.5 transition"
+          >
+            + Add card
+          </button>
+        )
       )}
     </div>
   );

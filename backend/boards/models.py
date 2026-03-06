@@ -47,6 +47,7 @@ class Column(models.Model):
     color = models.CharField(max_length=7, default="#6B7280")
     wip_limit = models.IntegerField(null=True, blank=True)
     weight_limit = models.IntegerField(null=True, blank=True)
+    allow_card_creation = models.BooleanField(default=False)
 
     class Meta:
         db_table = "columns"

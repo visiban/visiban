@@ -26,6 +26,7 @@ export interface Column {
   color: string;
   wip_limit: number | null;
   weight_limit: number | null;
+  allow_card_creation: boolean;
 }
 
 export interface Swimlane {

@@ -17,7 +17,7 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 class ColumnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Column
-        fields = ["id", "name", "position", "color", "wip_limit", "weight_limit"]
+        fields = ["id", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation"]
 
 
 class SwimlaneSerializer(serializers.ModelSerializer):

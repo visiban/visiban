@@ -50,7 +50,7 @@ class BoardViewSet(viewsets.ModelViewSet):
             ("Done",    "#10B981"),   # green
         ]
         Column.objects.bulk_create([
-            Column(board=board, name=name, position=i, color=color)
+            Column(board=board, name=name, position=i, color=color, allow_card_creation=(i == 0))
             for i, (name, color) in enumerate(default_columns)
         ])
         Swimlane.objects.create(board=board, name="General", position=0, color="#6B7280")
@@ -196,6 +196,9 @@ class CardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board = self._board()
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
+        if not column.allow_card_creation:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"column": "Card creation is not allowed in this column."})
         swimlane = get_object_or_404(Swimlane, pk=serializer.validated_data["swimlane"].pk, board=board)
         max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
         with transaction.atomic():
