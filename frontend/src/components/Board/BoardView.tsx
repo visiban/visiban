@@ -37,6 +37,9 @@ interface Props {
 }
 
 export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
+  const isAdmin = board.current_user_role === "admin";
+  const canEdit = board.current_user_role === "admin" || board.current_user_role === "member";
+
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -180,12 +183,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           <div className="flex sticky top-0 z-10 border-b border-gray-200 bg-gray-50">
             {/* Corner — also sticky to the left */}
             <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center sticky left-0 z-20">
-              <button
-                onClick={() => setShowAddSwimlane(true)}
-                className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
-              >
-                + Swimlane
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAddSwimlane(true)}
+                  className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
+                >
+                  + Swimlane
+                </button>
+              )}
             </div>
 
             <SortableContext items={board.columns.map((c) => `col:${c.id}`)} strategy={horizontalListSortingStrategy}>
@@ -195,6 +200,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                   column={col}
                   cards={board.cards.filter((c) => c.column === col.id)}
                   boardId={board.id}
+                  isAdmin={isAdmin}
                   onColumnUpdated={onColumnUpdated}
                   onColumnDeleted={onColumnDeleted}
                   collapsed={collapsedColumns.has(col.id)}
@@ -204,12 +210,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             </SortableContext>
 
             <div className="w-20 shrink-0 flex items-center px-2 bg-gray-50 border-l border-gray-200">
-              <button
-                onClick={() => setShowAddColumn(true)}
-                className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
-              >
-                + Col
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAddColumn(true)}
+                  className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
+                >
+                  + Col
+                </button>
+              )}
             </div>
           </div>
 
@@ -221,6 +229,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               columns={board.columns}
               cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
               boardId={board.id}
+              isAdmin={isAdmin}
+              canEdit={canEdit}
               collapsedColumnIds={collapsedColumns}
               filteredCardIds={filteredCardIds}
               onCardClick={setSelectedCard}
@@ -233,12 +243,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {board.swimlanes.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
               <p>No swimlanes yet.</p>
-              <button
-                onClick={() => setShowAddSwimlane(true)}
-                className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-              >
-                + Add first swimlane
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAddSwimlane(true)}
+                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                >
+                  + Add first swimlane
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -267,7 +279,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         />
       )}
 
-      {showAddColumn && (
+      {isAdmin && showAddColumn && (
         <AddColumnModal
           boardId={board.id}
           onAdded={(col) => { onColumnAdded(col); setShowAddColumn(false); }}
@@ -275,7 +287,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         />
       )}
 
-      {showAddSwimlane && (
+      {isAdmin && showAddSwimlane && (
         <AddSwimlaneModal
           boardId={board.id}
           onAdded={(swimlane) => { onSwimlaneAdded(swimlane); setShowAddSwimlane(false); }}

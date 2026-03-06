@@ -144,10 +144,18 @@ class BoardFullSerializer(serializers.ModelSerializer):
     labels = LabelSerializer(many=True, read_only=True)
     members = BoardMembershipSerializer(source="memberships", many=True, read_only=True)
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
+    current_user_role = serializers.SerializerMethodField()
 
     class Meta:
         model = Board
         fields = [
             "id", "name", "description", "group", "group_name", "columns", "swimlanes",
-            "cards", "labels", "members", "created_at", "updated_at",
+            "cards", "labels", "members", "created_at", "updated_at", "current_user_role",
         ]
+
+    def get_current_user_role(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return None
+        from .permissions import get_board_role
+        return get_board_role(request.user, obj)

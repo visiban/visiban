@@ -8,6 +8,8 @@ interface Props {
   columns: Column[];
   cards: Card[];
   boardId: number;
+  isAdmin: boolean;
+  canEdit: boolean;
   collapsedColumnIds: Set<number>;
   filteredCardIds: Set<number> | null;
   onCardClick: (card: Card) => void;
@@ -16,7 +18,7 @@ interface Props {
   onSwimlaneDeleted: (swimlaneId: number) => void;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, collapsedColumnIds, filteredCardIds, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, collapsedColumnIds, filteredCardIds, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -32,13 +34,15 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, collaps
             <p className="text-xs text-gray-400 truncate">{swimlane.contact_email}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setEditing(true)}
-              className="text-gray-500 hover:text-white transition text-xs opacity-0 group-hover:opacity-100"
-              title="Edit swimlane"
-            >
-              ✎
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setEditing(true)}
+                className="text-gray-500 hover:text-white transition text-xs opacity-0 group-hover:opacity-100"
+                title="Edit swimlane"
+              >
+                ✎
+              </button>
+            )}
             <button
               onClick={() => setCollapsed((c) => !c)}
               className="text-gray-400 hover:text-white transition text-xs mt-0.5"
@@ -66,6 +70,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, collaps
                   swimlane={swimlane}
                   cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
                   boardId={boardId}
+                  canEdit={canEdit}
                   filteredCardIds={filteredCardIds}
                   onCardClick={onCardClick}
                   onCardAdded={onCardAdded}
@@ -78,7 +83,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, collaps
         )}
       </div>
 
-      {editing && (
+      {isAdmin && editing && (
         <EditSwimlaneModal
           boardId={boardId}
           swimlane={swimlane}

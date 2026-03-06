@@ -156,6 +156,7 @@ export interface BoardFull {
   members: BoardMembership[];
   created_at: string;
   updated_at: string;
+  current_user_role: "admin" | "member" | "viewer" | null;
 }
 
 export interface Group {

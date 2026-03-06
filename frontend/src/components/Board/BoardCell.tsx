@@ -10,12 +10,13 @@ interface Props {
   swimlane: Swimlane;
   cards: Card[];
   boardId: number;
+  canEdit: boolean;
   filteredCardIds: Set<number> | null;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, filteredCardIds, onCardClick, onCardAdded }: Props) {
+export default function BoardCell({ column, swimlane, cards, boardId, canEdit, filteredCardIds, onCardClick, onCardAdded }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const [adding, setAdding] = useState(false);
@@ -32,7 +33,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, filteredCa
   return (
     <div
       ref={setNodeRef}
-      onContextMenu={(e) => { if (column.allow_card_creation) { e.preventDefault(); setAdding(true); } }}
+      onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
       className={`flex-1 min-w-[180px] min-h-[80px] p-2 border-r border-gray-200 transition-colors ${
         isOver ? "bg-blue-50" : ""
       }`}
@@ -49,7 +50,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, filteredCa
         </div>
       </SortableContext>
 
-      {column.allow_card_creation && (
+      {column.allow_card_creation && canEdit && (
         adding ? (
           <div className="mt-1.5">
             <input
