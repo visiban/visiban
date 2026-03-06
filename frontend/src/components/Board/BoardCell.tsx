@@ -10,11 +10,12 @@ interface Props {
   customer: Customer;
   cards: Card[];
   boardId: number;
+  filteredCardIds: Set<number> | null;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
 }
 
-export default function BoardCell({ column, customer, cards, boardId, onCardClick, onCardAdded }: Props) {
+export default function BoardCell({ column, customer, cards, boardId, filteredCardIds, onCardClick, onCardAdded }: Props) {
   const id = `cell:${column.id}:${customer.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const [adding, setAdding] = useState(false);
@@ -38,8 +39,12 @@ export default function BoardCell({ column, customer, cards, boardId, onCardClic
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
         <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
-          {cards.map((card) => (
-            <CardItem key={card.id} card={card} onClick={() => onCardClick(card)} />
+          {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (
+            <CardItem
+              key={card.id}
+              card={card}
+              onClick={() => onCardClick(card)}
+            />
           ))}
         </div>
       </SortableContext>

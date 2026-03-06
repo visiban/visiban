@@ -8,11 +8,12 @@ interface Props {
   cards: Card[];
   boardId: number;
   collapsedColumnIds: Set<number>;
+  filteredCardIds: Set<number> | null;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
 }
 
-export default function SwimlaneRow({ customer, columns, cards, boardId, collapsedColumnIds, onCardClick, onCardAdded }: Props) {
+export default function SwimlaneRow({ customer, columns, cards, boardId, collapsedColumnIds, filteredCardIds, onCardClick, onCardAdded }: Props) {
   const [collapsed, setCollapsed] = useState(customer.is_collapsed);
 
   return (
@@ -53,6 +54,7 @@ export default function SwimlaneRow({ customer, columns, cards, boardId, collaps
                 customer={customer}
                 cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
                 boardId={boardId}
+                filteredCardIds={filteredCardIds}
                 onCardClick={onCardClick}
                 onCardAdded={onCardAdded}
               />
