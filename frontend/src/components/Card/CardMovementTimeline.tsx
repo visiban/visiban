@@ -31,6 +31,8 @@ function activityLabel(a: CardActivity): { line1: string; detail?: string } {
       return { line1: `Assignee: ${a.from_value} → ${a.to_value}` };
     case "label_change":
       return { line1: `Labels: ${a.to_value}` };
+    case "title_change":
+      return { line1: `Renamed: "${a.from_value}" → "${a.to_value}"` };
     case "description_change":
       return { line1: "Description updated" };
     case "comment_added":

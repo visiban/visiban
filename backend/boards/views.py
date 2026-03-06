@@ -209,6 +209,7 @@ class CardViewSet(viewsets.ModelViewSet):
         card = self.get_object()
 
         # Snapshot before update
+        old_title = card.title
         old_priority = card.priority
         old_weight = card.weight
         old_assignee_id = card.assignee_id
@@ -224,6 +225,11 @@ class CardViewSet(viewsets.ModelViewSet):
         activities = []
         ET = CardActivity.EventType
 
+        if old_title != card.title and "title" in request.data:
+            activities.append(CardActivity(
+                card=card, event_type=ET.TITLE_CHANGE,
+                from_value=old_title, to_value=card.title, actor=request.user,
+            ))
         if old_priority != card.priority:
             activities.append(CardActivity(
                 card=card, event_type=ET.PRIORITY_CHANGE,
