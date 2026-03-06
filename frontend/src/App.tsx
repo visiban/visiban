@@ -20,7 +20,7 @@ export default function App() {
   }
 
   if (!user) return <LoginPage />;
-  if (!activeBoard) return <BoardSelector onSelect={setActiveBoard} />;
+  if (!activeBoard) return <BoardSelector user={user} onSelect={setActiveBoard} />;
 
   return (
     <BoardPage
