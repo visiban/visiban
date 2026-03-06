@@ -107,7 +107,11 @@ export type CardActivityEventType =
   | "description_change"
   | "comment_added"
   | "attachment_added"
-  | "attachment_deleted";
+  | "attachment_deleted"
+  | "checklist_item_added"
+  | "checklist_item_checked"
+  | "checklist_item_unchecked"
+  | "checklist_item_deleted";
 
 export interface CardActivity {
   id: number;

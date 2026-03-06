@@ -406,6 +406,10 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         position = card.checklist_items.count()
         item = serializer.save(card=card, position=position)
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
+            from_value="", to_value=item.text, actor=request.user,
+        )
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
@@ -414,10 +418,25 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
         item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
         if request.method == "DELETE":
+            CardActivity.objects.create(
+                card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DELETED,
+                from_value=item.text, to_value="", actor=request.user,
+            )
             item.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        old_checked = item.is_checked
         serializer = CardChecklistSerializer(item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if "is_checked" in request.data and request.data["is_checked"] != old_checked:
+            event_type = (
+                CardActivity.EventType.CHECKLIST_ITEM_CHECKED
+                if item.is_checked
+                else CardActivity.EventType.CHECKLIST_ITEM_UNCHECKED
+            )
+            CardActivity.objects.create(
+                card=card, event_type=event_type,
+                from_value="", to_value=item.text, actor=request.user,
+            )
         return Response(serializer.data)
 
