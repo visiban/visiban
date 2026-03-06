@@ -4,6 +4,7 @@ import { listBoards, createBoard, deleteBoard } from "../api/boards";
 import { listGroups } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
+import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
 import type { Board, Group, User } from "../types";
 
 interface Props {
@@ -73,22 +74,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           ) : groups.length === 0 ? (
             <p className="text-gray-600 text-sm">No groups yet. Create one to collaborate with others.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {groups.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => navigate(`/groups/${g.id}`)}
-                  className="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 text-left transition group"
-                >
-                  <p className="text-white font-medium mb-1">{g.name}</p>
-                  <p className="text-gray-500 text-xs">
-                    {g.board_count} board{g.board_count !== 1 ? "s" : ""}
-                    {" · "}
-                    {g.member_count} member{g.member_count !== 1 ? "s" : ""}
-                    {g.subgroup_count > 0 && ` · ${g.subgroup_count} subgroup${g.subgroup_count !== 1 ? "s" : ""}`}
-                  </p>
-                </button>
-              ))}
+            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 px-2 py-1">
+              <GroupTree nodes={buildGroupTree(groups)} />
             </div>
           )}
         </section>
