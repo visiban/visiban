@@ -55,6 +55,13 @@ class BoardViewSet(viewsets.ModelViewSet):
         ])
         Swimlane.objects.create(board=board, name="General", position=0, color="#6B7280")
 
+    def destroy(self, request, *args, **kwargs):
+        board = self.get_object()
+        if board.owner != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        board.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
         board, _ = get_board_for_user(pk, request.user)
