@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('boards', '0002_add_weight_fields'),
+        ('boards', '0003_add_card_activities'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
