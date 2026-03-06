@@ -53,6 +53,7 @@ class BoardViewSet(viewsets.ModelViewSet):
             Column(board=board, name=name, position=i, color=color)
             for i, (name, color) in enumerate(default_columns)
         ])
+        Customer.objects.create(board=board, name="General", position=0, color="#6B7280")
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
