@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { login as apiLogin, register as apiRegister, getCurrentUser } from "../../api/auth";
+import { useState, useEffect } from "react";
+import { login as apiLogin, register as apiRegister, getCurrentUser, getAuthProviders } from "../../api/auth";
 import type { User } from "../../types";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -15,6 +15,11 @@ export default function LoginPage({ onLogin }: Props) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean } | null>(null);
+
+  useEffect(() => {
+    getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false }));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,37 +106,45 @@ export default function LoginPage({ onLogin }: Props) {
           </p>
         </form>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="flex-1 h-px bg-gray-600" />
-          <span className="text-xs text-gray-500">or continue with</span>
-          <div className="flex-1 h-px bg-gray-600" />
-        </div>
-
-        {/* OAuth buttons */}
-        <div className="flex flex-col gap-3">
-          <a
-            href={`${API}/accounts/google/login/?process=login`}
-            className="flex items-center justify-center gap-3 bg-white text-gray-900 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 transition"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </a>
-          <a
-            href={`${API}/accounts/github/login/?process=login`}
-            className="flex items-center justify-center gap-3 bg-gray-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-gray-600 transition"
-          >
-            <GitHubIcon />
-            Continue with GitHub
-          </a>
-          <a
-            href={`${API}/accounts/gitlab/login/?process=login`}
-            className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-orange-500 transition"
-          >
-            <GitLabIcon />
-            Continue with GitLab
-          </a>
-        </div>
+        {/* OAuth buttons — only shown when credentials are configured */}
+        {providers && (providers.google || providers.github || providers.gitlab) && (
+          <>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex-1 h-px bg-gray-600" />
+              <span className="text-xs text-gray-500">or continue with</span>
+              <div className="flex-1 h-px bg-gray-600" />
+            </div>
+            <div className="flex flex-col gap-3">
+              {providers.google && (
+                <a
+                  href={`${API}/accounts/google/login/?process=login`}
+                  className="flex items-center justify-center gap-3 bg-white text-gray-900 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 transition"
+                >
+                  <GoogleIcon />
+                  Continue with Google
+                </a>
+              )}
+              {providers.github && (
+                <a
+                  href={`${API}/accounts/github/login/?process=login`}
+                  className="flex items-center justify-center gap-3 bg-gray-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-gray-600 transition"
+                >
+                  <GitHubIcon />
+                  Continue with GitHub
+                </a>
+              )}
+              {providers.gitlab && (
+                <a
+                  href={`${API}/accounts/gitlab/login/?process=login`}
+                  className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-orange-500 transition"
+                >
+                  <GitLabIcon />
+                  Continue with GitLab
+                </a>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
