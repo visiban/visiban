@@ -116,6 +116,12 @@ class ColumnViewSet(viewsets.ModelViewSet):
         board = self._board()
         order = request.data.get("order", [])  # list of column IDs in new order
         with transaction.atomic():
+            # Two-pass update to avoid unique_together(board, position) violations.
+            # First pass: shift to high positions so no two columns share a position mid-update.
+            count = board.columns.count()
+            for i, col_id in enumerate(order):
+                Column.objects.filter(board=board, pk=col_id).update(position=count + i)
+            # Second pass: assign final positions.
             for pos, col_id in enumerate(order):
                 Column.objects.filter(board=board, pk=col_id).update(position=pos)
         return Response(ColumnSerializer(board.columns.all(), many=True).data)
