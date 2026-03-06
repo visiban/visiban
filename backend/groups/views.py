@@ -44,10 +44,11 @@ class GroupViewSet(viewsets.ModelViewSet):
     serializer_class = GroupSerializer
 
     def get_queryset(self):
+        from .models import get_accessible_group_ids
         user = self.request.user
         return Group.objects.filter(
-            Q(owner=user) | Q(memberships__user=user)
-        ).distinct().select_related("owner", "parent")
+            id__in=get_accessible_group_ids(user)
+        ).select_related("owner", "parent")
 
     def perform_create(self, serializer):
         group = serializer.save(owner=self.request.user)
@@ -73,12 +74,21 @@ class GroupViewSet(viewsets.ModelViewSet):
         memberships = group.memberships.select_related("user")
         return Response(GroupMembershipSerializer(memberships, many=True).data)
 
-    @action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>[^/.]+)")
-    def remove_member(self, request, pk=None, user_id=None):
+    @action(detail=True, methods=["patch", "delete"], url_path=r"members/(?P<user_id>[^/.]+)")
+    def update_member(self, request, pk=None, user_id=None):
         group = self.get_object()
         _require_group_admin(request.user, group)
-        GroupMembership.objects.filter(group=group, user_id=user_id).delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if request.method == "DELETE":
+            GroupMembership.objects.filter(group=group, user_id=user_id).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        # PATCH — update role
+        membership = get_object_or_404(GroupMembership, group=group, user_id=user_id)
+        role = request.data.get("role")
+        if role not in GroupMembership.Role.values:
+            return Response({"role": f"Must be one of: {', '.join(GroupMembership.Role.values)}"}, status=status.HTTP_400_BAD_REQUEST)
+        membership.role = role
+        membership.save()
+        return Response(GroupMembershipSerializer(membership).data)
 
     # ------------------------------------------------------------------
     # Subgroups

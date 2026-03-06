@@ -1,6 +1,32 @@
 import uuid
 from django.db import models
+from django.db.models import Q
 from django.conf import settings
+
+
+def get_accessible_group_ids(user):
+    """
+    Return all group IDs accessible to user: groups where they are a direct
+    member/owner, plus all descendant sub-groups of those groups.
+    """
+    direct_ids = set(
+        Group.objects.filter(
+            Q(owner=user) | Q(memberships__user=user)
+        ).values_list("id", flat=True)
+    )
+    all_ids = set(direct_ids)
+    frontier = set(direct_ids)
+    for _ in range(6):  # cap recursion depth
+        if not frontier:
+            break
+        children = set(
+            Group.objects.filter(parent__in=frontier)
+            .exclude(id__in=all_ids)
+            .values_list("id", flat=True)
+        )
+        all_ids |= children
+        frontier = children
+    return all_ids
 
 
 class Group(models.Model):

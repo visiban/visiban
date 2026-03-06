@@ -37,11 +37,12 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from django.db.models import Q
+        from groups.models import get_accessible_group_ids
         user = self.request.user
         return Board.objects.filter(
             Q(owner=user) |
             Q(memberships__user=user) |
-            Q(group__memberships__user=user)
+            Q(group__in=get_accessible_group_ids(user))
         ).distinct()
 
     def perform_create(self, serializer):
