@@ -1,12 +1,114 @@
+import { useState } from "react";
+import { login as apiLogin, register as apiRegister, getCurrentUser } from "../../api/auth";
+import type { User } from "../../types";
+
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-export default function LoginPage() {
+interface Props {
+  onLogin: (user: User) => void;
+}
+
+export default function LoginPage({ onLogin }: Props) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (mode === "register") {
+      if (password !== confirm) { setError("Passwords do not match."); return; }
+      if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    }
+
+    setSubmitting(true);
+    try {
+      if (mode === "login") {
+        await apiLogin(email, password);
+      } else {
+        await apiRegister(email, password, confirm);
+      }
+      const user = await getCurrentUser();
+      onLogin(user);
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      if (data) {
+        const first = Object.values(data).flat()[0];
+        setError(typeof first === "string" ? first : "Something went wrong.");
+      } else {
+        setError("Something went wrong.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="bg-gray-800 rounded-2xl shadow-2xl p-10 w-full max-w-sm">
         <h1 className="text-3xl font-bold text-white mb-2 text-center">Visiban</h1>
         <p className="text-gray-400 text-center mb-8 text-sm">Swimlane pipeline board</p>
 
+        {/* Email/password form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 mb-5">
+          <input
+            type="email"
+            required
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="password"
+            required
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {mode === "register" && (
+            <input
+              type="password"
+              required
+              placeholder="Confirm password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          )}
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+          >
+            {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
+          </button>
+          <p className="text-center text-xs text-gray-400">
+            {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
+            <button
+              type="button"
+              onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
+              className="text-blue-400 hover:text-blue-300 underline"
+            >
+              {mode === "login" ? "Create one" : "Sign in"}
+            </button>
+          </p>
+        </form>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1 h-px bg-gray-600" />
+          <span className="text-xs text-gray-500">or continue with</span>
+          <div className="flex-1 h-px bg-gray-600" />
+        </div>
+
+        {/* OAuth buttons */}
         <div className="flex flex-col gap-3">
           <a
             href={`${API}/accounts/google/login/?process=login`}

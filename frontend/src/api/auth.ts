@@ -8,3 +8,9 @@ export const updateCurrentUser = (data: Partial<Pick<User, "display_name" | "fir
   client.patch<User>("/api/auth/user/", data).then((r) => r.data);
 
 export const logout = () => client.post("/api/auth/logout/");
+
+export const login = (email: string, password: string) =>
+  client.post("/api/auth/login/", { email, password });
+
+export const register = (email: string, password1: string, password2: string) =>
+  client.post("/api/auth/registration/", { email, password1, password2 });
