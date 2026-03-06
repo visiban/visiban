@@ -43,6 +43,7 @@ class BoardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board = serializer.save(owner=self.request.user)
         BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
+        Column.objects.create(board=board, name="Backlog", position=0, color="#6B7280")
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
