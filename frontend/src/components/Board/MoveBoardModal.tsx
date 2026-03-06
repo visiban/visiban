@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { listGroups } from "../../api/groups";
 import { moveBoardToGroup } from "../../api/boards";
+import { buildGroupTree } from "../Group/GroupTree";
 import type { Board, Group } from "../../types";
+
+interface TreeNode {
+  group: Group;
+  children: TreeNode[];
+}
 
 interface Props {
   board: Board;
@@ -30,6 +36,8 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
     }
   };
 
+  const roots = buildGroupTree(groups);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -41,39 +49,31 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
         {loading ? (
           <p className="text-sm text-gray-400 py-4 text-center">Loading groups…</p>
         ) : (
-          <div className="flex flex-col gap-1 max-h-64 overflow-y-auto -mx-2 px-2">
-            {/* Personal (no group) */}
-            <button
-              onClick={() => handleMove(null)}
+          <div className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
+            {/* Personal */}
+            <PickerRow
+              label="Personal (no group)"
+              isCurrent={board.group === null}
               disabled={saving}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition ${
-                board.group === null
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "hover:bg-gray-50 text-gray-700"
-              }`}
-            >
-              <span className="text-lg">🏠</span>
-              <span className="text-sm">Personal (no group)</span>
-              {board.group === null && <span className="ml-auto text-xs text-blue-500">current</span>}
-            </button>
+              depth={0}
+              isLast={roots.length === 0}
+              icon="🏠"
+              onSelect={() => handleMove(null)}
+            />
 
-            {groups.length > 0 && <div className="my-1 h-px bg-gray-100" />}
+            {roots.length > 0 && <div className="my-1 h-px bg-gray-100" />}
 
-            {groups.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => handleMove(g.id)}
+            {/* Nested groups */}
+            {roots.map((node, i) => (
+              <GroupPickerNode
+                key={node.group.id}
+                node={node}
+                currentGroupId={board.group}
                 disabled={saving}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition ${
-                  board.group === g.id
-                    ? "bg-blue-50 text-blue-700 font-medium"
-                    : "hover:bg-gray-50 text-gray-700"
-                }`}
-              >
-                <span className="text-lg">👥</span>
-                <span className="text-sm flex-1 truncate">{g.name}</span>
-                {board.group === g.id && <span className="ml-auto text-xs text-blue-500 shrink-0">current</span>}
-              </button>
+                onSelect={handleMove}
+                isLast={i === roots.length - 1}
+                depth={0}
+              />
             ))}
 
             {groups.length === 0 && (
@@ -89,5 +89,81 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function GroupPickerNode({
+  node, currentGroupId, disabled, onSelect, isLast, depth,
+}: {
+  node: TreeNode;
+  currentGroupId: number | null;
+  disabled: boolean;
+  onSelect: (id: number) => void;
+  isLast: boolean;
+  depth: number;
+}) {
+  return (
+    <div>
+      <PickerRow
+        label={node.group.name}
+        isCurrent={currentGroupId === node.group.id}
+        disabled={disabled}
+        depth={depth}
+        isLast={isLast && node.children.length === 0}
+        onSelect={() => onSelect(node.group.id)}
+      />
+      {node.children.length > 0 && (
+        <div className="relative" style={{ marginLeft: `${0.75 + depth * 1.25}rem` }}>
+          {/* Vertical guide */}
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200" />
+          {node.children.map((child, i) => (
+            <div key={child.group.id} className="relative pl-3">
+              {/* Horizontal connector */}
+              <div className="absolute left-0 top-[50%] w-3 h-px bg-gray-200 -translate-y-px" />
+              {/* Cut vertical line at midpoint of last child */}
+              {i === node.children.length - 1 && (
+                <div className="absolute left-[-1px] top-0 h-[50%] w-px bg-white" style={{ top: "50%" }} />
+              )}
+              <GroupPickerNode
+                node={child}
+                currentGroupId={currentGroupId}
+                disabled={disabled}
+                onSelect={onSelect}
+                isLast={i === node.children.length - 1}
+                depth={depth + 1}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PickerRow({
+  label, isCurrent, disabled, depth, isLast, icon = "👥", onSelect,
+}: {
+  label: string;
+  isCurrent: boolean;
+  disabled: boolean;
+  depth: number;
+  isLast: boolean;
+  icon?: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      disabled={disabled}
+      className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left transition text-sm ${
+        isCurrent
+          ? "bg-blue-50 text-blue-700 font-medium"
+          : "hover:bg-gray-50 text-gray-700"
+      } disabled:opacity-50`}
+    >
+      <span>{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {isCurrent && <span className="text-xs text-blue-400 shrink-0">current</span>}
+    </button>
   );
 }
