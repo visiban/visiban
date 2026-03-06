@@ -1,3 +1,6 @@
 from django.urls import path
+from .views import AuthProvidersView
 
-urlpatterns = []
+urlpatterns = [
+    path("auth/providers/", AuthProvidersView.as_view()),
+]
