@@ -9,11 +9,12 @@ interface Props {
   cards: Card[];
   boardId: number;
   onColumnUpdated: (column: Column) => void;
+  onColumnDeleted: (columnId: number) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, collapsed, onToggleCollapse }: Props) {
+export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, onColumnDeleted, collapsed, onToggleCollapse }: Props) {
   const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}` });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
@@ -113,7 +114,9 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, 
         <EditColumnModal
           boardId={boardId}
           column={column}
+          cardCount={cardCount}
           onUpdated={(col) => { onColumnUpdated(col); setEditing(false); }}
+          onDeleted={(id) => { onColumnDeleted(id); setEditing(false); }}
           onClose={() => setEditing(false)}
         />
       )}
