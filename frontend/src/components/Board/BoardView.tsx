@@ -3,6 +3,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -29,10 +30,12 @@ interface Props {
   onColumnUpdated: (column: Column) => void;
   onColumnsReordered: (orderedIds: number[]) => void;
   onCustomerAdded: (customer: Customer) => void;
+  onCustomerUpdated: (customer: Customer) => void;
+  onCustomerDeleted: (customerId: number) => void;
   onLabelAdded: (label: Label) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnsReordered, onCustomerAdded, onLabelAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnsReordered, onCustomerAdded, onCustomerUpdated, onCustomerDeleted, onLabelAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -96,8 +99,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const handleDragStart = (e: DragStartEvent) => {
     const id = String(e.active.id);
     if (id.startsWith("col:")) {
-      const colId = Number(id.slice(4));
-      setActiveColumn(board.columns.find((c) => c.id === colId) ?? null);
+      setActiveColumn(board.columns.find((c) => c.id === Number(id.slice(4))) ?? null);
     } else {
       setActiveCard(board.cards.find((c) => c.id === Number(id)) ?? null);
     }
@@ -162,7 +164,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         )}
       </div>
       {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} />}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
         {/*
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
@@ -216,6 +218,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               filteredCardIds={filteredCardIds}
               onCardClick={setSelectedCard}
               onCardAdded={onCardAdded}
+              onCustomerUpdated={onCustomerUpdated}
+              onCustomerDeleted={onCustomerDeleted}
             />
           ))}
 
@@ -271,6 +275,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onClose={() => setShowAddCustomer(false)}
         />
       )}
+
     </>
   );
 }
