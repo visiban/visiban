@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getBoardFull, reorderColumns as apiReorderColumns } from "../api/boards";
+import { getBoardFull, reorderColumns as apiReorderColumns, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, Card, Column, Customer, Label } from "../types";
 
@@ -96,5 +96,14 @@ export function useBoard(boardId: number) {
     }
   }, [board, boardId]);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel, reorderColumns };
+  const updateCustomer = useCallback((customer: Customer) => {
+    setBoard((b) => b ? { ...b, customers: b.customers.map((c) => c.id === customer.id ? customer : c) } : b);
+  }, []);
+
+  const removeCustomer = useCallback(async (customerId: number) => {
+    setBoard((b) => b ? { ...b, customers: b.customers.filter((c) => c.id !== customerId), cards: b.cards.filter((c) => c.customer !== customerId) } : b);
+    await apiDeleteCustomer(boardId, customerId);
+  }, [boardId]);
+
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel, reorderColumns, updateCustomer, removeCustomer };
 }
