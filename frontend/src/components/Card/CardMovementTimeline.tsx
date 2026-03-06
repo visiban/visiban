@@ -47,6 +47,7 @@ function activityLabel(a: CardActivity): { line1: string; detail?: string } {
 export default function CardMovementTimeline({ boardId, cardId }: Props) {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -57,7 +58,7 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
         ...movements.map((m) => ({ kind: "move" as const, ts: new Date(m.moved_at).getTime(), data: m })),
         ...activities.map((a) => ({ kind: "activity" as const, ts: new Date(a.created_at).getTime(), data: a })),
       ];
-      combined.sort((a, b) => b.ts - a.ts);
+      combined.sort((a, b) => a.ts - b.ts);
       setEntries(combined);
     }).finally(() => setLoading(false));
   }, [boardId, cardId]);
@@ -65,76 +66,93 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
   if (loading) return <p className="text-sm text-gray-400">Loading history…</p>;
   if (entries.length === 0) return <p className="text-sm text-gray-400">No activity yet.</p>;
 
-  // For move entries, find the next move to compute time spent
+  const visible = showAll ? entries : entries.filter((e) => e.kind === "move");
+
+  // All move entries in chronological order, for time-spent calculation
   const moves = entries.filter((e) => e.kind === "move").map((e) => e.data as CardMovement);
 
   return (
-    <ol className="relative border-l border-gray-200 ml-2">
-      {entries.map((entry) => {
-        if (entry.kind === "move") {
-          const m = entry.data as CardMovement;
-          const actor = m.moved_by ? userDisplayName(m.moved_by) : null;
+    <div>
+      <div className="flex items-center justify-end mb-3">
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+            className="rounded border-gray-300"
+          />
+          Show full history
+        </label>
+      </div>
 
-          if (m.from_column === null) {
+      <ol className="relative border-l border-gray-200 ml-2">
+        {visible.map((entry) => {
+          if (entry.kind === "move") {
+            const m = entry.data as CardMovement;
+            const actor = m.moved_by ? userDisplayName(m.moved_by) : null;
+
+            if (m.from_column === null) {
+              return (
+                <li key={`move-${m.id}`} className="relative mb-3 ml-4">
+                  <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-green-500 border-2 border-white shadow" />
+                  <div className="bg-white border border-gray-100 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">Created in {m.to_column_name}</span>
+                      {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
+                    </div>
+                    <time className="text-xs text-gray-400">{new Date(m.moved_at).toLocaleString()}</time>
+                  </div>
+                </li>
+              );
+            }
+
+            const moveIndex = moves.findIndex((mv) => mv.id === m.id);
+            const nextMove = moves[moveIndex + 1];
+            // Oldest-first: next move is chronologically later, so subtract current from next
+            const duration = nextMove
+              ? formatDuration(new Date(nextMove.moved_at).getTime() - new Date(m.moved_at).getTime())
+              : null;
+
             return (
               <li key={`move-${m.id}`} className="relative mb-3 ml-4">
-                <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-green-500 border-2 border-white shadow" />
+                <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow" />
                 <div className="bg-white border border-gray-100 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700">Created in {m.to_column_name}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-700">
+                      {m.from_column_name} → {m.to_column_name}
+                    </span>
+                    {m.from_customer_name && m.to_customer_name && m.from_customer_name !== m.to_customer_name && (
+                      <span className="text-xs text-gray-400">({m.from_customer_name} → {m.to_customer_name})</span>
+                    )}
                     {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
                   </div>
-                  <time className="text-xs text-gray-400">{new Date(m.moved_at).toLocaleString()}</time>
+                  <div className="flex items-center gap-2">
+                    <time className="text-xs text-gray-400">{new Date(m.moved_at).toLocaleString()}</time>
+                    {duration && <span className="text-xs text-blue-500 ml-auto shrink-0">Spent {duration} here</span>}
+                  </div>
                 </div>
               </li>
             );
           }
 
-          const moveIndex = moves.findIndex((mv) => mv.id === m.id);
-          const nextMove = moves[moveIndex + 1];
-          const duration = nextMove
-            ? formatDuration(new Date(m.moved_at).getTime() - new Date(nextMove.moved_at).getTime())
-            : null;
+          const a = entry.data as CardActivity;
+          const { line1 } = activityLabel(a);
+          const actor = a.actor ? userDisplayName(a.actor) : null;
 
           return (
-            <li key={`move-${m.id}`} className="relative mb-3 ml-4">
-              <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow" />
+            <li key={`activity-${a.id}`} className="relative mb-3 ml-4">
+              <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-300 border-2 border-white shadow" />
               <div className="bg-white border border-gray-100 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-gray-700">
-                    {m.from_column_name} → {m.to_column_name}
-                  </span>
-                  {m.from_customer_name && m.to_customer_name && m.from_customer_name !== m.to_customer_name && (
-                    <span className="text-xs text-gray-400">({m.from_customer_name} → {m.to_customer_name})</span>
-                  )}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">{line1}</span>
                   {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
                 </div>
-                <div className="flex items-center gap-2">
-                  <time className="text-xs text-gray-400">{new Date(m.moved_at).toLocaleString()}</time>
-                  {duration && <span className="text-xs text-blue-500 ml-auto shrink-0">Spent {duration} here</span>}
-                </div>
+                <time className="text-xs text-gray-400">{new Date(a.created_at).toLocaleString()}</time>
               </div>
             </li>
           );
-        }
-
-        const a = entry.data as CardActivity;
-        const { line1 } = activityLabel(a);
-        const actor = a.actor ? (userDisplayName(a.actor)) : null;
-
-        return (
-          <li key={`activity-${a.id}`} className="relative mb-3 ml-4">
-            <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-300 border-2 border-white shadow" />
-            <div className="bg-white border border-gray-100 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">{line1}</span>
-                {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
-              </div>
-              <time className="text-xs text-gray-400">{new Date(a.created_at).toLocaleString()}</time>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+        })}
+      </ol>
+    </div>
   );
 }
