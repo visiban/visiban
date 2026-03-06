@@ -51,8 +51,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     onUpdated(updated);
   };
 
-  const handleTitleBlur = () => {
-    if (localCard.title.trim()) save({ title: localCard.title.trim() });
+  const handleTitleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const trimmed = localCard.title.trim();
+      if (trimmed) {
+        await save({ title: trimmed });
+        onClose();
+      }
+    } else if (e.key === "Escape") {
+      setLocalCard((c) => ({ ...c, title: card.title }));
+      (e.target as HTMLInputElement).blur();
+    }
   };
 
   const handleDescriptionBlur = () => {
@@ -160,7 +170,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <input
               value={localCard.title}
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
-              onBlur={handleTitleBlur}
+              onKeyDown={handleTitleKeyDown}
               className="text-lg font-semibold text-gray-900 w-full outline-none border-b border-transparent focus:border-blue-400 bg-transparent"
             />
             <p className="text-xs text-gray-400 mt-0.5">
