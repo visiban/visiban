@@ -37,6 +37,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checklist, setChecklist] = useState<CardChecklistItem[]>([]);
   const [newItemText, setNewItemText] = useState("");
+  const [showBulkAdd, setShowBulkAdd] = useState(false);
+  const [bulkText, setBulkText] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,6 +129,20 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     setChecklist((prev) => [...prev, item]);
     setNewItemText("");
     onUpdated({ ...localCard, checklist_total: localCard.checklist_total + 1 });
+  };
+
+  const handleBulkAdd = async () => {
+    const items = bulkText.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (!items.length) return;
+    const added: CardChecklistItem[] = [];
+    for (const text of items) {
+      const item = await addChecklistItem(board.id, card.id, text);
+      added.push(item);
+    }
+    setChecklist((prev) => [...prev, ...added]);
+    onUpdated({ ...localCard, checklist_total: localCard.checklist_total + added.length });
+    setBulkText("");
+    setShowBulkAdd(false);
   };
 
   const handleToggleChecklistItem = async (item: CardChecklistItem) => {
@@ -384,16 +400,50 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     value={newItemText}
                     onChange={(e) => setNewItemText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
-                    placeholder="Add an item…"
+                    placeholder="Quick add (Enter)…"
                     className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400"
                   />
                   <button
-                    onClick={handleAddChecklistItem}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2"
+                    onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2 whitespace-nowrap"
                   >
-                    Add
+                    + Add
                   </button>
                 </div>
+
+                {/* Bulk add dialog */}
+                {showBulkAdd && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40" onClick={() => setShowBulkAdd(false)} />
+                    <div className="relative bg-white rounded-xl shadow-2xl w-80 p-5 flex flex-col gap-4">
+                      <h3 className="text-sm font-semibold text-gray-800">Add checklist items</h3>
+                      <p className="text-xs text-gray-400 -mt-2">One item per line</p>
+                      <textarea
+                        autoFocus
+                        value={bulkText}
+                        onChange={(e) => setBulkText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleBulkAdd(); if (e.key === "Escape") setShowBulkAdd(false); }}
+                        placeholder={"Buy milk\nCall client\nReview PR"}
+                        rows={6}
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowBulkAdd(false)}
+                          className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleBulkAdd}
+                          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition"
+                        >
+                          Add items
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
