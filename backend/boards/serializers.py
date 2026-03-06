@@ -143,10 +143,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
     cards = CardSerializer(many=True, read_only=True)
     labels = LabelSerializer(many=True, read_only=True)
     members = BoardMembershipSerializer(source="memberships", many=True, read_only=True)
+    group_name = serializers.CharField(source="group.name", default=None, read_only=True)
 
     class Meta:
         model = Board
         fields = [
-            "id", "name", "description", "columns", "swimlanes",
+            "id", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "created_at", "updated_at",
         ]
