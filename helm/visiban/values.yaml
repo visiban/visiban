@@ -1,0 +1,101 @@
+# Default values for visiban.
+
+# -- Number of backend (Django) replicas
+backendReplicaCount: 1
+
+# -- Number of frontend (Nginx) replicas
+frontendReplicaCount: 1
+
+backend:
+  image:
+    repository: registry.gitlab.com/kellyhair/visiban/backend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  # Django settings — override via --set or a values override file.
+  # Sensitive values (secretKey, db credentials) go in the Secret; see below.
+  settings:
+    debug: "false"
+    # Comma-separated list of allowed hosts / ingress hostnames
+    allowedHosts: "visiban.example.com"
+    # Comma-separated CORS origins for the frontend
+    corsAllowedOrigins: "https://visiban.example.com"
+
+  # OAuth provider credentials — leave empty to disable a provider
+  oauth:
+    google:
+      clientId: ""
+      clientSecret: ""
+    github:
+      clientId: ""
+      clientSecret: ""
+    gitlab:
+      clientId: ""
+      clientSecret: ""
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  image:
+    repository: registry.gitlab.com/kellyhair/visiban/frontend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: visiban.example.com
+  tls:
+    enabled: false
+    secretName: visiban-tls
+
+# Secret values — override with --set or a separate secret values file (never commit).
+secret:
+  # Django SECRET_KEY — generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+  djangoSecretKey: "change-me-in-production"
+
+# Built-in PostgreSQL subchart (bitnami/postgresql).
+# Set enabled: false and supply externalDatabase to use an existing DB.
+postgresql:
+  enabled: true
+  auth:
+    database: visiban
+    username: visiban
+    # Override this with --set postgresql.auth.password=...
+    password: "visiban"
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+
+# External database — used only when postgresql.enabled is false
+externalDatabase:
+  host: ""
+  port: 5432
+  database: visiban
+  username: visiban
+  password: ""

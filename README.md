@@ -154,6 +154,61 @@ GET  /api/boards/{id}/cards/{id}/movements/ Movement history
 POST /api/boards/{id}/cards/{id}/comments/ Add comment
 ```
 
+## Kubernetes / Helm
+
+A production-ready Helm chart is included under `helm/visiban/`.
+
+### Prerequisites
+- Kubernetes 1.25+
+- Helm 3.10+
+- Images built and pushed to a registry (see `Dockerfile.prod` in `backend/` and `frontend/`)
+
+### Install
+
+```bash
+# Add the Bitnami repo (for the PostgreSQL subchart)
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+# Download chart dependencies
+helm dependency update helm/visiban
+
+# Install (replace values as needed)
+helm install visiban helm/visiban \
+  --set ingress.host=visiban.example.com \
+  --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
+  --set postgresql.auth.password=<strong-password>
+```
+
+### Upgrade
+
+```bash
+helm upgrade visiban helm/visiban --reuse-values
+```
+
+### Key values
+
+| Value | Default | Description |
+|---|---|---|
+| `ingress.host` | `visiban.example.com` | Public hostname |
+| `ingress.tls.enabled` | `false` | Enable TLS (requires cert-manager or manual secret) |
+| `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` |
+| `postgresql.auth.password` | `visiban` | Database password |
+| `backend.image.tag` | `latest` | Backend image tag |
+| `frontend.image.tag` | `latest` | Frontend image tag |
+| `postgresql.enabled` | `true` | Use built-in PostgreSQL (set false to use `externalDatabase`) |
+
+### Production Dockerfiles
+
+```bash
+# Build production images
+docker build -f backend/Dockerfile.prod -t <registry>/visiban/backend:latest backend/
+docker build -f frontend/Dockerfile.prod -t <registry>/visiban/frontend:latest frontend/
+
+docker push <registry>/visiban/backend:latest
+docker push <registry>/visiban/frontend:latest
+```
+
 ## Running Tests
 
 ```bash
