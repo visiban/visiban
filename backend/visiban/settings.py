@@ -111,11 +111,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-# dj-rest-auth
-REST_AUTH = {
-    "USER_DETAILS_SERIALIZER": "accounts.serializers.UserSerializer",
-}
-
 # CORS
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
 CORS_ALLOW_CREDENTIALS = True
@@ -162,4 +157,5 @@ SOCIALACCOUNT_PROVIDERS = {
 REST_AUTH = {
     "USE_JWT": False,
     "SESSION_LOGIN": True,
+    "USER_DETAILS_SERIALIZER": "accounts.serializers.UserSerializer",
 }
