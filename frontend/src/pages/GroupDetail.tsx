@@ -30,6 +30,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const [showCreateSubgroup, setShowCreateSubgroup] = useState(false);
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [boardName, setBoardName] = useState("");
+  const [showSubgroupBoards, setShowSubgroupBoards] = useState(false);
+  const [subgroupBoards, setSubgroupBoards] = useState<{ board: Board; groupName: string }[]>([]);
+  const [loadingSubgroupBoards, setLoadingSubgroupBoards] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -46,6 +49,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     }).catch(() => setError("Failed to load group"))
       .finally(() => setLoading(false));
   }, [groupId]);
+
+  useEffect(() => {
+    if (!showSubgroupBoards || subgroups.length === 0) return;
+    setLoadingSubgroupBoards(true);
+    Promise.all(
+      subgroups.map((sg) => getGroupBoards(sg.id).then((bs) => bs.map((b) => ({ board: b, groupName: sg.name }))))
+    ).then((results) => setSubgroupBoards(results.flat()))
+      .finally(() => setLoadingSubgroupBoards(false));
+  }, [showSubgroupBoards, subgroups]);
 
   const handleCreateBoard = async () => {
     if (!boardName.trim()) return;
@@ -162,7 +174,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
             {/* Boards */}
             <section>
-              <h2 className="text-white font-semibold mb-3">Boards</h2>
+              <div className="flex items-center gap-3 mb-3">
+                <h2 className="text-white font-semibold">Boards</h2>
+                {subgroups.length > 0 && (
+                  <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
+                    <span className="text-xs text-gray-500">Show subgroup boards</span>
+                    <button
+                      role="switch"
+                      aria-checked={showSubgroupBoards}
+                      onClick={() => setShowSubgroupBoards((v) => !v)}
+                      className={`relative w-8 h-4 rounded-full transition-colors ${showSubgroupBoards ? "bg-blue-600" : "bg-gray-600"}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${showSubgroupBoards ? "translate-x-4" : ""}`} />
+                    </button>
+                  </label>
+                )}
+              </div>
               <div className="flex flex-col gap-2">
                 {boards.map((b) => (
                   <button
@@ -199,8 +226,31 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                     </button>
                   )
                 )}
-                {!isAdmin && boards.length === 0 && (
+                {!isAdmin && boards.length === 0 && !showSubgroupBoards && (
                   <p className="text-gray-600 text-sm">No boards yet.</p>
+                )}
+
+                {/* Subgroup boards */}
+                {showSubgroupBoards && (
+                  loadingSubgroupBoards ? (
+                    <p className="text-gray-500 text-sm px-1">Loading subgroup boards…</p>
+                  ) : subgroupBoards.length === 0 ? (
+                    <p className="text-gray-600 text-sm px-1">No boards in subgroups.</p>
+                  ) : (
+                    subgroupBoards.map(({ board: b, groupName }) => (
+                      <button
+                        key={b.id}
+                        onClick={() => navigate(`/boards/${b.id}`)}
+                        className="w-full bg-gray-800 hover:bg-gray-700 text-white text-left px-4 py-3 rounded-xl transition"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium">{b.name}</p>
+                          <span className="text-xs text-gray-500 ml-2 shrink-0">{groupName}</span>
+                        </div>
+                        {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
+                      </button>
+                    ))
+                  )
                 )}
               </div>
             </section>
