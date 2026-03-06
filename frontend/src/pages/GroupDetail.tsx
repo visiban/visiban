@@ -131,32 +131,33 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
             {/* Subgroups */}
             <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-white font-semibold">Subgroups</h2>
+              <h2 className="text-white font-semibold mb-3">Subgroups</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {subgroups.map((sg) => (
+                  <button
+                    key={sg.id}
+                    onClick={() => navigate(`/groups/${sg.id}`)}
+                    className="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 text-left transition"
+                  >
+                    <p className="text-white font-medium">{sg.name}</p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
+                    </p>
+                  </button>
+                ))}
                 {isAdmin && (
-                  <button onClick={() => setShowCreateSubgroup(true)} className="text-sm text-blue-400 hover:text-blue-300 transition">
-                    + New subgroup
+                  <button
+                    onClick={() => setShowCreateSubgroup(true)}
+                    className="border-2 border-dashed border-gray-700 hover:border-gray-500 hover:bg-gray-800/50 rounded-xl p-4 text-left transition group"
+                  >
+                    <p className="text-gray-500 group-hover:text-gray-300 font-medium transition">+ New subgroup</p>
+                    <p className="text-gray-600 text-xs mt-1">Create a nested group inside {group.name}</p>
                   </button>
                 )}
+                {!isAdmin && subgroups.length === 0 && (
+                  <p className="text-gray-600 text-sm col-span-2">No subgroups.</p>
+                )}
               </div>
-              {subgroups.length === 0 ? (
-                <p className="text-gray-600 text-sm">No subgroups.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {subgroups.map((sg) => (
-                    <button
-                      key={sg.id}
-                      onClick={() => navigate(`/groups/${sg.id}`)}
-                      className="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 text-left transition"
-                    >
-                      <p className="text-white font-medium">{sg.name}</p>
-                      <p className="text-gray-500 text-xs mt-1">
-                        {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
             </section>
 
             {/* Boards */}
