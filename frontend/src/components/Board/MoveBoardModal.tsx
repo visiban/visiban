@@ -19,16 +19,18 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // null = personal, number = group id
+  const [selected, setSelected] = useState<number | null>(board.group);
 
   useEffect(() => {
     listGroups().then(setGroups).finally(() => setLoading(false));
   }, []);
 
-  const handleMove = async (groupId: number | null) => {
-    if (groupId === board.group) { onClose(); return; }
+  const handleMove = async () => {
+    if (selected === board.group) { onClose(); return; }
     setSaving(true);
     try {
-      const updated = await moveBoardToGroup(board.id, groupId);
+      const updated = await moveBoardToGroup(board.id, selected);
       onMoved(updated);
       onClose();
     } finally {
@@ -37,6 +39,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
   };
 
   const roots = buildGroupTree(groups);
+  const hasChanged = selected !== board.group;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -53,26 +56,19 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
             {/* Personal */}
             <PickerRow
               label="Personal (no group)"
-              isCurrent={board.group === null}
-              disabled={saving}
-              depth={0}
-              isLast={roots.length === 0}
               icon="🏠"
-              onSelect={() => handleMove(null)}
+              selected={selected === null}
+              onSelect={() => setSelected(null)}
             />
 
             {roots.length > 0 && <div className="my-1 h-px bg-gray-100" />}
 
-            {/* Nested groups */}
-            {roots.map((node, i) => (
+            {roots.map((node) => (
               <GroupPickerNode
                 key={node.group.id}
                 node={node}
-                currentGroupId={board.group}
-                disabled={saving}
-                onSelect={handleMove}
-                isLast={i === roots.length - 1}
-                depth={0}
+                selected={selected}
+                onSelect={setSelected}
               />
             ))}
 
@@ -82,9 +78,19 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
           </div>
         )}
 
-        <div className="flex justify-end mt-5">
-          <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={onClose}
+            className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
+          >
             Cancel
+          </button>
+          <button
+            onClick={handleMove}
+            disabled={!hasChanged || saving}
+            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-40 transition"
+          >
+            {saving ? "Moving…" : "Move"}
           </button>
         </div>
       </div>
@@ -93,47 +99,58 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
 }
 
 function GroupPickerNode({
-  node, currentGroupId, disabled, onSelect, isLast, depth,
+  node, selected, onSelect, depth = 0,
 }: {
   node: TreeNode;
-  currentGroupId: number | null;
-  disabled: boolean;
-  onSelect: (id: number) => void;
-  isLast: boolean;
-  depth: number;
+  selected: number | null;
+  onSelect: (id: number | null) => void;
+  depth?: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasChildren = node.children.length > 0;
+
   return (
     <div>
-      <PickerRow
-        label={node.group.name}
-        isCurrent={currentGroupId === node.group.id}
-        disabled={disabled}
-        depth={depth}
-        isLast={isLast && node.children.length === 0}
-        onSelect={() => onSelect(node.group.id)}
-      />
-      {node.children.length > 0 && (
-        <div className="relative" style={{ marginLeft: `${0.75 + depth * 1.25}rem` }}>
-          {/* Vertical guide */}
+      <div className="flex items-center gap-1">
+        {/* Expand/collapse chevron */}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className={`shrink-0 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-transform duration-150 ${expanded ? "rotate-90" : ""} ${!hasChildren ? "opacity-0 pointer-events-none" : ""}`}
+        >
+          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        <PickerRow
+          label={node.group.name}
+          icon="👥"
+          selected={selected === node.group.id}
+          onSelect={() => onSelect(node.group.id)}
+        />
+      </div>
+
+      {/* Children */}
+      {hasChildren && expanded && (
+        <div className="relative ml-[22px]">
           <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200" />
-          {node.children.map((child, i) => (
-            <div key={child.group.id} className="relative pl-3">
-              {/* Horizontal connector */}
-              <div className="absolute left-0 top-[50%] w-3 h-px bg-gray-200 -translate-y-px" />
-              {/* Cut vertical line at midpoint of last child */}
-              {i === node.children.length - 1 && (
-                <div className="absolute left-[-1px] top-0 h-[50%] w-px bg-white" style={{ top: "50%" }} />
-              )}
-              <GroupPickerNode
-                node={child}
-                currentGroupId={currentGroupId}
-                disabled={disabled}
-                onSelect={onSelect}
-                isLast={i === node.children.length - 1}
-                depth={depth + 1}
-              />
-            </div>
-          ))}
+          {node.children.map((child, i) => {
+            const isLast = i === node.children.length - 1;
+            return (
+              <div key={child.group.id} className="relative pl-3">
+                <div className="absolute left-0 top-[50%] w-3 h-px bg-gray-200 -translate-y-px" />
+                {isLast && (
+                  <div className="absolute left-[-1px] w-px bg-white" style={{ top: "50%", bottom: 0 }} />
+                )}
+                <GroupPickerNode
+                  node={child}
+                  selected={selected}
+                  onSelect={onSelect}
+                  depth={depth + 1}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -141,29 +158,28 @@ function GroupPickerNode({
 }
 
 function PickerRow({
-  label, isCurrent, disabled, depth, isLast, icon = "👥", onSelect,
+  label, icon, selected, onSelect,
 }: {
   label: string;
-  isCurrent: boolean;
-  disabled: boolean;
-  depth: number;
-  isLast: boolean;
-  icon?: string;
+  icon: string;
+  selected: boolean;
   onSelect: () => void;
 }) {
   return (
     <button
       onClick={onSelect}
-      disabled={disabled}
-      className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left transition text-sm ${
-        isCurrent
-          ? "bg-blue-50 text-blue-700 font-medium"
-          : "hover:bg-gray-50 text-gray-700"
-      } disabled:opacity-50`}
+      className={`flex items-center gap-2 flex-1 px-3 py-2 rounded-lg text-left transition text-sm ${
+        selected ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 text-gray-700"
+      }`}
     >
+      {/* Radio indicator */}
+      <span className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition ${
+        selected ? "border-blue-600" : "border-gray-300"
+      }`}>
+        {selected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+      </span>
       <span>{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {isCurrent && <span className="text-xs text-blue-400 shrink-0">current</span>}
+      <span className="flex-1 truncate font-medium">{label}</span>
     </button>
   );
 }
