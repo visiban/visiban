@@ -8,6 +8,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import type { BoardFull, Card, Column, Customer, Label } from "../../types";
+import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
@@ -49,7 +50,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         const matches =
           card.title.toLowerCase().includes(q) ||
           card.description.toLowerCase().includes(q) ||
-          (card.assignee && `${card.assignee.first_name} ${card.assignee.last_name} ${card.assignee.username}`.toLowerCase().includes(q)) ||
+          (card.assignee && userDisplayName(card.assignee).toLowerCase().includes(q)) ||
           card.labels.some((l) => l.name.toLowerCase().includes(q));
         if (!matches) return false;
       }

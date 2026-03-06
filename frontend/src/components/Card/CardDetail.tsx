@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { BoardFull, Card, CardAttachment, CardComment, Label, Priority } from "../../types";
+import { userDisplayName } from "../../types";
 import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment } from "../../api/cards";
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
@@ -238,7 +239,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   <option value="">Unassigned</option>
                   {board.members.map((m) => (
                     <option key={m.user.id} value={m.user.id}>
-                      {m.user.first_name ? `${m.user.first_name} ${m.user.last_name}`.trim() : m.user.username}
+                      {userDisplayName(m.user)}
                     </option>
                   ))}
                 </select>
@@ -366,7 +367,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   {comments.map((c) => (
                     <div key={c.id} className="bg-gray-50 rounded-lg px-3 py-2">
                       <p className="text-xs text-gray-400 mb-0.5">
-                        {c.author?.first_name || c.author?.username} · {new Date(c.created_at).toLocaleDateString()}
+                        {c.author ? userDisplayName(c.author) : null} · {new Date(c.created_at).toLocaleDateString()}
                       </p>
                       <p className="text-sm text-gray-700">{c.body}</p>
                     </div>

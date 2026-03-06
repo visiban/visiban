@@ -5,6 +5,11 @@ export interface User {
   first_name: string;
   last_name: string;
   avatar_url: string;
+  display_name: string;
+}
+
+export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {
+  return user.display_name || user.first_name || user.username;
 }
 
 export interface BoardMembership {

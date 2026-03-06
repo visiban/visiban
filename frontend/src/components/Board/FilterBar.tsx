@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { BoardFull, Priority } from "../../types";
+import { userDisplayName } from "../../types";
 
 export interface FilterState {
   search: string;
@@ -132,7 +133,7 @@ export default function FilterBar({ board, filters, onChange }: Props) {
         <option value="-1">Unassigned</option>
         {board.members.map((m) => (
           <option key={m.user.id} value={m.user.id}>
-            {m.user.first_name || m.user.username}
+            {userDisplayName(m.user)}
           </option>
         ))}
       </select>
