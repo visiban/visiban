@@ -66,7 +66,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
               onClick={() => setShowCreateGroup(true)}
               className="text-sm text-blue-400 hover:text-blue-300 transition"
             >
-              + New group
+              + New top-level group
             </button>
           </div>
           {loadingGroups ? (
