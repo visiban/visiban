@@ -73,12 +73,28 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
       {entries.map((entry) => {
         if (entry.kind === "move") {
           const m = entry.data as CardMovement;
+          const actor = m.moved_by ? userDisplayName(m.moved_by) : null;
+
+          if (m.from_column === null) {
+            return (
+              <li key={`move-${m.id}`} className="relative mb-3 ml-4">
+                <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-green-500 border-2 border-white shadow" />
+                <div className="bg-white border border-gray-100 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">Created in {m.to_column_name}</span>
+                    {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
+                  </div>
+                  <time className="text-xs text-gray-400">{new Date(m.moved_at).toLocaleString()}</time>
+                </div>
+              </li>
+            );
+          }
+
           const moveIndex = moves.findIndex((mv) => mv.id === m.id);
           const nextMove = moves[moveIndex + 1];
           const duration = nextMove
             ? formatDuration(new Date(m.moved_at).getTime() - new Date(nextMove.moved_at).getTime())
             : null;
-          const actor = m.moved_by ? (userDisplayName(m.moved_by)) : null;
 
           return (
             <li key={`move-${m.id}`} className="relative mb-3 ml-4">

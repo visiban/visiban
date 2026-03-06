@@ -182,12 +182,20 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board = self._board()
-        column_id = self.request.data.get("column_id") or serializer.validated_data.get("column_id")
-        customer_id = self.request.data.get("customer_id") or serializer.validated_data.get("customer_id")
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
         customer = get_object_or_404(Customer, pk=serializer.validated_data["customer"].pk, board=board)
         max_pos = Card.objects.filter(board=board, column=column, customer=customer).count()
-        serializer.save(board=board, created_by=self.request.user, position=max_pos)
+        with transaction.atomic():
+            card = serializer.save(board=board, created_by=self.request.user, position=max_pos)
+            CardMovement.objects.create(
+                card=card,
+                from_column=None,
+                from_customer=None,
+                to_column=column,
+                to_customer=customer,
+                moved_by=self.request.user,
+                notes="Card created",
+            )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
