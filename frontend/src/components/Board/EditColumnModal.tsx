@@ -18,6 +18,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const [color, setColor] = useState(column.color);
   const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
   const [weightLimit, setWeightLimit] = useState(column.weight_limit?.toString() ?? "");
+  const [allowCardCreation, setAllowCardCreation] = useState(column.allow_card_creation);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -29,6 +30,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         color,
         wip_limit: wipLimit ? parseInt(wipLimit) : null,
         weight_limit: weightLimit ? parseInt(weightLimit) : null,
+        allow_card_creation: allowCardCreation,
       });
       onUpdated(updated);
       onClose();
@@ -88,6 +90,16 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               ))}
             </div>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={allowCardCreation}
+              onChange={(e) => setAllowCardCreation(e.target.checked)}
+              className="w-4 h-4 rounded accent-blue-600"
+            />
+            <span className="text-sm text-gray-700">Allow card creation</span>
+          </label>
         </div>
 
         <div className="flex items-center mt-5">
