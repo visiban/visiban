@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Card, Column, Customer } from "../../types";
+import type { Card, Column, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
 import { createCard } from "../../api/cards";
 
 interface Props {
   column: Column;
-  customer: Customer;
+  swimlane: Swimlane;
   cards: Card[];
   boardId: number;
   filteredCardIds: Set<number> | null;
@@ -15,15 +15,15 @@ interface Props {
   onCardAdded: (card: Card) => void;
 }
 
-export default function BoardCell({ column, customer, cards, boardId, filteredCardIds, onCardClick, onCardAdded }: Props) {
-  const id = `cell:${column.id}:${customer.id}`;
+export default function BoardCell({ column, swimlane, cards, boardId, filteredCardIds, onCardClick, onCardAdded }: Props) {
+  const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
 
   const handleAdd = async () => {
     if (!title.trim()) return;
-    const card = await createCard(boardId, { column: column.id, customer: customer.id, title: title.trim() });
+    const card = await createCard(boardId, { column: column.id, swimlane: swimlane.id, title: title.trim() });
     onCardAdded(card);
     setTitle("");
     setAdding(false);

@@ -121,8 +121,8 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
                     <span className="text-sm font-medium text-gray-700">
                       {m.from_column_name} → {m.to_column_name}
                     </span>
-                    {m.from_customer_name && m.to_customer_name && m.from_customer_name !== m.to_customer_name && (
-                      <span className="text-xs text-gray-400">({m.from_customer_name} → {m.to_customer_name})</span>
+                    {m.from_swimlane_name && m.to_swimlane_name && m.from_swimlane_name !== m.to_swimlane_name && (
+                      <span className="text-xs text-gray-400">({m.from_swimlane_name} → {m.to_swimlane_name})</span>
                     )}
                     {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
                   </div>

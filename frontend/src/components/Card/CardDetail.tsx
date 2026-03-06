@@ -115,7 +115,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   };
 
   const column = board.columns.find((c) => c.id === localCard.column);
-  const customer = board.customers.find((c) => c.id === localCard.customer);
+  const swimlane = board.swimlanes.find((s) => s.id === localCard.swimlane);
 
   // Merge board labels with any on the card not yet in board list
   const allLabels = [...board.labels];
@@ -138,7 +138,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               className="text-lg font-semibold text-gray-900 w-full outline-none border-b border-transparent focus:border-blue-400 bg-transparent"
             />
             <p className="text-xs text-gray-400 mt-0.5">
-              {customer?.name} · {column?.name}
+              {swimlane?.name} · {column?.name}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>

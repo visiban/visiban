@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { getBoardFull, reorderColumns as apiReorderColumns, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer } from "../api/boards";
+import { getBoardFull, reorderColumns as apiReorderColumns, updateSwimlane as apiUpdateSwimlane, deleteSwimlane as apiDeleteSwimlane } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
-import type { BoardFull, Card, Column, Customer, Label } from "../types";
+import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
 
 export function useBoard(boardId: number) {
   const [board, setBoard] = useState<BoardFull | null>(null);
@@ -21,7 +21,7 @@ export function useBoard(boardId: number) {
   const moveCard = useCallback(async (
     cardId: number,
     columnId: number,
-    customerId: number,
+    swimlaneId: number,
     position: number
   ) => {
     if (!board) return;
@@ -34,14 +34,14 @@ export function useBoard(boardId: number) {
         ...b,
         cards: b.cards.map((c) =>
           c.id === cardId
-            ? { ...c, column: columnId, customer: customerId, position }
+            ? { ...c, column: columnId, swimlane: swimlaneId, position }
             : c
         ),
       };
     });
 
     try {
-      const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, customer_id: customerId, position });
+      const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position });
       setBoard((b) => {
         if (!b) return b;
         return { ...b, cards: b.cards.map((c) => (c.id === cardId ? card : c)) };
@@ -64,8 +64,8 @@ export function useBoard(boardId: number) {
     setBoard((b) => b ? { ...b, columns: [...b.columns, column] } : b);
   }, []);
 
-  const addCustomer = useCallback((customer: Customer) => {
-    setBoard((b) => b ? { ...b, customers: [...b.customers, customer] } : b);
+  const addSwimlane = useCallback((swimlane: Swimlane) => {
+    setBoard((b) => b ? { ...b, swimlanes: [...b.swimlanes, swimlane] } : b);
   }, []);
 
   const updateCard = useCallback((card: Card) => {
@@ -96,14 +96,14 @@ export function useBoard(boardId: number) {
     }
   }, [board, boardId]);
 
-  const updateCustomer = useCallback((customer: Customer) => {
-    setBoard((b) => b ? { ...b, customers: b.customers.map((c) => c.id === customer.id ? customer : c) } : b);
+  const updateSwimlane = useCallback((swimlane: Swimlane) => {
+    setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.map((s) => s.id === swimlane.id ? swimlane : s) } : b);
   }, []);
 
-  const removeCustomer = useCallback(async (customerId: number) => {
-    setBoard((b) => b ? { ...b, customers: b.customers.filter((c) => c.id !== customerId), cards: b.cards.filter((c) => c.customer !== customerId) } : b);
-    await apiDeleteCustomer(boardId, customerId);
+  const removeSwimlane = useCallback(async (swimlaneId: number) => {
+    setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId), cards: b.cards.filter((c) => c.swimlane !== swimlaneId) } : b);
+    await apiDeleteSwimlane(boardId, swimlaneId);
   }, [boardId]);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel, reorderColumns, updateCustomer, removeCustomer };
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane };
 }

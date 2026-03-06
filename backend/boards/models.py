@@ -57,8 +57,8 @@ class Column(models.Model):
         return f"{self.board.name} / {self.name}"
 
 
-class Customer(models.Model):
-    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="customers")
+class Swimlane(models.Model):
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="swimlanes")
     name = models.CharField(max_length=255)
     contact_email = models.EmailField(blank=True)
     notes = models.TextField(blank=True)
@@ -68,7 +68,7 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "customers"
+        db_table = "swimlanes"
         ordering = ["position"]
         unique_together = ["board", "name"]
 
@@ -98,7 +98,7 @@ class Card(models.Model):
 
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="cards")
     column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="cards")
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="cards")
+    swimlane = models.ForeignKey(Swimlane, on_delete=models.CASCADE, related_name="cards")
     title = models.CharField(max_length=500)
     description = models.TextField(blank=True)
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
@@ -133,7 +133,7 @@ class Card(models.Model):
 class CardMovement(models.Model):
     """
     Automatic audit log entry created whenever a card is moved between
-    columns and/or customers. Full pipeline movement history with timestamps.
+    columns and/or swimlanes. Full pipeline movement history with timestamps.
     """
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="movements")
     from_column = models.ForeignKey(
@@ -142,11 +142,11 @@ class CardMovement(models.Model):
     to_column = models.ForeignKey(
         Column, on_delete=models.SET_NULL, null=True, related_name="+"
     )
-    from_customer = models.ForeignKey(
-        Customer, on_delete=models.SET_NULL, null=True, related_name="+"
+    from_swimlane = models.ForeignKey(
+        Swimlane, on_delete=models.SET_NULL, null=True, related_name="+"
     )
-    to_customer = models.ForeignKey(
-        Customer, on_delete=models.SET_NULL, null=True, related_name="+"
+    to_swimlane = models.ForeignKey(
+        Swimlane, on_delete=models.SET_NULL, null=True, related_name="+"
     )
     moved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True

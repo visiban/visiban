@@ -13,7 +13,7 @@ export interface CardPatch {
 
 export const createCard = (boardId: number, data: {
   column: number;
-  customer: number;
+  swimlane: number;
   title: string;
   description?: string;
   priority?: string;
@@ -28,7 +28,7 @@ export const deleteCard = (boardId: number, cardId: number) =>
 
 export const moveCard = (boardId: number, cardId: number, data: {
   column_id: number;
-  customer_id: number;
+  swimlane_id: number;
   position: number;
 }) => client.post<{ card: Card; movement?: CardMovement }>(
   `/api/boards/${boardId}/cards/${cardId}/move/`, data

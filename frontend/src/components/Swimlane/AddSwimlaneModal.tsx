@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { createCustomer } from "../../api/boards";
-import type { Customer } from "../../types";
+import { createSwimlane } from "../../api/boards";
+import type { Swimlane } from "../../types";
 
 interface Props {
   boardId: number;
-  onAdded: (customer: Customer) => void;
+  onAdded: (swimlane: Swimlane) => void;
   onClose: () => void;
 }
 
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
 
-export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
+export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [color, setColor] = useState(COLORS[0]);
@@ -20,8 +20,8 @@ export default function AddCustomerModal({ boardId, onAdded, onClose }: Props) {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const customer = await createCustomer(boardId, { name: name.trim(), contact_email: email.trim(), color });
-      onAdded(customer);
+      const swimlane = await createSwimlane(boardId, { name: name.trim(), contact_email: email.trim(), color });
+      onAdded(swimlane);
       onClose();
     } finally {
       setSaving(false);
