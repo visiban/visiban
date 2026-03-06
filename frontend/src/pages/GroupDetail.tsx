@@ -162,14 +162,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
             {/* Boards */}
             <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-white font-semibold">Boards</h2>
-                {isAdmin && (
-                  <button onClick={() => setCreatingBoard(true)} className="text-sm text-blue-400 hover:text-blue-300 transition">
-                    + New board
-                  </button>
-                )}
-              </div>
+              <h2 className="text-white font-semibold mb-3">Boards</h2>
               <div className="flex flex-col gap-2">
                 {boards.map((b) => (
                   <button
@@ -181,24 +174,33 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                     {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
                   </button>
                 ))}
-                {boards.length === 0 && !creatingBoard && (
-                  <p className="text-gray-600 text-sm">No boards yet.</p>
-                )}
-                {creatingBoard && (
-                  <div className="bg-gray-800 rounded-xl p-4">
-                    <input
-                      autoFocus
-                      value={boardName}
-                      onChange={(e) => setBoardName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleCreateBoard(); if (e.key === "Escape") setCreatingBoard(false); }}
-                      placeholder="Board name…"
-                      className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 outline-none text-sm mb-3"
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={handleCreateBoard} className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700">Create</button>
-                      <button onClick={() => setCreatingBoard(false)} className="text-gray-400 text-sm hover:text-white">Cancel</button>
+                {isAdmin && (
+                  creatingBoard ? (
+                    <div className="border-2 border-dashed border-gray-700 rounded-xl p-4">
+                      <input
+                        autoFocus
+                        value={boardName}
+                        onChange={(e) => setBoardName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleCreateBoard(); if (e.key === "Escape") setCreatingBoard(false); }}
+                        placeholder="Board name…"
+                        className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 outline-none text-sm mb-3"
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={handleCreateBoard} className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700">Create</button>
+                        <button onClick={() => setCreatingBoard(false)} className="text-gray-400 text-sm hover:text-white">Cancel</button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <button
+                      onClick={() => setCreatingBoard(true)}
+                      className="w-full border-2 border-dashed border-gray-700 hover:border-gray-500 hover:bg-gray-800/50 rounded-xl px-4 py-3 text-left transition group"
+                    >
+                      <p className="text-gray-500 group-hover:text-gray-300 font-medium transition">+ New board</p>
+                    </button>
+                  )
+                )}
+                {!isAdmin && boards.length === 0 && (
+                  <p className="text-gray-600 text-sm">No boards yet.</p>
                 )}
               </div>
             </section>
