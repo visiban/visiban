@@ -112,7 +112,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     if (activeId.startsWith("col:")) {
       setActiveColumn(null);
       if (!over) return;
-      const overId = String(over.id);
+      let overId = String(over.id);
+      // Cells cover a larger area than column headers, so closestCenter may
+      // resolve to "cell:{colId}:{swimlaneId}" — map back to the column id.
+      if (overId.startsWith("cell:")) {
+        overId = `col:${overId.split(":")[1]}`;
+      }
       if (activeId === overId) return;
       const oldIndex = board.columns.findIndex((c) => `col:${c.id}` === activeId);
       const newIndex = board.columns.findIndex((c) => `col:${c.id}` === overId);
