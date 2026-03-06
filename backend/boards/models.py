@@ -196,3 +196,18 @@ class CardActivity(models.Model):
     class Meta:
         db_table = "card_activities"
         ordering = ["-created_at"]
+
+
+class CardAttachment(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="attachments")
+    file = models.FileField(upload_to="attachments/%Y/%m/")
+    filename = models.CharField(max_length=255)
+    size = models.PositiveBigIntegerField()
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "card_attachments"
+        ordering = ["-uploaded_at"]

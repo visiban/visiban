@@ -40,8 +40,8 @@ export default function CardItem({ card, onClick, overlay }: Props) {
 
         {/* Footer row */}
         <div className="flex items-center justify-between mt-auto gap-1">
-          {/* Label dots */}
-          <div className="flex gap-1 flex-wrap">
+          {/* Label dots + attachment count */}
+          <div className="flex items-center gap-1 flex-wrap">
             {card.labels.slice(0, 4).map((label) => (
               <span
                 key={label.id}
@@ -50,13 +50,23 @@ export default function CardItem({ card, onClick, overlay }: Props) {
                 title={label.name}
               />
             ))}
+            {card.attachment_count > 0 && (
+              <span
+                className="flex items-center gap-0.5 text-xs text-gray-400"
+                title={`${card.attachment_count} attachment${card.attachment_count !== 1 ? "s" : ""}`}
+              >
+                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0z"/>
+                </svg>
+                {card.attachment_count}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
             {isRecent && (
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" title="Recently moved" />
             )}
-            {/* Weight badge */}
             <span className="text-xs text-gray-400 font-medium" title="Weight">
               {card.weight}
             </span>

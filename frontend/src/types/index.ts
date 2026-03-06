@@ -42,6 +42,15 @@ export interface Label {
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
+export interface CardAttachment {
+  id: number;
+  filename: string;
+  size: number;
+  url: string;
+  uploaded_by: User | null;
+  uploaded_at: string;
+}
+
 export interface Card {
   id: number;
   column: number;
@@ -58,6 +67,7 @@ export interface Card {
   created_at: string;
   updated_at: string;
   last_moved_at: string | null;
+  attachment_count: number;
 }
 
 export interface CardMovement {

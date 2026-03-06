@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { BoardFull, Card, CardComment, Label, Priority } from "../../types";
-import { deleteCard, getCardComments, addCardComment, updateCard } from "../../api/cards";
+import type { BoardFull, Card, CardAttachment, CardComment, Label, Priority } from "../../types";
+import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment } from "../../api/cards";
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import CardMovementTimeline from "./CardMovementTimeline";
@@ -31,10 +31,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
+  const [attachments, setAttachments] = useState<CardAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getCardComments(board.id, card.id).then(setComments);
+    getCardAttachments(board.id, card.id).then(setAttachments);
   }, [board.id, card.id]);
 
   const save = async (patch: CardPatch) => {
@@ -79,6 +83,28 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     const c = await addCardComment(board.id, card.id, commentBody.trim());
     setComments((prev) => [...prev, c]);
     setCommentBody("");
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const attachment = await uploadCardAttachment(board.id, localCard.id, file);
+      setAttachments((prev) => [attachment, ...prev]);
+      setLocalCard((c) => ({ ...c, attachment_count: c.attachment_count + 1 }));
+      onUpdated({ ...localCard, attachment_count: localCard.attachment_count + 1 });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteAttachment = async (id: number) => {
+    await deleteCardAttachment(board.id, localCard.id, id);
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    setLocalCard((c) => ({ ...c, attachment_count: Math.max(0, c.attachment_count - 1) }));
+    onUpdated({ ...localCard, attachment_count: Math.max(0, localCard.attachment_count - 1) });
   };
 
   const handleDelete = async () => {
@@ -285,6 +311,52 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   rows={3}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
                 />
+              </div>
+
+              {/* Attachments */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-gray-400">Attachments</p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                  >
+                    {uploading ? "Uploading…" : "+ Upload"}
+                  </button>
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                </div>
+                {attachments.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No attachments yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {attachments.map((a) => (
+                      <div key={a.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="text-gray-400 text-sm">📎</span>
+                        <div className="flex-1 min-w-0">
+                          <a
+                            href={a.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-blue-600 hover:underline truncate block"
+                          >
+                            {a.filename}
+                          </a>
+                          <p className="text-xs text-gray-400">
+                            {(a.size / 1024).toFixed(1)} KB · {new Date(a.uploaded_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteAttachment(a.id)}
+                          className="text-gray-300 hover:text-red-500 transition text-xs shrink-0"
+                          title="Delete attachment"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Comments */}
