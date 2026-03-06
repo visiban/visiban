@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCardMovements, getCardActivities } from "../../api/cards";
 import type { CardActivity, CardMovement } from "../../types";
+import { userDisplayName } from "../../types";
 
 interface Props {
   boardId: number;
@@ -39,7 +40,7 @@ function activityLabel(a: CardActivity): { line1: string; detail?: string } {
     case "attachment_deleted":
       return { line1: `Removed: ${a.from_value || "file"}` };
     default:
-      return { line1: a.event_type.replace(/_/g, " ") };
+      return { line1: (a.event_type as string).replace(/_/g, " ") };
   }
 }
 
@@ -77,7 +78,7 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
           const duration = nextMove
             ? formatDuration(new Date(m.moved_at).getTime() - new Date(nextMove.moved_at).getTime())
             : null;
-          const actor = m.moved_by ? (m.moved_by.first_name || m.moved_by.username) : null;
+          const actor = m.moved_by ? (userDisplayName(m.moved_by)) : null;
 
           return (
             <li key={`move-${m.id}`} className="relative mb-3 ml-4">
@@ -103,7 +104,7 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
 
         const a = entry.data as CardActivity;
         const { line1 } = activityLabel(a);
-        const actor = a.actor ? (a.actor.first_name || a.actor.username) : null;
+        const actor = a.actor ? (userDisplayName(a.actor)) : null;
 
         return (
           <li key={`activity-${a.id}`} className="relative mb-3 ml-4">

@@ -8,7 +8,7 @@ import Navbar from "./components/Layout/Navbar";
 import type { Board, User } from "./types";
 
 export default function App() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, updateUser } = useAuth();
   const [activeBoard, setActiveBoard] = useState<Board | null>(null);
 
   if (loading) {
@@ -29,24 +29,26 @@ export default function App() {
       user={user}
       onLogout={logout}
       onBack={() => setActiveBoard(null)}
+      onUserUpdated={updateUser}
     />
   );
 }
 
 function BoardPage({
-  boardId, boardName, user, onLogout, onBack,
+  boardId, boardName, user, onLogout, onBack, onUserUpdated,
 }: {
   boardId: number;
   boardName: string;
   user: User;
   onLogout: () => void;
   onBack: () => void;
+  onUserUpdated: (user: User) => void;
 }) {
   const { board, loading, error, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel } = useBoard(boardId);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Navbar user={user} boardName={boardName} onLogout={onLogout} />
+      <Navbar user={user} boardName={boardName} onLogout={onLogout} onUserUpdated={onUserUpdated} />
       <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
         <button onClick={onBack} className="text-gray-400 hover:text-white text-sm transition">
           ← Boards

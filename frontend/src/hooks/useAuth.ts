@@ -18,5 +18,5 @@ export function useAuth() {
     setUser(null);
   };
 
-  return { user, loading, logout };
+  return { user, loading, logout, updateUser: setUser };
 }
