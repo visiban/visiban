@@ -37,6 +37,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
+  const [showFilters, setShowFilters] = useState(false);
 
   const filteredCardIds: Set<number> | null = (() => {
     if (countActiveFilters(filters) === 0) return null;
@@ -113,9 +114,32 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     onMoveCard(cardId, targetColumnId, targetCustomerId, siblings.length);
   };
 
+  const activeCount = countActiveFilters(filters);
+
   return (
     <>
-      <FilterBar board={board} filters={filters} onChange={setFilters} />
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          className="text-xs text-blue-600 hover:text-blue-800 transition"
+        >
+          {showFilters ? "Hide filters" : "Filters"}
+          {!showFilters && activeCount > 0 && (
+            <span className="ml-1.5 bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5 font-medium">
+              {activeCount} active
+            </span>
+          )}
+        </button>
+        {!showFilters && activeCount > 0 && (
+          <button
+            onClick={() => setFilters(EMPTY_FILTER)}
+            className="text-xs text-gray-400 hover:text-gray-600 underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} />}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {/*
           Single scroll container — header and body share the same horizontal
