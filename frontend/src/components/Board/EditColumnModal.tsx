@@ -6,12 +6,13 @@ interface Props {
   boardId: number;
   column: Column;
   onUpdated: (column: Column) => void;
+  onDeleted: (columnId: number) => void;
   onClose: () => void;
 }
 
 const COLORS = ["#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 
-export default function EditColumnModal({ boardId, column, onUpdated, onClose }: Props) {
+export default function EditColumnModal({ boardId, column, onUpdated, onDeleted, onClose }: Props) {
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
   const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
@@ -88,15 +89,27 @@ export default function EditColumnModal({ boardId, column, onUpdated, onClose }:
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
+        <div className="flex items-center mt-5">
           <button
-            onClick={handleSave}
-            disabled={!name.trim() || saving}
-            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+            onClick={() => {
+              if (confirm(`Delete column "${column.name}"? All cards in this column will also be deleted.`)) {
+                onDeleted(column.id);
+              }
+            }}
+            className="text-sm text-red-500 hover:text-red-700 transition"
           >
-            {saving ? "Saving…" : "Save"}
+            Delete column
           </button>
+          <div className="flex gap-2 ml-auto">
+            <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
+            <button
+              onClick={handleSave}
+              disabled={!name.trim() || saving}
+              className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

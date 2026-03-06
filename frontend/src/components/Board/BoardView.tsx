@@ -28,6 +28,7 @@ interface Props {
   onCardUpdated: (card: Card) => void;
   onColumnAdded: (column: Column) => void;
   onColumnUpdated: (column: Column) => void;
+  onColumnDeleted: (columnId: number) => void;
   onColumnsReordered: (orderedIds: number[]) => void;
   onSwimlaneAdded: (swimlane: Swimlane) => void;
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
@@ -35,7 +36,7 @@ interface Props {
   onLabelAdded: (label: Label) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -195,6 +196,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                   cards={board.cards.filter((c) => c.column === col.id)}
                   boardId={board.id}
                   onColumnUpdated={onColumnUpdated}
+                  onColumnDeleted={onColumnDeleted}
                   collapsed={collapsedColumns.has(col.id)}
                   onToggleCollapse={() => toggleColumn(col.id)}
                 />

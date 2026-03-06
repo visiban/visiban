@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getBoardFull, reorderColumns as apiReorderColumns, updateSwimlane as apiUpdateSwimlane, deleteSwimlane as apiDeleteSwimlane } from "../api/boards";
+import { getBoardFull, reorderColumns as apiReorderColumns, updateSwimlane as apiUpdateSwimlane, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
 
@@ -64,6 +64,15 @@ export function useBoard(boardId: number) {
     setBoard((b) => b ? { ...b, columns: [...b.columns, column] } : b);
   }, []);
 
+  const removeColumn = useCallback(async (columnId: number) => {
+    setBoard((b) => b ? {
+      ...b,
+      columns: b.columns.filter((c) => c.id !== columnId),
+      cards: b.cards.filter((c) => c.column !== columnId),
+    } : b);
+    await apiDeleteColumn(boardId, columnId);
+  }, [boardId]);
+
   const addSwimlane = useCallback((swimlane: Swimlane) => {
     setBoard((b) => b ? { ...b, swimlanes: [...b.swimlanes, swimlane] } : b);
   }, []);
@@ -105,5 +114,5 @@ export function useBoard(boardId: number) {
     await apiDeleteSwimlane(boardId, swimlaneId);
   }, [boardId]);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane };
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane };
 }
