@@ -1,0 +1,176 @@
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Group, GroupMembership, GroupInviteLink
+from .serializers import GroupSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
+
+
+def _require_group_admin(user, group):
+    """Raise PermissionDenied if user is not an admin of this group."""
+    from rest_framework.exceptions import PermissionDenied
+    if group.owner_id == user.id:
+        return
+    try:
+        membership = group.memberships.get(user=user)
+        if membership.role != GroupMembership.Role.ADMIN:
+            raise PermissionDenied
+    except GroupMembership.DoesNotExist:
+        raise PermissionDenied
+
+
+def _require_group_member(user, group):
+    """Raise PermissionDenied if user is not a member of this group or any ancestor."""
+    from rest_framework.exceptions import PermissionDenied
+    if group.owner_id == user.id:
+        return
+    # Walk up the ancestor chain
+    node = group
+    depth = 0
+    while node and depth < 6:
+        if node.memberships.filter(user=user).exists():
+            return
+        node = node.parent
+        depth += 1
+    raise PermissionDenied
+
+
+class GroupViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GroupSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return Group.objects.filter(
+            Q(owner=user) | Q(memberships__user=user)
+        ).distinct().select_related("owner", "parent")
+
+    def perform_create(self, serializer):
+        group = serializer.save(owner=self.request.user)
+        GroupMembership.objects.create(
+            group=group, user=self.request.user, role=GroupMembership.Role.ADMIN
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        group = self.get_object()
+        if group.owner != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        group.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ------------------------------------------------------------------
+    # Members
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["get"])
+    def members(self, request, pk=None):
+        group = self.get_object()
+        _require_group_member(request.user, group)
+        memberships = group.memberships.select_related("user")
+        return Response(GroupMembershipSerializer(memberships, many=True).data)
+
+    @action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>[^/.]+)")
+    def remove_member(self, request, pk=None, user_id=None):
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+        GroupMembership.objects.filter(group=group, user_id=user_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ------------------------------------------------------------------
+    # Subgroups
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["get"])
+    def subgroups(self, request, pk=None):
+        group = self.get_object()
+        _require_group_member(request.user, group)
+        return Response(GroupSerializer(group.subgroups.all(), many=True).data)
+
+    # ------------------------------------------------------------------
+    # Boards
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["get", "post"])
+    def boards(self, request, pk=None):
+        from boards.models import Board, Column, Swimlane
+        from boards.serializers import BoardSerializer
+
+        group = self.get_object()
+        _require_group_member(request.user, group)
+
+        if request.method == "GET":
+            boards = Board.objects.filter(group=group).select_related("owner")
+            return Response(BoardSerializer(boards, many=True).data)
+
+        # POST — create a new board inside this group
+        _require_group_admin(request.user, group)
+        serializer = BoardSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        board = serializer.save(owner=request.user, group=group)
+
+        default_columns = [
+            ("Backlog", "#6B7280"),
+            ("To Do",   "#3B82F6"),
+            ("Doing",   "#F59E0B"),
+            ("Done",    "#10B981"),
+        ]
+        Column.objects.bulk_create([
+            Column(board=board, name=name, position=i, color=color, allow_card_creation=(i == 0))
+            for i, (name, color) in enumerate(default_columns)
+        ])
+        Swimlane.objects.create(board=board, name="General", position=0, color="#6B7280")
+
+        return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
+
+    # ------------------------------------------------------------------
+    # Invite link
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["post", "delete"], url_path="invite-link")
+    def invite_link(self, request, pk=None):
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+
+        if request.method == "POST":
+            link, _ = GroupInviteLink.objects.get_or_create(
+                group=group, is_active=True,
+                defaults={"created_by": request.user},
+            )
+            return Response(GroupInviteLinkSerializer(link).data, status=status.HTTP_200_OK)
+
+        # DELETE — deactivate all active links
+        GroupInviteLink.objects.filter(group=group, is_active=True).update(is_active=False)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class JoinGroupView(APIView):
+    """
+    GET  /api/groups/join/<token>/  — public: resolve token to group name
+    POST /api/groups/join/<token>/  — authenticated: join the group
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    def get(self, request, token):
+        link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
+        return Response({
+            "group_id": link.group_id,
+            "group_name": link.group.name,
+        })
+
+    def post(self, request, token):
+        link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
+        membership, created = GroupMembership.objects.get_or_create(
+            group=link.group,
+            user=request.user,
+            defaults={"role": GroupMembership.Role.MEMBER},
+        )
+        group_data = GroupSerializer(link.group).data
+        return Response(group_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

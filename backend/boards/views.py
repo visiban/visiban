@@ -36,9 +36,13 @@ class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
 
     def get_queryset(self):
+        from django.db.models import Q
+        user = self.request.user
         return Board.objects.filter(
-            memberships__user=self.request.user
-        ).distinct() | Board.objects.filter(owner=self.request.user).distinct()
+            Q(owner=user) |
+            Q(memberships__user=user) |
+            Q(group__memberships__user=user)
+        ).distinct()
 
     def perform_create(self, serializer):
         board = serializer.save(owner=self.request.user)

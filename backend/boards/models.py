@@ -11,6 +11,9 @@ class Board(models.Model):
     members = models.ManyToManyField(
         settings.AUTH_USER_MODEL, through="BoardMembership", related_name="boards"
     )
+    group = models.ForeignKey(
+        "groups.Group", null=True, blank=True, on_delete=models.SET_NULL, related_name="boards"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
