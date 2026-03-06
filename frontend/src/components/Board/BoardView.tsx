@@ -9,38 +9,38 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardFull, Card, Column, Customer, Label } from "../../types";
+import type { BoardFull, Card, Column, Swimlane, Label } from "../../types";
 import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
 import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
-import AddCustomerModal from "../Customer/AddCustomerModal";
+import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
 
 interface Props {
   board: BoardFull;
-  onMoveCard: (cardId: number, columnId: number, customerId: number, position: number) => void;
+  onMoveCard: (cardId: number, columnId: number, swimlaneId: number, position: number) => void;
   onCardAdded: (card: Card) => void;
   onCardDeleted: (cardId: number) => void;
   onCardUpdated: (card: Card) => void;
   onColumnAdded: (column: Column) => void;
   onColumnUpdated: (column: Column) => void;
   onColumnsReordered: (orderedIds: number[]) => void;
-  onCustomerAdded: (customer: Customer) => void;
-  onCustomerUpdated: (customer: Customer) => void;
-  onCustomerDeleted: (customerId: number) => void;
+  onSwimlaneAdded: (swimlane: Swimlane) => void;
+  onSwimlaneUpdated: (swimlane: Swimlane) => void;
+  onSwimlaneDeleted: (swimlaneId: number) => void;
   onLabelAdded: (label: Label) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnsReordered, onCustomerAdded, onCustomerUpdated, onCustomerDeleted, onLabelAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
-  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [showAddSwimlane, setShowAddSwimlane] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
@@ -124,18 +124,18 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
     setActiveCard(null);
     if (!over) return;
-    const [, colId, custId] = String(over.id).split(":");
+    const [, colId, swimId] = String(over.id).split(":");
     const cardId = Number(activeId);
     const card = board.cards.find((c) => c.id === cardId);
     if (!card) return;
 
     const targetColumnId = Number(colId);
-    const targetCustomerId = Number(custId);
+    const targetSwimlaneId = Number(swimId);
     const siblings = board.cards
-      .filter((c) => c.column === targetColumnId && c.customer === targetCustomerId && c.id !== cardId)
+      .filter((c) => c.column === targetColumnId && c.swimlane === targetSwimlaneId && c.id !== cardId)
       .sort((a, b) => a.position - b.position);
 
-    onMoveCard(cardId, targetColumnId, targetCustomerId, siblings.length);
+    onMoveCard(cardId, targetColumnId, targetSwimlaneId, siblings.length);
   };
 
   const activeCount = countActiveFilters(filters);
@@ -175,7 +175,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             {/* Corner — also sticky to the left */}
             <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center sticky left-0 z-20">
               <button
-                onClick={() => setShowAddCustomer(true)}
+                onClick={() => setShowAddSwimlane(true)}
                 className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
               >
                 + Swimlane
@@ -207,27 +207,27 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           </div>
 
           {/* Swimlane rows */}
-          {board.customers.map((customer) => (
+          {board.swimlanes.map((swimlane) => (
             <SwimlaneRow
-              key={customer.id}
-              customer={customer}
+              key={swimlane.id}
+              swimlane={swimlane}
               columns={board.columns}
-              cards={board.cards.filter((c) => c.customer === customer.id)}
+              cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
               boardId={board.id}
               collapsedColumnIds={collapsedColumns}
               filteredCardIds={filteredCardIds}
               onCardClick={setSelectedCard}
               onCardAdded={onCardAdded}
-              onCustomerUpdated={onCustomerUpdated}
-              onCustomerDeleted={onCustomerDeleted}
+              onSwimlaneUpdated={onSwimlaneUpdated}
+              onSwimlaneDeleted={onSwimlaneDeleted}
             />
           ))}
 
-          {board.customers.length === 0 && (
+          {board.swimlanes.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
               <p>No swimlanes yet.</p>
               <button
-                onClick={() => setShowAddCustomer(true)}
+                onClick={() => setShowAddSwimlane(true)}
                 className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
               >
                 + Add first swimlane
@@ -268,14 +268,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         />
       )}
 
-      {showAddCustomer && (
-        <AddCustomerModal
+      {showAddSwimlane && (
+        <AddSwimlaneModal
           boardId={board.id}
-          onAdded={(cust) => { onCustomerAdded(cust); setShowAddCustomer(false); }}
-          onClose={() => setShowAddCustomer(false)}
+          onAdded={(swimlane) => { onSwimlaneAdded(swimlane); setShowAddSwimlane(false); }}
+          onClose={() => setShowAddSwimlane(false)}
         />
       )}
-
     </>
   );
 }

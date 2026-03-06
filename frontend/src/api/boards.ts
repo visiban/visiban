@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, Column, Customer, Label } from "../types";
+import type { Board, BoardFull, Column, Swimlane, Label } from "../types";
 
 export const listBoards = () =>
   client.get<Board[]>("/api/boards/").then((r) => r.data);
@@ -32,18 +32,18 @@ export const deleteColumn = (boardId: number, colId: number) =>
 export const reorderColumns = (boardId: number, order: number[]) =>
   client.post<Column[]>(`/api/boards/${boardId}/columns/reorder/`, { order }).then((r) => r.data);
 
-// Customers
-export const createCustomer = (boardId: number, data: { name: string; contact_email?: string; color?: string }) =>
-  client.post<Customer>(`/api/boards/${boardId}/customers/`, data).then((r) => r.data);
+// Swimlanes
+export const createSwimlane = (boardId: number, data: { name: string; contact_email?: string; color?: string }) =>
+  client.post<Swimlane>(`/api/boards/${boardId}/swimlanes/`, data).then((r) => r.data);
 
-export const updateCustomer = (boardId: number, custId: number, data: Partial<Customer>) =>
-  client.put<Customer>(`/api/boards/${boardId}/customers/${custId}/`, data).then((r) => r.data);
+export const updateSwimlane = (boardId: number, swimlaneId: number, data: Partial<Swimlane>) =>
+  client.put<Swimlane>(`/api/boards/${boardId}/swimlanes/${swimlaneId}/`, data).then((r) => r.data);
 
-export const deleteCustomer = (boardId: number, custId: number) =>
-  client.delete(`/api/boards/${boardId}/customers/${custId}/`);
+export const deleteSwimlane = (boardId: number, swimlaneId: number) =>
+  client.delete(`/api/boards/${boardId}/swimlanes/${swimlaneId}/`);
 
-export const reorderCustomers = (boardId: number, order: number[]) =>
-  client.post<Customer[]>(`/api/boards/${boardId}/customers/reorder/`, { order }).then((r) => r.data);
+export const reorderSwimlanes = (boardId: number, order: number[]) =>
+  client.post<Swimlane[]>(`/api/boards/${boardId}/swimlanes/reorder/`, { order }).then((r) => r.data);
 
 // Labels
 export const listLabels = (boardId: number) =>

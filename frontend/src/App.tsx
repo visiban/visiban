@@ -44,7 +44,7 @@ function BoardPage({
   onBack: () => void;
   onUserUpdated: (user: User) => void;
 }) {
-  const { board, loading, error, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel, reorderColumns, updateCustomer, removeCustomer } = useBoard(boardId);
+  const { board, loading, error, moveCard, addCard, removeCard, addColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane } = useBoard(boardId);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -71,9 +71,9 @@ function BoardPage({
             onColumnAdded={addColumn}
             onColumnUpdated={updateColumn}
             onColumnsReordered={reorderColumns}
-            onCustomerAdded={addCustomer}
-            onCustomerUpdated={updateCustomer}
-            onCustomerDeleted={removeCustomer}
+            onSwimlaneAdded={addSwimlane}
+            onSwimlaneUpdated={updateSwimlane}
+            onSwimlaneDeleted={removeSwimlane}
             onLabelAdded={addLabel}
           />
         )}

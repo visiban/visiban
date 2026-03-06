@@ -7,11 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment
+from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment
 from .permissions import IsBoardMember, IsBoardAdminOrOwner, get_board_role
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
-    ColumnSerializer, CustomerSerializer, LabelSerializer,
+    ColumnSerializer, SwimlaneSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer, CardAttachmentSerializer,
 )
 from accounts.models import User
@@ -53,7 +53,7 @@ class BoardViewSet(viewsets.ModelViewSet):
             Column(board=board, name=name, position=i, color=color)
             for i, (name, color) in enumerate(default_columns)
         ])
-        Customer.objects.create(board=board, name="General", position=0, color="#6B7280")
+        Swimlane.objects.create(board=board, name="General", position=0, color="#6B7280")
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
@@ -115,22 +115,22 @@ class ColumnViewSet(viewsets.ModelViewSet):
 
 
 # ---------------------------------------------------------------------------
-# Customers
+# Swimlanes
 # ---------------------------------------------------------------------------
 
-class CustomerViewSet(viewsets.ModelViewSet):
+class SwimlaneViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    serializer_class = CustomerSerializer
+    serializer_class = SwimlaneSerializer
 
     def _board(self):
         return get_board_for_user(self.kwargs["board_pk"], self.request.user)[0]
 
     def get_queryset(self):
-        return Customer.objects.filter(board=self._board())
+        return Swimlane.objects.filter(board=self._board())
 
     def perform_create(self, serializer):
         board = self._board()
-        max_pos = board.customers.count()
+        max_pos = board.swimlanes.count()
         serializer.save(board=board, position=max_pos)
 
     @action(detail=False, methods=["post"])
@@ -138,9 +138,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
         board = self._board()
         order = request.data.get("order", [])
         with transaction.atomic():
-            for pos, cust_id in enumerate(order):
-                Customer.objects.filter(board=board, pk=cust_id).update(position=pos)
-        return Response(CustomerSerializer(board.customers.all(), many=True).data)
+            for pos, swimlane_id in enumerate(order):
+                Swimlane.objects.filter(board=board, pk=swimlane_id).update(position=pos)
+        return Response(SwimlaneSerializer(board.swimlanes.all(), many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -183,16 +183,16 @@ class CardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board = self._board()
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
-        customer = get_object_or_404(Customer, pk=serializer.validated_data["customer"].pk, board=board)
-        max_pos = Card.objects.filter(board=board, column=column, customer=customer).count()
+        swimlane = get_object_or_404(Swimlane, pk=serializer.validated_data["swimlane"].pk, board=board)
+        max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
         with transaction.atomic():
             card = serializer.save(board=board, created_by=self.request.user, position=max_pos)
             CardMovement.objects.create(
                 card=card,
                 from_column=None,
-                from_customer=None,
+                from_swimlane=None,
                 to_column=column,
-                to_customer=customer,
+                to_swimlane=swimlane,
                 moved_by=self.request.user,
                 notes="Card created",
             )
@@ -266,30 +266,30 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
 
         target_column_id = request.data.get("column_id")
-        target_customer_id = request.data.get("customer_id")
+        target_swimlane_id = request.data.get("swimlane_id")
         new_position = request.data.get("position", 0)
 
         target_column = get_object_or_404(Column, pk=target_column_id, board=board)
-        target_customer = get_object_or_404(Customer, pk=target_customer_id, board=board)
+        target_swimlane = get_object_or_404(Swimlane, pk=target_swimlane_id, board=board)
 
         column_changed = card.column_id != target_column.pk
-        customer_changed = card.customer_id != target_customer.pk
+        swimlane_changed = card.swimlane_id != target_swimlane.pk
 
         movement = None
-        if column_changed or customer_changed:
+        if column_changed or swimlane_changed:
             movement = CardMovement.objects.create(
                 card=card,
                 from_column=card.column,
                 to_column=target_column,
-                from_customer=card.customer,
-                to_customer=target_customer,
+                from_swimlane=card.swimlane,
+                to_swimlane=target_swimlane,
                 moved_by=request.user,
             )
 
         # Reorder siblings in source cell (fill gap)
-        if column_changed or customer_changed:
+        if column_changed or swimlane_changed:
             source_siblings = Card.objects.filter(
-                board=board, column=card.column, customer=card.customer
+                board=board, column=card.column, swimlane=card.swimlane
             ).exclude(pk=card.pk).order_by("position")
             for i, sibling in enumerate(source_siblings):
                 sibling.position = i
@@ -297,15 +297,15 @@ class CardViewSet(viewsets.ModelViewSet):
 
         # Shift target cell siblings to make room
         Card.objects.filter(
-            board=board, column=target_column, customer=target_customer
+            board=board, column=target_column, swimlane=target_swimlane
         ).exclude(pk=card.pk).filter(position__gte=new_position).update(
             position=F("position") + 1
         )
 
         card.column = target_column
-        card.customer = target_customer
+        card.swimlane = target_swimlane
         card.position = new_position
-        card.save(update_fields=["column", "customer", "position"])
+        card.save(update_fields=["column", "swimlane", "position"])
 
         response_data = {
             "card": CardSerializer(card, context={"request": request, "board": board}).data,
@@ -320,7 +320,7 @@ class CardViewSet(viewsets.ModelViewSet):
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         movements = card.movements.select_related(
-            "from_column", "to_column", "from_customer", "to_customer", "moved_by"
+            "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"
         )
         return Response(CardMovementSerializer(movements, many=True).data)
 

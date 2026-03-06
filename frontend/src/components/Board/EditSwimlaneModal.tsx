@@ -1,21 +1,21 @@
 import { useState } from "react";
-import { updateCustomer, deleteCustomer } from "../../api/boards";
-import type { Customer } from "../../types";
+import { updateSwimlane, deleteSwimlane } from "../../api/boards";
+import type { Swimlane } from "../../types";
 
 interface Props {
   boardId: number;
-  customer: Customer;
+  swimlane: Swimlane;
   cardCount: number;
-  onUpdated: (customer: Customer) => void;
-  onDeleted: (customerId: number) => void;
+  onUpdated: (swimlane: Swimlane) => void;
+  onDeleted: (swimlaneId: number) => void;
   onClose: () => void;
 }
 
 const COLORS = ["#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 
-export default function EditSwimlaneModal({ boardId, customer, cardCount, onUpdated, onDeleted, onClose }: Props) {
-  const [name, setName] = useState(customer.name);
-  const [color, setColor] = useState(customer.color);
+export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose }: Props) {
+  const [name, setName] = useState(swimlane.name);
+  const [color, setColor] = useState(swimlane.color);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -23,7 +23,7 @@ export default function EditSwimlaneModal({ boardId, customer, cardCount, onUpda
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const updated = await updateCustomer(boardId, customer.id, { name: name.trim(), color });
+      const updated = await updateSwimlane(boardId, swimlane.id, { name: name.trim(), color });
       onUpdated(updated);
       onClose();
     } finally {
@@ -32,8 +32,8 @@ export default function EditSwimlaneModal({ boardId, customer, cardCount, onUpda
   };
 
   const handleDelete = async () => {
-    await deleteCustomer(boardId, customer.id);
-    onDeleted(customer.id);
+    await deleteSwimlane(boardId, swimlane.id);
+    onDeleted(swimlane.id);
     onClose();
   };
 
@@ -45,7 +45,7 @@ export default function EditSwimlaneModal({ boardId, customer, cardCount, onUpda
             <>
               <h2 className="text-base font-semibold text-gray-800 mb-2">Cannot delete swimlane</h2>
               <p className="text-sm text-gray-600 mb-5">
-                <span className="font-medium">{customer.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
+                <span className="font-medium">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
               </p>
               <div className="flex justify-end">
                 <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
@@ -57,7 +57,7 @@ export default function EditSwimlaneModal({ boardId, customer, cardCount, onUpda
             <>
               <h2 className="text-base font-semibold text-gray-800 mb-2">Delete swimlane?</h2>
               <p className="text-sm text-gray-600 mb-5">
-                Delete <span className="font-medium">{customer.name}</span>? This cannot be undone.
+                Delete <span className="font-medium">{swimlane.name}</span>? This cannot be undone.
               </p>
               <div className="flex gap-3 justify-end">
                 <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition">

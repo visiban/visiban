@@ -28,7 +28,7 @@ export interface Column {
   weight_limit: number | null;
 }
 
-export interface Customer {
+export interface Swimlane {
   id: number;
   name: string;
   contact_email: string;
@@ -59,7 +59,7 @@ export interface CardAttachment {
 export interface Card {
   id: number;
   column: number;
-  customer: number;
+  swimlane: number;
   title: string;
   description: string;
   priority: Priority;
@@ -81,10 +81,10 @@ export interface CardMovement {
   from_column_name: string | null;
   to_column: number | null;
   to_column_name: string | null;
-  from_customer: number | null;
-  from_customer_name: string | null;
-  to_customer: number | null;
-  to_customer_name: string | null;
+  from_swimlane: number | null;
+  from_swimlane_name: string | null;
+  to_swimlane: number | null;
+  to_swimlane_name: string | null;
   moved_by: User | null;
   moved_at: string;
   notes: string;
@@ -132,7 +132,7 @@ export interface BoardFull {
   name: string;
   description: string;
   columns: Column[];
-  customers: Customer[];
+  swimlanes: Swimlane[];
   cards: Card[];
   labels: Label[];
   members: BoardMembership[];

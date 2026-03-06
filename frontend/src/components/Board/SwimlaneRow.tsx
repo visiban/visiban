@@ -1,10 +1,10 @@
 import { useState } from "react";
-import type { Card, Column, Customer } from "../../types";
+import type { Card, Column, Swimlane } from "../../types";
 import BoardCell from "./BoardCell";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 
 interface Props {
-  customer: Customer;
+  swimlane: Swimlane;
   columns: Column[];
   cards: Card[];
   boardId: number;
@@ -12,24 +12,24 @@ interface Props {
   filteredCardIds: Set<number> | null;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
-  onCustomerUpdated: (customer: Customer) => void;
-  onCustomerDeleted: (customerId: number) => void;
+  onSwimlaneUpdated: (swimlane: Swimlane) => void;
+  onSwimlaneDeleted: (swimlaneId: number) => void;
 }
 
-export default function SwimlaneRow({ customer, columns, cards, boardId, collapsedColumnIds, filteredCardIds, onCardClick, onCardAdded, onCustomerUpdated, onCustomerDeleted }: Props) {
-  const [collapsed, setCollapsed] = useState(customer.is_collapsed);
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, collapsedColumnIds, filteredCardIds, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted }: Props) {
+  const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
   return (
     <>
       <div className="flex border-b border-gray-200 even:bg-gray-50 odd:bg-white">
-        {/* Customer label — sticky to the left */}
+        {/* Swimlane label — sticky to the left */}
         <div className="w-[220px] shrink-0 flex items-start gap-2 px-3 py-3 sticky left-0 z-10 bg-gray-800 border-r border-gray-700 group">
           {/* Color stripe */}
-          <span className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: customer.color }} />
+          <span className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: swimlane.color }} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{customer.name}</p>
-            <p className="text-xs text-gray-400 truncate">{customer.contact_email}</p>
+            <p className="text-sm font-semibold text-white truncate">{swimlane.name}</p>
+            <p className="text-xs text-gray-400 truncate">{swimlane.contact_email}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button
@@ -63,7 +63,7 @@ export default function SwimlaneRow({ customer, columns, cards, boardId, collaps
                 <BoardCell
                   key={col.id}
                   column={col}
-                  customer={customer}
+                  swimlane={swimlane}
                   cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
                   boardId={boardId}
                   filteredCardIds={filteredCardIds}
@@ -81,10 +81,10 @@ export default function SwimlaneRow({ customer, columns, cards, boardId, collaps
       {editing && (
         <EditSwimlaneModal
           boardId={boardId}
-          customer={customer}
+          swimlane={swimlane}
           cardCount={cards.length}
-          onUpdated={(c) => { onCustomerUpdated(c); setEditing(false); }}
-          onDeleted={(id) => { onCustomerDeleted(id); setEditing(false); }}
+          onUpdated={(s) => { onSwimlaneUpdated(s); setEditing(false); }}
+          onDeleted={(id) => { onSwimlaneDeleted(id); setEditing(false); }}
           onClose={() => setEditing(false)}
         />
       )}
