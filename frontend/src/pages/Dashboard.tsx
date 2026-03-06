@@ -75,7 +75,10 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <p className="text-gray-600 text-sm">No groups yet. Create one to collaborate with others.</p>
           ) : (
             <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 px-2 py-1">
-              <GroupTree nodes={buildGroupTree(groups)} />
+              <GroupTree
+                nodes={buildGroupTree(groups)}
+                onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
+              />
             </div>
           )}
         </section>
