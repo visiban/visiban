@@ -43,7 +43,16 @@ class BoardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board = serializer.save(owner=self.request.user)
         BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
-        Column.objects.create(board=board, name="Backlog", position=0, color="#6B7280")
+        default_columns = [
+            ("Backlog", "#6B7280"),   # grey
+            ("To Do",   "#3B82F6"),   # blue
+            ("Doing",   "#F59E0B"),   # amber
+            ("Done",    "#10B981"),   # green
+        ]
+        Column.objects.bulk_create([
+            Column(board=board, name=name, position=i, color=color)
+            for i, (name, color) in enumerate(default_columns)
+        ])
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
