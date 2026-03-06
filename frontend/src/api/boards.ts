@@ -19,6 +19,9 @@ export const updateBoard = (id: number, data: Partial<Board>) =>
 export const deleteBoard = (id: number) =>
   client.delete(`/api/boards/${id}/`);
 
+export const moveBoardToGroup = (boardId: number, groupId: number | null) =>
+  client.post<Board>(`/api/boards/${boardId}/move-group/`, { group_id: groupId }).then((r) => r.data);
+
 // Columns
 export const createColumn = (boardId: number, data: { name: string; color?: string; wip_limit?: number; weight_limit?: number }) =>
   client.post<Column>(`/api/boards/${boardId}/columns/`, data).then((r) => r.data);

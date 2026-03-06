@@ -36,9 +36,13 @@ class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
 
     def get_queryset(self):
+        from django.db.models import Q
+        user = self.request.user
         return Board.objects.filter(
-            memberships__user=self.request.user
-        ).distinct() | Board.objects.filter(owner=self.request.user).distinct()
+            Q(owner=user) |
+            Q(memberships__user=user) |
+            Q(group__memberships__user=user)
+        ).distinct()
 
     def perform_create(self, serializer):
         board = serializer.save(owner=self.request.user)
@@ -61,6 +65,32 @@ class BoardViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_403_FORBIDDEN)
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="move-group")
+    def move_group(self, request, pk=None):
+        board, role = get_board_for_user(pk, request.user)
+        if board.owner != request.user and role != BoardMembership.Role.ADMIN:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        group_id = request.data.get("group_id")  # None = move to personal
+        if group_id is not None:
+            from groups.models import Group, GroupMembership
+            group = get_object_or_404(Group, pk=group_id)
+            is_member = (
+                group.owner_id == request.user.id or
+                GroupMembership.objects.filter(group=group, user=request.user).exists()
+            )
+            if not is_member:
+                return Response(
+                    {"error": "You are not a member of the target group."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            board.group = group
+        else:
+            board.group = None
+
+        board.save()
+        return Response(BoardSerializer(board).data)
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):

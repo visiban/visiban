@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import { getBoardFull, reorderColumns as apiReorderColumns, updateSwimlane as apiUpdateSwimlane, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
 
-export function useBoard(boardId: number) {
+export function useBoard() {
+  const { id } = useParams<{ id: string }>();
+  const boardId = Number(id);
   const [board, setBoard] = useState<BoardFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     # Local
     "accounts",
     "boards",
+    "groups",
 ]
 
 MIDDLEWARE = [

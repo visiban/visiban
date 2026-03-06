@@ -136,6 +136,8 @@ export interface Board {
   name: string;
   description: string;
   owner: User;
+  group: number | null;
+  group_name: string | null;
   member_count: number;
   created_at: string;
   updated_at: string;
@@ -145,6 +147,8 @@ export interface BoardFull {
   id: number;
   name: string;
   description: string;
+  group: number | null;
+  group_name: string | null;
   columns: Column[];
   swimlanes: Swimlane[];
   cards: Card[];
@@ -152,4 +156,30 @@ export interface BoardFull {
   members: BoardMembership[];
   created_at: string;
   updated_at: string;
+}
+
+export interface Group {
+  id: number;
+  name: string;
+  owner: User;
+  parent: number | null;
+  parent_name: string | null;
+  member_count: number;
+  board_count: number;
+  subgroup_count: number;
+  created_at: string;
+}
+
+export interface GroupMembership {
+  id: number;
+  user: User;
+  role: "admin" | "member";
+  joined_at: string;
+}
+
+export interface GroupInviteLink {
+  id: number;
+  token: string;
+  is_active: boolean;
+  created_at: string;
 }

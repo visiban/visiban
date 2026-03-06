@@ -126,10 +126,11 @@ class CardAttachmentSerializer(serializers.ModelSerializer):
 class BoardSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
+    group_name = serializers.CharField(source="group.name", default=None, read_only=True)
 
     class Meta:
         model = Board
-        fields = ["id", "name", "description", "owner", "member_count", "created_at", "updated_at"]
+        fields = ["id", "name", "description", "owner", "group", "group_name", "member_count", "created_at", "updated_at"]
         read_only_fields = ["created_at", "updated_at"]
 
     def get_member_count(self, obj):
@@ -142,10 +143,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
     cards = CardSerializer(many=True, read_only=True)
     labels = LabelSerializer(many=True, read_only=True)
     members = BoardMembershipSerializer(source="memberships", many=True, read_only=True)
+    group_name = serializers.CharField(source="group.name", default=None, read_only=True)
 
     class Meta:
         model = Board
         fields = [
-            "id", "name", "description", "columns", "swimlanes",
+            "id", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "created_at", "updated_at",
         ]

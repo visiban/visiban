@@ -1,15 +1,26 @@
-import { useState } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useBoard } from "./hooks/useBoard";
 import LoginPage from "./components/Auth/LoginPage";
-import BoardSelector from "./components/Layout/BoardSelector";
-import BoardView from "./components/Board/BoardView";
 import Navbar from "./components/Layout/Navbar";
-import type { Board, User } from "./types";
+import BoardView from "./components/Board/BoardView";
+import Dashboard from "./pages/Dashboard";
+import GroupDetail from "./pages/GroupDetail";
+import JoinPage from "./pages/JoinPage";
+import type { User } from "./types";
 
 export default function App() {
   const { user, loading, logout, updateUser } = useAuth();
-  const [activeBoard, setActiveBoard] = useState<Board | null>(null);
+  const navigate = useNavigate();
+
+  const handleLogin = (loggedInUser: User) => {
+    updateUser(loggedInUser);
+    const returnTo = sessionStorage.getItem("returnTo");
+    if (returnTo) {
+      sessionStorage.removeItem("returnTo");
+      navigate(returnTo);
+    }
+  };
 
   if (loading) {
     return (
@@ -19,48 +30,69 @@ export default function App() {
     );
   }
 
-  if (!user) return <LoginPage onLogin={updateUser} />;
-  if (!activeBoard) return <BoardSelector user={user} onSelect={setActiveBoard} />;
-
   return (
-    <BoardPage
-      boardId={activeBoard.id}
-      boardName={activeBoard.name}
-      user={user}
-      onLogout={logout}
-      onBack={() => setActiveBoard(null)}
-      onUserUpdated={updateUser}
-    />
+    <Routes>
+      {/* Public — accessible regardless of auth */}
+      <Route path="/join/:token" element={<JoinPage user={user} onLogin={handleLogin} />} />
+
+      {/* Auth-gated routes */}
+      {user ? (
+        <>
+          <Route path="/" element={
+            <Dashboard user={user} onLogout={logout} onUserUpdated={updateUser} />
+          } />
+          <Route path="/groups/:id" element={
+            <GroupDetail user={user} onLogout={logout} onUserUpdated={updateUser} />
+          } />
+          <Route path="/boards/:id" element={
+            <BoardPage user={user} onLogout={logout} onUserUpdated={updateUser} />
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </>
+      ) : (
+        <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
+      )}
+    </Routes>
   );
 }
 
-function BoardPage({
-  boardId, boardName, user, onLogout, onBack, onUserUpdated,
-}: {
-  boardId: number;
-  boardName: string;
+function BoardPage({ user, onLogout, onUserUpdated }: {
   user: User;
   onLogout: () => void;
-  onBack: () => void;
   onUserUpdated: (user: User) => void;
 }) {
-  const { board, loading, error, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane } = useBoard(boardId);
+  const navigate = useNavigate();
+  const { board, loading, error, moveCard, addCard, removeCard, addColumn, removeColumn,
+    addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane
+  } = useBoard();
+
+  const handleBack = () => {
+    if (board?.group) {
+      navigate(`/groups/${board.group}`);
+    } else {
+      navigate("/");
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Navbar user={user} boardName={boardName} onLogout={onLogout} onUserUpdated={onUserUpdated} />
+      <Navbar
+        user={user}
+        onLogout={onLogout}
+        onUserUpdated={onUserUpdated}
+        breadcrumb={[
+          ...(board?.group ? [{ label: board.group_name ?? "Group", href: `/groups/${board.group}` }] : []),
+          { label: board?.name ?? "…" },
+        ]}
+      />
       <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
-        <button onClick={onBack} className="text-gray-400 hover:text-white text-sm transition">
-          ← Boards
+        <button onClick={handleBack} className="text-gray-400 hover:text-white text-sm transition">
+          ← {board?.group ? (board.group_name ?? "Group") : "Dashboard"}
         </button>
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
-        {loading && (
-          <div className="flex items-center justify-center h-full text-gray-400">Loading board…</div>
-        )}
-        {error && (
-          <div className="flex items-center justify-center h-full text-red-400">{error}</div>
-        )}
+        {loading && <div className="flex items-center justify-center h-full text-gray-400">Loading board…</div>}
+        {error && <div className="flex items-center justify-center h-full text-red-400">{error}</div>}
         {board && (
           <BoardView
             board={board}
