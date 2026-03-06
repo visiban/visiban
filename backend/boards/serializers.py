@@ -2,7 +2,7 @@ from rest_framework import serializers
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from .models import (
-    Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment, CardActivity
+    Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment
 )
 
 
@@ -74,19 +74,39 @@ class CardSerializer(serializers.ModelSerializer):
         write_only=True, read_only=False, queryset=User.objects.all(), source="assignee", required=False, allow_null=True
     )
     last_moved_at = serializers.SerializerMethodField()
+    attachment_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
         fields = [
             "id", "column", "customer", "title", "description", "priority",
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
-            "weight", "position", "created_by", "created_at", "updated_at", "last_moved_at",
+            "weight", "position", "created_by", "created_at", "updated_at",
+            "last_moved_at", "attachment_count",
         ]
         read_only_fields = ["created_by", "created_at", "updated_at"]
 
     def get_last_moved_at(self, obj):
         movement = obj.movements.first()
         return movement.moved_at if movement else None
+
+    def get_attachment_count(self, obj):
+        return obj.attachments.count()
+
+
+class CardAttachmentSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CardAttachment
+        fields = ["id", "filename", "size", "url", "uploaded_by", "uploaded_at"]
+
+    def get_url(self, obj):
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
 
 
 class BoardSerializer(serializers.ModelSerializer):

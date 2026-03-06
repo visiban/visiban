@@ -7,12 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment, CardActivity
+from .models import Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment
 from .permissions import IsBoardMember, IsBoardAdminOrOwner, get_board_role
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     ColumnSerializer, CustomerSerializer, LabelSerializer,
-    CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer,
+    CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer, CardAttachmentSerializer,
 )
 from accounts.models import User
 from accounts.serializers import UserSerializer
@@ -326,4 +326,46 @@ class CardViewSet(viewsets.ModelViewSet):
             from_value="", to_value="", actor=request.user,
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get", "post"], url_path="attachments")
+    def attachments(self, request, board_pk=None, pk=None):
+        from django.conf import settings as django_settings
+        board = self._board()
+        card = get_object_or_404(Card, pk=pk, board=board)
+
+        if request.method == "GET":
+            serializer = CardAttachmentSerializer(
+                card.attachments.all(), many=True, context={"request": request}
+            )
+            return Response(serializer.data)
+
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_size = getattr(django_settings, "MAX_UPLOAD_SIZE", 10 * 1024 * 1024)
+        if file.size > max_size:
+            return Response(
+                {"detail": f"File too large. Maximum size is {max_size // (1024 * 1024)} MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        attachment = CardAttachment.objects.create(
+            card=card,
+            file=file,
+            filename=file.name,
+            size=file.size,
+            uploaded_by=request.user,
+        )
+        serializer = CardAttachmentSerializer(attachment, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path="attachments/(?P<attachment_pk>[^/.]+)")
+    def delete_attachment(self, request, board_pk=None, pk=None, attachment_pk=None):
+        board = self._board()
+        card = get_object_or_404(Card, pk=pk, board=board)
+        attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
+        attachment.file.delete(save=False)
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 

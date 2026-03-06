@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardMovement, CardComment, Priority } from "../types";
+import type { Card, CardActivity, CardAttachment, CardMovement, CardComment, Priority } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -45,3 +45,17 @@ export const addCardComment = (boardId: number, cardId: number, body: string) =>
 
 export const getCardActivities = (boardId: number, cardId: number) =>
   client.get<CardActivity[]>(`/api/boards/${boardId}/cards/${cardId}/activities/`).then((r) => r.data);
+
+export const getCardAttachments = (boardId: number, cardId: number) =>
+  client.get<CardAttachment[]>(`/api/boards/${boardId}/cards/${cardId}/attachments/`).then((r) => r.data);
+
+export const uploadCardAttachment = (boardId: number, cardId: number, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return client.post<CardAttachment>(`/api/boards/${boardId}/cards/${cardId}/attachments/`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }).then((r) => r.data);
+};
+
+export const deleteCardAttachment = (boardId: number, cardId: number, attachmentId: number) =>
+  client.delete(`/api/boards/${boardId}/cards/${cardId}/attachments/${attachmentId}/`);

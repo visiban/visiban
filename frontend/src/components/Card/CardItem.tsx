@@ -56,6 +56,9 @@ export default function CardItem({ card, onClick, overlay }: Props) {
             {isRecent && (
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" title="Recently moved" />
             )}
+            {card.attachment_count > 0 && (
+              <span className="text-gray-400 text-xs leading-none" title={`${card.attachment_count} attachment${card.attachment_count !== 1 ? "s" : ""}`}>📎</span>
+            )}
             {/* Weight badge */}
             <span className="text-xs text-gray-400 font-medium" title="Weight">
               {card.weight}
