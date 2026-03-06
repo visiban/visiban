@@ -7,6 +7,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardFull, Card, Column, Customer, Label } from "../../types";
 import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
@@ -26,12 +27,14 @@ interface Props {
   onCardUpdated: (card: Card) => void;
   onColumnAdded: (column: Column) => void;
   onColumnUpdated: (column: Column) => void;
+  onColumnsReordered: (orderedIds: number[]) => void;
   onCustomerAdded: (customer: Customer) => void;
   onLabelAdded: (label: Label) => void;
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onCustomerAdded, onLabelAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnsReordered, onCustomerAdded, onLabelAdded }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -91,17 +94,36 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragStart = (e: DragStartEvent) => {
-    const card = board.cards.find((c) => c.id === Number(e.active.id));
-    setActiveCard(card ?? null);
+    const id = String(e.active.id);
+    if (id.startsWith("col:")) {
+      const colId = Number(id.slice(4));
+      setActiveColumn(board.columns.find((c) => c.id === colId) ?? null);
+    } else {
+      setActiveCard(board.cards.find((c) => c.id === Number(id)) ?? null);
+    }
   };
 
   const handleDragEnd = (e: DragEndEvent) => {
-    setActiveCard(null);
     const { over, active } = e;
-    if (!over) return;
+    const activeId = String(active.id);
 
+    if (activeId.startsWith("col:")) {
+      setActiveColumn(null);
+      if (!over) return;
+      const overId = String(over.id);
+      if (activeId === overId) return;
+      const oldIndex = board.columns.findIndex((c) => `col:${c.id}` === activeId);
+      const newIndex = board.columns.findIndex((c) => `col:${c.id}` === overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const reordered = arrayMove(board.columns, oldIndex, newIndex);
+      onColumnsReordered(reordered.map((c) => c.id));
+      return;
+    }
+
+    setActiveCard(null);
+    if (!over) return;
     const [, colId, custId] = String(over.id).split(":");
-    const cardId = Number(active.id);
+    const cardId = Number(activeId);
     const card = board.cards.find((c) => c.id === cardId);
     if (!card) return;
 
@@ -158,17 +180,19 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               </button>
             </div>
 
-            {board.columns.map((col) => (
-              <ColumnHeader
-                key={col.id}
-                column={col}
-                cards={board.cards.filter((c) => c.column === col.id)}
-                boardId={board.id}
-                onColumnUpdated={onColumnUpdated}
-                collapsed={collapsedColumns.has(col.id)}
-                onToggleCollapse={() => toggleColumn(col.id)}
-              />
-            ))}
+            <SortableContext items={board.columns.map((c) => `col:${c.id}`)} strategy={horizontalListSortingStrategy}>
+              {board.columns.map((col) => (
+                <ColumnHeader
+                  key={col.id}
+                  column={col}
+                  cards={board.cards.filter((c) => c.column === col.id)}
+                  boardId={board.id}
+                  onColumnUpdated={onColumnUpdated}
+                  collapsed={collapsedColumns.has(col.id)}
+                  onToggleCollapse={() => toggleColumn(col.id)}
+                />
+              ))}
+            </SortableContext>
 
             <div className="w-20 shrink-0 flex items-center px-2 bg-gray-50 border-l border-gray-200">
               <button
@@ -210,6 +234,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
         <DragOverlay>
           {activeCard && <CardItem card={activeCard} overlay />}
+          {activeColumn && (
+            <div className="flex-1 min-w-[180px] px-3 py-3 border border-blue-400 bg-blue-50 rounded shadow-xl opacity-90">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
+                <span className="font-semibold text-gray-700 text-sm">{activeColumn.name}</span>
+              </div>
+            </div>
+          )}
         </DragOverlay>
       </DndContext>
 

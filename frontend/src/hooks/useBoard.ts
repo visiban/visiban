@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getBoardFull } from "../api/boards";
+import { getBoardFull, reorderColumns as apiReorderColumns } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, Card, Column, Customer, Label } from "../types";
 
@@ -80,5 +80,21 @@ export function useBoard(boardId: number) {
     setBoard((b) => b ? { ...b, labels: [...b.labels, label] } : b);
   }, []);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel };
+  const reorderColumns = useCallback(async (orderedIds: number[]) => {
+    if (!board) return;
+    const prev = board.columns;
+    setBoard((b) => {
+      if (!b) return b;
+      const map = new Map(b.columns.map((c) => [c.id, c]));
+      return { ...b, columns: orderedIds.map((id) => map.get(id)!).filter(Boolean) };
+    });
+    try {
+      const updated = await apiReorderColumns(boardId, orderedIds);
+      setBoard((b) => b ? { ...b, columns: updated } : b);
+    } catch {
+      setBoard((b) => b ? { ...b, columns: prev } : b);
+    }
+  }, [board, boardId]);
+
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, addCustomer, updateCard, updateColumn, addLabel, reorderColumns };
 }
