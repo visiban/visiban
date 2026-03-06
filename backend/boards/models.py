@@ -171,3 +171,28 @@ class CardComment(models.Model):
     class Meta:
         db_table = "card_comments"
         ordering = ["created_at"]
+
+
+class CardActivity(models.Model):
+    class EventType(models.TextChoices):
+        PRIORITY_CHANGE = "priority_change", "Priority changed"
+        WEIGHT_CHANGE = "weight_change", "Weight changed"
+        ASSIGNEE_CHANGE = "assignee_change", "Assignee changed"
+        LABEL_CHANGE = "label_change", "Labels changed"
+        DESCRIPTION_CHANGE = "description_change", "Description changed"
+        COMMENT_ADDED = "comment_added", "Comment added"
+        ATTACHMENT_ADDED = "attachment_added", "Attachment added"
+        ATTACHMENT_DELETED = "attachment_deleted", "Attachment deleted"
+
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="activities")
+    event_type = models.CharField(max_length=30, choices=EventType.choices)
+    from_value = models.TextField(blank=True)
+    to_value = models.TextField(blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "card_activities"
+        ordering = ["-created_at"]

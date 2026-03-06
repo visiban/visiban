@@ -75,6 +75,25 @@ export interface CardMovement {
   notes: string;
 }
 
+export type CardActivityEventType =
+  | "priority_change"
+  | "weight_change"
+  | "assignee_change"
+  | "label_change"
+  | "description_change"
+  | "comment_added"
+  | "attachment_added"
+  | "attachment_deleted";
+
+export interface CardActivity {
+  id: number;
+  event_type: CardActivityEventType;
+  from_value: string;
+  to_value: string;
+  actor: User | null;
+  created_at: string;
+}
+
 export interface CardComment {
   id: number;
   author: User | null;

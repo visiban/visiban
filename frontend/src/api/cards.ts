@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardMovement, CardComment, Priority } from "../types";
+import type { Card, CardActivity, CardMovement, CardComment, Priority } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -42,3 +42,6 @@ export const getCardComments = (boardId: number, cardId: number) =>
 
 export const addCardComment = (boardId: number, cardId: number, body: string) =>
   client.post<CardComment>(`/api/boards/${boardId}/cards/${cardId}/comments/`, { body }).then((r) => r.data);
+
+export const getCardActivities = (boardId: number, cardId: number) =>
+  client.get<CardActivity[]>(`/api/boards/${boardId}/cards/${cardId}/activities/`).then((r) => r.data);

@@ -7,12 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment
+from .models import Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment, CardActivity
 from .permissions import IsBoardMember, IsBoardAdminOrOwner, get_board_role
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     ColumnSerializer, CustomerSerializer, LabelSerializer,
-    CardSerializer, CardMovementSerializer, CardCommentSerializer,
+    CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer,
 )
 from accounts.models import User
 from accounts.serializers import UserSerializer
@@ -178,6 +178,68 @@ class CardViewSet(viewsets.ModelViewSet):
         max_pos = Card.objects.filter(board=board, column=column, customer=customer).count()
         serializer.save(board=board, created_by=self.request.user, position=max_pos)
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        card = self.get_object()
+
+        # Snapshot before update
+        old_priority = card.priority
+        old_weight = card.weight
+        old_assignee_id = card.assignee_id
+        old_assignee_name = card.assignee.username if card.assignee else "Unassigned"
+        old_description = card.description
+        old_label_ids = set(card.labels.values_list("id", flat=True))
+
+        serializer = self.get_serializer(card, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        card.refresh_from_db()
+
+        activities = []
+        ET = CardActivity.EventType
+
+        if old_priority != card.priority:
+            activities.append(CardActivity(
+                card=card, event_type=ET.PRIORITY_CHANGE,
+                from_value=old_priority, to_value=card.priority, actor=request.user,
+            ))
+        if old_weight != card.weight:
+            activities.append(CardActivity(
+                card=card, event_type=ET.WEIGHT_CHANGE,
+                from_value=str(old_weight), to_value=str(card.weight), actor=request.user,
+            ))
+        if old_assignee_id != card.assignee_id:
+            new_name = card.assignee.username if card.assignee else "Unassigned"
+            activities.append(CardActivity(
+                card=card, event_type=ET.ASSIGNEE_CHANGE,
+                from_value=old_assignee_name, to_value=new_name, actor=request.user,
+            ))
+        if old_description != card.description and "description" in request.data:
+            activities.append(CardActivity(
+                card=card, event_type=ET.DESCRIPTION_CHANGE,
+                from_value="", to_value="", actor=request.user,
+            ))
+        new_label_ids = set(card.labels.values_list("id", flat=True))
+        if old_label_ids != new_label_ids:
+            added = new_label_ids - old_label_ids
+            removed = old_label_ids - new_label_ids
+            parts = []
+            if added:
+                names = list(Label.objects.filter(id__in=added).values_list("name", flat=True))
+                parts.append(f"+{', '.join(names)}")
+            if removed:
+                names = list(Label.objects.filter(id__in=removed).values_list("name", flat=True))
+                parts.append(f"-{', '.join(names)}")
+            activities.append(CardActivity(
+                card=card, event_type=ET.LABEL_CHANGE,
+                from_value="", to_value=", ".join(parts), actor=request.user,
+            ))
+
+        if activities:
+            CardActivity.objects.bulk_create(activities)
+
+        return Response(serializer.data)
+
     @action(detail=True, methods=["post"])
     @transaction.atomic
     def move(self, request, board_pk=None, pk=None):
@@ -243,6 +305,13 @@ class CardViewSet(viewsets.ModelViewSet):
         )
         return Response(CardMovementSerializer(movements, many=True).data)
 
+    @action(detail=True, methods=["get"])
+    def activities(self, request, board_pk=None, pk=None):
+        board = self._board()
+        card = get_object_or_404(Card, pk=pk, board=board)
+        serializer = CardActivitySerializer(card.activities.select_related("actor"), many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=["post", "get"])
     def comments(self, request, board_pk=None, pk=None):
         board = self._board()
@@ -252,5 +321,9 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save(card=card, author=request.user)
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
+            from_value="", to_value="", actor=request.user,
+        )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
