@@ -2,7 +2,7 @@ from rest_framework import serializers
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from .models import (
-    Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment
+    Board, BoardMembership, Column, Customer, Label, Card, CardMovement, CardComment, CardActivity
 )
 
 
@@ -54,6 +54,14 @@ class CardCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardComment
         fields = ["id", "author", "body", "created_at", "updated_at"]
+
+
+class CardActivitySerializer(serializers.ModelSerializer):
+    actor = UserSerializer(read_only=True)
+
+    class Meta:
+        model = CardActivity
+        fields = ["id", "event_type", "from_value", "to_value", "actor", "created_at"]
 
 
 class CardSerializer(serializers.ModelSerializer):
