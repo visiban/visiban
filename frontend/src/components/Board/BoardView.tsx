@@ -14,6 +14,8 @@ import CardItem from "../Card/CardItem";
 import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddCustomerModal from "../Customer/AddCustomerModal";
+import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
+import type { FilterState } from "./FilterBar";
 
 interface Props {
   board: BoardFull;
@@ -33,6 +35,50 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
+
+  const filteredCardIds: Set<number> | null = (() => {
+    if (countActiveFilters(filters) === 0) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    const matching = board.cards.filter((card) => {
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        const matches =
+          card.title.toLowerCase().includes(q) ||
+          card.description.toLowerCase().includes(q) ||
+          (card.assignee && `${card.assignee.first_name} ${card.assignee.last_name} ${card.assignee.username}`.toLowerCase().includes(q)) ||
+          card.labels.some((l) => l.name.toLowerCase().includes(q));
+        if (!matches) return false;
+      }
+      if (filters.assigneeId !== null) {
+        if (filters.assigneeId === -1 && card.assignee !== null) return false;
+        if (filters.assigneeId !== -1 && card.assignee?.id !== filters.assigneeId) return false;
+      }
+      if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
+      if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;
+      if (filters.dueDate !== null) {
+        if (filters.dueDate === "none" && card.due_date !== null) return false;
+        if (filters.dueDate === "overdue") {
+          if (!card.due_date || new Date(card.due_date) >= today) return false;
+        }
+        if (filters.dueDate === "today") {
+          if (!card.due_date) return false;
+          const d = new Date(card.due_date);
+          if (d.getTime() !== today.getTime()) return false;
+        }
+        if (filters.dueDate === "this_week") {
+          if (!card.due_date) return false;
+          const d = new Date(card.due_date);
+          if (d < today || d >= nextWeek) return false;
+        }
+      }
+      return true;
+    });
+    return new Set(matching.map((c) => c.id));
+  })();
 
   const toggleColumn = (id: number) => setCollapsedColumns((prev) => {
     const next = new Set(prev);
@@ -68,6 +114,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   return (
     <>
+      <FilterBar board={board} filters={filters} onChange={setFilters} />
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {/*
           Single scroll container — header and body share the same horizontal
@@ -117,6 +164,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               cards={board.cards.filter((c) => c.customer === customer.id)}
               boardId={board.id}
               collapsedColumnIds={collapsedColumns}
+              filteredCardIds={filteredCardIds}
               onCardClick={setSelectedCard}
               onCardAdded={onCardAdded}
             />
