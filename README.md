@@ -79,16 +79,57 @@ This starts four services:
 
 | Service | URL | Description |
 |---|---|---|
-| Frontend | http://localhost:5173 | React app |
+| Frontend | http://localhost:5173 | React app (Vite dev server) |
 | Backend API | http://localhost:8000 | Django REST API + WebSocket server |
 | Django admin | http://localhost:8000/admin | Admin panel |
 | Redis | (internal) | WebSocket channel layer |
+
+This setup is for **local development only**. For a production deployment with HTTPS, see step 3.
 
 ### 3. Log in
 
 On first boot, the backend prints a one-time admin password to the terminal logs. Use it to log in at http://localhost:5173. You'll be prompted to change it immediately.
 
 See [First Boot](docs/getting-started/first-boot.md) for details.
+
+---
+
+## Production deployment
+
+For a public-facing server, use the production stack which swaps the Vite dev server for a built React app served by Nginx with automatic HTTPS via Let's Encrypt.
+
+**Prerequisites:** a server with ports 80 and 443 open, and a DNS A record pointing your domain to the server's IP.
+
+```bash
+git clone https://gitlab.com/kellyhair/visiban.git
+cd visiban
+cp .env.example .env
+```
+
+Edit `.env` and add the production values:
+
+```
+DJANGO_SECRET_KEY=<long random string>
+DEBUG=false
+ALLOWED_HOSTS=yourdomain.com
+CORS_ALLOWED_ORIGINS=https://yourdomain.com
+SITE_DOMAIN=yourdomain.com
+
+DOMAIN=yourdomain.com
+CERTBOT_EMAIL=admin@yourdomain.com
+DB_PASSWORD=<strong password>
+```
+
+Then run the one-time setup script:
+
+```bash
+chmod +x init-letsencrypt.sh
+./init-letsencrypt.sh
+```
+
+The script obtains the TLS certificate and starts the full stack. Visiban is then live at `https://yourdomain.com`. Certificates renew automatically.
+
+Full instructions, troubleshooting, and subsequent deploy steps are in [docs/getting-started/installation.md](docs/getting-started/installation.md#production-with-https).
 
 ---
 
@@ -140,7 +181,7 @@ Each card has:
 | Weight | Numeric effort estimate (default 1, hidden when 1) |
 | Checklist | Sub-tasks with checked/unchecked state; progress shown on the card |
 | Attachments | Files up to 10 MB each; count shown on the card |
-| Comments | Visible to all board members; type `@` to mention a member |
+| Comments | Visible to all board members; type `@` to mention a member; timestamps show relative time for recent comments and full date + time for older ones |
 
 ### Card movement history
 
@@ -172,7 +213,7 @@ All open tabs on the same board stay in sync over a WebSocket connection. Card m
 
 ### Groups
 
-Boards are organised into a group hierarchy — groups can contain subgroups to any depth.
+Boards are organized into a group hierarchy — groups can contain subgroups to any depth.
 
 - Group membership is **inherited**: a member of a parent group automatically has access to all subgroups and their boards
 - Group admins can create subgroups, manage members, and generate shareable **invite links** for onboarding users without knowing their username in advance

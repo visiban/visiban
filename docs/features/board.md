@@ -49,7 +49,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Weight | Numeric effort estimate (default 1) |
 | Checklist | Sub-tasks with checked/unchecked state |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE`) |
-| Comments | Threaded, visible to all board members; type `@` to mention a member and send them a notification |
+| Comments | Threaded, visible to all board members; type `@` to mention a member; timestamps show relative time ("5m ago", "3h ago") for recent comments and full date + time for older ones |
 
 ## Drag and drop
 

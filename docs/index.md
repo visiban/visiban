@@ -12,6 +12,7 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 - **Groups** — organize boards into groups and sub-groups with inherited membership
 - **RBAC** — five roles with fine-grained per-board and per-group permissions
 - **OAuth** — Google, GitHub, and GitLab login out of the box
+- **Production-ready** — Nginx reverse proxy + automatic Let's Encrypt TLS via `docker-compose.prod.yml` and `init-letsencrypt.sh`
 
 ## Quick links
 

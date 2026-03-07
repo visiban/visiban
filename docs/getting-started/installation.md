@@ -71,18 +71,37 @@ OAuth variables are documented in [OAuth Setup](oauth.md).
 
 ## Production with HTTPS
 
-The production stack uses `docker-compose.prod.yml` which replaces the Vite dev server with:
+The production stack (`docker-compose.prod.yml`) replaces the Vite dev server with:
 
-- A **multi-stage frontend build** (`npm run build`) producing optimized static files
-- **Nginx** serving the static files and proxying `/api/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend
-- **Certbot** obtaining and auto-renewing a Let's Encrypt TLS certificate
+| Component | Role |
+|---|---|
+| **Nginx** | Serves the compiled React app; proxies `/api/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend |
+| **Frontend build** | `npm run build` runs once at startup and outputs static files to a shared volume |
+| **Certbot** | Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours |
 
 ### Prerequisites
 
-- A public-facing server (VPS, cloud VM, etc.) with ports **80** and **443** open
-- A DNS A record pointing `yourdomain.com` → your server's IP
+- A Linux server (VPS, cloud VM, bare metal) reachable on the public internet
+- Ports **80** and **443** open in your firewall / security group
+- A DNS **A record** pointing `yourdomain.com` → your server's public IP
+  (Let's Encrypt verifies domain ownership before issuing a certificate — DNS must resolve before running the init script)
+- **Docker** and **Docker Compose** installed
+- **`envsubst`** available on the host (used to render the nginx config template)
 
-### First boot
+Installing `envsubst`:
+
+```bash
+# Ubuntu / Debian
+sudo apt-get install -y gettext-base
+
+# CentOS / RHEL / Amazon Linux
+sudo yum install -y gettext
+
+# macOS (Homebrew)
+brew install gettext && brew link --force gettext
+```
+
+### Step 1 — Clone and configure
 
 ```bash
 git clone https://gitlab.com/kellyhair/visiban.git
@@ -90,44 +109,112 @@ cd visiban
 cp .env.example .env
 ```
 
-Edit `.env` and set **at minimum**:
+Open `.env` in a text editor and set the following values. Every line marked **required** must be changed before continuing.
 
+```bash
+# Django
+DJANGO_SECRET_KEY=<long random string>   # required — generate: python -c "import secrets; print(secrets.token_urlsafe(50))"
+DEBUG=false                              # required — never run DEBUG=true in production
+ALLOWED_HOSTS=yourdomain.com            # required
+CORS_ALLOWED_ORIGINS=https://yourdomain.com  # required
+SITE_DOMAIN=yourdomain.com             # required — used for OAuth callback URLs
+
+# Database (Postgres runs inside Docker Compose)
+DATABASE_URL=postgres://visiban:${DB_PASSWORD}@db:5432/visiban
+DB_PASSWORD=<strong password>           # required — used by both Django and Postgres
+
+# Redis (runs inside Docker Compose — no change needed)
+REDIS_URL=redis://redis:6379/0
+
+# Let's Encrypt
+DOMAIN=yourdomain.com                   # required — must match your DNS A record
+CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alerts
+
+# App version (update on each release)
+APP_VERSION=0.2.0-beta.1
 ```
-DJANGO_SECRET_KEY=<long random string>
-DEBUG=false
-ALLOWED_HOSTS=yourdomain.com
-CORS_ALLOWED_ORIGINS=https://yourdomain.com
-SITE_DOMAIN=yourdomain.com
 
-DOMAIN=yourdomain.com
-CERTBOT_EMAIL=admin@yourdomain.com
-DB_PASSWORD=<strong password>
-```
+> **OAuth** (Google, GitHub, GitLab) is optional. See [OAuth Setup](oauth.md) if you want social login.
 
-Then run the init script (requires Docker and `envsubst` from the `gettext` package):
+### Step 2 — Run the init script
 
 ```bash
 chmod +x init-letsencrypt.sh
 ./init-letsencrypt.sh
 ```
 
-The script:
-1. Generates `nginx/app.conf` from the template using your `DOMAIN`
-2. Builds the application images
-3. Runs certbot in standalone mode to obtain the TLS certificate (briefly binds port 80)
-4. Starts the full stack (`db`, `redis`, `backend`, `frontend-build`, `nginx`, `certbot`)
+The script performs these steps automatically:
 
-Visiban is then available at `https://yourdomain.com`.
+1. Renders `nginx/app.conf` from `nginx/app.conf.template` using your `DOMAIN`
+2. Builds the backend and frontend Docker images
+3. Runs the **certbot standalone** container — it temporarily binds port 80 to complete the ACME HTTP-01 challenge and obtain the certificate
+4. Starts the full stack: `db`, `redis`, `backend`, `nginx`, `frontend-build`, `certbot`
+
+When it finishes you will see:
+
+```
+  Visiban is live at https://yourdomain.com
+```
+
+### Step 3 — Verify
+
+| Check | Expected |
+|---|---|
+| `https://yourdomain.com` loads | React app renders and you can log in |
+| `http://yourdomain.com` | Redirects to HTTPS |
+| Green **Live** dot in toolbar | WebSocket connected |
+| `https://yourdomain.com/admin/` | Django admin accessible |
+
+The backend prints a one-time admin password on first boot — run `docker compose -f docker-compose.prod.yml logs backend` to retrieve it.
 
 ### Subsequent deploys
+
+Pull the latest code and rebuild:
 
 ```bash
 git pull origin main
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-This rebuilds images and re-runs the frontend build before nginx restarts.
+This rebuilds images, re-runs the frontend build (output replaces the previous static files in the shared volume), and restarts services with zero manual steps.
 
 ### Certificate renewal
 
-The `certbot` container runs `certbot renew` every 12 hours automatically. No manual action needed.
+The `certbot` container calls `certbot renew` every 12 hours. Let's Encrypt certificates are valid for 90 days and are renewed automatically when fewer than 30 days remain. No manual action is required.
+
+To check renewal status:
+
+```bash
+docker compose -f docker-compose.prod.yml logs certbot
+```
+
+### Stopping and starting
+
+```bash
+# Stop all services (data volumes are preserved)
+docker compose -f docker-compose.prod.yml down
+
+# Start again (no rebuild needed unless code changed)
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Troubleshooting
+
+**`certbot: error: Could not bind to port 80`**
+Something else is already using port 80. Stop it before running the init script:
+```bash
+sudo systemctl stop nginx apache2   # or whichever service holds port 80
+./init-letsencrypt.sh
+```
+
+**`Challenge failed: DNS problem: NXDOMAIN`**
+Your DNS A record hasn't propagated yet. Check with `dig yourdomain.com` — it must return your server's IP before certbot can issue a certificate. Wait a few minutes and retry.
+
+**Let's Encrypt rate limit**
+If you hit the issuance limit (5 certs per domain per week during testing), add `--staging` to the certbot command in `init-letsencrypt.sh` to use the Let's Encrypt staging environment. Remove it once you're ready for a real certificate.
+
+**Nginx `502 Bad Gateway`**
+The backend may still be starting up. Check: `docker compose -f docker-compose.prod.yml logs backend`. Wait for the `daphne` line to appear before reloading the page.
+
+**`nginx/app.conf` is missing**
+This file is generated by `init-letsencrypt.sh` and is intentionally excluded from version control. If you delete it, re-run the init script (it will skip cert issuance if the cert already exists).
