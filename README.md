@@ -145,7 +145,8 @@ The board is a grid of columns and swimlane rows. Drop cards into any column to 
 
 - Drag cards between columns to advance them through your stages
 - Drag column headers left or right to reorder stages
-- Right-click any column to add a card directly into that stage and swimlane
+- Hover a column header to reveal **+** buttons at its edges — insert a new column immediately left or right without drag-reordering
+- Right-click any board cell to add a card directly into that column and swimlane
 - Swimlanes can be collapsed to save screen space
 - Columns can be collapsed — they span the full board height and display per-swimlane card counts
 - Column headers stay fixed as you scroll horizontally
@@ -253,7 +254,7 @@ In-app notifications for card assignment, @mentions in comments, and cards that 
 | Cache / Pub-Sub | Redis 7 (Django Channels channel layer) |
 | Real-time | Django Channels 4, channels-redis |
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS 3 |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
 | Drag & drop | @dnd-kit/core + @dnd-kit/sortable |
 | Infra | Docker Compose, Nginx, Helm (Kubernetes) |
 
