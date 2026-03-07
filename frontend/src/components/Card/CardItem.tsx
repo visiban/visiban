@@ -69,6 +69,15 @@ export default function CardItem({ card, onClick, overlay }: Props) {
       <div className="px-2.5 py-2">
         <p className="text-xs font-medium text-gray-800 leading-snug line-clamp-2">{card.title}</p>
 
+        {/* Description — revealed on hover */}
+        {card.description && (
+          <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-150 ease-out">
+            <p className="text-[10px] text-gray-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-gray-50 pt-1.5">
+              {card.description}
+            </p>
+          </div>
+        )}
+
         {hasMetadata && (
           <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
             {/* Label pills */}
@@ -109,6 +118,14 @@ export default function CardItem({ card, onClick, overlay }: Props) {
             )}
 
             <span className="flex-1 min-w-0" />
+
+            {/* Priority label — visible on hover */}
+            <span
+              className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0 capitalize"
+              style={{ color: priorityColor }}
+            >
+              {card.priority}
+            </span>
 
             {/* Stale indicator */}
             {card.is_stale && (
