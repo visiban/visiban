@@ -4,6 +4,9 @@ import type { User } from "../types";
 export const getCurrentUser = () =>
   client.get<User>("/api/auth/user/").then((r) => r.data);
 
+export const getVersion = () =>
+  client.get<{ version: string }>("/api/version/").then((r) => r.data.version);
+
 export const updateCurrentUser = (data: Partial<Pick<User, "display_name" | "first_name" | "last_name" | "email" | "username">>) =>
   client.patch<User>("/api/auth/user/", data).then((r) => r.data);
 
