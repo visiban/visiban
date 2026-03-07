@@ -74,7 +74,7 @@ function ViewToggle({
 export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
-  const canComment = canEdit || board.current_user_role === "collaborator";
+  const _canComment = canEdit || board.current_user_role === "collaborator";
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     if (event.type === "card.created") {
@@ -190,7 +190,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const toggleColumn = (id: number) => setCollapsedColumns((prev) => {
     const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) { next.delete(id); } else { next.add(id); }
     return next;
   });
 

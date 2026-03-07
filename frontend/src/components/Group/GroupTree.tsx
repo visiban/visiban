@@ -42,7 +42,7 @@ export default function GroupTree({ nodes, onGroupCreated }: GroupTreeProps) {
 function GroupNode({
   node,
   onGroupCreated,
-  isLast = true,
+  isLast: _isLast = true,
   depth = 0,
 }: {
   node: TreeNode;
