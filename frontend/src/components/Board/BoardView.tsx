@@ -21,6 +21,7 @@ import CardItem from "../Card/CardItem";
 import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
+import BoardMembersModal from "./BoardMembersModal";
 import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
 
@@ -88,6 +89,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [showAddSwimlane, setShowAddSwimlane] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
@@ -247,6 +249,17 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             Clear
           </button>
         )}
+        {isAdmin && (
+          <>
+            <span className="w-px h-4 bg-gray-200 ml-auto" />
+            <button
+              onClick={() => setShowMembers(true)}
+              className="text-xs text-gray-500 hover:text-gray-800 transition"
+            >
+              Members ({board.members.length})
+            </button>
+          </>
+        )}
       </div>
       {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} />}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
@@ -368,6 +381,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           boardId={board.id}
           onAdded={(swimlane) => { onSwimlaneAdded(swimlane); setShowAddSwimlane(false); }}
           onClose={() => setShowAddSwimlane(false)}
+        />
+      )}
+
+      {isAdmin && showMembers && (
+        <BoardMembersModal
+          board={board}
+          onClose={() => setShowMembers(false)}
+          onMembersChanged={() => setShowMembers(false)}
         />
       )}
     </>
