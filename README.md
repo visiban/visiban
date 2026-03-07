@@ -1,7 +1,7 @@
 # Visiban
 
-![Backend tests](https://img.shields.io/badge/backend%20tests-39%20passing-brightgreen)
-![Frontend tests](https://img.shields.io/badge/frontend%20tests-20%20passing-brightgreen)
+[![coverage](https://gitlab.com/kellyhair/visiban/badges/main/coverage.svg)](https://gitlab.com/kellyhair/visiban/-/pipelines)
+[![pipeline](https://gitlab.com/kellyhair/visiban/badges/main/pipeline.svg)](https://gitlab.com/kellyhair/visiban/-/pipelines)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 When you're managing multiple customers or projects through a multi-stage process, two questions come up constantly: _where is everything right now_, and _how did it get there_? Most Kanban tools answer the first but not the second — and none of them let you track many independent entities (customers, accounts, projects) as separate rows on the same board.
