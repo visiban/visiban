@@ -58,8 +58,8 @@ export default function CardItem({ card, onClick, overlay }: Props) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-white rounded-md cursor-pointer select-none transition-all border border-gray-100 shadow-sm
-        hover:shadow-md hover:border-gray-200
+      className={`group bg-white rounded-md cursor-pointer select-none transition-all border border-gray-100 shadow-sm relative z-0
+        hover:shadow-lg hover:border-gray-200 hover:z-20
         ${isDragging && !overlay ? "opacity-25 shadow-none" : ""}
         ${overlay ? "shadow-xl rotate-1 opacity-95" : ""}
         ${card.is_stale ? "ring-1 ring-inset ring-amber-300" : ""}
@@ -79,7 +79,7 @@ export default function CardItem({ card, onClick, overlay }: Props) {
         )}
 
         {hasMetadata && (
-          <div className="flex items-center gap-1 mt-1.5 overflow-hidden">
+          <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
             {/* Label pills */}
             {card.labels.slice(0, 3).map((label) => {
               const display = label.name.length > 4 ? label.name.slice(0, 2).toUpperCase() : label.name;
@@ -155,7 +155,7 @@ export default function CardItem({ card, onClick, overlay }: Props) {
             {/* Assignee initials — pushed to end via margin */}
             {assigneeName && (
               <span
-                className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 text-[8px] font-bold flex items-center justify-center shrink-0 ml-auto"
+                className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 text-[8px] font-bold flex items-center justify-center shrink-0"
                 title={assigneeName}
               >
                 {initials(assigneeName)}
