@@ -58,8 +58,8 @@ export default function CardItem({ card, onClick, overlay }: Props) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`bg-white rounded-md cursor-pointer select-none transition-all border border-gray-100
-        hover:border-gray-300 hover:shadow-sm
+      className={`group bg-white rounded-md cursor-pointer select-none transition-all border border-gray-100 shadow-sm
+        hover:shadow-md hover:border-gray-200
         ${isDragging && !overlay ? "opacity-25 shadow-none" : ""}
         ${overlay ? "shadow-xl rotate-1 opacity-95" : ""}
         ${card.is_stale ? "ring-1 ring-inset ring-amber-300" : ""}
@@ -115,9 +115,9 @@ export default function CardItem({ card, onClick, overlay }: Props) {
               <span title="Stale — no movement recently" className="text-amber-400 text-[10px] leading-none shrink-0">⏱</span>
             )}
 
-            {/* Recently moved dot */}
+            {/* Recently moved dot — visible on hover only */}
             {isRecent && !card.is_stale && (
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" title="Recently moved" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" title="Recently moved" />
             )}
 
             {/* Due date */}
