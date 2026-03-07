@@ -19,5 +19,14 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // React Compiler rules added in react-hooks v7 — opt-in only when using the compiler
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      // Non-component exports in component files are used for testing utilities
+      'react-refresh/only-export-components': 'warn',
+    },
   },
 ])

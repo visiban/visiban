@@ -42,12 +42,10 @@ export default function GroupTree({ nodes, onGroupCreated }: GroupTreeProps) {
 function GroupNode({
   node,
   onGroupCreated,
-  isLast = true,
   depth = 0,
 }: {
   node: TreeNode;
   onGroupCreated: (group: Group) => void;
-  isLast?: boolean;
   depth?: number;
 }) {
   const navigate = useNavigate();
@@ -118,7 +116,6 @@ function GroupNode({
                 <GroupNode
                   node={child}
                   onGroupCreated={onGroupCreated}
-                  isLast={childIsLast}
                   depth={depth + 1}
                 />
               </div>

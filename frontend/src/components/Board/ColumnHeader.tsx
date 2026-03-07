@@ -13,9 +13,11 @@ interface Props {
   onColumnDeleted: (columnId: number) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  onInsertLeft?: () => void;
+  onInsertRight?: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, onToggleCollapse }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, onToggleCollapse, onInsertLeft, onInsertRight }: Props) {
   const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}`, disabled: !isAdmin });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
@@ -60,10 +62,30 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className={`flex-1 min-w-[180px] px-3 py-3 border-r border-gray-200 bg-gray-50 group transition ${isAdmin ? "cursor-pointer hover:bg-gray-100" : ""}`}
+        className={`relative flex-1 min-w-[180px] px-3 py-3 border-r border-gray-200 bg-gray-50 group/col transition ${isAdmin ? "cursor-pointer hover:bg-gray-100" : ""}`}
         onClick={() => isAdmin && setEditing(true)}
         title={isAdmin ? "Click to edit column" : undefined}
       >
+        {/* Insert-left button — visible on hover */}
+        {isAdmin && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onInsertLeft?.(); }}
+            className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-50 hover:bg-blue-200 text-blue-400 hover:text-blue-700 text-sm font-bold transition z-10 rounded-l border-r border-blue-100"
+            title="Insert column to the left"
+          >
+            +
+          </button>
+        )}
+        {/* Insert-right button — visible on hover */}
+        {isAdmin && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onInsertRight?.(); }}
+            className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-50 hover:bg-blue-200 text-blue-400 hover:text-blue-700 text-sm font-bold transition z-10 rounded-r border-l border-blue-100"
+            title="Insert column to the right"
+          >
+            +
+          </button>
+        )}
         <div className="flex items-center gap-2">
           {/* Collapse toggle — stopPropagation so it doesn't open the edit modal */}
           <button

@@ -35,7 +35,7 @@ export function useBoardSocket(
         try {
           const data = JSON.parse(e.data) as BoardEvent;
           onEventRef.current(data);
-        } catch {}
+        } catch { /* ignore malformed messages */ }
       };
 
       ws.onclose = (e) => {
