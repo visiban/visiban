@@ -59,7 +59,10 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
       setUnreadCount((c) => Math.max(0, c - 1));
     }
     setShowBell(false);
-    if (n.board_id) navigate(`/boards/${n.board_id}`);
+    if (n.board_id) {
+      const url = n.card_id ? `/boards/${n.board_id}?card=${n.card_id}` : `/boards/${n.board_id}`;
+      navigate(url);
+    }
   };
 
   // Close on outside click

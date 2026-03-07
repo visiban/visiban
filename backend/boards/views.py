@@ -655,11 +655,41 @@ class CardViewSet(viewsets.ModelViewSet):
             return Response(CardCommentSerializer(card.comments.all(), many=True).data)
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(card=card, author=request.user)
+        comment = serializer.save(card=card, author=request.user)
         CardActivity.objects.create(
             card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
             from_value="", to_value="", actor=request.user,
         )
+        # Parse @username mentions and notify each mentioned board member
+        import re
+        from .models import Notification
+        mentioned_usernames = set(re.findall(r"@(\w+)", comment.body))
+        if mentioned_usernames:
+            # Collect effective member IDs: direct memberships + owner + group-inherited + site admins
+            eff_ids = set(board.memberships.values_list("user_id", flat=True))
+            eff_ids.add(board.owner_id)
+            eff_ids.update(User.objects.filter(is_site_admin=True).values_list("id", flat=True))
+            if board.group_id:
+                from groups.models import GroupMembership
+                node = board.group
+                depth = 0
+                while node and depth < 6:
+                    eff_ids.update(node.memberships.values_list("user_id", flat=True))
+                    node = node.parent
+                    depth += 1
+            member_users = User.objects.filter(
+                username__in=mentioned_usernames,
+                pk__in=eff_ids,
+            ).exclude(pk=request.user.pk)
+            Notification.objects.bulk_create([
+                Notification(
+                    recipient=u,
+                    verb=f"{request.user.username} mentioned you in \"{card.title}\"",
+                    card=card,
+                    board=board,
+                )
+                for u in member_users
+            ])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get", "post"], url_path="attachments")
