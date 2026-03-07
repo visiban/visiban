@@ -14,12 +14,12 @@
 │           Django 5 + DRF  (daphne ASGI)             │
 │   accounts/   boards/   groups/                     │
 │   django-allauth   dj-rest-auth   channels          │
-└────────────┬─────────────────────┬──────────────────┘
-             │ psycopg2            │ channels-redis
-┌────────────▼──────────┐ ┌───────▼──────────────────┐
-│    PostgreSQL 16       │ │        Redis 7            │
-│  (primary data store) │ │  (WebSocket channel layer)│
-└───────────────────────┘ └──────────────────────────┘
+└────────────┬────────────────────────┬───────────────┘
+             │ psycopg2               │ channels-redis
+┌────────────▼────────────┐ ┌─────────▼───────────────┐
+│      PostgreSQL 16      │ │        Redis 7           │
+│  (primary data store)   │ │(WebSocket channel layer) │
+└─────────────────────────┘ └─────────────────────────┘
 ```
 
 ## Tech stack
