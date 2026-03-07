@@ -535,6 +535,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <MentionTextarea
                       value={commentBody}
                       onChange={setCommentBody}
+                      onSubmit={handleComment}
                       members={board.members}
                       placeholder="Add a comment… type @ to mention"
                       rows={2}

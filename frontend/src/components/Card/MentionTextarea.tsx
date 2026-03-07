@@ -5,6 +5,7 @@ import { userDisplayName } from "../../types";
 interface Props {
   value: string;
   onChange: (val: string) => void;
+  onSubmit?: () => void;
   members: BoardMembership[];
   placeholder?: string;
   rows?: number;
@@ -17,7 +18,7 @@ interface MentionState {
   startIndex: number; // index of the '@' in value
 }
 
-export default function MentionTextarea({ value, onChange, members, placeholder, rows = 2, className }: Props) {
+export default function MentionTextarea({ value, onChange, onSubmit, members, placeholder, rows = 2, className }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mention, setMention] = useState<MentionState>({ active: false, query: "", startIndex: -1 });
@@ -73,6 +74,13 @@ export default function MentionTextarea({ value, onChange, members, placeholder,
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter without Shift submits the comment (when mention dropdown is not active)
+    if (e.key === "Enter" && !e.shiftKey && (!mention.active || suggestions.length === 0)) {
+      e.preventDefault();
+      onSubmit?.();
+      return;
+    }
+
     if (!mention.active || suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {

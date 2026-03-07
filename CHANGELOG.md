@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Comment textarea submits on Enter; Shift+Enter inserts a newline (closes #49)
 - Due date picker disables past dates — `min` set to today, graying out and preventing selection of dates before today (closes #41)
 
 ### Docs
