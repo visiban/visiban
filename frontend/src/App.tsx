@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useBoard } from "./hooks/useBoard";
 import LoginPage from "./components/Auth/LoginPage";
+import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
 import Navbar from "./components/Layout/Navbar";
 import BoardView from "./components/Board/BoardView";
 import Dashboard from "./pages/Dashboard";
@@ -31,6 +32,10 @@ export default function App() {
   }
 
   return (
+    <>
+    {user?.must_change_password && (
+      <ForceChangePasswordModal user={user} onChanged={updateUser} />
+    )}
     <Routes>
       {/* Public — accessible regardless of auth */}
       <Route path="/join/:token" element={<JoinPage user={user} onLogin={handleLogin} />} />
@@ -53,6 +58,7 @@ export default function App() {
         <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
       )}
     </Routes>
+    </>
   );
 }
 

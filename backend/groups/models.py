@@ -8,7 +8,10 @@ def get_accessible_group_ids(user):
     """
     Return all group IDs accessible to user: groups where they are a direct
     member/owner, plus all descendant sub-groups of those groups.
+    Site admins have access to all groups.
     """
+    if getattr(user, "is_site_admin", False):
+        return set(Group.objects.values_list("id", flat=True))
     direct_ids = set(
         Group.objects.filter(
             Q(owner=user) | Q(memberships__user=user)
