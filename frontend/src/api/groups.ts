@@ -22,6 +22,9 @@ export const getGroupMembers = (id: number) =>
 export const removeGroupMember = (groupId: number, userId: number) =>
   client.delete(`/api/groups/${groupId}/members/${userId}/`);
 
+export const updateGroupMemberRole = (groupId: number, userId: number, role: "admin" | "member") =>
+  client.patch<GroupMembership>(`/api/groups/${groupId}/members/${userId}/`, { role }).then((r) => r.data);
+
 export const getSubgroups = (id: number) =>
   client.get<Group[]>(`/api/groups/${id}/subgroups/`).then((r) => r.data);
 

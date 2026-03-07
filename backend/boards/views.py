@@ -37,11 +37,12 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from django.db.models import Q
+        from groups.models import get_accessible_group_ids
         user = self.request.user
         return Board.objects.filter(
             Q(owner=user) |
             Q(memberships__user=user) |
-            Q(group__memberships__user=user)
+            Q(group__in=get_accessible_group_ids(user))
         ).distinct()
 
     def perform_create(self, serializer):
@@ -95,7 +96,7 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
         board, _ = get_board_for_user(pk, request.user)
-        return Response(BoardFullSerializer(board).data)
+        return Response(BoardFullSerializer(board, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def members(self, request, pk=None):
@@ -130,20 +131,43 @@ class ColumnViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = ColumnSerializer
 
+    def _board_and_role(self):
+        return get_board_for_user(self.kwargs["board_pk"], self.request.user)
+
     def _board(self):
-        return get_board_for_user(self.kwargs["board_pk"], self.request.user)[0]
+        return self._board_and_role()[0]
 
     def get_queryset(self):
         return Column.objects.filter(board=self._board())
 
     def perform_create(self, serializer):
-        board = self._board()
+        board, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
         max_pos = board.columns.count()
         serializer.save(board=board, position=max_pos)
 
+    def perform_update(self, serializer):
+        _, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        _, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        instance.delete()
+
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
-        board = self._board()
+        board, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
         order = request.data.get("order", [])  # list of column IDs in new order
         with transaction.atomic():
             # Two-pass update to avoid unique_together(board, position) violations.
@@ -165,20 +189,43 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = SwimlaneSerializer
 
+    def _board_and_role(self):
+        return get_board_for_user(self.kwargs["board_pk"], self.request.user)
+
     def _board(self):
-        return get_board_for_user(self.kwargs["board_pk"], self.request.user)[0]
+        return self._board_and_role()[0]
 
     def get_queryset(self):
         return Swimlane.objects.filter(board=self._board())
 
     def perform_create(self, serializer):
-        board = self._board()
+        board, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
         max_pos = board.swimlanes.count()
         serializer.save(board=board, position=max_pos)
 
+    def perform_update(self, serializer):
+        _, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        _, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        instance.delete()
+
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
-        board = self._board()
+        board, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
         order = request.data.get("order", [])
         with transaction.atomic():
             for pos, swimlane_id in enumerate(order):
@@ -194,14 +241,35 @@ class LabelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = LabelSerializer
 
+    def _board_and_role(self):
+        return get_board_for_user(self.kwargs["board_pk"], self.request.user)
+
     def _board(self):
-        return get_board_for_user(self.kwargs["board_pk"], self.request.user)[0]
+        return self._board_and_role()[0]
 
     def get_queryset(self):
         return Label.objects.filter(board=self._board())
 
     def perform_create(self, serializer):
-        serializer.save(board=self._board())
+        board, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        serializer.save(board=board)
+
+    def perform_update(self, serializer):
+        _, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        _, role = self._board_and_role()
+        if role != BoardMembership.Role.ADMIN:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        instance.delete()
 
 
 # ---------------------------------------------------------------------------
@@ -212,8 +280,11 @@ class CardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CardSerializer
 
+    def _board_and_role(self):
+        return get_board_for_user(self.kwargs["board_pk"], self.request.user)
+
     def _board(self):
-        return get_board_for_user(self.kwargs["board_pk"], self.request.user)[0]
+        return self._board_and_role()[0]
 
     def get_queryset(self):
         return Card.objects.filter(board=self._board()).prefetch_related("labels", "movements")
@@ -224,7 +295,10 @@ class CardViewSet(viewsets.ModelViewSet):
         return ctx
 
     def perform_create(self, serializer):
-        board = self._board()
+        board, role = self._board_and_role()
+        if role == BoardMembership.Role.VIEWER:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
         if not column.allow_card_creation:
             from rest_framework.exceptions import ValidationError
@@ -243,7 +317,18 @@ class CardViewSet(viewsets.ModelViewSet):
                 notes="Card created",
             )
 
+    def perform_destroy(self, instance):
+        _, role = self._board_and_role()
+        if role == BoardMembership.Role.VIEWER:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
+        instance.delete()
+
     def update(self, request, *args, **kwargs):
+        _, role = self._board_and_role()
+        if role == BoardMembership.Role.VIEWER:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
         partial = kwargs.pop("partial", False)
         card = self.get_object()
 

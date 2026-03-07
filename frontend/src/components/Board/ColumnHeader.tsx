@@ -8,15 +8,16 @@ interface Props {
   column: Column;
   cards: Card[];
   boardId: number;
+  isAdmin: boolean;
   onColumnUpdated: (column: Column) => void;
   onColumnDeleted: (columnId: number) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, onColumnDeleted, collapsed, onToggleCollapse }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, onToggleCollapse }: Props) {
   const [editing, setEditing] = useState(false);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}` });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}`, disabled: !isAdmin });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
 
   const cardCount = cards.length;
@@ -59,9 +60,9 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, 
       <div
         ref={setNodeRef}
         style={style}
-        className="flex-1 min-w-[180px] px-3 py-3 border-r border-gray-200 bg-gray-50 group cursor-pointer hover:bg-gray-100 transition"
-        onClick={() => setEditing(true)}
-        title="Click to edit column"
+        className={`flex-1 min-w-[180px] px-3 py-3 border-r border-gray-200 bg-gray-50 group transition ${isAdmin ? "cursor-pointer hover:bg-gray-100" : ""}`}
+        onClick={() => isAdmin && setEditing(true)}
+        title={isAdmin ? "Click to edit column" : undefined}
       >
         <div className="flex items-center gap-2">
           {/* Collapse toggle — stopPropagation so it doesn't open the edit modal */}
@@ -73,13 +74,12 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, 
             ◀
           </button>
 
-          {/* Drag handle */}
+          {/* Drag handle — admins only */}
           <span
-            className="w-2.5 h-2.5 rounded-full shrink-0 cursor-grab active:cursor-grabbing"
+            className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
             style={{ backgroundColor: column.color }}
-            title="Drag to reorder"
-            {...attributes}
-            {...listeners}
+            title={isAdmin ? "Drag to reorder" : undefined}
+            {...(isAdmin ? { ...attributes, ...listeners } : {})}
             onClick={(e) => e.stopPropagation()}
           />
           <span className="font-semibold text-gray-700 text-sm truncate">{column.name}</span>
@@ -105,12 +105,12 @@ export default function ColumnHeader({ column, cards, boardId, onColumnUpdated, 
               </span>
             )}
 
-            <span className="text-gray-300 group-hover:text-gray-500 transition text-xs">✎</span>
+            {isAdmin && <span className="text-gray-300 group-hover:text-gray-500 transition text-xs">✎</span>}
           </div>
         </div>
       </div>
 
-      {editing && (
+      {isAdmin && editing && (
         <EditColumnModal
           boardId={boardId}
           column={column}

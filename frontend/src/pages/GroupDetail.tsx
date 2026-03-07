@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
-  createGroupBoard, removeGroupMember, deleteGroup,
+  createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
 } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
@@ -74,6 +74,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     if (!confirm("Remove this member?")) return;
     await removeGroupMember(groupId, userId);
     setMembers((prev) => prev.filter((m) => m.user.id !== userId));
+  };
+
+  const handleRoleChange = async (userId: number, role: "admin" | "member") => {
+    const updated = await updateGroupMemberRole(groupId, userId, role);
+    setMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, role: updated.role } : m));
   };
 
   const handleDeleteGroup = async () => {
@@ -280,17 +285,26 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
               <div className="flex flex-col gap-2">
                 {members.map((m) => (
                   <div key={m.user.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
-                    <div>
-                      <p className="text-white text-sm">{m.user.display_name || m.user.username}</p>
+                    <p className="text-white text-sm">{m.user.display_name || m.user.username}</p>
+                    {isAdmin && m.user.id !== user.id ? (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={m.role}
+                          onChange={(e) => handleRoleChange(m.user.id, e.target.value as "admin" | "member")}
+                          className="bg-gray-700 text-gray-300 text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none"
+                        >
+                          <option value="member">Member</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <button
+                          onClick={() => handleRemoveMember(m.user.id)}
+                          className="text-gray-600 hover:text-red-400 transition text-xs"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
                       <p className="text-gray-500 text-xs capitalize">{m.role}</p>
-                    </div>
-                    {isAdmin && m.user.id !== user.id && (
-                      <button
-                        onClick={() => handleRemoveMember(m.user.id)}
-                        className="text-gray-600 hover:text-red-400 transition text-xs"
-                      >
-                        Remove
-                      </button>
                     )}
                   </div>
                 ))}
