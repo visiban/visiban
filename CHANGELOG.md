@@ -18,6 +18,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Docs
 
+- Updated `docs/features/notifications.md` with @mention notifications and corrected notification deep-link behaviour
+- Updated `docs/features/board.md` with @mention in comments and due date past-date restriction
 - Updated `docs/features/realtime.md` to document column and swimlane event types added in v0.1.0-beta.1
 
 ---

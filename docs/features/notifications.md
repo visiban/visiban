@@ -1,16 +1,28 @@
 # Notifications
 
-Visiban surfaces in-app notifications for two events: card assignment and card staleness.
+Visiban surfaces in-app notifications for three events: card assignment, @mention in a comment, and card staleness.
 
 ## Notification bell
 
-The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed. Each notification links to the relevant board.
+The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed. Each notification is a deep link — clicking it navigates to the relevant board and opens the card detail panel automatically.
 
 ## Assignment notifications
 
 When a card is assigned to a user by someone else, that user receives a notification:
 
 > "You were assigned to "{card title}""
+
+## @mention notifications
+
+Typing `@username` in a card comment notifies the mentioned user:
+
+> "{author} mentioned you in "{card title}""
+
+- Type `@` in the comment box to open an inline autocomplete dropdown filtered by username and display name
+- Keyboard navigation: ↑↓ to move through suggestions, Enter or Tab to select, Escape to dismiss
+- Mentions are rendered as **bold blue** text in saved comments
+- The comment author is never notified for their own mention
+- Only users who are members of the board (directly, via group inheritance, or site admins) can be mentioned
 
 ## Staleness notifications
 
