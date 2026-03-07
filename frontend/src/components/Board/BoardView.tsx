@@ -218,7 +218,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   return (
     <>
       <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
-<<<<<<< HEAD
         <ViewToggle view={view} onChange={setView} />
         <span className="w-px h-4 bg-gray-200 mx-1" />
         <span
