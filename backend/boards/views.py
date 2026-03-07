@@ -665,10 +665,12 @@ class CardViewSet(viewsets.ModelViewSet):
         from .models import Notification
         mentioned_usernames = set(re.findall(r"@([\w.+-]+)", comment.body))
         if mentioned_usernames:
+            from django.db.models import Q
             member_users = User.objects.filter(
                 username__in=mentioned_usernames,
-                memberships__board=board,
-            ).exclude(pk=request.user.pk)
+            ).filter(
+                Q(memberships__board=board) | Q(is_site_admin=True)
+            ).exclude(pk=request.user.pk).distinct()
             Notification.objects.bulk_create([
                 Notification(
                     recipient=u,
