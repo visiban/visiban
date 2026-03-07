@@ -10,7 +10,10 @@ When asked to create a release, follow these steps in order. Ask for the version
 - Confirm working tree is clean
 
 ### 2. Version string
-- Format: `MAJOR.MINOR.PATCH[-stage]` — e.g. `0.1.0-beta`, `0.1.1-beta`, `0.2.0-beta`, `1.0.0`
+- Format: strict [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH` for stable releases, `MAJOR.MINOR.PATCH-alpha.N` or `MAJOR.MINOR.PATCH-beta.N` for pre-releases
+  - Examples: `0.1.0-alpha.1`, `0.1.0-beta.1`, `0.1.1`, `0.2.0`, `1.0.0`
+  - Increment `PATCH` for backwards-compatible bug fixes, `MINOR` for new backwards-compatible features, `MAJOR` for breaking changes
+  - Pre-release suffixes must include a numeric component (`alpha.1` not `alpha`)
 - If not provided, ask: _"What version string should I use for this release?"_
 
 ### 3. Update files
