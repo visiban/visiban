@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [v0.2.0-beta.1] — 2026-03-07
+
+UX polish release — @mention comments, notification deep-links, empty state prompts, collapsed column card counts, and minor fixes.
+
 ### Added
 
 - @mention support in card comments — type `@` to open an inline autocomplete dropdown filtered by username and display name; keyboard navigation (↑↓ Enter Escape); mentions highlighted in blue in rendered comments; mentioned board members receive an in-app notification (author is never self-notified)
