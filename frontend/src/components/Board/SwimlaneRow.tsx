@@ -53,34 +53,55 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           </div>
         </div>
 
-        {/* Cells */}
-        {collapsed ? (
-          <div className="flex items-center px-4 text-sm text-gray-400 italic">
-            {cards.length} card{cards.length !== 1 ? "s" : ""} hidden
-          </div>
-        ) : (
-          <>
-            {columns.map((col) =>
-              collapsedColumnIds.has(col.id) ? (
-                <div key={col.id} className="w-10 shrink-0 border-r border-gray-100" />
-              ) : (
-                <BoardCell
-                  key={col.id}
-                  column={col}
-                  swimlane={swimlane}
-                  cards={cards.filter((c) => c.column === col.id).sort((a, b) => a.position - b.position)}
-                  boardId={boardId}
-                  canEdit={canEdit}
-                  filteredCardIds={filteredCardIds}
-                  onCardClick={onCardClick}
-                  onCardAdded={onCardAdded}
-                />
-              )
-            )}
-            {/* Spacer matching the fixed-width "+ Col" button in the header */}
-            <div className="w-20 shrink-0" />
-          </>
-        )}
+        {/* Cells — always iterate columns so collapsed-column stubs stay aligned */}
+        {columns.map((col) => {
+          const cellCards = cards.filter((c) => c.column === col.id);
+          const cellCount = cellCards.length;
+
+          if (collapsedColumnIds.has(col.id)) {
+            // Collapsed column: show per-swimlane card count
+            return (
+              <div
+                key={col.id}
+                className="w-10 shrink-0 border-r border-gray-100 flex items-center justify-center py-1"
+              >
+                {cellCount > 0 && (
+                  <span className="text-xs text-gray-400 font-medium">{cellCount}</span>
+                )}
+              </div>
+            );
+          }
+
+          if (collapsed) {
+            // Swimlane collapsed, non-collapsed column: show hidden count placeholder
+            return (
+              <div
+                key={col.id}
+                className="flex-1 min-w-[180px] border-r border-gray-100 flex items-center justify-center"
+              >
+                {cellCount > 0 && (
+                  <span className="text-xs text-gray-400 italic">{cellCount} hidden</span>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <BoardCell
+              key={col.id}
+              column={col}
+              swimlane={swimlane}
+              cards={cellCards.sort((a, b) => a.position - b.position)}
+              boardId={boardId}
+              canEdit={canEdit}
+              filteredCardIds={filteredCardIds}
+              onCardClick={onCardClick}
+              onCardAdded={onCardAdded}
+            />
+          );
+        })}
+        {/* Spacer matching the fixed-width "+ Col" button in the header */}
+        {!collapsed && <div className="w-20 shrink-0" />}
       </div>
 
       {isAdmin && editing && (
