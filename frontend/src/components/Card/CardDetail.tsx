@@ -16,7 +16,7 @@ interface Props {
   onLabelAdded: (label: Label) => void;
 }
 
-function formatCommentTime(iso: string): string {
+export function formatCommentTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return "just now";

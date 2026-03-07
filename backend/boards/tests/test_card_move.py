@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -15,6 +17,9 @@ def make_board(owner):
 
 class CardMoveTests(TestCase):
     def setUp(self):
+        self._broadcast_patcher = patch("boards.views.broadcast_board_event")
+        self._broadcast_patcher.start()
+
         self.client = APIClient()
         self.user = User.objects.create_user(username="tester", password="pass")
         self.client.force_authenticate(self.user)
@@ -33,6 +38,9 @@ class CardMoveTests(TestCase):
             created_by=self.user,
             position=0,
         )
+
+    def tearDown(self):
+        self._broadcast_patcher.stop()
 
     def _move_url(self):
         return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/"
