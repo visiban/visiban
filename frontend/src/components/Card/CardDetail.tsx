@@ -48,6 +48,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     getChecklist(board.id, card.id).then(setChecklist);
   }, [board.id, card.id]);
 
+  // Escape closes the panel
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   const save = async (patch: CardPatch) => {
     const updated = await updateCard(board.id, localCard.id, patch);
     setLocalCard(updated);
@@ -83,9 +90,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     onUpdated(updated);
   };
 
-  const handleCreateLabel = async () => {
+  const handleCreateLabel = async (colorOverride?: string) => {
     if (!newLabelName.trim()) return;
-    const label = await createLabel(board.id, { name: newLabelName.trim(), color: newLabelColor });
+    const color = colorOverride ?? newLabelColor;
+    const label = await createLabel(board.id, { name: newLabelName.trim(), color });
     onLabelAdded(label);
     const updatedLabelIds = [...localCard.labels.map((l) => l.id), label.id];
     const updated = await updateCard(board.id, localCard.id, { label_ids: updatedLabelIds });
@@ -343,13 +351,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         {LABEL_COLORS.map((c) => (
                           <button
                             key={c}
-                            onClick={() => setNewLabelColor(c)}
+                            onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) handleCreateLabel(c); }}
                             className={`w-5 h-5 rounded-full border-2 transition ${newLabelColor === c ? "border-gray-800 scale-110" : "border-transparent"}`}
                             style={{ backgroundColor: c }}
+                            title={newLabelName.trim() ? `Create "${newLabelName.trim()}" with this color` : "Pick color"}
                           />
                         ))}
                       </div>
-                      <button onClick={handleCreateLabel} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Add</button>
+                      {!newLabelName.trim() && (
+                        <span className="text-[10px] text-gray-400">type a name first</span>
+                      )}
                       <button onClick={() => setAddingLabel(false)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
                     </div>
                   ) : (

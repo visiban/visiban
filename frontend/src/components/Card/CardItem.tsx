@@ -71,15 +71,23 @@ export default function CardItem({ card, onClick, overlay }: Props) {
 
         {hasMetadata && (
           <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
-            {/* Label dots */}
-            {card.labels.slice(0, 5).map((label) => (
-              <span
-                key={label.id}
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: label.color }}
-                title={label.name}
-              />
-            ))}
+            {/* Label pills */}
+            {card.labels.slice(0, 3).map((label) => {
+              const display = label.name.length > 4 ? label.name.slice(0, 2).toUpperCase() : label.name;
+              return (
+                <span
+                  key={label.id}
+                  className="text-[9px] font-semibold px-1 py-0.5 rounded leading-none shrink-0"
+                  style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
+                  title={label.name}
+                >
+                  {display}
+                </span>
+              );
+            })}
+            {card.labels.length > 3 && (
+              <span className="text-[9px] text-gray-400 shrink-0">+{card.labels.length - 3}</span>
+            )}
 
             {/* Checklist */}
             {card.checklist_total > 0 && (

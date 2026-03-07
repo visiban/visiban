@@ -40,7 +40,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
       }`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-1">
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
           {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (
             <CardItem
               key={card.id}
