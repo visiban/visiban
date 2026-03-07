@@ -35,12 +35,12 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
     <div
       ref={setNodeRef}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
-      className={`flex-1 min-w-[180px] min-h-[80px] p-2 border-r border-gray-200 transition-colors ${
-        isOver ? "bg-blue-50" : ""
+      className={`flex-1 min-w-[200px] min-h-[80px] p-2 border-r border-gray-100 transition-colors ${
+        isOver ? "bg-blue-50/60" : ""
       }`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
+        <div className="flex flex-col gap-1">
           {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (
             <CardItem
               key={card.id}
@@ -64,18 +64,18 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAdding(false); }}
-              placeholder="Card title..."
-              className="w-full text-sm border border-blue-400 rounded px-2 py-1 outline-none"
+              placeholder="Card title…"
+              className="w-full text-xs border border-blue-400 rounded-md px-2 py-1.5 outline-none bg-white"
             />
-            <div className="flex gap-1 mt-1">
-              <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded hover:bg-blue-700">Add</button>
-              <button onClick={() => setAdding(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+            <div className="flex gap-1.5 mt-1.5">
+              <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded-md hover:bg-blue-700 transition font-medium">Add</button>
+              <button onClick={() => setAdding(false)} className="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</button>
             </div>
           </div>
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className="mt-1 w-full text-left text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded px-1 py-0.5 transition"
+            className="mt-1 w-full text-left text-[11px] text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-md px-1.5 py-1 transition"
           >
             + Add card
           </button>

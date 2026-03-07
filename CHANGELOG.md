@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- Cards redesigned as compact horizontal rows with a left-border priority accent — replaced square aspect-ratio thumbnails; cards now stack vertically full-width in each cell (closes #43)
+- Card metadata row shows: label colour dots, checklist progress, attachment count, relative due date ("Today" / "Tomorrow" / "3d" / "2d late" in red), assignee initials avatar, weight (hidden when 1)
+- Card detail panel widened to 540 px; sections reordered — Description first, then Assignee + Due date side-by-side, Priority, Labels, Weight, Checklist, Attachments, Comments
+- Section headers use uppercase spaced labels for clear visual hierarchy; light dividers separate logical groups
+- Comments thread redesigned with author initials avatars and inline name/date headers
+- Delete card button demoted to a subtle footer link (reduces accidental deletion)
+
 ---
 
 ## [v0.2.0-beta.1] — 2026-03-07
