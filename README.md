@@ -1,52 +1,218 @@
 # Visiban
 
-A self-hosted Kanban board with swimlane rows and automatic card movement tracking. Lightweight alternative to Trello/Smartsheet focused on pipeline visibility per customer or project, with a full audit trail of every card movement between stages.
+When you're managing multiple customers or projects through a multi-stage process, two questions come up constantly: _where is everything right now_, and _how did it get there_? Most Kanban tools answer the first but not the second — and none of them let you track many independent entities (customers, accounts, projects) as separate rows on the same board.
 
-## Quick start
+Visiban is a self-hosted Kanban board that solves both problems. It gives each entity its own **swimlane row** so you can see every customer or project and its current stage at a glance. Every time a card moves between columns, a timestamped movement record is created automatically — so you always have a full audit trail of who moved what, when, and from where. Changes made by other users appear on your screen instantly over a live WebSocket connection.
+
+## Contents
+
+- [Overview](#overview)
+- [Documentation](#documentation)
+- [Getting started](#getting-started)
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Contributing](#contributing)
+
+---
+
+## Overview
+
+Visiban gives you a grid of **columns** (stages) and **swimlane rows** (customers, projects, or any entity moving through your process). Each card belongs to a column and a swimlane. Drag a card to a new column and a movement record is created automatically — who moved it, when, and from where.
+
+Multiple users can have the board open at the same time. Changes appear on everyone's screen instantly over a WebSocket connection, with no page refresh needed.
+
+---
+
+## Documentation
+
+Full documentation is available in the [`/docs`](docs/index.md) folder and can be served locally with MkDocs:
+
+```bash
+pip install -r docs/requirements.txt
+mkdocs serve   # opens at http://localhost:8001
+```
+
+| Topic | Link |
+|---|---|
+| Installation | [docs/getting-started/installation.md](docs/getting-started/installation.md) |
+| OAuth setup | [docs/getting-started/oauth.md](docs/getting-started/oauth.md) |
+| Roles & permissions | [docs/rbac/roles.md](docs/rbac/roles.md) |
+| Architecture | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| API reference | [docs/api/boards.md](docs/api/boards.md) |
+| Administration | [docs/administration/site-admins.md](docs/administration/site-admins.md) |
+
+---
+
+## Getting started
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+
+That's it for the quick start. Redis and PostgreSQL are included in the Docker Compose file — you don't need to install them separately.
+
+### 1. Clone and configure
 
 ```bash
 git clone https://gitlab.com/kellyhair/visiban.git
 cd visiban
-cp .env.example .env          # set DJANGO_SECRET_KEY
+cp .env.example .env
+```
+
+Open `.env` and set at minimum:
+
+| Variable | Description |
+|---|---|
+| `DJANGO_SECRET_KEY` | Any long random string. Generate one with: `python -c "import secrets; print(secrets.token_urlsafe(50))"` |
+| `DATABASE_URL` | Pre-filled for Docker Compose — leave it unless you're using an external database |
+| `REDIS_URL` | Pre-filled for Docker Compose — leave it unless you're using an external Redis |
+
+OAuth login (Google, GitHub, GitLab) is optional. See [OAuth Setup](docs/getting-started/oauth.md) if you want it.
+
+### 2. Start the stack
+
+```bash
 docker compose up --build
 ```
 
-On first boot a one-time admin password is printed to the backend logs — see the [First Boot](docs/getting-started/first-boot.md) guide.
+This starts four services:
 
-| Service | URL |
+| Service | URL | Description |
+|---|---|---|
+| Frontend | http://localhost:5173 | React app |
+| Backend API | http://localhost:8000 | Django REST API + WebSocket server |
+| Django admin | http://localhost:8000/admin | Admin panel |
+| Redis | (internal) | WebSocket channel layer |
+
+### 3. Log in
+
+On first boot, the backend prints a one-time admin password to the terminal logs. Use it to log in at http://localhost:5173. You'll be prompted to change it immediately.
+
+See [First Boot](docs/getting-started/first-boot.md) for details.
+
+---
+
+## Features
+
+### Kanban board
+
+The board is a grid of columns and swimlane rows. Drop cards into any column to move them through your pipeline.
+
+- Drag cards between columns to advance them through your stages
+- Drag column headers left or right to reorder stages
+- Right-click any column to add a card directly into that stage and swimlane
+- Swimlanes can be collapsed to save screen space
+- Column headers stay fixed as you scroll horizontally
+
+### Columns
+
+Each column (stage) can have:
+
+- A **name** and **colour**
+- A **WIP limit** — maximum number of cards. Header turns red when exceeded
+- A **weight limit** — maximum total card weight. Header turns orange when exceeded
+- An **allow card creation** toggle — disable on "Done" columns to prevent accidental adds
+
+### Cards
+
+Each card has:
+
+| Field | Notes |
 |---|---|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:8000 |
-| Django admin | http://localhost:8000/admin |
+| Title | Required |
+| Description | Free text |
+| Priority | low / medium / high / urgent — shown as a coloured left border |
+| Assignee | Any board member |
+| Labels | Board-scoped, multi-select |
+| Due date | Optional |
+| Weight | Numeric effort estimate (default 1) |
+| Checklist | Sub-tasks with checked/unchecked state |
+| Attachments | Files up to 10 MB each |
+| Comments | Visible to all board members |
 
-## Documentation
+### Card movement history
 
-Full documentation is in [`/docs`](docs/index.md):
+Every time a card moves to a different column or swimlane, a movement record is saved: who moved it, when, and from where. Each card's detail view shows the full timeline alongside comments and other activity (priority changes, assignee changes, etc.).
 
-- [Installation](docs/getting-started/installation.md)
-- [Architecture](docs/architecture/overview.md)
-- [Roles & Permissions](docs/rbac/roles.md)
-- [API Reference](docs/api/boards.md)
-- [Administration](docs/administration/site-admins.md)
+### Filters
 
-### Build the docs site
+Filter the board client-side without a page reload. Filters stack — all conditions must match.
 
-```bash
-pip install -r docs/requirements.txt
-mkdocs serve        # http://localhost:8001
-mkdocs build        # outputs to site/
-```
+- **Search** — matches card title, description, assignee name, and label names
+- **Assignee** — any member, or "Unassigned"
+- **Labels** — card must have all selected labels
+- **Priority** — one or more of low / medium / high / urgent
+- **Due date** — none set / overdue / due today / due this week
+
+### Views
+
+Switch between three views from the toolbar:
+
+| View | What it shows |
+|---|---|
+| **Board** | The live kanban grid with drag-and-drop |
+| **Summary** | Table of swimlane card counts with 7-day and 30-day velocity |
+| **Analytics** | Dwell-time heatmap per stage, outlier detection, stalled card list, CSV export |
+
+### Real-time sync
+
+All open tabs on the same board stay in sync over a WebSocket connection. Card moves, edits, additions, deletions, and structural changes (columns, swimlanes) appear immediately without refreshing. The toolbar shows a green **Live** dot when connected. The client reconnects automatically if the connection drops.
+
+### Groups
+
+Boards are organised into a group hierarchy — groups can contain subgroups to any depth.
+
+- Group membership is **inherited**: a member of a parent group automatically has access to all subgroups and their boards
+- Group admins can create subgroups, manage members, and generate shareable **invite links** for onboarding users without knowing their username in advance
+- The dashboard shows all groups the user belongs to in a collapsible tree
+
+### Access control
+
+Five roles control what users can do:
+
+| Role | Scope | What they can do |
+|---|---|---|
+| `site_admin` | Site-wide | Full access to everything |
+| `admin` | Group or Board | Manage structure, members, and settings |
+| `member` | Group or Board | Create, edit, and move cards |
+| `collaborator` | Board only | Comment on cards |
+| `viewer` | Board only | Read-only access |
+
+Group membership grants board access automatically. Board admins can override the role per user from the Members panel in the board toolbar.
+
+### Notifications
+
+In-app notifications for card assignment and cards that have gone stale (not moved in a configurable number of days).
+
+---
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.12, Django 5, Django REST Framework |
+| ASGI server | daphne (required for WebSocket support) |
 | Database | PostgreSQL 16 |
-| Auth | django-allauth (Google / GitHub / GitLab OAuth) |
+| Cache / Pub-Sub | Redis 7 (Django Channels channel layer) |
+| Real-time | Django Channels 4, channels-redis |
+| Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS 3 |
-| Drag & Drop | @dnd-kit/core + @dnd-kit/sortable |
-| Infra | Docker Compose, Nginx, Helm |
+| Drag & drop | @dnd-kit/core + @dnd-kit/sortable |
+| Infra | Docker Compose, Nginx, Helm (Kubernetes) |
+
+---
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including how to file a bug report and set up a local development environment.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a full history of changes.
+
+---
 
 ## License
 

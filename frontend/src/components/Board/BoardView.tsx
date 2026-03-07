@@ -75,12 +75,26 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const canComment = canEdit || board.current_user_role === "collaborator";
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
-    if (event.type === "card.moved" || event.type === "card.updated" || event.type === "card.created") {
+    if (event.type === "card.created") {
+      onCardAdded(event as unknown as Card);
+    } else if (event.type === "card.moved" || event.type === "card.updated") {
       onCardUpdated(event as unknown as Card);
     } else if (event.type === "card.deleted") {
       onCardDeleted(event.card_id as number);
+    } else if (event.type === "column.created") {
+      onColumnAdded(event as unknown as Column);
+    } else if (event.type === "column.updated") {
+      onColumnUpdated(event as unknown as Column);
+    } else if (event.type === "column.deleted") {
+      onColumnDeleted(event.column_id as number);
+    } else if (event.type === "swimlane.created") {
+      onSwimlaneAdded(event as unknown as Swimlane);
+    } else if (event.type === "swimlane.updated") {
+      onSwimlaneUpdated(event as unknown as Swimlane);
+    } else if (event.type === "swimlane.deleted") {
+      onSwimlaneDeleted(event.swimlane_id as number);
     }
-  }, [onCardUpdated, onCardDeleted]);
+  }, [onCardUpdated, onCardDeleted, onColumnAdded, onColumnUpdated, onColumnDeleted, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted]);
 
   const { connected } = useBoardSocket(board.id, handleSocketEvent);
 

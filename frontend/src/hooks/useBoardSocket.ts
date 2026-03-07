@@ -16,8 +16,9 @@ export function useBoardSocket(
   useEffect(() => {
     if (!boardId) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${window.location.host}/ws/boards/${boardId}/`;
+    const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+    const wsBase = apiBase.replace(/^http/, "ws");
+    const url = `${wsBase}/ws/boards/${boardId}/`;
 
     let ws: WebSocket;
     let reconnectTimer: ReturnType<typeof setTimeout>;

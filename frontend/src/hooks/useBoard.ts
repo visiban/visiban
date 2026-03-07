@@ -56,7 +56,13 @@ export function useBoard() {
   }, [board, boardId]);
 
   const addCard = useCallback((card: Card) => {
-    setBoard((b) => b ? { ...b, cards: [...b.cards, card] } : b);
+    setBoard((b) => {
+      if (!b) return b;
+      const exists = b.cards.some((c) => c.id === card.id);
+      return exists
+        ? { ...b, cards: b.cards.map((c) => (c.id === card.id ? card : c)) }
+        : { ...b, cards: [...b.cards, card] };
+    });
   }, []);
 
   const removeCard = useCallback((cardId: number) => {
@@ -64,7 +70,13 @@ export function useBoard() {
   }, []);
 
   const addColumn = useCallback((column: Column) => {
-    setBoard((b) => b ? { ...b, columns: [...b.columns, column] } : b);
+    setBoard((b) => {
+      if (!b) return b;
+      const exists = b.columns.some((c) => c.id === column.id);
+      return exists
+        ? { ...b, columns: b.columns.map((c) => (c.id === column.id ? column : c)) }
+        : { ...b, columns: [...b.columns, column] };
+    });
   }, []);
 
   const removeColumn = useCallback(async (columnId: number) => {
@@ -77,7 +89,13 @@ export function useBoard() {
   }, [boardId]);
 
   const addSwimlane = useCallback((swimlane: Swimlane) => {
-    setBoard((b) => b ? { ...b, swimlanes: [...b.swimlanes, swimlane] } : b);
+    setBoard((b) => {
+      if (!b) return b;
+      const exists = b.swimlanes.some((s) => s.id === swimlane.id);
+      return exists
+        ? { ...b, swimlanes: b.swimlanes.map((s) => (s.id === swimlane.id ? swimlane : s)) }
+        : { ...b, swimlanes: [...b.swimlanes, swimlane] };
+    });
   }, []);
 
   const updateCard = useCallback((card: Card) => {

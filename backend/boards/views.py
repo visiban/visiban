@@ -297,21 +297,26 @@ class ColumnViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         max_pos = board.columns.count()
-        serializer.save(board=board, position=max_pos)
+        column = serializer.save(board=board, position=max_pos)
+        broadcast_board_event(board.id, "column.created", ColumnSerializer(column).data)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
-        serializer.save()
+        column = serializer.save()
+        broadcast_board_event(column.board_id, "column.updated", ColumnSerializer(column).data)
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
+        board_id = instance.board_id
+        column_id = instance.id
         instance.delete()
+        broadcast_board_event(board_id, "column.deleted", {"column_id": column_id})
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
@@ -355,21 +360,26 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         max_pos = board.swimlanes.count()
-        serializer.save(board=board, position=max_pos)
+        swimlane = serializer.save(board=board, position=max_pos)
+        broadcast_board_event(board.id, "swimlane.created", SwimlaneSerializer(swimlane).data)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
-        serializer.save()
+        swimlane = serializer.save()
+        broadcast_board_event(swimlane.board_id, "swimlane.updated", SwimlaneSerializer(swimlane).data)
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
+        board_id = instance.board_id
+        swimlane_id = instance.id
         instance.delete()
+        broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_id": swimlane_id})
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
