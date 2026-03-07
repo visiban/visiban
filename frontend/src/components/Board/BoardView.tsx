@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
@@ -25,6 +25,7 @@ import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardMembersModal from "./BoardMembersModal";
 import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
+import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 
 interface Props {
   board: BoardFull;
@@ -120,7 +121,29 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [view, setView] = useState<"board" | "summary" | "analytics">("board");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "f") {
+        e.preventDefault();
+        setShowFilters((v) => !v);
+      } else if (e.key === "/") {
+        e.preventDefault();
+        setShowFilters(true);
+        setTimeout(() => searchRef.current?.focus(), 0);
+      } else if (e.key === "?") {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   const filteredCardIds: Set<number> | null = (() => {
     if (countActiveFilters(filters) === 0) return null;
@@ -270,11 +293,19 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         </button>
 
         {/* Inline filter controls — same row, wrap to next line on narrow viewports */}
-        {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} />}
+        {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />}
 
+        <span className="w-px h-4 bg-gray-200 ml-auto shrink-0" />
+        <button
+          onClick={() => setShowShortcuts((v) => !v)}
+          className="text-xs text-gray-400 hover:text-gray-600 transition font-mono shrink-0"
+          title="Keyboard shortcuts (?)"
+        >
+          ?
+        </button>
         {isAdmin && (
           <>
-            <span className="w-px h-4 bg-gray-200 ml-auto shrink-0" />
+            <span className="w-px h-4 bg-gray-200 shrink-0" />
             <button
               onClick={() => setShowMembers(true)}
               className="text-xs text-gray-500 hover:text-gray-800 transition shrink-0"
@@ -429,6 +460,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onMembersChanged={() => setShowMembers(false)}
         />
       )}
+
+      {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
     </>
   );
 }

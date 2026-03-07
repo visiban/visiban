@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import type { BoardFull, Priority } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -101,6 +102,7 @@ interface Props {
   board: BoardFull;
   filters: FilterState;
   onChange: (filters: FilterState) => void;
+  searchRef?: RefObject<HTMLInputElement>;
 }
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
@@ -110,7 +112,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: "#EF4444" },
 ];
 
-export default function FilterBar({ board, filters, onChange }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef }: Props) {
   const activeCount = countActiveFilters(filters);
   const sel = "border border-gray-300 rounded px-2 py-1 text-sm bg-white outline-none focus:border-blue-400";
 
@@ -119,6 +121,7 @@ export default function FilterBar({ board, filters, onChange }: Props) {
       <span className="w-px h-4 bg-gray-200 shrink-0" />
 
       <input
+        ref={searchRef}
         type="text"
         placeholder="Search cards…"
         value={filters.search}
