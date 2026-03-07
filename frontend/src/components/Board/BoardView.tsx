@@ -74,7 +74,6 @@ function ViewToggle({
 export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
-  const _canComment = canEdit || board.current_user_role === "collaborator";
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     if (event.type === "card.created") {
@@ -96,7 +95,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     } else if (event.type === "swimlane.deleted") {
       onSwimlaneDeleted(event.swimlane_id as number);
     }
-  }, [onCardUpdated, onCardDeleted, onColumnAdded, onColumnUpdated, onColumnDeleted, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted]);
+  }, [onCardAdded, onCardUpdated, onCardDeleted, onColumnAdded, onColumnUpdated, onColumnDeleted, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted]);
 
   const { connected } = useBoardSocket(board.id, handleSocketEvent);
 
@@ -116,6 +115,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [board.cards, searchParams, setSearchParams]);
   const [showAddColumn, setShowAddColumn] = useState(false);
+  // When non-null, new column is inserted at this index (0 = first)
+  const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [showAddSwimlane, setShowAddSwimlane] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
@@ -147,10 +148,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const filteredCardIds: Set<number> | null = (() => {
     if (countActiveFilters(filters) === 0) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
+    // Build today/nextWeek as local YYYY-MM-DD strings so they compare
+    // correctly against due_date (also YYYY-MM-DD) without timezone drift.
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const nextWeek = new Date(now);
+    nextWeek.setDate(now.getDate() + 7);
+    const nextWeekStr = `${nextWeek.getFullYear()}-${pad(nextWeek.getMonth() + 1)}-${pad(nextWeek.getDate())}`;
     const matching = board.cards.filter((card) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -170,23 +175,32 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       if (filters.dueDate !== null) {
         if (filters.dueDate === "none" && card.due_date !== null) return false;
         if (filters.dueDate === "overdue") {
-          if (!card.due_date || new Date(card.due_date) >= today) return false;
+          if (!card.due_date || card.due_date >= todayStr) return false;
         }
         if (filters.dueDate === "today") {
-          if (!card.due_date) return false;
-          const d = new Date(card.due_date);
-          if (d.getTime() !== today.getTime()) return false;
+          if (card.due_date !== todayStr) return false;
         }
         if (filters.dueDate === "this_week") {
-          if (!card.due_date) return false;
-          const d = new Date(card.due_date);
-          if (d < today || d >= nextWeek) return false;
+          if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
         }
       }
       return true;
     });
     return new Set(matching.map((c) => c.id));
   })();
+
+  const handleColumnAdded = useCallback((col: Column) => {
+    onColumnAdded(col);
+    if (insertPosition !== null) {
+      const currentIds = board.columns.map((c) => c.id);
+      const newOrder = [
+        ...currentIds.slice(0, insertPosition),
+        col.id,
+        ...currentIds.slice(insertPosition),
+      ];
+      onColumnsReordered(newOrder);
+    }
+  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
 
   const toggleColumn = (id: number) => setCollapsedColumns((prev) => {
     const next = new Set(prev);
@@ -336,7 +350,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             </div>
 
             <SortableContext items={board.columns.map((c) => `col:${c.id}`)} strategy={horizontalListSortingStrategy}>
-              {board.columns.map((col) => (
+              {board.columns.map((col, idx) => (
                 <ColumnHeader
                   key={col.id}
                   column={col}
@@ -347,6 +361,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                   onColumnDeleted={onColumnDeleted}
                   collapsed={collapsedColumns.has(col.id)}
                   onToggleCollapse={() => toggleColumn(col.id)}
+                  onInsertLeft={() => { setInsertPosition(idx); setShowAddColumn(true); }}
+                  onInsertRight={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
                 />
               ))}
             </SortableContext>
@@ -440,8 +456,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       {isAdmin && showAddColumn && (
         <AddColumnModal
           boardId={board.id}
-          onAdded={(col) => { onColumnAdded(col); setShowAddColumn(false); }}
-          onClose={() => setShowAddColumn(false)}
+          onAdded={handleColumnAdded}
+          onClose={() => { setShowAddColumn(false); setInsertPosition(null); }}
         />
       )}
 
