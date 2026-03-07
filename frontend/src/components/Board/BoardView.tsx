@@ -79,8 +79,20 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       onCardUpdated(event as unknown as Card);
     } else if (event.type === "card.deleted") {
       onCardDeleted(event.card_id as number);
+    } else if (event.type === "column.created") {
+      onColumnAdded(event as unknown as Column);
+    } else if (event.type === "column.updated") {
+      onColumnUpdated(event as unknown as Column);
+    } else if (event.type === "column.deleted") {
+      onColumnDeleted(event.column_id as number);
+    } else if (event.type === "swimlane.created") {
+      onSwimlaneAdded(event as unknown as Swimlane);
+    } else if (event.type === "swimlane.updated") {
+      onSwimlaneUpdated(event as unknown as Swimlane);
+    } else if (event.type === "swimlane.deleted") {
+      onSwimlaneDeleted(event.swimlane_id as number);
     }
-  }, [onCardUpdated, onCardDeleted]);
+  }, [onCardUpdated, onCardDeleted, onColumnAdded, onColumnUpdated, onColumnDeleted, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted]);
 
   const { connected } = useBoardSocket(board.id, handleSocketEvent);
 
