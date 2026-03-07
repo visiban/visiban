@@ -246,49 +246,44 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   return (
     <>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0 flex-wrap">
         <ViewToggle view={view} onChange={setView} />
-        <span className="w-px h-4 bg-gray-200 mx-1" />
+        <span className="w-px h-4 bg-gray-200 shrink-0" />
         <span
-          className={`flex items-center gap-1 text-xs font-medium ${connected ? "text-green-500" : "text-gray-400"}`}
+          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-500" : "text-gray-400"}`}
           title={connected ? "Live — real-time updates active" : "Connecting…"}
         >
           <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-gray-300"}`} />
           {connected ? "Live" : "Connecting…"}
         </span>
-        <span className="w-px h-4 bg-gray-200" />
+        <span className="w-px h-4 bg-gray-200 shrink-0" />
         <button
           onClick={() => setShowFilters((v) => !v)}
-          className="text-xs text-blue-600 hover:text-blue-800 transition"
+          className="text-xs text-blue-600 hover:text-blue-800 transition shrink-0"
         >
           {showFilters ? "Hide filters" : "Filters"}
           {!showFilters && activeCount > 0 && (
             <span className="ml-1.5 bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5 font-medium">
-              {activeCount} active
+              {activeCount}
             </span>
           )}
         </button>
-        {!showFilters && activeCount > 0 && (
-          <button
-            onClick={() => setFilters(EMPTY_FILTER)}
-            className="text-xs text-gray-400 hover:text-gray-600 underline"
-          >
-            Clear
-          </button>
-        )}
+
+        {/* Inline filter controls — same row, wrap to next line on narrow viewports */}
+        {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} />}
+
         {isAdmin && (
           <>
-            <span className="w-px h-4 bg-gray-200 ml-auto" />
+            <span className="w-px h-4 bg-gray-200 ml-auto shrink-0" />
             <button
               onClick={() => setShowMembers(true)}
-              className="text-xs text-gray-500 hover:text-gray-800 transition"
+              className="text-xs text-gray-500 hover:text-gray-800 transition shrink-0"
             >
               Members ({board.members.length})
             </button>
           </>
         )}
       </div>
-      {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} />}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
         {/*
           Single scroll container — header and body share the same horizontal

@@ -115,19 +115,21 @@ export default function FilterBar({ board, filters, onChange }: Props) {
   const sel = "border border-gray-300 rounded px-2 py-1 text-sm bg-white outline-none focus:border-blue-400";
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-200 text-sm flex-wrap shrink-0">
+    <>
+      <span className="w-px h-4 bg-gray-200 shrink-0" />
+
       <input
         type="text"
         placeholder="Search cards…"
         value={filters.search}
         onChange={(e) => onChange({ ...filters, search: e.target.value })}
-        className="border border-gray-300 rounded px-2 py-1 text-sm w-40 outline-none focus:border-blue-400"
+        className="border border-gray-300 rounded px-2 py-1 text-sm w-36 outline-none focus:border-blue-400 shrink-0"
       />
 
       <select
         value={filters.assigneeId ?? ""}
         onChange={(e) => onChange({ ...filters, assigneeId: e.target.value === "" ? null : Number(e.target.value) })}
-        className={sel}
+        className={sel + " shrink-0"}
       >
         <option value="">Assignee</option>
         <option value="-1">Unassigned</option>
@@ -155,7 +157,7 @@ export default function FilterBar({ board, filters, onChange }: Props) {
       <select
         value={filters.dueDate ?? ""}
         onChange={(e) => onChange({ ...filters, dueDate: (e.target.value as FilterState["dueDate"]) || null })}
-        className={sel}
+        className={sel + " shrink-0"}
       >
         <option value="">Due date</option>
         <option value="overdue">Overdue</option>
@@ -165,18 +167,13 @@ export default function FilterBar({ board, filters, onChange }: Props) {
       </select>
 
       {activeCount > 0 && (
-        <>
-          <span className="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium">
-            {activeCount} active
-          </span>
-          <button
-            onClick={() => onChange(EMPTY_FILTER)}
-            className="text-xs text-gray-500 hover:text-gray-700 underline"
-          >
-            Clear all
-          </button>
-        </>
+        <button
+          onClick={() => onChange(EMPTY_FILTER)}
+          className="text-xs text-gray-400 hover:text-gray-600 underline shrink-0"
+        >
+          Clear all
+        </button>
       )}
-    </div>
+    </>
   );
 }
