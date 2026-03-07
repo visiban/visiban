@@ -9,12 +9,13 @@ A self-hosted Kanban board built around swimlane rows and automatic card movemen
 - [Getting started](#getting-started)
 - [Features](#features)
 - [Tech stack](#tech-stack)
+- [Contributing](#contributing)
 
 ---
 
 ## Overview
 
-Visiban gives you a grid of **columns** (stages) and **swimlane rows** (customers, projects, or any entity moving through your process). Cards live in cells at the intersection of a column and a swimlane. Drag a card to a new cell and a movement record is created automatically — who moved it, when, and from where.
+Visiban gives you a grid of **columns** (stages) and **swimlane rows** (customers, projects, or any entity moving through your process). Each card belongs to a column and a swimlane. Drag a card to a new column and a movement record is created automatically — who moved it, when, and from where.
 
 Multiple users can have the board open at the same time. Changes appear on everyone's screen instantly over a WebSocket connection, with no page refresh needed.
 
@@ -93,11 +94,11 @@ See [First Boot](docs/getting-started/first-boot.md) for details.
 
 ### Kanban board
 
-The board is a grid of columns and swimlane rows. Each cell is a drop zone for cards.
+The board is a grid of columns and swimlane rows. Drop cards into any column to move them through your pipeline.
 
-- Drag cards between cells to move them through your pipeline
+- Drag cards between columns to advance them through your stages
 - Drag column headers left or right to reorder stages
-- Right-click any cell to add a card directly into that column and swimlane
+- Right-click any column to add a card directly into that stage and swimlane
 - Swimlanes can be collapsed to save screen space
 - Column headers stay fixed as you scroll horizontally
 
@@ -196,6 +197,18 @@ In-app notifications for card assignment and cards that have gone stale (not mov
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS 3 |
 | Drag & drop | @dnd-kit/core + @dnd-kit/sortable |
 | Infra | Docker Compose, Nginx, Helm (Kubernetes) |
+
+---
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including how to file a bug report and set up a local development environment.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a full history of changes.
 
 ---
 
