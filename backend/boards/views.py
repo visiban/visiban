@@ -101,6 +101,141 @@ class BoardViewSet(viewsets.ModelViewSet):
         board, _ = get_board_for_user(pk, request.user)
         return Response(BoardFullSerializer(board, context={"request": request}).data)
 
+    @action(detail=True, methods=["get"])
+    def summary(self, request, pk=None):
+        """Per-swimlane card counts, stage distribution, and velocity."""
+        import datetime
+        from django.utils import timezone
+
+        board, _ = get_board_for_user(pk, request.user)
+        now = timezone.now()
+        cutoff_7d = now - datetime.timedelta(days=7)
+        cutoff_30d = now - datetime.timedelta(days=30)
+
+        columns = list(board.columns.order_by("position"))
+        last_column = columns[-1] if columns else None
+
+        result = []
+        for swimlane in board.swimlanes.order_by("position"):
+            cards = board.cards.filter(swimlane=swimlane)
+            stage_dist = {col.name: cards.filter(column=col).count() for col in columns}
+
+            vel_7d = vel_30d = 0
+            if last_column:
+                base_qs = CardMovement.objects.filter(
+                    card__board=board, card__swimlane=swimlane, to_column=last_column
+                )
+                vel_7d = base_qs.filter(moved_at__gte=cutoff_7d).count()
+                vel_30d = base_qs.filter(moved_at__gte=cutoff_30d).count()
+
+            result.append({
+                "id": swimlane.id,
+                "name": swimlane.name,
+                "color": swimlane.color,
+                "total_cards": cards.count(),
+                "stage_distribution": stage_dist,
+                "velocity_7d": vel_7d,
+                "velocity_30d": vel_30d,
+            })
+
+        return Response({"swimlanes": result})
+
+    @action(detail=True, methods=["get"])
+    def analytics(self, request, pk=None):
+        """Time-in-stage heatmap with outlier detection and stalled cards."""
+        import datetime
+        import statistics
+        from django.utils import timezone
+
+        board, _ = get_board_for_user(pk, request.user)
+        days = int(request.query_params.get("days", 30))
+        stalled_days = int(request.query_params.get("stalled_days", 7))
+        now = timezone.now()
+        stall_cutoff = now - datetime.timedelta(days=stalled_days)
+
+        columns = list(board.columns.order_by("position"))
+        col_id_to_name = {c.id: c.name for c in columns}
+
+        swimlane_results = []
+        all_col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
+
+        for swimlane in board.swimlanes.order_by("position"):
+            cards = list(
+                board.cards.filter(swimlane=swimlane).prefetch_related("movements")
+            )
+            col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
+            stalled_cards = []
+            deal_velocity_days = []
+
+            for card in cards:
+                movements = list(card.movements.order_by("moved_at"))
+                if not movements:
+                    continue
+                for i, mv in enumerate(movements):
+                    col_name = col_id_to_name.get(mv.to_column_id)
+                    if not col_name:
+                        continue
+                    entry = mv.moved_at
+                    exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else now
+                    dwell_days = (exit_ - entry).total_seconds() / 86400
+                    col_dwells[col_name].append(dwell_days)
+                    all_col_dwells[col_name].append(dwell_days)
+                if len(movements) > 1:
+                    deal_velocity_days.append(
+                        (movements[-1].moved_at - movements[0].moved_at).total_seconds() / 86400
+                    )
+                if movements[-1].moved_at < stall_cutoff:
+                    stalled_cards.append({
+                        "id": card.id,
+                        "title": card.title,
+                        "days_since_move": (now - movements[-1].moved_at).days,
+                    })
+
+            avg_days = {
+                col.name: (
+                    round(sum(col_dwells[col.name]) / len(col_dwells[col.name]), 1)
+                    if col_dwells[col.name] else None
+                )
+                for col in columns
+            }
+            swimlane_results.append({
+                "id": swimlane.id,
+                "name": swimlane.name,
+                "avg_days_per_column": avg_days,
+                "deal_velocity_days": (
+                    round(sum(deal_velocity_days) / len(deal_velocity_days), 1)
+                    if deal_velocity_days else None
+                ),
+                "stalled_cards": stalled_cards,
+                "is_outlier": {},
+            })
+
+        board_medians = {
+            col.name: (
+                round(statistics.median(all_col_dwells[col.name]), 1)
+                if all_col_dwells[col.name] else None
+            )
+            for col in columns
+        }
+        for sw in swimlane_results:
+            sw["is_outlier"] = {
+                col.name: (
+                    sw["avg_days_per_column"][col.name] is not None
+                    and board_medians[col.name] is not None
+                    and board_medians[col.name] > 0
+                    and sw["avg_days_per_column"][col.name] > 2 * board_medians[col.name]
+                )
+                for col in columns
+            }
+
+        return Response({
+            "days": days,
+            "columns": [c.name for c in columns],
+            "board_medians": board_medians,
+            "swimlanes": swimlane_results,
+            "stalled_threshold_days": stalled_days,
+        })
+
     @action(detail=True, methods=["post"])
     def members(self, request, pk=None):
         board, role = get_board_for_user(pk, request.user)
