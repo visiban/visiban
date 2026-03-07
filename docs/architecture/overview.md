@@ -17,8 +17,8 @@
 └────────────┬────────────────────────┬───────────────┘
              │ psycopg2               │ channels-redis
 ┌────────────▼────────────┐ ┌─────────▼───────────────┐
-│      PostgreSQL 16      │ │        Redis 7           │
-│  (primary data store)   │ │(WebSocket channel layer) │
+│      PostgreSQL 16      │ │         Redis 7         │
+│  (primary data store)   │ │(WebSocket channel layer)│
 └─────────────────────────┘ └─────────────────────────┘
 ```
 
