@@ -51,4 +51,24 @@ Right-click any board cell to open an inline card creation input directly in tha
 
 ## Filtering
 
-The filter bar lets you narrow cards by assignee, priority, and label. Filters are applied client-side.
+The filter bar lets you narrow cards by assignee, priority, label, and due date. Filters are applied client-side.
+
+## Views
+
+The toolbar provides three views for the same board data:
+
+| View | Description |
+|---|---|
+| **Board** | Default kanban grid with drag-and-drop |
+| **Summary** | Table of swimlanes with card counts, stage distribution, and 7/30-day velocity |
+| **Analytics** | Heatmap of average dwell time per stage, outlier detection, stalled card list, CSV export |
+
+See [Analytics](analytics.md) for details.
+
+## Board member management
+
+Admins can manage board members directly from the board toolbar via the **Members** button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. See [Roles & Permissions](../rbac/roles.md) for what each role can do.
+
+## Real-time indicator
+
+The toolbar shows a green **Live** dot when the WebSocket connection is active. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
