@@ -17,6 +17,10 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -24,11 +28,12 @@ services:
     command: >
       sh -c "python manage.py migrate &&
              python manage.py ensure_site_admin &&
-             python manage.py runserver 0.0.0.0:8000"
+             daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"
     env_file:
       - .env
     environment:
       DATABASE_URL: postgres://visiban:visiban@db:5432/visiban
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - ./backend:/app
     ports:
@@ -36,6 +41,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
     build:

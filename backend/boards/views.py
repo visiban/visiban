@@ -3,6 +3,7 @@ from django.db.models import F
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from .broadcast import broadcast_board_event
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -466,13 +467,18 @@ class CardViewSet(viewsets.ModelViewSet):
                 moved_by=self.request.user,
                 notes="Card created",
             )
+        broadcast_board_event(board.id, "card.created",
+            CardSerializer(card, context={"request": self.request, "board": board}).data)
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
+        board_id = instance.board_id
+        card_id = instance.id
         instance.delete()
+        broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
 
     def update(self, request, *args, **kwargs):
         _, role = self._board_and_role()
@@ -553,6 +559,7 @@ class CardViewSet(viewsets.ModelViewSet):
         if activities:
             CardActivity.objects.bulk_create(activities)
 
+        broadcast_board_event(card.board_id, "card.updated", serializer.data)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
@@ -606,12 +613,12 @@ class CardViewSet(viewsets.ModelViewSet):
         card.position = new_position
         card.save(update_fields=["column", "swimlane", "position"])
 
-        response_data = {
-            "card": CardSerializer(card, context={"request": request, "board": board}).data,
-        }
+        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        response_data = {"card": card_data}
         if movement:
             response_data["movement"] = CardMovementSerializer(movement).data
 
+        broadcast_board_event(board.id, "card.moved", card_data)
         return Response(response_data)
 
     @action(detail=True, methods=["get"])

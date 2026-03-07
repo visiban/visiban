@@ -99,3 +99,18 @@ externalDatabase:
   database: visiban
   username: visiban
   password: ""
+
+# Built-in Redis subchart (bitnami/redis).
+# Set enabled: false and supply externalRedis.url to use an existing instance.
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+
+# External Redis — used only when redis.enabled is false
+externalRedis:
+  url: "redis://redis:6379/0"
