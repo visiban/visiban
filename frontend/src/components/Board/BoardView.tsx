@@ -1,4 +1,6 @@
 import { useState } from "react";
+import SummaryView from "./SummaryView";
+import AnalyticsView from "./AnalyticsView";
 import {
   DndContext,
   DragOverlay,
@@ -36,6 +38,34 @@ interface Props {
   onLabelAdded: (label: Label) => void;
 }
 
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: "board" | "summary" | "analytics";
+  onChange: (v: "board" | "summary" | "analytics") => void;
+}) {
+  const btn = (label: string, val: "board" | "summary" | "analytics") => (
+    <button
+      onClick={() => onChange(val)}
+      className={`text-xs px-2.5 py-1 rounded transition ${
+        view === val
+          ? "bg-blue-600 text-white"
+          : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+      }`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex items-center gap-0.5 bg-gray-100 rounded p-0.5">
+      {btn("Board", "board")}
+      {btn("Summary", "summary")}
+      {btn("Analytics", "analytics")}
+    </div>
+  );
+}
+
 export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
@@ -49,6 +79,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
+  const [view, setView] = useState<"board" | "summary" | "analytics">("board");
 
   const filteredCardIds: Set<number> | null = (() => {
     if (countActiveFilters(filters) === 0) return null;
@@ -150,9 +181,33 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const activeCount = countActiveFilters(filters);
 
+  if (view === "summary") {
+    return (
+      <>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+          <ViewToggle view={view} onChange={setView} />
+        </div>
+        <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
+      </>
+    );
+  }
+
+  if (view === "analytics") {
+    return (
+      <>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+          <ViewToggle view={view} onChange={setView} />
+        </div>
+        <AnalyticsView boardId={board.id} />
+      </>
+    );
+  }
+
   return (
     <>
       <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+        <ViewToggle view={view} onChange={setView} />
+        <span className="w-px h-4 bg-gray-200 mx-1" />
         <button
           onClick={() => setShowFilters((v) => !v)}
           className="text-xs text-blue-600 hover:text-blue-800 transition"

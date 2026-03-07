@@ -48,6 +48,15 @@ export const deleteSwimlane = (boardId: number, swimlaneId: number) =>
 export const reorderSwimlanes = (boardId: number, order: number[]) =>
   client.post<Swimlane[]>(`/api/boards/${boardId}/swimlanes/reorder/`, { order }).then((r) => r.data);
 
+// Analytics
+export const getBoardSummary = (id: number): Promise<unknown> =>
+  client.get(`/api/boards/${id}/summary/`).then((r) => r.data);
+
+export const getBoardAnalytics = (id: number, days = 30, stalledDays = 7): Promise<unknown> =>
+  client
+    .get(`/api/boards/${id}/analytics/`, { params: { days, stalled_days: stalledDays } })
+    .then((r) => r.data);
+
 // Labels
 export const listLabels = (boardId: number) =>
   client.get<Label[]>(`/api/boards/${boardId}/labels/`).then((r) => r.data);
