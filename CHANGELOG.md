@@ -8,10 +8,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+---
+
+## [v0.1.0-beta] — 2026-03-07
+
+First public beta release.
+
 ### Added
 
 - WebSocket broadcasting for column and swimlane structural changes (`column.created`, `column.updated`, `column.deleted`, `swimlane.created`, `swimlane.updated`, `swimlane.deleted`) — all open tabs now reflect board structure changes in real time without a refresh
 - Frontend `useBoardSocket` hook connects via `VITE_API_URL` instead of `window.location`, fixing WebSocket connectivity in local dev where the API runs on a separate port
+- Root `README.md` rewritten with problem-first intro, table of contents, step-by-step getting started, and full feature and tech stack documentation
+- `CONTRIBUTING.md` — bug report template, feature request guidance, dev setup, MR process, and code style guidelines
+- `CHANGELOG.md` — this file
+
+### Fixed
+
+- `card.created` WebSocket events now correctly add cards on other tabs instead of being silently dropped (were routed to `onCardUpdated` which is a no-op for new cards)
+- `broadcast_board_event` crashed with `TypeError: can not serialize 'datetime.datetime' object` when passing DRF serializer data to channels_redis — payload is now round-tripped through `JSONRenderer` before sending to Redis
+- Duplicate columns, swimlanes, and cards on the creating user's tab when the WebSocket echo arrived after the API response — `addCard`, `addColumn`, and `addSwimlane` are now upserts
 
 ---
 
