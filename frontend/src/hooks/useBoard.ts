@@ -56,7 +56,13 @@ export function useBoard() {
   }, [board, boardId]);
 
   const addCard = useCallback((card: Card) => {
-    setBoard((b) => b ? { ...b, cards: [...b.cards, card] } : b);
+    setBoard((b) => {
+      if (!b) return b;
+      const exists = b.cards.some((c) => c.id === card.id);
+      return exists
+        ? { ...b, cards: b.cards.map((c) => (c.id === card.id ? card : c)) }
+        : { ...b, cards: [...b.cards, card] };
+    });
   }, []);
 
   const removeCard = useCallback((cardId: number) => {

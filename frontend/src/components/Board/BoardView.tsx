@@ -75,7 +75,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const canComment = canEdit || board.current_user_role === "collaborator";
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
-    if (event.type === "card.moved" || event.type === "card.updated" || event.type === "card.created") {
+    if (event.type === "card.created") {
+      onCardAdded(event as unknown as Card);
+    } else if (event.type === "card.moved" || event.type === "card.updated") {
       onCardUpdated(event as unknown as Card);
     } else if (event.type === "card.deleted") {
       onCardDeleted(event.card_id as number);
