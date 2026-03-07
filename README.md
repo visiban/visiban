@@ -1,6 +1,8 @@
 # Visiban
 
-A self-hosted Kanban board built around swimlane rows and automatic card movement tracking. Use it to manage customer pipelines, project workflows, or any process where you need to see what stage each item is in — and a full history of how it got there.
+When you're managing multiple customers or projects through a multi-stage process, two questions come up constantly: _where is everything right now_, and _how did it get there_? Most Kanban tools answer the first but not the second — and none of them let you track many independent entities (customers, accounts, projects) as separate rows on the same board.
+
+Visiban is a self-hosted Kanban board that solves both problems. It gives each entity its own **swimlane row** so you can see every customer or project and its current stage at a glance. Every time a card moves between columns, a timestamped movement record is created automatically — so you always have a full audit trail of who moved what, when, and from where. Changes made by other users appear on your screen instantly over a live WebSocket connection.
 
 ## Contents
 
