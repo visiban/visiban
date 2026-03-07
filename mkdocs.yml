@@ -49,6 +49,7 @@ nav:
     - Managing Roles: rbac/managing.md
   - API Reference:
     - Authentication: api/auth.md
+    - How to Authenticate: api/authentication.md
     - Boards: api/boards.md
     - Cards: api/cards.md
     - Groups: api/groups.md

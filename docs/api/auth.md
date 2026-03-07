@@ -1,6 +1,8 @@
 # Authentication API
 
-All endpoints except login, registration, OAuth, and invite-link resolution require an authenticated session (cookie-based).
+All endpoints except login, registration, OAuth, and invite-link resolution require authentication.
+
+For curl/script usage, see **[How to Authenticate](authentication.md)** — token auth examples included.
 
 ## Endpoints
 
