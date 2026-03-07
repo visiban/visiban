@@ -16,6 +16,22 @@ interface Props {
   onLabelAdded: (label: Label) => void;
 }
 
+function formatCommentTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "low",    label: "Low",    color: "#6B7280" },
   { value: "medium", label: "Medium", color: "#3B82F6" },
@@ -531,7 +547,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2 mb-1">
                             <span className="text-xs font-semibold text-gray-700">{authorName}</span>
-                            <span className="text-[10px] text-gray-400">{new Date(c.created_at).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-gray-400" title={new Date(c.created_at).toLocaleString()}>{formatCommentTime(c.created_at)}</span>
                           </div>
                           <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 leading-relaxed">
                             {c.body.split(/(@[\w.+-]+)/g).map((part, i) =>
