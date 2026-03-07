@@ -14,6 +14,7 @@ class Board(models.Model):
     group = models.ForeignKey(
         "groups.Group", null=True, blank=True, on_delete=models.SET_NULL, related_name="boards"
     )
+    staleness_threshold_days = models.PositiveIntegerField(default=7)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -235,3 +236,18 @@ class CardAttachment(models.Model):
     class Meta:
         db_table = "card_attachments"
         ordering = ["-uploaded_at"]
+
+
+class Notification(models.Model):
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
+    )
+    verb = models.CharField(max_length=500)
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, null=True, blank=True)
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, null=True, blank=True)
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notifications"
+        ordering = ["-created_at"]

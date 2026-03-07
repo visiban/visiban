@@ -27,9 +27,11 @@ export default function CardItem({ card, onClick, overlay }: Props) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`aspect-square bg-white rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition select-none flex flex-col overflow-hidden ${
+      className={`aspect-square bg-white rounded-lg shadow-sm cursor-pointer hover:shadow-md transition select-none flex flex-col overflow-hidden ${
         isDragging && !overlay ? "opacity-30" : ""
-      } ${overlay ? "shadow-xl rotate-2 opacity-95" : ""}`}
+      } ${overlay ? "shadow-xl rotate-2 opacity-95" : ""} ${
+        card.is_stale ? "border-2 border-amber-400" : "border border-gray-200"
+      }`}
     >
       {/* Priority strip */}
       <div className="h-1 shrink-0" style={{ backgroundColor: PRIORITY_COLORS[card.priority] ?? "#6B7280" }} />
@@ -72,6 +74,9 @@ export default function CardItem({ card, onClick, overlay }: Props) {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            {card.is_stale && (
+              <span title="Stale — no movement recently" className="text-amber-500 text-xs leading-none">⏱</span>
+            )}
             {isRecent && (
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" title="Recently moved" />
             )}

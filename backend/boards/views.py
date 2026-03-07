@@ -520,6 +520,15 @@ class CardViewSet(viewsets.ModelViewSet):
                 card=card, event_type=ET.ASSIGNEE_CHANGE,
                 from_value=old_assignee_name, to_value=new_name, actor=request.user,
             ))
+            # Notify new assignee
+            if card.assignee and card.assignee != request.user:
+                from .models import Notification
+                Notification.objects.create(
+                    recipient=card.assignee,
+                    verb=f"You were assigned to \"{card.title}\"",
+                    card=card,
+                    board=card.board,
+                )
         if old_description != card.description and "description" in request.data:
             activities.append(CardActivity(
                 card=card, event_type=ET.DESCRIPTION_CHANGE,
@@ -723,3 +732,54 @@ class CardViewSet(viewsets.ModelViewSet):
             )
         return Response(serializer.data)
 
+
+
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+
+class NotificationListView(APIView):
+    """GET /api/notifications/ — last 50 notifications for current user"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import Notification
+        qs = Notification.objects.filter(recipient=request.user).select_related("card", "board")[:50]
+        data = [
+            {
+                "id": n.id,
+                "verb": n.verb,
+                "card_id": n.card_id,
+                "card_title": n.card.title if n.card else None,
+                "board_id": n.board_id,
+                "board_name": n.board.name if n.board else None,
+                "read": n.read,
+                "created_at": n.created_at,
+            }
+            for n in qs
+        ]
+        return Response(data)
+
+
+class NotificationMarkReadView(APIView):
+    """POST /api/notifications/mark-read/"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from .models import Notification
+        if request.data.get("all"):
+            Notification.objects.filter(recipient=request.user, read=False).update(read=True)
+        else:
+            ids = request.data.get("ids", [])
+            Notification.objects.filter(recipient=request.user, id__in=ids).update(read=True)
+        return Response({"ok": True})
+
+
+class NotificationUnreadCountView(APIView):
+    """GET /api/notifications/unread-count/"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import Notification
+        count = Notification.objects.filter(recipient=request.user, read=False).count()
+        return Response({"count": count})
