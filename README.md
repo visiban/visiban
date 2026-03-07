@@ -102,18 +102,30 @@ The board is a grid of columns and swimlane rows. Drop cards into any column to 
 - Drag column headers left or right to reorder stages
 - Right-click any column to add a card directly into that stage and swimlane
 - Swimlanes can be collapsed to save screen space
+- Columns can be collapsed — they span the full board height and display per-swimlane card counts
 - Column headers stay fixed as you scroll horizontally
+
+### Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `f` | Toggle the filter bar |
+| `/` | Open the filter bar and focus the search input |
+| `?` | Show / hide the keyboard shortcuts overlay |
+| `Esc` | Close the card detail panel or any open dialog |
 
 ### Columns
 
 Each column (stage) can have:
 
-- A **name** and **colour**
+- A **name** and **color**
 - A **WIP limit** — maximum number of cards. Header turns red when exceeded
 - A **weight limit** — maximum total card weight. Header turns orange when exceeded
 - An **allow card creation** toggle — disable on "Done" columns to prevent accidental adds
 
 ### Cards
+
+Cards are displayed as compact horizontal rows with a colored left border indicating priority. Hovering over a card expands it to reveal additional metadata inline.
 
 Each card has:
 
@@ -121,14 +133,14 @@ Each card has:
 |---|---|
 | Title | Required |
 | Description | Free text |
-| Priority | low / medium / high / urgent — shown as a coloured left border |
-| Assignee | Any board member |
-| Labels | Board-scoped, multi-select |
-| Due date | Optional |
-| Weight | Numeric effort estimate (default 1) |
-| Checklist | Sub-tasks with checked/unchecked state |
-| Attachments | Files up to 10 MB each |
-| Comments | Visible to all board members |
+| Priority | low / medium / high / urgent — shown as a colored left border |
+| Assignee | Any board member; shown as an initials avatar |
+| Labels | Board-scoped, multi-select; shown as color pills on the card |
+| Due date | Optional; shown as relative text ("Today", "Tomorrow", "3d", "2d late") |
+| Weight | Numeric effort estimate (default 1, hidden when 1) |
+| Checklist | Sub-tasks with checked/unchecked state; progress shown on the card |
+| Attachments | Files up to 10 MB each; count shown on the card |
+| Comments | Visible to all board members; type `@` to mention a member |
 
 ### Card movement history
 
@@ -182,7 +194,7 @@ Group membership grants board access automatically. Board admins can override th
 
 ### Notifications
 
-In-app notifications for card assignment and cards that have gone stale (not moved in a configurable number of days).
+In-app notifications for card assignment, @mentions in comments, and cards that have gone stale (not moved in a configurable number of days).
 
 ---
 

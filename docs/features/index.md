@@ -20,6 +20,8 @@ Initech           ■ ■   │          │    ■     │    ■ ■
 
 Cards are dragged between cells. Every move that changes column or swimlane is logged automatically to an immutable audit trail.
 
+Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` focuses search, and `?` shows the full shortcut reference.
+
 → [Board & Cards](board.md)
 
 ---
