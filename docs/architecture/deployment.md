@@ -8,7 +8,9 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The `docker-compose.yml` starts three services: `db` (Postgres 16), `backend` (Django), and `frontend` (Vite/Nginx). The backend runs `migrate` and `ensure_site_admin` automatically on startup.
+The `docker-compose.yml` starts four services: `db` (Postgres 16), `redis` (Redis 7), `backend` (daphne ASGI), and `frontend` (Vite dev server). The backend runs `migrate` and `ensure_site_admin` automatically on startup.
+
+> **Note:** The backend uses **daphne** (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.
 
 ## Production Docker images
 
@@ -48,6 +50,10 @@ helm install visiban helm/visiban \
 | `backend.image.tag` | `latest` | Backend image tag |
 | `frontend.image.tag` | `latest` | Frontend image tag |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL; set `false` to use `externalDatabase` |
+| `redis.enabled` | `true` | Use bundled Redis; set `false` to use `externalRedis.url` |
+| `externalRedis.url` | `redis://redis:6379/0` | External Redis DSN (used when `redis.enabled: false`) |
+| `backend.settings.allowedHosts` | `visiban.example.com` | `ALLOWED_HOSTS` value |
+| `backend.settings.corsAllowedOrigins` | `https://visiban.example.com` | Comma-separated CORS origins |
 
 ### Upgrade
 

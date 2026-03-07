@@ -14,6 +14,8 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
+    - navigation.indexes
+    - navigation.breadcrumbs
     - navigation.top
     - toc.integrate
     - content.code.copy
@@ -32,27 +34,35 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started:
+    - getting-started/index.md
     - Installation: getting-started/installation.md
     - First Boot: getting-started/first-boot.md
     - OAuth Setup: getting-started/oauth.md
-  - Architecture:
-    - Overview: architecture/overview.md
-    - Data Model: architecture/data-model.md
-    - Deployment: architecture/deployment.md
   - Features:
+    - features/index.md
     - Board & Cards: features/board.md
-    - Groups: features/groups.md
+    - Analytics: features/analytics.md
+    - Notifications: features/notifications.md
+    - Real-time Updates: features/realtime.md
     - Card History: features/card-history.md
+    - Groups: features/groups.md
   - RBAC:
+    - rbac/index.md
     - Roles & Permissions: rbac/roles.md
     - Group Inheritance: rbac/inheritance.md
     - Managing Roles: rbac/managing.md
   - API Reference:
-    - Authentication: api/auth.md
-    - How to Authenticate: api/authentication.md
+    - api/index.md
+    - Authentication: api/authentication.md
     - Boards: api/boards.md
     - Cards: api/cards.md
     - Groups: api/groups.md
+  - Architecture:
+    - architecture/index.md
+    - Overview: architecture/overview.md
+    - Data Model: architecture/data-model.md
+    - Deployment: architecture/deployment.md
   - Administration:
+    - administration/index.md
     - Site Admins: administration/site-admins.md
     - Django Admin: administration/django-admin.md

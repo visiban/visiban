@@ -18,9 +18,11 @@ Swimlanes represent entities moving through your pipeline (customers, projects, 
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of cards allowed
-- **Weight limit** — maximum total card weight allowed
-- **Allow card creation** — only columns with this enabled show the add-card input
+- **WIP limit** — maximum number of cards allowed. When exceeded the column header turns red as a visual warning
+- **Weight limit** — maximum total card weight allowed. When exceeded the header turns orange
+- **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
+
+Columns can be reordered by dragging the column header left or right. Admins can add, edit, and delete columns from the same header.
 
 ## Cards
 
@@ -51,4 +53,34 @@ Right-click any board cell to open an inline card creation input directly in tha
 
 ## Filtering
 
-The filter bar lets you narrow cards by assignee, priority, and label. Filters are applied client-side.
+Click **Filters** in the toolbar to open the filter bar. Filters are applied client-side (no round-trip) and stack — all conditions must match.
+
+| Filter | Options |
+|---|---|
+| Search | Matches card title, description, assignee name, and label names |
+| Assignee | Any board member, or "Unassigned" |
+| Labels | One or more labels (card must have all selected) |
+| Priority | One or more of low / medium / high / urgent |
+| Due date | None set · Overdue · Due today · Due this week |
+
+An active filter count badge appears on the Filters button when filters are in use. Click **Clear** to reset all filters at once.
+
+## Views
+
+The toolbar provides three views for the same board data:
+
+| View | Description |
+|---|---|
+| **Board** | Default kanban grid with drag-and-drop |
+| **Summary** | Table of swimlanes with card counts, stage distribution, and 7/30-day velocity |
+| **Analytics** | Heatmap of average dwell time per stage, outlier detection, stalled card list, CSV export |
+
+See [Analytics](analytics.md) for details.
+
+## Board member management
+
+Admins can manage board members directly from the board toolbar via the **Members** button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. See [Roles & Permissions](../rbac/roles.md) for what each role can do.
+
+## Real-time indicator
+
+The toolbar shows a green **Live** dot when the WebSocket connection is active. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
