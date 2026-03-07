@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BoardViewSet, ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
     NotificationListView, NotificationMarkReadView, NotificationUnreadCountView,
+    VersionView,
 )
 
 router = DefaultRouter()
@@ -21,4 +22,5 @@ urlpatterns = [
     path("notifications/", NotificationListView.as_view()),
     path("notifications/mark-read/", NotificationMarkReadView.as_view()),
     path("notifications/unread-count/", NotificationUnreadCountView.as_view()),
+    path("version/", VersionView.as_view()),
 ]

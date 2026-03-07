@@ -4,6 +4,7 @@ import type { User, Notification } from "../../types";
 import { userDisplayName } from "../../types";
 import ProfileModal from "../Auth/ProfileModal";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
+import { getVersion } from "../../api/auth";
 
 interface BreadcrumbItem {
   label: string;
@@ -22,8 +23,13 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showBell, setShowBell] = useState(false);
+  const [version, setVersion] = useState<string | null>(null);
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchCount = () => getUnreadCount().then(setUnreadCount).catch(() => {});
@@ -84,6 +90,9 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
         <Link to="/" className="text-white font-bold tracking-wide hover:text-gray-200 transition">
           Visiban
         </Link>
+        {version && (
+          <span className="text-gray-600 text-[10px] font-mono select-none">{version}</span>
+        )}
         {breadcrumb?.map((item, i) => (
           <span key={i} className="flex items-center gap-2">
             <span className="text-gray-600">/</span>

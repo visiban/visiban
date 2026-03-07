@@ -173,3 +173,5 @@ REST_AUTH = {
     "SESSION_LOGIN": True,
     "USER_DETAILS_SERIALIZER": "accounts.serializers.UserSerializer",
 }
+
+APP_VERSION = env("APP_VERSION", default="dev")

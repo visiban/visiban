@@ -800,3 +800,12 @@ class NotificationUnreadCountView(APIView):
         from .models import Notification
         count = Notification.objects.filter(recipient=request.user, read=False).count()
         return Response({"count": count})
+
+
+class VersionView(APIView):
+    """GET /api/version/ — returns the running application version."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.conf import settings
+        return Response({"version": settings.APP_VERSION})
