@@ -30,6 +30,13 @@ When asked to create a release, run the release script. Ask for the version stri
 
 ## General conventions
 
-- All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
+- **Never commit or push directly to `main`** — all changes go through a feature branch and MR, no exceptions (including docs, chores, and hotfixes)
 - Branch naming: `feat/`, `fix/`, `docs/`, `chore/`
+- Workflow for every change:
+  1. `git checkout main && git pull origin main`
+  2. `git checkout -b <prefix>/<short-description>`
+  3. Make changes, commit, push branch
+  4. Open MR targeting `main`, merge when ready
+- The only commits that land on `main` directly are those made by `scripts/release.sh` (version bump commit + tag)
+- All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
