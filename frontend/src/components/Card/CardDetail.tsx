@@ -48,6 +48,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     getChecklist(board.id, card.id).then(setChecklist);
   }, [board.id, card.id]);
 
+  // Escape closes the panel
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   const save = async (patch: CardPatch) => {
     const updated = await updateCard(board.id, localCard.id, patch);
     setLocalCard(updated);
@@ -83,9 +90,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     onUpdated(updated);
   };
 
-  const handleCreateLabel = async () => {
+  const handleCreateLabel = async (colorOverride?: string) => {
     if (!newLabelName.trim()) return;
-    const label = await createLabel(board.id, { name: newLabelName.trim(), color: newLabelColor });
+    const color = colorOverride ?? newLabelColor;
+    const label = await createLabel(board.id, { name: newLabelName.trim(), color });
     onLabelAdded(label);
     const updatedLabelIds = [...localCard.labels.map((l) => l.id), label.id];
     const updated = await updateCard(board.id, localCard.id, { label_ids: updatedLabelIds });
@@ -184,21 +192,25 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
 
-      <div ref={panelRef} className="w-[480px] bg-white shadow-2xl flex flex-col overflow-hidden">
+      <div ref={panelRef} className="w-[540px] bg-white shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+        <div className="flex items-start gap-3 px-5 py-4 border-b border-gray-100">
           <div className="flex-1 min-w-0">
             <input
               value={localCard.title}
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}
-              className="text-lg font-semibold text-gray-900 w-full outline-none border-b border-transparent focus:border-blue-400 bg-transparent"
+              className="text-base font-semibold text-gray-900 w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-blue-400 focus:bg-blue-50/30 bg-transparent transition"
             />
-            <p className="text-xs text-gray-400 mt-0.5">
-              {swimlane?.name} · {column?.name}
+            <p className="text-[11px] text-gray-400 mt-1 px-1">
+              {swimlane?.name} <span className="mx-1 text-gray-300">›</span> {column?.name}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition text-lg leading-none shrink-0"
+            title="Close"
+          >×</button>
         </div>
 
         {/* Tabs */}
@@ -220,17 +232,79 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           {tab === "details" ? (
             <div className="flex flex-col gap-5">
 
+              {/* Description */}
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Description</p>
+                <textarea
+                  value={localCard.description ?? ""}
+                  onChange={(e) => setLocalCard((c) => ({ ...c, description: e.target.value }))}
+                  onBlur={handleDescriptionBlur}
+                  placeholder="Add a description…"
+                  rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none text-gray-700 placeholder-gray-300"
+                />
+              </div>
+
+              <div className="border-t border-gray-100" />
+
+              {/* Assignee + Due date (side by side) */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Assignee</p>
+                  <select
+                    value={localCard.assignee?.id ?? ""}
+                    onChange={(e) => {
+                      const id = e.target.value ? Number(e.target.value) : null;
+                      save({ assignee_id: id });
+                    }}
+                    className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400 w-full text-gray-700 bg-white"
+                  >
+                    <option value="">Unassigned</option>
+                    {board.members.map((m) => (
+                      <option key={m.user.id} value={m.user.id}>
+                        {userDisplayName(m.user)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Due date</p>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      value={localCard.due_date ?? ""}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => {
+                        const v = e.target.value || null;
+                        setLocalCard((c) => ({ ...c, due_date: v }));
+                        save({ due_date: v });
+                      }}
+                      className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400 w-full text-gray-700"
+                    />
+                    {localCard.due_date && (
+                      <button
+                        onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }); }}
+                        className="text-gray-300 hover:text-red-400 transition text-xs shrink-0"
+                        title="Clear due date"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Priority */}
               <div>
-                <p className="text-xs text-gray-400 mb-2">Priority</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Priority</p>
                 <div className="flex gap-1.5">
                   {PRIORITY_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       onClick={() => { setLocalCard((c) => ({ ...c, priority: opt.value })); save({ priority: opt.value }); }}
-                      className={`text-xs px-3 py-1 rounded-full border-2 font-medium transition ${
+                      className={`text-xs px-3 py-1 rounded-full border font-medium transition ${
                         localCard.priority === opt.value
-                          ? "text-white border-transparent"
+                          ? "text-white border-transparent shadow-sm"
                           : "text-gray-500 border-gray-200 hover:border-gray-300 bg-white"
                       }`}
                       style={localCard.priority === opt.value ? { backgroundColor: opt.color, borderColor: opt.color } : {}}
@@ -241,71 +315,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 </div>
               </div>
 
-              {/* Weight */}
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Weight</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => { const w = Math.max(1, localCard.weight - 1); setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
-                    className="w-7 h-7 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition text-sm font-medium"
-                  >−</button>
-                  <span className="text-sm font-semibold text-gray-700 w-6 text-center">{localCard.weight}</span>
-                  <button
-                    onClick={() => { const w = localCard.weight + 1; setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
-                    className="w-7 h-7 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition text-sm font-medium"
-                  >+</button>
-                </div>
-              </div>
-
-              {/* Due date */}
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Due date</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={localCard.due_date ?? ""}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => {
-                      const v = e.target.value || null;
-                      setLocalCard((c) => ({ ...c, due_date: v }));
-                      save({ due_date: v });
-                    }}
-                    className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400"
-                  />
-                  {localCard.due_date && (
-                    <button
-                      onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }); }}
-                      className="text-xs text-gray-400 hover:text-red-500 transition"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Assignee */}
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Assignee</p>
-                <select
-                  value={localCard.assignee?.id ?? ""}
-                  onChange={(e) => {
-                    const id = e.target.value ? Number(e.target.value) : null;
-                    save({ assignee_id: id });
-                  }}
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400 w-full"
-                >
-                  <option value="">Unassigned</option>
-                  {board.members.map((m) => (
-                    <option key={m.user.id} value={m.user.id}>
-                      {userDisplayName(m.user)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Labels */}
               <div>
-                <p className="text-xs text-gray-400 mb-2">Labels</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Labels</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allLabels.map((label) => {
                     const active = localCard.labels.some((l) => l.id === label.id);
@@ -313,8 +325,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <button
                         key={label.id}
                         onClick={() => toggleLabel(label)}
-                        className={`text-xs px-2.5 py-1 rounded-full border-2 font-medium transition ${
-                          active ? "text-white border-transparent" : "bg-white border-gray-200 hover:border-gray-300"
+                        className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${
+                          active ? "text-white border-transparent shadow-sm" : "bg-white border-gray-200 hover:border-gray-300"
                         }`}
                         style={active
                           ? { backgroundColor: label.color, borderColor: label.color }
@@ -339,13 +351,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         {LABEL_COLORS.map((c) => (
                           <button
                             key={c}
-                            onClick={() => setNewLabelColor(c)}
+                            onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) handleCreateLabel(c); }}
                             className={`w-5 h-5 rounded-full border-2 transition ${newLabelColor === c ? "border-gray-800 scale-110" : "border-transparent"}`}
                             style={{ backgroundColor: c }}
+                            title={newLabelName.trim() ? `Create "${newLabelName.trim()}" with this color` : "Pick color"}
                           />
                         ))}
                       </div>
-                      <button onClick={handleCreateLabel} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Add</button>
+                      {!newLabelName.trim() && (
+                        <span className="text-[10px] text-gray-400">type a name first</span>
+                      )}
                       <button onClick={() => setAddingLabel(false)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
                     </div>
                   ) : (
@@ -359,40 +374,57 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 </div>
               </div>
 
+              {/* Weight */}
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Weight</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { const w = Math.max(1, localCard.weight - 1); setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
+                    className="w-7 h-7 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition text-sm font-medium"
+                  >−</button>
+                  <span className="text-sm font-semibold text-gray-700 w-6 text-center">{localCard.weight}</span>
+                  <button
+                    onClick={() => { const w = localCard.weight + 1; setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
+                    className="w-7 h-7 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 transition text-sm font-medium"
+                  >+</button>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100" />
+
               {/* Checklist */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-gray-400">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                     Checklist
                     {checklist.length > 0 && (
-                      <span className="ml-1.5 text-gray-500">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
+                      <span className="ml-1.5 normal-case font-normal text-gray-500">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
                     )}
                   </p>
                 </div>
                 {checklist.length > 0 && (
                   <>
-                    {/* Progress bar */}
-                    <div className="h-1.5 bg-gray-100 rounded-full mb-3 overflow-hidden">
+                    <div className="h-1 bg-gray-100 rounded-full mb-3 overflow-hidden">
                       <div
                         className="h-full bg-green-500 rounded-full transition-all"
                         style={{ width: `${Math.round((checklist.filter((i) => i.is_checked).length / checklist.length) * 100)}%` }}
                       />
                     </div>
-                    <div className="flex flex-col gap-1.5 mb-2">
+                    <div className="flex flex-col gap-1 mb-3">
                       {checklist.map((item) => (
-                        <div key={item.id} className="flex items-center gap-2 group">
+                        <div key={item.id} className="flex items-center gap-2 group px-1 py-0.5 rounded hover:bg-gray-50">
                           <input
                             type="checkbox"
                             checked={item.is_checked}
                             onChange={() => handleToggleChecklistItem(item)}
-                            className="w-4 h-4 rounded accent-green-500 shrink-0 cursor-pointer"
+                            className="w-3.5 h-3.5 rounded accent-green-500 shrink-0 cursor-pointer"
                           />
-                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-gray-400" : "text-gray-700"}`}>
+                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-gray-300" : "text-gray-700"}`}>
                             {item.text}
                           </span>
                           <button
                             onClick={() => handleDeleteChecklistItem(item.id)}
-                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition text-xs shrink-0"
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition text-xs shrink-0"
                           >
                             ✕
                           </button>
@@ -406,18 +438,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     value={newItemText}
                     onChange={(e) => setNewItemText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
-                    placeholder="Quick add (Enter)…"
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400"
+                    placeholder="Add item (Enter)…"
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400 text-gray-700 placeholder-gray-300"
                   />
                   <button
                     onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
                     className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2 whitespace-nowrap"
                   >
-                    + Add
+                    Bulk
                   </button>
                 </div>
 
-                {/* Bulk add dialog */}
                 {showBulkAdd && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40" onClick={() => setShowBulkAdd(false)} />
@@ -434,120 +465,106 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
                       />
                       <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => setShowBulkAdd(false)}
-                          className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleBulkAdd}
-                          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition"
-                        >
-                          Add items
-                        </button>
+                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
+                        <button onClick={handleBulkAdd} className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition">Add items</button>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Description */}
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Description</p>
-                <textarea
-                  value={localCard.description ?? ""}
-                  onChange={(e) => setLocalCard((c) => ({ ...c, description: e.target.value }))}
-                  onBlur={handleDescriptionBlur}
-                  placeholder="Add a description…"
-                  rows={3}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
-                />
-              </div>
+              <div className="border-t border-gray-100" />
 
               {/* Attachments */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-gray-400">Attachments</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Attachments</p>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 transition"
                   >
                     {uploading ? "Uploading…" : "+ Upload"}
                   </button>
                   <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
                 </div>
                 {attachments.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No attachments yet.</p>
+                  <p className="text-xs text-gray-300 italic">No attachments.</p>
                 ) : (
                   <div className="flex flex-col gap-1.5">
                     {attachments.map((a) => (
-                      <div key={a.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                        <span className="text-gray-400 text-sm">📎</span>
+                      <div key={a.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 group">
+                        <span className="text-gray-300 text-sm shrink-0">📎</span>
                         <div className="flex-1 min-w-0">
-                          <a
-                            href={a.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm text-blue-600 hover:underline truncate block"
-                          >
+                          <a href={a.url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline truncate block">
                             {a.filename}
                           </a>
-                          <p className="text-xs text-gray-400">
-                            {(a.size / 1024).toFixed(1)} KB · {new Date(a.uploaded_at).toLocaleDateString()}
-                          </p>
+                          <p className="text-xs text-gray-400">{(a.size / 1024).toFixed(1)} KB · {new Date(a.uploaded_at).toLocaleDateString()}</p>
                         </div>
                         <button
                           onClick={() => handleDeleteAttachment(a.id)}
-                          className="text-gray-300 hover:text-red-500 transition text-xs shrink-0"
-                          title="Delete attachment"
-                        >
-                          ✕
-                        </button>
+                          className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition text-xs shrink-0"
+                          title="Delete"
+                        >✕</button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
+              <div className="border-t border-gray-100" />
+
               {/* Comments */}
               <div>
-                <p className="text-xs text-gray-400 mb-2">Comments</p>
-                <div className="flex flex-col gap-2 mb-3">
-                  {comments.map((c) => (
-                    <div key={c.id} className="bg-gray-50 rounded-lg px-3 py-2">
-                      <p className="text-xs text-gray-400 mb-0.5">
-                        {c.author ? userDisplayName(c.author) : null} · {new Date(c.created_at).toLocaleDateString()}
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        {c.body.split(/(@[\w.+-]+)/g).map((part, i) =>
-                          /^@[\w.+-]+$/.test(part)
-                            ? <span key={i} className="font-semibold text-blue-600">{part}</span>
-                            : part
-                        )}
-                      </p>
-                    </div>
-                  ))}
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">
+                  Comments {comments.length > 0 && <span className="normal-case font-normal text-gray-400">({comments.length})</span>}
+                </p>
+                <div className="flex flex-col gap-3 mb-3">
+                  {comments.map((c) => {
+                    const authorName = c.author ? userDisplayName(c.author) : "Unknown";
+                    const authorInitials = authorName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+                    return (
+                      <div key={c.id} className="flex gap-2.5">
+                        <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                          {authorInitials}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="text-xs font-semibold text-gray-700">{authorName}</span>
+                            <span className="text-[10px] text-gray-400">{new Date(c.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 leading-relaxed">
+                            {c.body.split(/(@[\w.+-]+)/g).map((part, i) =>
+                              /^@[\w.+-]+$/.test(part)
+                                ? <span key={i} className="font-semibold text-blue-600">{part}</span>
+                                : part
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 {canComment && (
-                  <>
+                  <div className="flex flex-col gap-2">
                     <MentionTextarea
                       value={commentBody}
                       onChange={setCommentBody}
                       onSubmit={handleComment}
                       members={board.members}
-                      placeholder="Add a comment… type @ to mention"
+                      placeholder="Add a comment… (Enter to submit, @ to mention)"
                       rows={2}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none text-gray-700 placeholder-gray-300"
                     />
-                    <button
-                      onClick={handleComment}
-                      className="mt-1.5 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
-                    >
-                      Comment
-                    </button>
-                  </>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleComment}
+                        className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition font-medium"
+                      >
+                        Comment
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -559,8 +576,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
         {/* Footer */}
         {canEdit && (
-          <div className="px-5 py-3 border-t border-gray-100">
-            <button onClick={handleDelete} className="text-sm text-red-500 hover:text-red-700 transition">
+          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end">
+            <button onClick={handleDelete} className="text-xs text-gray-300 hover:text-red-400 transition">
               Delete card
             </button>
           </div>
