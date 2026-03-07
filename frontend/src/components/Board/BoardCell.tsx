@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, Column, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
@@ -19,6 +19,7 @@ interface Props {
 export default function BoardCell({ column, swimlane, cards, boardId, canEdit, filteredCardIds, onCardClick, onCardAdded }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
+  const { active } = useDndContext();
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
 
@@ -48,6 +49,11 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
             />
           ))}
         </div>
+        {cards.length === 0 && active && (
+          <div className={`h-10 rounded border-2 border-dashed transition-colors ${
+            isOver ? "border-blue-400 bg-blue-50" : "border-gray-200"
+          }`} />
+        )}
       </SortableContext>
 
       {column.allow_card_creation && canEdit && (
