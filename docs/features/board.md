@@ -13,6 +13,14 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane can be collapsed to save vertical space.
 
+## Collapsed columns
+
+Clicking a column header collapses it to a narrow vertical strip. When collapsed:
+
+- The column spans the full board height across all swimlanes
+- Each swimlane cell shows the card count for that specific swimlane
+- The column header continues to show the aggregate total across all swimlanes
+
 ## Columns
 
 Columns represent pipeline stages. Each column has:
@@ -26,6 +34,8 @@ Columns can be reordered by dragging the column header left or right. Admins can
 
 ## Cards
 
+Cards are displayed as compact horizontal rows with a colored left border indicating priority. Hovering over a card expands it inline to show additional metadata without opening the detail panel.
+
 Each card belongs to exactly one column and one swimlane. Cards have:
 
 | Field | Description |
@@ -35,7 +45,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Priority | `low` / `medium` / `high` / `urgent` — shown as a colored left border |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select |
-| Due date | Optional date; past dates are disabled in the picker |
+| Due date | Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late") |
 | Weight | Numeric effort estimate (default 1) |
 | Checklist | Sub-tasks with checked/unchecked state |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE`) |
@@ -51,9 +61,20 @@ Every drag that changes column or swimlane creates a `CardMovement` audit record
 
 Right-click any board cell to open an inline card creation input directly in that column + swimlane.
 
+## Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `f` | Toggle the filter bar |
+| `/` | Open the filter bar and focus the search input |
+| `?` | Show / hide the keyboard shortcuts overlay |
+| `Esc` | Close the card detail panel or any open dialog |
+
+Shortcuts are ignored when focus is inside an input, textarea, or select element.
+
 ## Filtering
 
-Click **Filters** in the toolbar to open the filter bar. Filters are applied client-side (no round-trip) and stack — all conditions must match.
+Click **Filters** in the toolbar (or press `f`) to open the filter bar. Press `/` to open the filter bar and immediately focus the search input. Filters are applied client-side (no round-trip) and stack — all conditions must match.
 
 | Filter | Options |
 |---|---|
