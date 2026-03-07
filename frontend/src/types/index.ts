@@ -87,6 +87,18 @@ export interface Card {
   attachment_count: number;
   checklist_total: number;
   checklist_done: number;
+  is_stale: boolean;
+}
+
+export interface Notification {
+  id: number;
+  verb: string;
+  card_id: number | null;
+  card_title: string | null;
+  board_id: number | null;
+  board_name: string | null;
+  read: boolean;
+  created_at: string;
 }
 
 export interface CardMovement {

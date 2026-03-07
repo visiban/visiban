@@ -83,6 +83,7 @@ class CardSerializer(serializers.ModelSerializer):
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
+    is_stale = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -91,6 +92,7 @@ class CardSerializer(serializers.ModelSerializer):
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
+            "is_stale",
         ]
         read_only_fields = ["created_by", "created_at", "updated_at"]
 
@@ -106,6 +108,16 @@ class CardSerializer(serializers.ModelSerializer):
 
     def get_checklist_done(self, obj):
         return obj.checklist_items.filter(is_checked=True).count()
+
+    def get_is_stale(self, obj):
+        import datetime
+        from django.utils import timezone
+        threshold = obj.board.staleness_threshold_days
+        cutoff = timezone.now() - datetime.timedelta(days=threshold)
+        last_mv = obj.movements.first()  # ordered by -moved_at
+        if last_mv:
+            return last_mv.moved_at < cutoff
+        return (timezone.now() - obj.created_at).days >= threshold
 
 
 class CardAttachmentSerializer(serializers.ModelSerializer):
