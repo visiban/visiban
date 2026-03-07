@@ -79,7 +79,7 @@ export default function CardItem({ card, onClick, overlay }: Props) {
         )}
 
         {hasMetadata && (
-          <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+          <div className="flex items-center gap-1 mt-1.5 overflow-hidden">
             {/* Label pills */}
             {card.labels.slice(0, 3).map((label) => {
               const display = label.name.length > 4 ? label.name.slice(0, 2).toUpperCase() : label.name;
@@ -117,26 +117,6 @@ export default function CardItem({ card, onClick, overlay }: Props) {
               </span>
             )}
 
-            <span className="flex-1 min-w-0" />
-
-            {/* Priority label — visible on hover */}
-            <span
-              className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0 capitalize"
-              style={{ color: priorityColor }}
-            >
-              {card.priority}
-            </span>
-
-            {/* Stale indicator */}
-            {card.is_stale && (
-              <span title="Stale — no movement recently" className="text-amber-400 text-[10px] leading-none shrink-0">⏱</span>
-            )}
-
-            {/* Recently moved dot — visible on hover only */}
-            {isRecent && !card.is_stale && (
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" title="Recently moved" />
-            )}
-
             {/* Due date */}
             {dueInfo && (
               <span
@@ -154,10 +134,28 @@ export default function CardItem({ card, onClick, overlay }: Props) {
               </span>
             )}
 
-            {/* Assignee initials */}
+            {/* Stale indicator */}
+            {card.is_stale && (
+              <span title="Stale — no movement recently" className="text-amber-400 text-[10px] leading-none shrink-0">⏱</span>
+            )}
+
+            {/* Recently moved dot — visible on hover only */}
+            {isRecent && !card.is_stale && (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" title="Recently moved" />
+            )}
+
+            {/* Priority label — visible on hover */}
+            <span
+              className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0 capitalize"
+              style={{ color: priorityColor }}
+            >
+              {card.priority}
+            </span>
+
+            {/* Assignee initials — pushed to end via margin */}
             {assigneeName && (
               <span
-                className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 text-[8px] font-bold flex items-center justify-center shrink-0"
+                className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 text-[8px] font-bold flex items-center justify-center shrink-0 ml-auto"
                 title={assigneeName}
               >
                 {initials(assigneeName)}
