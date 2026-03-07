@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
@@ -98,9 +99,21 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const { connected } = useBoardSocket(board.id, handleSocketEvent);
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+
+  // Auto-open card from ?card= query param (e.g. from notification deep-link)
+  useEffect(() => {
+    const cardId = Number(searchParams.get("card"));
+    if (!cardId) return;
+    const card = board.cards.find((c) => c.id === cardId);
+    if (card) {
+      setSelectedCard(card);
+      setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
+    }
+  }, [board.cards, searchParams, setSearchParams]);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [showAddSwimlane, setShowAddSwimlane] = useState(false);
   const [showMembers, setShowMembers] = useState(false);

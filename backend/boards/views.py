@@ -663,14 +663,24 @@ class CardViewSet(viewsets.ModelViewSet):
         # Parse @username mentions and notify each mentioned board member
         import re
         from .models import Notification
-        mentioned_usernames = set(re.findall(r"@([\w.+-]+)", comment.body))
+        mentioned_usernames = set(re.findall(r"@(\w+)", comment.body))
         if mentioned_usernames:
-            from django.db.models import Q
+            # Collect effective member IDs: direct memberships + owner + group-inherited + site admins
+            eff_ids = set(board.memberships.values_list("user_id", flat=True))
+            eff_ids.add(board.owner_id)
+            eff_ids.update(User.objects.filter(is_site_admin=True).values_list("id", flat=True))
+            if board.group_id:
+                from groups.models import GroupMembership
+                node = board.group
+                depth = 0
+                while node and depth < 6:
+                    eff_ids.update(node.memberships.values_list("user_id", flat=True))
+                    node = node.parent
+                    depth += 1
             member_users = User.objects.filter(
                 username__in=mentioned_usernames,
-            ).filter(
-                Q(memberships__board=board) | Q(is_site_admin=True)
-            ).exclude(pk=request.user.pk).distinct()
+                pk__in=eff_ids,
+            ).exclude(pk=request.user.pk)
             Notification.objects.bulk_create([
                 Notification(
                     recipient=u,
