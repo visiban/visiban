@@ -6,7 +6,7 @@ Visiban supports Google, GitHub, and GitLab OAuth login. All three are optional 
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
 2. Create an OAuth 2.0 client ID (Web application)
-3. Add `http://localhost:8000/accounts/google/login/callback/` to authorised redirect URIs
+3. Add `http://localhost:8000/accounts/google/login/callback/` to authorized redirect URIs
 4. Add to `.env`:
 
 ```

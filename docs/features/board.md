@@ -17,7 +17,7 @@ Swimlanes represent entities moving through your pipeline (customers, projects, 
 
 Columns represent pipeline stages. Each column has:
 
-- **Name** and **colour**
+- **Name** and **color**
 - **WIP limit** — maximum number of cards allowed
 - **Weight limit** — maximum total card weight allowed
 - **Allow card creation** — only columns with this enabled show the add-card input
@@ -30,7 +30,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 |---|---|
 | Title | Required |
 | Description | Markdown-friendly text |
-| Priority | `low` / `medium` / `high` / `urgent` — shown as a coloured left border |
+| Priority | `low` / `medium` / `high` / `urgent` — shown as a colored left border |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select |
 | Due date | Optional date |

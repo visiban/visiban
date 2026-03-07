@@ -6,7 +6,7 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 
 - **Swimlanes** — rows represent entities (customers, projects, teams); columns are pipeline stages
 - **Movement history** — every drag logs from/to column, from/to swimlane, who moved it, and when
-- **Groups** — organise boards into groups and sub-groups with inherited membership
+- **Groups** — organize boards into groups and sub-groups with inherited membership
 - **RBAC** — five roles with fine-grained per-board and per-group permissions
 - **OAuth** — Google, GitHub, and GitLab login out of the box
 
