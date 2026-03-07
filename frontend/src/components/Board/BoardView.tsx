@@ -337,8 +337,23 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             </div>
           </div>
 
+          {/* Empty state: no columns */}
+          {board.columns.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+              <p className="text-sm">No columns — add one to continue.</p>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAddColumn(true)}
+                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                >
+                  + Add column
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Swimlane rows */}
-          {board.swimlanes.map((swimlane) => (
+          {board.columns.length > 0 && board.swimlanes.map((swimlane) => (
             <SwimlaneRow
               key={swimlane.id}
               swimlane={swimlane}
@@ -356,15 +371,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             />
           ))}
 
-          {board.swimlanes.length === 0 && (
+          {/* Empty state: has columns but no swimlanes */}
+          {board.columns.length > 0 && board.swimlanes.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
-              <p>No swimlanes yet.</p>
+              <p className="text-sm">No swimlanes — add one to continue.</p>
               {isAdmin && (
                 <button
                   onClick={() => setShowAddSwimlane(true)}
                   className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
-                  + Add first swimlane
+                  + Add swimlane
                 </button>
               )}
             </div>
