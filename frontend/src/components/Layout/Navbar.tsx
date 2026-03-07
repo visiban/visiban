@@ -48,7 +48,7 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
 
   const handleMarkAll = async () => {
     await markAllRead();
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications([]);
     setUnreadCount(0);
   };
 
