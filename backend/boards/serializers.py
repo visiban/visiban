@@ -154,7 +154,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
     swimlanes = SwimlaneSerializer(many=True, read_only=True)
     cards = CardSerializer(many=True, read_only=True)
     labels = LabelSerializer(many=True, read_only=True)
-    members = BoardMembershipSerializer(source="memberships", many=True, read_only=True)
+    members = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
     current_user_role = serializers.SerializerMethodField()
 
@@ -164,6 +164,48 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "id", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "created_at", "updated_at", "current_user_role",
         ]
+
+    def get_members(self, obj):
+        """Return effective members: direct board memberships + group-inherited members."""
+        from accounts.models import User
+        from groups.models import GroupMembership
+
+        # Direct board members keyed by user_id
+        seen = {}
+        for m in obj.memberships.select_related("user").all():
+            seen[m.user_id] = {"id": m.id, "user": m.user, "role": m.role, "joined_at": m.joined_at}
+
+        # Group-inherited members (walk ancestor chain)
+        if obj.group_id:
+            node = obj.group
+            depth = 0
+            while node and depth < 6:
+                for gm in node.memberships.select_related("user").all():
+                    if gm.user_id not in seen:
+                        seen[gm.user_id] = {"id": None, "user": gm.user, "role": gm.role, "joined_at": gm.joined_at}
+                node = node.parent
+                depth += 1
+
+        # Include the board owner if not already present
+        if obj.owner_id and obj.owner_id not in seen:
+            seen[obj.owner_id] = {"id": None, "user": obj.owner, "role": "admin", "joined_at": obj.created_at}
+
+        result = []
+        for entry in seen.values():
+            user = entry["user"]
+            result.append({
+                "id": entry["id"],
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "display_name": getattr(user, "display_name", "") or "",
+                    "avatar_url": getattr(user, "avatar_url", "") or "",
+                },
+                "role": entry["role"],
+                "joined_at": entry["joined_at"],
+            })
+        return result
 
     def get_current_user_role(self, obj):
         request = self.context.get("request")
