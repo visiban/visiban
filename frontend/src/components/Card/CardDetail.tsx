@@ -5,6 +5,7 @@ import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachm
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import CardMovementTimeline from "./CardMovementTimeline";
+import MentionTextarea from "./MentionTextarea";
 
 interface Props {
   card: Card;
@@ -518,16 +519,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <p className="text-xs text-gray-400 mb-0.5">
                         {c.author ? userDisplayName(c.author) : null} · {new Date(c.created_at).toLocaleDateString()}
                       </p>
-                      <p className="text-sm text-gray-700">{c.body}</p>
+                      <p className="text-sm text-gray-700">
+                        {c.body.split(/(@[\w.+-]+)/g).map((part, i) =>
+                          /^@[\w.+-]+$/.test(part)
+                            ? <span key={i} className="font-semibold text-blue-600">{part}</span>
+                            : part
+                        )}
+                      </p>
                     </div>
                   ))}
                 </div>
                 {canComment && (
                   <>
-                    <textarea
+                    <MentionTextarea
                       value={commentBody}
-                      onChange={(e) => setCommentBody(e.target.value)}
-                      placeholder="Add a comment…"
+                      onChange={setCommentBody}
+                      members={board.members}
+                      placeholder="Add a comment… type @ to mention"
                       rows={2}
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
                     />

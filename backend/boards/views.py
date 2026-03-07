@@ -655,11 +655,29 @@ class CardViewSet(viewsets.ModelViewSet):
             return Response(CardCommentSerializer(card.comments.all(), many=True).data)
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(card=card, author=request.user)
+        comment = serializer.save(card=card, author=request.user)
         CardActivity.objects.create(
             card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
             from_value="", to_value="", actor=request.user,
         )
+        # Parse @username mentions and notify each mentioned board member
+        import re
+        from .models import Notification
+        mentioned_usernames = set(re.findall(r"@([\w.+-]+)", comment.body))
+        if mentioned_usernames:
+            member_users = User.objects.filter(
+                username__in=mentioned_usernames,
+                memberships__board=board,
+            ).exclude(pk=request.user.pk)
+            Notification.objects.bulk_create([
+                Notification(
+                    recipient=u,
+                    verb=f"{request.user.username} mentioned you in \"{card.title}\"",
+                    card=card,
+                    board=board,
+                )
+                for u in member_users
+            ])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get", "post"], url_path="attachments")
