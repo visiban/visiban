@@ -1,0 +1,58 @@
+site_name: Visiban
+site_description: Swimlane pipeline board — documentation
+site_url: https://kellyhair.gitlab.io/visiban
+repo_url: https://gitlab.com/kellyhair/visiban
+repo_name: kellyhair/visiban
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: blue
+    accent: blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - toc.integrate
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - First Boot: getting-started/first-boot.md
+    - OAuth Setup: getting-started/oauth.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Data Model: architecture/data-model.md
+    - Deployment: architecture/deployment.md
+  - Features:
+    - Board & Cards: features/board.md
+    - Groups: features/groups.md
+    - Card History: features/card-history.md
+  - RBAC:
+    - Roles & Permissions: rbac/roles.md
+    - Group Inheritance: rbac/inheritance.md
+    - Managing Roles: rbac/managing.md
+  - API Reference:
+    - Authentication: api/auth.md
+    - How to Authenticate: api/authentication.md
+    - Boards: api/boards.md
+    - Cards: api/cards.md
+    - Groups: api/groups.md
+  - Administration:
+    - Site Admins: administration/site-admins.md
+    - Django Admin: administration/django-admin.md
