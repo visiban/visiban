@@ -17,6 +17,8 @@ docker compose up --build
 
 Docker Compose starts four services: `db` (Postgres 16), `redis` (Redis 7), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
 
+This setup is for **local development only** — the Vite dev server is not suitable for production. See [Production with HTTPS](#production-with-https) below for a production deployment.
+
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:5173 |
@@ -66,3 +68,66 @@ npm run dev
 | `DJANGO_SUPERUSER_EMAIL` | No | Override bootstrap admin email (default: `admin@localhost`) |
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
+
+## Production with HTTPS
+
+The production stack uses `docker-compose.prod.yml` which replaces the Vite dev server with:
+
+- A **multi-stage frontend build** (`npm run build`) producing optimized static files
+- **Nginx** serving the static files and proxying `/api/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend
+- **Certbot** obtaining and auto-renewing a Let's Encrypt TLS certificate
+
+### Prerequisites
+
+- A public-facing server (VPS, cloud VM, etc.) with ports **80** and **443** open
+- A DNS A record pointing `yourdomain.com` → your server's IP
+
+### First boot
+
+```bash
+git clone https://gitlab.com/kellyhair/visiban.git
+cd visiban
+cp .env.example .env
+```
+
+Edit `.env` and set **at minimum**:
+
+```
+DJANGO_SECRET_KEY=<long random string>
+DEBUG=false
+ALLOWED_HOSTS=yourdomain.com
+CORS_ALLOWED_ORIGINS=https://yourdomain.com
+SITE_DOMAIN=yourdomain.com
+
+DOMAIN=yourdomain.com
+CERTBOT_EMAIL=admin@yourdomain.com
+DB_PASSWORD=<strong password>
+```
+
+Then run the init script (requires Docker and `envsubst` from the `gettext` package):
+
+```bash
+chmod +x init-letsencrypt.sh
+./init-letsencrypt.sh
+```
+
+The script:
+1. Generates `nginx/app.conf` from the template using your `DOMAIN`
+2. Builds the application images
+3. Runs certbot in standalone mode to obtain the TLS certificate (briefly binds port 80)
+4. Starts the full stack (`db`, `redis`, `backend`, `frontend-build`, `nginx`, `certbot`)
+
+Visiban is then available at `https://yourdomain.com`.
+
+### Subsequent deploys
+
+```bash
+git pull origin main
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+This rebuilds images and re-runs the frontend build before nginx restarts.
+
+### Certificate renewal
+
+The `certbot` container runs `certbot renew` every 12 hours automatically. No manual action needed.

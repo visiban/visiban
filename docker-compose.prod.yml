@@ -1,0 +1,90 @@
+version: "3.9"
+
+# Production stack — run via init-letsencrypt.sh on first boot,
+# then: docker compose -f docker-compose.prod.yml up -d
+#
+# Required .env variables (in addition to the standard ones):
+#   DOMAIN=yourdomain.com
+#   CERTBOT_EMAIL=admin@yourdomain.com
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: visiban
+      POSTGRES_USER: visiban
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-visiban}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U visiban"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py ensure_site_admin &&
+             daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://visiban:${DB_PASSWORD:-visiban}@db:5432/visiban
+      REDIS_URL: redis://redis:6379/0
+      DEBUG: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Builds the React app; exits after the build.
+  # nginx waits for this service to complete before starting.
+  frontend-build:
+    build:
+      context: ./frontend
+      target: builder
+      args:
+        VITE_API_URL: ""
+    command: npm run build
+    volumes:
+      - frontend-dist:/app/dist
+
+  nginx:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - frontend-dist:/usr/share/nginx/html:ro
+    depends_on:
+      frontend-build:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+
+  # Renews the Let's Encrypt cert every 12 hours (certbot skips if not due).
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  pgdata:
+  frontend-dist:
