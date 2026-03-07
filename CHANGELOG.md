@@ -12,6 +12,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 - @mention support in card comments — type `@` to open an inline autocomplete dropdown filtered by username and display name; keyboard navigation (↑↓ Enter Escape); mentions highlighted in blue in rendered comments; mentioned board members receive an in-app notification (author is never self-notified)
 
+### Fixed
+
+- Due date picker disables past dates — `min` set to today, graying out and preventing selection of dates before today (closes #41)
+
 ### Docs
 
 - Updated `docs/features/realtime.md` to document column and swimlane event types added in v0.1.0-beta.1

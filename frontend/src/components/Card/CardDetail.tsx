@@ -264,6 +264,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   <input
                     type="date"
                     value={localCard.due_date ?? ""}
+                    min={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => {
                       const v = e.target.value || null;
                       setLocalCard((c) => ({ ...c, due_date: v }));
