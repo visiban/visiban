@@ -37,8 +37,8 @@ interface Props {
 }
 
 export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
-  const isAdmin = board.current_user_role === "admin";
-  const canEdit = board.current_user_role === "admin" || board.current_user_role === "member";
+  const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
+  const canEdit = isAdmin || board.current_user_role === "member";
 
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);

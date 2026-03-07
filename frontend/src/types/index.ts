@@ -6,6 +6,7 @@ export interface User {
   last_name: string;
   avatar_url: string;
   display_name: string;
+  is_site_admin: boolean;
 }
 
 export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {
@@ -18,6 +19,8 @@ export interface BoardMembership {
   role: "admin" | "member" | "viewer";
   joined_at: string;
 }
+
+export type SiteRole = "site_admin";
 
 export interface Column {
   id: number;
@@ -156,7 +159,7 @@ export interface BoardFull {
   members: BoardMembership[];
   created_at: string;
   updated_at: string;
-  current_user_role: "admin" | "member" | "viewer" | null;
+  current_user_role: "site_admin" | "admin" | "member" | "viewer" | null;
 }
 
 export interface Group {

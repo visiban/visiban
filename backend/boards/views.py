@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist
-from .permissions import IsBoardMember, IsBoardAdminOrOwner, get_board_role
+from .permissions import IsBoardMember, IsBoardAdminOrOwner, get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     ColumnSerializer, SwimlaneSerializer, LabelSerializer,
@@ -62,7 +62,8 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
-        if board.owner != request.user:
+        role = get_board_role(request.user, board)
+        if board.owner != request.user and role != SITE_ADMIN:
             return Response(status=status.HTTP_403_FORBIDDEN)
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -70,7 +71,7 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="move-group")
     def move_group(self, request, pk=None):
         board, role = get_board_for_user(pk, request.user)
-        if board.owner != request.user and role != BoardMembership.Role.ADMIN:
+        if board.owner != request.user and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         group_id = request.data.get("group_id")  # None = move to personal
@@ -101,13 +102,19 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def members(self, request, pk=None):
         board, role = get_board_for_user(pk, request.user)
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             return Response(status=status.HTTP_403_FORBIDDEN)
         user_id = request.data.get("user_id")
         member_role = request.data.get("role", BoardMembership.Role.MEMBER)
-        user = get_object_or_404(User, pk=user_id)
+        target_user = get_object_or_404(User, pk=user_id)
+        # Only site admins can add/change other site admins
+        if target_user.is_site_admin and role != SITE_ADMIN:
+            return Response(
+                {"detail": "Cannot modify a site admin's board membership."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         membership, created = BoardMembership.objects.get_or_create(
-            board=board, user=user, defaults={"role": member_role}
+            board=board, user=target_user, defaults={"role": member_role}
         )
         if not created:
             membership.role = member_role
@@ -117,9 +124,15 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
     def remove_member(self, request, pk=None, user_id=None):
         board, role = get_board_for_user(pk, request.user)
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             return Response(status=status.HTTP_403_FORBIDDEN)
-        BoardMembership.objects.filter(board=board, user_id=user_id).delete()
+        target_user = get_object_or_404(User, pk=user_id)
+        if target_user.is_site_admin and role != SITE_ADMIN:
+            return Response(
+                {"detail": "Cannot remove a site admin from a board."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        BoardMembership.objects.filter(board=board, user=target_user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -142,7 +155,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         max_pos = board.columns.count()
@@ -150,14 +163,14 @@ class ColumnViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         serializer.save()
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         instance.delete()
@@ -165,7 +178,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
         board, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         order = request.data.get("order", [])  # list of column IDs in new order
@@ -200,7 +213,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         max_pos = board.swimlanes.count()
@@ -208,14 +221,14 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         serializer.save()
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         instance.delete()
@@ -223,7 +236,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
         board, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         order = request.data.get("order", [])
@@ -252,21 +265,21 @@ class LabelViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         serializer.save(board=board)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         serializer.save()
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
-        if role != BoardMembership.Role.ADMIN:
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         instance.delete()

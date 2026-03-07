@@ -286,7 +286,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                 {members.map((m) => (
                   <div key={m.user.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
                     <p className="text-white text-sm">{m.user.display_name || m.user.username}</p>
-                    {isAdmin && m.user.id !== user.id ? (
+                    {isAdmin && m.user.id !== user.id && !m.user.is_site_admin ? (
                       <div className="flex items-center gap-2">
                         <select
                           value={m.role}
@@ -304,7 +304,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                         </button>
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-xs capitalize">{m.role}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-gray-500 text-xs capitalize">{m.role}</p>
+                        {m.user.is_site_admin && (
+                          <span className="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">site admin</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
