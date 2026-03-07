@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
+import { useBoardSocket } from "../../hooks/useBoardSocket";
+import type { BoardEvent } from "../../hooks/useBoardSocket";
 import {
   DndContext,
   DragOverlay,
@@ -70,6 +72,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
   const canComment = canEdit || board.current_user_role === "collaborator";
+
+  const handleSocketEvent = useCallback((event: BoardEvent) => {
+    if (event.type === "card.moved" || event.type === "card.updated" || event.type === "card.created") {
+      onCardUpdated(event as unknown as Card);
+    } else if (event.type === "card.deleted") {
+      onCardDeleted(event.card_id as number);
+    }
+  }, [onCardUpdated, onCardDeleted]);
+
+  const { connected } = useBoardSocket(board.id, handleSocketEvent);
 
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
@@ -206,8 +218,17 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   return (
     <>
       <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+<<<<<<< HEAD
         <ViewToggle view={view} onChange={setView} />
         <span className="w-px h-4 bg-gray-200 mx-1" />
+        <span
+          className={`flex items-center gap-1 text-xs font-medium ${connected ? "text-green-500" : "text-gray-400"}`}
+          title={connected ? "Live — real-time updates active" : "Connecting…"}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-gray-300"}`} />
+          {connected ? "Live" : "Connecting…"}
+        </span>
+        <span className="w-px h-4 bg-gray-200" />
         <button
           onClick={() => setShowFilters((v) => !v)}
           className="text-xs text-blue-600 hover:text-blue-800 transition"
