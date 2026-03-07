@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+### Docs
+
+- Updated `docs/features/realtime.md` to document column and swimlane event types added in v0.1.0-beta
+
 ---
 
 ## [v0.1.0-beta] — 2026-03-07
