@@ -7,7 +7,7 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 - **Swimlanes** — each row represents an entity (customer, project, team); columns are pipeline stages
 - **Movement history** — every drag automatically logs from/to column, from/to swimlane, who moved it, and when
 - **Time-in-stage metrics** — see how long a card spent in each stage
-- **OAuth login** — Google, GitHub, and GitLab
+- **OAuth login** — Google, GitHub, and GitLab; or username/email + password
 - **WIP limits** — optional per-column work-in-progress card count limit; header turns red when exceeded
 - **Card weights** — assign a numeric weight to each card (default 1) to represent effort or complexity
 - **Weight limits** — optional per-column cap on total card weight; header turns orange when exceeded
@@ -17,6 +17,8 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 - **Labels** — board-scoped, reusable across all cards; create with a colour picker directly from the card detail panel
 - **Priority, assignees, due dates, comments** on cards — all editable inline
 - **Optimistic drag-and-drop** — instant UI updates with rollback on failure
+- **Groups** — organise boards into groups and sub-groups with inherited membership
+- **RBAC** — five roles (site admin, admin, member, collaborator, viewer) with fine-grained per-board and per-group permissions
 
 ## Tech Stack
 
@@ -77,9 +79,11 @@ cp ../.env.example .env
 # Edit .env and set DATABASE_URL to use SQLite for local dev:
 #   DATABASE_URL=sqlite:///db.sqlite3
 
-# Run migrations and create a superuser
+# Run migrations
 python manage.py migrate
-python manage.py createsuperuser  # optional
+
+# Bootstrap the initial site admin (prints a one-time password)
+python manage.py ensure_site_admin
 
 # Start the dev server
 python manage.py runserver
@@ -208,6 +212,85 @@ docker build -f frontend/Dockerfile.prod -t <registry>/visiban/frontend:latest f
 docker push <registry>/visiban/backend:latest
 docker push <registry>/visiban/frontend:latest
 ```
+
+## Roles & Permissions
+
+Five roles control access at both the group and board level.
+
+| Right | `site_admin` | `admin` | `member` | `collaborator` | `viewer` |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Site** |  |  |  |  |  |
+| See all boards & groups | ✓ | — | — | — | — |
+| Grant / revoke site admin | ✓ | — | — | — | — |
+| **Groups** |  |  |  |  |  |
+| Create top-level group | ✓ | ✓ | ✓ | — | — |
+| Create subgroup | ✓ | ✓ *(of parent)* | — | — | — |
+| Delete group | ✓ | owner only | — | — | — |
+| Manage group members | ✓ | ✓ | — | — | — |
+| View group & boards | ✓ | ✓ | ✓ | — | — |
+| **Boards** |  |  |  |  |  |
+| Create board in group | ✓ | ✓ | — | — | — |
+| Create personal board | ✓ | ✓ | ✓ | — | — |
+| Delete board | ✓ | owner only | — | — | — |
+| Edit board (columns, swimlanes, labels) | ✓ | ✓ | — | — | — |
+| Manage board members | ✓ | ✓ | — | — | — |
+| **Cards** |  |  |  |  |  |
+| Create / edit / move / delete card | ✓ | ✓ | ✓ | — | — |
+| Comment on cards | ✓ | ✓ | ✓ | ✓ | — |
+| View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+Roles are inherited through group ancestry — a group admin is automatically an admin on all boards and sub-groups within that group. Site admins cannot be removed or demoted by regular admins.
+
+## Administration
+
+### Site Admins
+
+Site admins have full access to every board regardless of membership, and cannot be removed or demoted by regular board admins.
+
+**First boot — automatic bootstrap**
+
+On the first startup, if no site admin exists, a site admin account is created automatically and a one-time password is printed to stdout:
+
+```
+============================================================
+  VISIBAN INITIAL ADMIN CREDENTIALS
+============================================================
+  Created site admin: admin
+  Password:           X7kR9mNpQs2wLvYt
+============================================================
+  You will be required to change this password on first login.
+============================================================
+```
+
+Read it with:
+
+```bash
+docker compose logs backend | grep -A6 "INITIAL ADMIN"
+```
+
+You will be prompted to set a new password (min 12 characters) immediately on first login. The temporary password cannot be used again.
+
+To customise the bootstrap username and email, set these in your environment before first boot:
+
+```bash
+DJANGO_SUPERUSER_USERNAME=admin
+DJANGO_SUPERUSER_EMAIL=admin@example.com
+```
+
+**Granting or revoking site admin status**
+
+```bash
+# Grant
+python manage.py set_site_admin <username>
+
+# Revoke
+python manage.py set_site_admin <username> --revoke
+
+# Docker
+docker compose run --rm backend python manage.py set_site_admin <username>
+```
+
+Site admin status is also editable via the Django admin panel at `/admin/`.
 
 ## Running Tests
 

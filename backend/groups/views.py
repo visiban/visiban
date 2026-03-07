@@ -13,6 +13,8 @@ from .serializers import GroupSerializer, GroupMembershipSerializer, GroupInvite
 def _require_group_admin(user, group):
     """Raise PermissionDenied if user is not an admin of this group."""
     from rest_framework.exceptions import PermissionDenied
+    if getattr(user, "is_site_admin", False):
+        return
     if group.owner_id == user.id:
         return
     try:
@@ -26,6 +28,8 @@ def _require_group_admin(user, group):
 def _require_group_member(user, group):
     """Raise PermissionDenied if user is not a member of this group or any ancestor."""
     from rest_framework.exceptions import PermissionDenied
+    if getattr(user, "is_site_admin", False):
+        return
     if group.owner_id == user.id:
         return
     # Walk up the ancestor chain
@@ -51,6 +55,9 @@ class GroupViewSet(viewsets.ModelViewSet):
         ).select_related("owner", "parent")
 
     def perform_create(self, serializer):
+        parent = serializer.validated_data.get("parent")
+        if parent is not None:
+            _require_group_admin(self.request.user, parent)
         group = serializer.save(owner=self.request.user)
         GroupMembership.objects.create(
             group=group, user=self.request.user, role=GroupMembership.Role.ADMIN
@@ -58,7 +65,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         group = self.get_object()
-        if group.owner != request.user:
+        if group.owner != request.user and not getattr(request.user, "is_site_admin", False):
             return Response(status=status.HTTP_403_FORBIDDEN)
         group.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -76,13 +83,20 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["patch", "delete"], url_path=r"members/(?P<user_id>[^/.]+)")
     def update_member(self, request, pk=None, user_id=None):
+        from accounts.models import User
         group = self.get_object()
         _require_group_admin(request.user, group)
+        target_user = get_object_or_404(User, pk=user_id)
+        if target_user.is_site_admin and not request.user.is_site_admin:
+            return Response(
+                {"detail": "Cannot modify a site admin's group membership."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if request.method == "DELETE":
-            GroupMembership.objects.filter(group=group, user_id=user_id).delete()
+            GroupMembership.objects.filter(group=group, user=target_user).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         # PATCH — update role
-        membership = get_object_or_404(GroupMembership, group=group, user_id=user_id)
+        membership = get_object_or_404(GroupMembership, group=group, user=target_user)
         role = request.data.get("role")
         if role not in GroupMembership.Role.values:
             return Response({"role": f"Must be one of: {', '.join(GroupMembership.Role.values)}"}, status=status.HTTP_400_BAD_REQUEST)

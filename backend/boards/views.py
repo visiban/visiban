@@ -39,6 +39,8 @@ class BoardViewSet(viewsets.ModelViewSet):
         from django.db.models import Q
         from groups.models import get_accessible_group_ids
         user = self.request.user
+        if user.is_site_admin:
+            return Board.objects.all()
         return Board.objects.filter(
             Q(owner=user) |
             Q(memberships__user=user) |
@@ -309,7 +311,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        if role == BoardMembership.Role.VIEWER:
+        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
@@ -332,14 +334,14 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
-        if role == BoardMembership.Role.VIEWER:
+        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         instance.delete()
 
     def update(self, request, *args, **kwargs):
         _, role = self._board_and_role()
-        if role == BoardMembership.Role.VIEWER:
+        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         partial = kwargs.pop("partial", False)
@@ -412,7 +414,10 @@ class CardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     @transaction.atomic
     def move(self, request, board_pk=None, pk=None):
-        board = self._board()
+        board, role = self._board_and_role()
+        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied
         card = get_object_or_404(Card, pk=pk, board=board)
 
         target_column_id = request.data.get("column_id")

@@ -7,6 +7,7 @@ export interface User {
   avatar_url: string;
   display_name: string;
   is_site_admin: boolean;
+  must_change_password: boolean;
 }
 
 export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {
@@ -16,7 +17,7 @@ export function userDisplayName(user: Pick<User, "display_name" | "first_name" |
 export interface BoardMembership {
   id: number;
   user: User;
-  role: "admin" | "member" | "viewer";
+  role: "admin" | "member" | "collaborator" | "viewer";
   joined_at: string;
 }
 
@@ -159,7 +160,7 @@ export interface BoardFull {
   members: BoardMembership[];
   created_at: string;
   updated_at: string;
-  current_user_role: "site_admin" | "admin" | "member" | "viewer" | null;
+  current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
 }
 
 export interface Group {

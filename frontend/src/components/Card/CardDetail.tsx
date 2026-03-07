@@ -169,6 +169,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const column = board.columns.find((c) => c.id === localCard.column);
   const swimlane = board.swimlanes.find((s) => s.id === localCard.swimlane);
 
+  const role = board.current_user_role;
+  const canEdit = role === "site_admin" || role === "admin" || role === "member";
+  const canComment = canEdit || role === "collaborator";
+
   // Merge board labels with any on the card not yet in board list
   const allLabels = [...board.labels];
   localCard.labels.forEach((l) => {
@@ -518,19 +522,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </div>
                   ))}
                 </div>
-                <textarea
-                  value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
-                  placeholder="Add a comment…"
-                  rows={2}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
-                />
-                <button
-                  onClick={handleComment}
-                  className="mt-1.5 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
-                >
-                  Comment
-                </button>
+                {canComment && (
+                  <>
+                    <textarea
+                      value={commentBody}
+                      onChange={(e) => setCommentBody(e.target.value)}
+                      placeholder="Add a comment…"
+                      rows={2}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none"
+                    />
+                    <button
+                      onClick={handleComment}
+                      className="mt-1.5 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
+                    >
+                      Comment
+                    </button>
+                  </>
+                )}
               </div>
 
             </div>
@@ -540,11 +548,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-100">
-          <button onClick={handleDelete} className="text-sm text-red-500 hover:text-red-700 transition">
-            Delete card
-          </button>
-        </div>
+        {canEdit && (
+          <div className="px-5 py-3 border-t border-gray-100">
+            <button onClick={handleDelete} className="text-sm text-red-500 hover:text-red-700 transition">
+              Delete card
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

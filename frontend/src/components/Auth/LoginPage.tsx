@@ -10,7 +10,7 @@ interface Props {
 
 export default function LoginPage({ onLogin }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
+  const [loginField, setLoginField] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +33,9 @@ export default function LoginPage({ onLogin }: Props) {
     setSubmitting(true);
     try {
       if (mode === "login") {
-        await apiLogin(email, password);
+        await apiLogin(loginField, password);
       } else {
-        await apiRegister(email, password, confirm);
+        await apiRegister(loginField, password, confirm);
       }
       const user = await getCurrentUser();
       onLogin(user);
@@ -61,11 +61,11 @@ export default function LoginPage({ onLogin }: Props) {
         {/* Email/password form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 mb-5">
           <input
-            type="email"
+            type="text"
             required
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Username or email"
+            value={loginField}
+            onChange={(e) => setLoginField(e.target.value)}
             className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
           <input
