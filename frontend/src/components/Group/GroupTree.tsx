@@ -51,7 +51,7 @@ function GroupNode({
   depth?: number;
 }) {
   const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [addingSubgroup, setAddingSubgroup] = useState(false);
   const hasChildren = node.children.length > 0;
   const { group } = node;
