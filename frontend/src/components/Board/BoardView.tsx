@@ -340,13 +340,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {/* Empty state: no columns */}
           {board.columns.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
-              <p className="text-sm">No stages yet — add your first column to get started.</p>
+              <p className="text-sm">No columns — add one to continue.</p>
               {isAdmin && (
                 <button
                   onClick={() => setShowAddColumn(true)}
                   className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
-                  + Add first column
+                  + Add column
                 </button>
               )}
             </div>
@@ -374,13 +374,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {/* Empty state: has columns but no swimlanes */}
           {board.columns.length > 0 && board.swimlanes.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
-              <p className="text-sm">No swimlanes yet — add your first swimlane to get started.</p>
+              <p className="text-sm">No swimlanes — add one to continue.</p>
               {isAdmin && (
                 <button
                   onClick={() => setShowAddSwimlane(true)}
                   className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
-                  + Add first swimlane
+                  + Add swimlane
                 </button>
               )}
             </div>
