@@ -6,7 +6,7 @@
 # pipelines, so findings gate merges. excluded_paths skips generated code.
 
 include:
-  - component: gitlab.com/components/sast@~latest
+  - component: gitlab.com/components/sast/sast@~latest
     inputs:
       stage: security
       enable_mr_pipelines: true
