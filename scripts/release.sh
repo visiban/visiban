@@ -18,25 +18,23 @@ if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$'; th
   exit 1
 fi
 
-# Must be on main, clean working tree
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [[ "$BRANCH" != "main" ]]; then
-  echo "Error: must be on main (currently on $BRANCH)" >&2
-  exit 1
-fi
-
+# Clean working tree required
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Error: working tree is not clean" >&2
   exit 1
 fi
-
-git pull origin main
 
 # Check tag doesn't already exist
 if git tag | grep -q "^${TAG}$"; then
   echo "Error: tag $TAG already exists" >&2
   exit 1
 fi
+
+# Create release branch from latest main
+git checkout main
+git pull origin main
+RELEASE_BRANCH="chore/release-${VERSION}"
+git checkout -b "$RELEASE_BRANCH"
 
 # Update .env.example
 sed -i '' "s/^APP_VERSION=.*/APP_VERSION=${VERSION}/" .env.example
@@ -72,14 +70,47 @@ awk -v tag="$TAG" -v date="$TODAY" '
 
 echo "Updated .env.example, docker-compose.yml, CHANGELOG.md"
 
-# Commit and tag
+# Commit and push branch
 git add CHANGELOG.md .env.example docker-compose.yml
 git commit -m "chore: release ${TAG}"
+git push -u origin "$RELEASE_BRANCH"
+
+echo "Pushed branch $RELEASE_BRANCH"
+
+# Create MR and merge
+echo "Creating merge request..."
+MR_URL=$(glab mr create --title "chore: release ${TAG}" \
+  --description "Bump APP_VERSION to ${VERSION} and rotate CHANGELOG." \
+  --target-branch main --yes 2>&1 | grep -oE 'https://[^ ]+')
+
+echo "Waiting for pipeline..."
+sleep 5
+
+MR_NUM=$(echo "$MR_URL" | grep -oE '[0-9]+$')
+glab mr merge "$MR_NUM" --yes --when-pipeline-succeeds 2>&1 || true
+
+# Wait for merge to complete
+echo "Waiting for merge..."
+for i in $(seq 1 60); do
+  STATE=$(glab mr view "$MR_NUM" 2>&1 | grep '^state:' | awk '{print $2}')
+  if [[ "$STATE" == "merged" ]]; then
+    break
+  fi
+  sleep 10
+done
+
+if [[ "$STATE" != "merged" ]]; then
+  echo "Error: MR !${MR_NUM} did not merge in time. Merge manually, then tag." >&2
+  exit 1
+fi
+
+# Tag the merged result
+git checkout main
+git pull origin main
 git tag "$TAG"
-git push origin main
 git push origin "$TAG"
 
-echo "Pushed commit and tag $TAG"
+echo "Pushed tag $TAG"
 
 # Create GitLab release
 if [[ -z "$RELEASE_NOTES" ]]; then
