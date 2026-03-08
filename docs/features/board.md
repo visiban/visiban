@@ -30,7 +30,7 @@ Columns represent pipeline stages. Each column has:
 - **Weight limit** — maximum total card weight allowed. When exceeded the header turns orange
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
-Columns can be reordered by dragging the column header left or right. Admins can add, edit, and delete columns from the same header.
+Columns can be reordered by dragging the column header left or right. Hover any column header to reveal **+** buttons at its left and right edges — click either one to insert a new column immediately beside it without needing to drag-reorder afterward. Admins can also edit or delete a column by clicking its header.
 
 ## Cards
 
