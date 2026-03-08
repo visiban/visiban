@@ -44,3 +44,29 @@ When asked to create a release, run the release script. Ask for the version stri
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
 - Use **US English** in all code, comments, documentation, commit messages, MR descriptions, and UI copy — e.g. "color" not "colour", "center" not "centre", "canceled" not "cancelled", "authorization" not "authorisation"
+
+---
+
+## Open core vs. enterprise boundary
+
+Visiban follows an open-core model:
+
+- **OSS repo** (`visiban/visiban`) — the fully functional core product
+- **Enterprise repo** (`visiban/visiban-enterprise`) — private, mirrors OSS and adds premium features
+
+### Guiding principle
+
+A small team should be able to use Visiban end-to-end without needing the enterprise edition. If a feature is necessary for a single team to complete their day-to-day workflow — creating boards, managing cards, collaborating, and tracking progress — it belongs in the OSS core.
+
+When evaluating whether a feature is OSS or enterprise, ask: **"Can a small team work together effectively without this?"**
+
+- If **no** → it should be in the OSS core (suggest this to the user)
+- If **yes** → it is a candidate for enterprise
+
+Enterprise features are things like: SSO/SAML, audit logs, advanced analytics, automation rules, integrations with external services, multi-tenancy, white-labeling, and compliance tooling.
+
+### Rules
+
+- **Never add enterprise code to the OSS repo** — enterprise features live exclusively in `visiban/visiban-enterprise`
+- If a planned enterprise feature turns out to be essential for basic team workflows, flag it and suggest moving it to OSS
+- OSS should expose clean extension points (settings includes, URL patterns, hook interfaces) that enterprise can plug into without modifying OSS files

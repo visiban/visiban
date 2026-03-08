@@ -11,6 +11,7 @@ import {
   closestCenter,
   useSensor,
   useSensors,
+  useDroppable,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -41,6 +42,27 @@ interface Props {
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
   onSwimlaneDeleted: (swimlaneId: number) => void;
   onLabelAdded: (label: Label) => void;
+}
+
+function ColumnTrashZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: "trash:column" });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`w-20 shrink-0 flex items-center justify-center px-2 border-l transition-colors ${
+        isOver
+          ? "bg-red-100 border-red-300"
+          : "bg-red-50 border-gray-200"
+      }`}
+    >
+      <span className={`text-xs font-medium whitespace-nowrap ${isOver ? "text-red-700" : "text-red-400"}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mx-auto mb-0.5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        Delete
+      </span>
+    </div>
+  );
 }
 
 function ViewToggle({
@@ -123,6 +145,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   const [view, setView] = useState<"board" | "summary" | "analytics">("board");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -224,17 +247,26 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     const activeId = String(active.id);
 
     if (activeId.startsWith("col:")) {
+      const draggedColumn = activeColumn;
       setActiveColumn(null);
       if (!over) return;
-      let overId = String(over.id);
+      const overId = String(over.id);
+
+      // Dropped on trash zone — confirm before deleting
+      if (overId === "trash:column" && draggedColumn) {
+        setConfirmDeleteColumn(draggedColumn);
+        return;
+      }
+
       // Cells cover a larger area than column headers, so closestCenter may
       // resolve to "cell:{colId}:{swimlaneId}" — map back to the column id.
-      if (overId.startsWith("cell:")) {
-        overId = `col:${overId.split(":")[1]}`;
+      let mappedOverId = overId;
+      if (mappedOverId.startsWith("cell:")) {
+        mappedOverId = `col:${mappedOverId.split(":")[1]}`;
       }
-      if (activeId === overId) return;
+      if (activeId === mappedOverId) return;
       const oldIndex = board.columns.findIndex((c) => `col:${c.id}` === activeId);
-      const newIndex = board.columns.findIndex((c) => `col:${c.id}` === overId);
+      const newIndex = board.columns.findIndex((c) => `col:${c.id}` === mappedOverId);
       if (oldIndex === -1 || newIndex === -1) return;
       const reordered = arrayMove(board.columns, oldIndex, newIndex);
       onColumnsReordered(reordered.map((c) => c.id));
@@ -367,16 +399,20 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               ))}
             </SortableContext>
 
-            <div className="w-20 shrink-0 flex items-center px-2 bg-gray-50 border-l border-gray-200">
-              {isAdmin && (
-                <button
-                  onClick={() => setShowAddColumn(true)}
-                  className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
-                >
-                  + Col
-                </button>
-              )}
-            </div>
+            {activeColumn ? (
+              <ColumnTrashZone />
+            ) : (
+              <div className="w-20 shrink-0 flex items-center px-2 bg-gray-50 border-l border-gray-200">
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAddColumn(true)}
+                    className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
+                  >
+                    + Col
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Empty state: no columns */}
@@ -478,6 +514,43 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       )}
 
       {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
+
+      {confirmDeleteColumn && (() => {
+        const cardCount = board.cards.filter((c) => c.column === confirmDeleteColumn.id).length;
+        return (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+              <h3 className="text-white font-semibold text-lg mb-2">Delete column?</h3>
+              <p className="text-gray-400 text-sm mb-1">
+                <span className="text-white font-medium">{confirmDeleteColumn.name}</span> will be permanently deleted.
+              </p>
+              {cardCount > 0 && (
+                <p className="text-red-400 text-sm mb-1">
+                  {cardCount} card{cardCount !== 1 ? "s" : ""} in this column will also be deleted.
+                </p>
+              )}
+              <p className="text-gray-500 text-sm mb-5">This cannot be undone.</p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setConfirmDeleteColumn(null)}
+                  className="text-gray-400 text-sm hover:text-white px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onColumnDeleted(confirmDeleteColumn.id);
+                    setConfirmDeleteColumn(null);
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
