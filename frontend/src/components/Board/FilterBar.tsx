@@ -102,7 +102,7 @@ interface Props {
   board: BoardFull;
   filters: FilterState;
   onChange: (filters: FilterState) => void;
-  searchRef?: RefObject<HTMLInputElement>;
+  searchRef?: RefObject<HTMLInputElement | null>;
 }
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [

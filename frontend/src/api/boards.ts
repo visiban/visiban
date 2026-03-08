@@ -57,10 +57,10 @@ export const reorderSwimlanes = (boardId: number, order: number[]) =>
   client.post<Swimlane[]>(`/api/boards/${boardId}/swimlanes/reorder/`, { order }).then((r) => r.data);
 
 // Analytics
-export const getBoardSummary = (id: number): Promise<unknown> =>
+export const getBoardSummary = (id: number) =>
   client.get(`/api/boards/${id}/summary/`).then((r) => r.data);
 
-export const getBoardAnalytics = (id: number, days = 30, stalledDays = 7): Promise<unknown> =>
+export const getBoardAnalytics = (id: number, days = 30, stalledDays = 7) =>
   client
     .get(`/api/boards/${id}/analytics/`, { params: { days, stalled_days: stalledDays } })
     .then((r) => r.data);

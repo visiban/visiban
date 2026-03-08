@@ -117,6 +117,7 @@ export interface CardMovement {
 }
 
 export type CardActivityEventType =
+  | "title_change"
   | "priority_change"
   | "weight_change"
   | "assignee_change"
