@@ -41,3 +41,14 @@ nginx/app.conf
 
 # Let's Encrypt certs (managed by certbot container)
 certbot/
+
+# Coverage
+backend/.coverage
+backend/htmlcov/
+
+# MkDocs generated site
+site/
+
+# Stray root-level Node artifacts (frontend lives in frontend/)
+/package.json
+/package-lock.json
