@@ -150,6 +150,7 @@ secret-detection:
   stage: security
   image: python:3.12-slim
   before_script:
+    - apt-get update -qq && apt-get install -y -qq git
     - pip install --quiet detect-secrets
   script:
     - |
