@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [v0.3.0-beta.1] — 2026-03-08
+
 ### Added
 
 - Filter bar moves inline onto the toolbar row; falls back to a second row when the viewport is too narrow (closes #58)
