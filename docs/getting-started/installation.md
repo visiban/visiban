@@ -130,8 +130,8 @@ REDIS_URL=redis://redis:6379/0
 DOMAIN=yourdomain.com                   # required — must match your DNS A record
 CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alerts
 
-# App version (update on each release)
-APP_VERSION=0.2.0-beta.1
+# App version — set to the version you are deploying (see CHANGELOG.md)
+APP_VERSION=1.0.0-rc.1
 ```
 
 > **OAuth** (Google, GitHub, GitLab) is optional. See [OAuth Setup](oauth.md) if you want social login.
