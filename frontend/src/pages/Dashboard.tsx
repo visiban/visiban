@@ -6,6 +6,7 @@ import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
+import CreateBoardModal from "../components/Board/CreateBoardModal";
 import type { Board, Group, User } from "../types";
 
 interface Props {
@@ -21,7 +22,6 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [loadingBoards, setLoadingBoards] = useState(true);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [creatingBoard, setCreatingBoard] = useState(false);
-  const [boardName, setBoardName] = useState("");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [movingBoard, setMovingBoard] = useState<Board | null>(null);
@@ -33,11 +33,9 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     listGroups().then(setGroups).finally(() => setLoadingGroups(false));
   }, []);
 
-  const handleCreateBoard = async () => {
-    if (!boardName.trim()) return;
-    const board = await createBoard({ name: boardName.trim() });
+  const handleCreateBoard = async (name: string, template: string) => {
+    const board = await createBoard({ name, template });
     setBoards((prev) => [board, ...prev]);
-    setBoardName("");
     setCreatingBoard(false);
     navigate(`/boards/${board.id}`);
   };
@@ -131,33 +129,23 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
               {personalBoards.length === 0 && !creatingBoard && (
                 <p className="text-gray-600 text-sm">No personal boards yet.</p>
               )}
-              {creatingBoard ? (
-                <div className="bg-gray-800 rounded-xl p-4">
-                  <input
-                    autoFocus
-                    value={boardName}
-                    onChange={(e) => setBoardName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleCreateBoard(); if (e.key === "Escape") setCreatingBoard(false); }}
-                    placeholder="Board name…"
-                    className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 outline-none text-sm mb-3"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={handleCreateBoard} className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700">Create</button>
-                    <button onClick={() => setCreatingBoard(false)} className="text-gray-400 text-sm hover:text-white">Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setCreatingBoard(true)}
-                  className="w-full border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 py-3 rounded-xl text-sm transition"
-                >
-                  + New board
-                </button>
-              )}
+              <button
+                onClick={() => setCreatingBoard(true)}
+                className="w-full border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 py-3 rounded-xl text-sm transition"
+              >
+                + New board
+              </button>
             </div>
           )}
         </section>
       </main>
+
+      {creatingBoard && (
+        <CreateBoardModal
+          onConfirm={handleCreateBoard}
+          onCancel={() => setCreatingBoard(false)}
+        />
+      )}
 
       {movingBoard && (
         <MoveBoardModal

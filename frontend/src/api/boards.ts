@@ -12,7 +12,7 @@ export const removeBoardMember = (boardId: number, userId: number) =>
 export const listBoards = () =>
   client.get<Board[]>("/api/boards/").then((r) => r.data);
 
-export const createBoard = (data: { name: string; description?: string }) =>
+export const createBoard = (data: { name: string; description?: string; template?: string }) =>
   client.post<Board>("/api/boards/", data).then((r) => r.data);
 
 export const getBoard = (id: number) =>

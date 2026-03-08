@@ -16,10 +16,8 @@ export function useBoardSocket(
   useEffect(() => {
     if (!boardId) return;
 
-    const apiBase = import.meta.env.VITE_API_URL || "";
-    const wsBase = apiBase
-      ? apiBase.replace(/^http/, "ws")
-      : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
+    const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000")
+      .replace(/^http/, "ws");
     const url = `${wsBase}/ws/boards/${boardId}/`;
 
     let ws: WebSocket;
