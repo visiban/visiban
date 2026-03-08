@@ -7,14 +7,10 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-  const csrfToken = getCookie("csrftoken");
+  const match = document.cookie.match(/(^| )csrftoken=([^;]+)/);
+  const csrfToken = match ? match[2] : null;
   if (csrfToken) config.headers["X-CSRFToken"] = csrfToken;
   return config;
 });
-
-function getCookie(name: "csrftoken"): string | null {
-  const match = document.cookie.match(/(^| )csrftoken=([^;]+)/);
-  return match ? match[2] : null;
-}
 
 export default client;
