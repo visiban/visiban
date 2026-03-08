@@ -26,6 +26,7 @@ export default function LoginPage({ onLogin }: Props) {
     setError(null);
 
     if (mode === "register") {
+      // nosemgrep: detect-possible-timing-attacks — client-side form validation; both values are user-typed inputs, no secret is being guarded
       if (password !== confirm) { setError("Passwords do not match."); return; }
       if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     }

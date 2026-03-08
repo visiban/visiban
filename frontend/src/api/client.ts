@@ -12,8 +12,8 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+function getCookie(name: "csrftoken"): string | null {
+  const match = document.cookie.match(/(^| )csrftoken=([^;]+)/);
   return match ? match[2] : null;
 }
 
