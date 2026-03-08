@@ -148,7 +148,7 @@ class CardUpdateTests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertIn(label.id, [l["id"] for l in r.json()["labels"]])
+        self.assertIn(label.id, [lbl["id"] for lbl in r.json()["labels"]])
 
 
 class CardCommentsTests(TestCase):
@@ -246,11 +246,10 @@ class CardChecklistTests(TestCase):
 
     @patch(PATCH_BROADCAST)
     def test_list_checklist_items(self, _):
-        r_add = self.client.post(
+        self.client.post(
             f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/",
             {"text": "Step 1"},
         )
-        item_id = r_add.json()["id"]
         r = self.client.get(f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.json()), 1)

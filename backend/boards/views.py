@@ -8,15 +8,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist
-from .permissions import IsBoardMember, IsBoardAdminOrOwner, get_board_role, SITE_ADMIN
+from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist
+from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     ColumnSerializer, SwimlaneSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
 )
 from accounts.models import User
-from accounts.serializers import UserSerializer
 
 
 def get_board_for_user(board_id, user):
@@ -670,7 +669,6 @@ class CardViewSet(viewsets.ModelViewSet):
             eff_ids.add(board.owner_id)
             eff_ids.update(User.objects.filter(is_site_admin=True).values_list("id", flat=True))
             if board.group_id:
-                from groups.models import GroupMembership
                 node = board.group
                 depth = 0
                 while node and depth < 6:
