@@ -155,6 +155,97 @@ class GroupInviteLinkTests(TestCase):
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
+class GroupBoardsTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="admin", password="pass")
+        self.group = _make_group(self.admin)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_list_boards_in_group_empty(self):
+        r = self.client.get(f"/api/groups/{self.group.id}/boards/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json(), [])
+
+    def test_create_board_in_group(self):
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "Sprint Board"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.json()["name"], "Sprint Board")
+
+    def test_create_board_populates_default_columns(self):
+        from boards.models import Column
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "Default Cols"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 4)
+
+    def test_non_admin_cannot_create_board_in_group(self):
+        member = User.objects.create_user(username="member", password="pass")
+        GroupMembership.objects.create(
+            group=self.group, user=member, role=GroupMembership.Role.MEMBER
+        )
+        self.client.force_authenticate(member)
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "X"},
+        )
+        self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST])
+
+
+class GroupMemberSiteAdminTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="admin", password="pass")
+        self.group = _make_group(self.admin)
+        self.site_admin = User.objects.create_user(
+            username="sa", password="pass", is_site_admin=True
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_cannot_modify_site_admin_group_membership(self):
+        GroupMembership.objects.create(
+            group=self.group, user=self.site_admin, role=GroupMembership.Role.MEMBER
+        )
+        r = self.client.patch(
+            f"/api/groups/{self.group.id}/members/{self.site_admin.id}/",
+            {"role": "member"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_site_admin_can_pass_require_group_admin(self):
+        self.client.force_authenticate(self.site_admin)
+        r = self.client.get(f"/api/groups/{self.group.id}/members/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
+class GroupMemberAncestorTests(TestCase):
+    """_require_group_member walks the ancestor chain."""
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.parent = _make_group(self.owner, "Parent")
+        self.child = Group.objects.create(name="Child", owner=self.owner, parent=self.parent)
+        GroupMembership.objects.create(
+            group=self.child, user=self.owner, role=GroupMembership.Role.ADMIN
+        )
+        self.member = User.objects.create_user(username="member", password="pass")
+        # member is in parent only
+        GroupMembership.objects.create(
+            group=self.parent, user=self.member, role=GroupMembership.Role.MEMBER
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.member)
+
+    def test_parent_member_can_list_child_subgroups(self):
+        r = self.client.get(f"/api/groups/{self.child.id}/subgroups/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
 class JoinGroupViewTests(TestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username="owner", password="pass")

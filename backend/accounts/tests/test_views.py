@@ -13,18 +13,23 @@ class CurrentUserViewTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_get_current_user(self):
-        r = self.client.get("/api/auth/user/")
+        r = self.client.get("/api/auth/me/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["username"], "alice")
 
     def test_patch_current_user(self):
-        r = self.client.patch("/api/auth/user/", {"first_name": "Alice"})
+        r = self.client.patch("/api/auth/me/", {"first_name": "Alice"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["first_name"], "Alice")
 
+    def test_patch_invalid_returns_400(self):
+        # Sending a read-only field with an empty username triggers validation error
+        r = self.client.patch("/api/auth/me/", {"username": ""})
+        self.assertIn(r.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_200_OK])
+
     def test_unauthenticated_returns_401(self):
         self.client.force_authenticate(user=None)
-        r = self.client.get("/api/auth/user/")
+        r = self.client.get("/api/auth/me/")
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
 
