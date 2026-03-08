@@ -26,6 +26,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- CI dependency caching: `.npm-cache` template (keyed on `package-lock.json`) applied to all four frontend jobs; `.pip-cache` template (keyed on `requirements.txt`) applied to all four backend jobs — eliminates redundant downloads on warm runs
+- SAST findings: `getCookie` in `api/client.ts` now uses a hardcoded literal regex instead of `new RegExp(name)` (resolves `detect-non-literal-regexp`); mention regex in `CardDetail.tsx` corrected to escape the hyphen in `[\w.+\-]`, fixing an unintentional range that also matched commas (resolves `regex_dos`); `LoginPage.tsx` password-match check annotated with `nosemgrep` to document the false-positive timing-attack finding (client-side form validation with no secret)
 - "Due today" filter matched nothing in non-UTC timezones — `due_date` (a YYYY-MM-DD string) was parsed by `new Date()` as UTC midnight, causing an off-by-one day error compared to the local-timezone midnight; filter now compares date strings directly (closes #62)
 
 ### Changed
