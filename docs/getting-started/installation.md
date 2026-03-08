@@ -8,7 +8,7 @@
 ## Docker (recommended)
 
 ```bash
-git clone https://gitlab.com/kellyhair/visiban.git
+git clone https://gitlab.com/visiban/visiban.git
 cd visiban
 cp .env.example .env
 # Edit .env — set DJANGO_SECRET_KEY and any OAuth credentials
@@ -104,7 +104,7 @@ brew install gettext && brew link --force gettext
 ### Step 1 — Clone and configure
 
 ```bash
-git clone https://gitlab.com/kellyhair/visiban.git
+git clone https://gitlab.com/visiban/visiban.git
 cd visiban
 cp .env.example .env
 ```
@@ -196,6 +196,44 @@ docker compose -f docker-compose.prod.yml down
 
 # Start again (no rebuild needed unless code changed)
 docker compose -f docker-compose.prod.yml up -d
+```
+
+### Updating to a new version
+
+```bash
+cd visiban
+git pull origin main
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Django migrations run automatically on startup. Check the backend logs after updating:
+
+```bash
+docker compose -f docker-compose.prod.yml logs backend | tail -20
+```
+
+### Backing up and restoring
+
+**Database backup:**
+
+```bash
+docker compose -f docker-compose.prod.yml exec db \
+  pg_dump -U visiban visiban > backup_$(date +%Y%m%d).sql
+```
+
+**Database restore:**
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T db \
+  psql -U visiban visiban < backup_20260308.sql
+```
+
+**Media files** (card attachments) are stored in a Docker volume. Back them up with:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend \
+  tar czf /tmp/media.tar.gz -C /app media/
+docker compose -f docker-compose.prod.yml cp backend:/tmp/media.tar.gz ./media_backup.tar.gz
 ```
 
 ### Troubleshooting

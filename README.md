@@ -1,7 +1,7 @@
 # Visiban
 
-[![coverage](https://gitlab.com/kellyhair/visiban/badges/main/coverage.svg)](https://gitlab.com/kellyhair/visiban/-/pipelines)
-[![pipeline](https://gitlab.com/kellyhair/visiban/badges/main/pipeline.svg)](https://gitlab.com/kellyhair/visiban/-/pipelines)
+[![coverage](https://gitlab.com/visiban/visiban/badges/main/coverage.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
+[![pipeline](https://gitlab.com/visiban/visiban/badges/main/pipeline.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 When you're managing multiple customers or projects through a multi-stage process, two questions come up constantly: _where is everything right now_, and _how did it get there_? Most Kanban tools answer the first but not the second — and none of them let you track many independent entities (customers, accounts, projects) as separate rows on the same board.
@@ -58,7 +58,7 @@ That's it for the quick start. Redis and PostgreSQL are included in the Docker C
 ### 1. Clone and configure
 
 ```bash
-git clone https://gitlab.com/kellyhair/visiban.git
+git clone https://gitlab.com/visiban/visiban.git
 cd visiban
 cp .env.example .env
 ```
@@ -105,7 +105,7 @@ For a public-facing server, use the production stack which swaps the Vite dev se
 **Prerequisites:** a server with ports 80 and 443 open, and a DNS A record pointing your domain to the server's IP.
 
 ```bash
-git clone https://gitlab.com/kellyhair/visiban.git
+git clone https://gitlab.com/visiban/visiban.git
 cd visiban
 cp .env.example .env
 ```

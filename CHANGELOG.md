@@ -11,6 +11,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - Column trash zone: dragging a column to the right edge reveals a red "Delete" drop target; dropping shows a confirmation dialog with the card count before deleting (closes #23)
+- Self-hosting docs: backup/restore guide and upgrade instructions for production deployments (closes #67)
+
+### Fixed
+
+- Updated all GitLab URLs from `kellyhair/visiban` to `visiban/visiban` after group migration (README, CONTRIBUTING, installation docs)
+- Added `SITE_DOMAIN` to `.env.example` with documentation comment (was referenced in docs but missing from the example file)
 
 ---
 
