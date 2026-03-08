@@ -14,7 +14,7 @@ Thank you for taking the time to contribute. This document covers how to report 
 
 ## Filing a bug report
 
-Open an issue at [gitlab.com/kellyhair/visiban/-/issues](https://gitlab.com/kellyhair/visiban/-/issues) and include:
+Open an issue at [gitlab.com/visiban/visiban/-/issues](https://gitlab.com/visiban/visiban/-/issues) and include:
 
 1. **What you were doing** — a short description of the steps that led to the problem
 2. **What you expected to happen**
@@ -42,7 +42,7 @@ Open an issue and describe:
 See [Installation](docs/getting-started/installation.md) for the full guide. The short version:
 
 ```bash
-git clone https://gitlab.com/kellyhair/visiban.git
+git clone https://gitlab.com/visiban/visiban.git
 cd visiban
 cp .env.example .env
 docker compose up --build
