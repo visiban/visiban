@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { listBoards, createBoard, deleteBoard } from "../../api/boards";
 import type { Board, User } from "../../types";
+import CreateBoardModal from "../Board/CreateBoardModal";
 
 interface Props {
   user: User;
@@ -11,7 +12,6 @@ export default function BoardSelector({ user, onSelect }: Props) {
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -29,11 +29,9 @@ export default function BoardSelector({ user, onSelect }: Props) {
     }
   };
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    const board = await createBoard({ name: name.trim() });
+  const handleCreate = async (name: string, template: string) => {
+    const board = await createBoard({ name, template });
     setBoards((prev) => [board, ...prev]);
-    setName("");
     setCreating(false);
     onSelect(board);
   };
@@ -75,34 +73,20 @@ export default function BoardSelector({ user, onSelect }: Props) {
           </div>
         )}
 
-        {creating ? (
-          <div className="bg-gray-800 rounded-xl p-4">
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreating(false); }}
-              placeholder="Board name…"
-              className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 outline-none text-sm mb-3"
-            />
-            <div className="flex gap-2">
-              <button onClick={handleCreate} className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700">
-                Create
-              </button>
-              <button onClick={() => setCreating(false)} className="text-gray-400 text-sm hover:text-white">
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setCreating(true)}
-            className="w-full border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 py-3 rounded-xl text-sm transition"
-          >
-            + New board
-          </button>
-        )}
+        <button
+          onClick={() => setCreating(true)}
+          className="w-full border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 py-3 rounded-xl text-sm transition"
+        >
+          + New board
+        </button>
       </div>
+
+      {creating && (
+        <CreateBoardModal
+          onConfirm={handleCreate}
+          onCancel={() => setCreating(false)}
+        />
+      )}
 
       {confirmDeleteId !== null && (() => {
         const board = boards.find((b) => b.id === confirmDeleteId);

@@ -48,19 +48,21 @@ class BoardViewSet(viewsets.ModelViewSet):
         ).distinct()
 
     def perform_create(self, serializer):
+        from .templates import BOARD_TEMPLATES
         board = serializer.save(owner=self.request.user)
         BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
-        default_columns = [
-            ("Backlog", "#6B7280"),   # grey
-            ("To Do",   "#3B82F6"),   # blue
-            ("Doing",   "#F59E0B"),   # amber
-            ("Done",    "#10B981"),   # green
-        ]
-        Column.objects.bulk_create([
-            Column(board=board, name=name, position=i, color=color, allow_card_creation=(i == 0))
-            for i, (name, color) in enumerate(default_columns)
-        ])
-        Swimlane.objects.create(board=board, name="General", position=0, color="#6B7280")
+
+        template_key = self.request.data.get("template", "simple_kanban")
+        template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
+
+        if template["columns"]:
+            Column.objects.bulk_create([
+                Column(board=board, name=col["name"], position=i, color=col["color"], allow_card_creation=(i == 0))
+                for i, col in enumerate(template["columns"])
+            ])
+
+        if template["default_swimlane"]:
+            Swimlane.objects.create(board=board, name=template["default_swimlane"], position=0, color="#6B7280")
 
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
