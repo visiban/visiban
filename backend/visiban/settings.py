@@ -6,7 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(
     DEBUG=(bool, False),
 )
-environ.Env.read_env(BASE_DIR / ".env")
+_env_file = BASE_DIR / ".env"
+if _env_file.exists():
+    environ.Env.read_env(_env_file)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
@@ -136,9 +138,8 @@ SESSION_COOKIE_SAMESITE = "Lax"
 
 # django-allauth
 ACCOUNT_EMAIL_VERIFICATION = "none"
-ACCOUNT_AUTHENTICATION_METHOD = "username_email"
-ACCOUNT_EMAIL_REQUIRED = False
-ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_LOGIN_METHODS = {"username", "email"}
+ACCOUNT_SIGNUP_FIELDS = ["username*", "email", "password1*", "password2*"]
 LOGIN_REDIRECT_URL = "http://localhost:5173"
 ACCOUNT_LOGOUT_REDIRECT_URL = "http://localhost:5173"
 
