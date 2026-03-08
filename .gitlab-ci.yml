@@ -32,8 +32,8 @@ workflow:
 stages:
   - lint
   - test
-  - security
   - build
+  - security
 
 # ─── Rule templates ───────────────────────────────────────────────────────────
 #
