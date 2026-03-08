@@ -5,9 +5,12 @@
 When asked to create a release, run the release script. Ask for the version string before starting if it hasn't been provided.
 
 ### Version string
-- Format: strict [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH` for stable releases, `MAJOR.MINOR.PATCH-alpha.N` or `MAJOR.MINOR.PATCH-beta.N` for pre-releases
-  - Examples: `0.1.0-alpha.1`, `0.1.0-beta.1`, `0.1.1`, `0.2.0`, `1.0.0`
-  - Pre-release suffixes must include a numeric component (`alpha.1` not `alpha`)
+- Format: strict [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH` for stable releases, `MAJOR.MINOR.PATCH-<stage>.N` for pre-releases
+  - Valid pre-release stages in ascending order: `alpha` → `beta` → `rc`
+  - Examples: `0.1.0-alpha.1`, `0.1.0-beta.1`, `1.0.0-rc.1`, `0.1.1`, `0.2.0`, `1.0.0`
+  - Pre-release suffixes must include a numeric component (`rc.1` not `rc`)
+  - Semver precedence: `1.0.0-alpha.1 < 1.0.0-beta.1 < 1.0.0-rc.1 < 1.0.0`
+  - Use `alpha` for early/unstable builds, `beta` for feature-complete but unpolished, `rc` for release candidates (production-ready, baking before stable)
 - If not provided, read `CHANGELOG.md [Unreleased]` and the git log since the last tag, then suggest a version using these rules:
   - **PATCH** — only `### Fixed` entries (bug fixes, no new features, no breaking changes) → e.g. `0.1.1`
   - **MINOR** — any `### Added` entries (new backwards-compatible features, with or without fixes) → e.g. `0.2.0`
