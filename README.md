@@ -33,7 +33,7 @@ Full documentation is available in the [`/docs`](docs/index.md) folder and can b
 
 ```bash
 pip install -r docs/requirements.txt
-mkdocs serve   # opens at http://localhost:8001
+mkdocs serve --dev-addr=localhost:8001   # port 8001 avoids conflict with Django on 8000
 ```
 
 | Topic | Link |
