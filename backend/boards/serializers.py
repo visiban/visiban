@@ -168,7 +168,6 @@ class BoardFullSerializer(serializers.ModelSerializer):
     def get_members(self, obj):
         """Return effective members: direct board memberships + group-inherited members."""
         from accounts.models import User
-        from groups.models import GroupMembership
 
         # Direct board members keyed by user_id
         seen = {}

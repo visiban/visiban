@@ -18,6 +18,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Comment timestamps show relative time for recent comments ("just now", "5m ago", "3h ago") and switch to absolute date + time ("Mar 7, 2026, 2:34 PM") for comments older than 24 hours; hovering shows the full timestamp in a tooltip (closes #60)
 - GitLab CI pipeline — backend tests run against PostgreSQL + Redis services with `coverage` reporting; frontend lint and test jobs; coverage badge and pipeline badge in README (closes #36–39, #57)
 - Column headers show hover-visible **+** buttons at their left and right edges to insert a new column in-place without having to drag-reorder afterward (closes #61)
+- Backend test coverage expanded from 67% to 88%: new test suites for board actions (full, summary, analytics, members), column/swimlane/label CRUD, card CRUD and sub-resources (comments, checklist, attachments, movements, activities), group management, invite links, and accounts views (password change, profile)
+- CI security stage: Bandit (Python SAST), pip-audit (Python CVE scanning), `npm audit` (frontend CVE scanning), detect-secrets (credential leak detection)
+- CI code quality: ruff linter job for Python style/correctness (non-blocking)
 
 ### Fixed
 
