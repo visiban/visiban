@@ -28,6 +28,7 @@ import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import { exportBoardCsv, exportBoardJson } from "../../api/boards";
+import BulkActionToolbar from "./BulkActionToolbar";
 
 interface Props {
   board: BoardFull;
@@ -149,8 +150,20 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   const [view, setView] = useState<"board" | "summary" | "analytics">("board");
   const [showExport, setShowExport] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const exportRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const toggleCardSelection = useCallback((cardId: number) => {
+    setSelectedCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(cardId)) next.delete(cardId);
+      else next.add(cardId);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedCardIds(new Set()), []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -166,7 +179,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "f") {
+      if (e.key === "Escape") {
+        if (selectedCardIds.size > 0) { clearSelection(); return; }
+      } else if (e.key === "f") {
         e.preventDefault();
         setShowFilters((v) => !v);
       } else if (e.key === "/") {
@@ -180,7 +195,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [selectedCardIds, clearSelection]);
+
+  // Prune selection when cards are removed (e.g. by another user via WebSocket)
+  useEffect(() => {
+    const cardIds = new Set(board.cards.map((c) => c.id));
+    setSelectedCardIds((prev) => {
+      const pruned = new Set([...prev].filter((id) => cardIds.has(id)));
+      return pruned.size === prev.size ? prev : pruned;
+    });
+  }, [board.cards]);
 
   const filteredCardIds: Set<number> | null = (() => {
     if (countActiveFilters(filters) === 0) return null;
@@ -247,6 +271,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragStart = (e: DragStartEvent) => {
+    clearSelection();
     const id = String(e.active.id);
     if (id.startsWith("col:")) {
       setActiveColumn(board.columns.find((c) => c.id === Number(id.slice(4))) ?? null);
@@ -481,7 +506,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               canEdit={canEdit}
               collapsedColumnIds={collapsedColumns}
               filteredCardIds={filteredCardIds}
-              onCardClick={setSelectedCard}
+              selectedCardIds={selectedCardIds}
+              onToggleCardSelection={toggleCardSelection}
+              onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
               onCardAdded={onCardAdded}
               onSwimlaneUpdated={onSwimlaneUpdated}
               onSwimlaneDeleted={onSwimlaneDeleted}
@@ -516,6 +543,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           )}
         </DragOverlay>
       </DndContext>
+
+      {selectedCardIds.size > 0 && canEdit && (
+        <BulkActionToolbar
+          board={board}
+          selectedCardIds={selectedCardIds}
+          onCardsUpdated={(cards) => cards.forEach(onCardUpdated)}
+          onCardsDeleted={(ids) => ids.forEach(onCardDeleted)}
+          onClearSelection={clearSelection}
+        />
+      )}
 
       {selectedCard && (
         <CardDetail

@@ -29,9 +29,11 @@ interface Props {
   card: Card;
   onClick?: () => void;
   overlay?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
-export default function CardItem({ card, onClick, overlay }: Props) {
+export default function CardItem({ card, onClick, overlay, selected, onSelect }: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
 
   const isRecent = card.last_moved_at
@@ -58,14 +60,29 @@ export default function CardItem({ card, onClick, overlay }: Props) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-white rounded-md cursor-pointer select-none transition-all border border-gray-100 shadow-sm relative z-0
+      className={`group bg-white rounded-md cursor-pointer select-none transition-all border shadow-sm relative z-0
         hover:shadow-lg hover:border-gray-200 hover:z-20
         ${isDragging && !overlay ? "opacity-25 shadow-none" : ""}
         ${overlay ? "shadow-xl rotate-1 opacity-95" : ""}
-        ${card.is_stale ? "ring-1 ring-inset ring-amber-300" : ""}
+        ${selected ? "ring-2 ring-blue-400 border-blue-200 bg-blue-50/30" : card.is_stale ? "ring-1 ring-inset ring-amber-300 border-gray-100" : "border-gray-100"}
       `}
       style={{ borderLeft: `3px solid ${priorityColor}` }}
     >
+      {onSelect && (
+        <div
+          className={`absolute top-1 right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
+            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-gray-300 bg-white opacity-0 group-hover:opacity-100"}
+          `}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {selected && (
+            <svg className="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M2 6l3 3 5-5" />
+            </svg>
+          )}
+        </div>
+      )}
       <div className="px-2.5 py-2">
         <p className="text-xs font-medium text-gray-800 leading-snug line-clamp-2">{card.title}</p>
 

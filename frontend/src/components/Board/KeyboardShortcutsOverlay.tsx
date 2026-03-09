@@ -6,7 +6,7 @@ const SHORTCUTS = [
   { key: "f", description: "Toggle filter bar" },
   { key: "/", description: "Open filters and focus search" },
   { key: "?", description: "Show this help" },
-  { key: "Esc", description: "Close card detail / dialogs" },
+  { key: "Esc", description: "Deselect cards / close dialogs" },
 ];
 
 export default function KeyboardShortcutsOverlay({ onClose }: Props) {

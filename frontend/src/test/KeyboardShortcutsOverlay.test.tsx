@@ -8,7 +8,7 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(screen.getByText('Toggle filter bar')).toBeInTheDocument()
     expect(screen.getByText('Open filters and focus search')).toBeInTheDocument()
     expect(screen.getByText('Show this help')).toBeInTheDocument()
-    expect(screen.getByText('Close card detail / dialogs')).toBeInTheDocument()
+    expect(screen.getByText('Deselect cards / close dialogs')).toBeInTheDocument()
   })
 
   it('calls onClose when the × button is clicked', () => {
