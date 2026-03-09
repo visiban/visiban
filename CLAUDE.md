@@ -48,6 +48,20 @@ When asked to create a release, run the release script. Ask for the version stri
 
 ---
 
+## Documentation conventions
+
+- Docs live in the OSS repo alongside the code — never split into a separate repo
+- When writing or updating documentation, mark any feature that requires the enterprise edition with a callout:
+  ```markdown
+  > **Visiban Enterprise** — This feature is available in [Visiban Enterprise](https://visiban.com/enterprise).
+  ```
+- Place the callout immediately after the section heading for the enterprise feature
+- Enterprise-only features that may appear in OSS docs include: SSO/SAML, audit logs, advanced analytics, automation rules, external integrations, multi-tenancy, white-labeling, and compliance tooling
+- Do **not** add the enterprise callout to core OSS features — only features that require the enterprise edition
+- When documenting a feature that has both an OSS and enterprise tier (e.g. basic analytics in OSS, advanced analytics in enterprise), note the distinction inline
+
+---
+
 ## Open core vs. enterprise boundary
 
 Visiban follows an open-core model:
