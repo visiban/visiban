@@ -43,6 +43,7 @@ When asked to create a release, run the release script. Ask for the version stri
 - Release commits also go through branches and MRs — `scripts/release.sh` handles this automatically
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
+- When functionality changes, update the relevant documentation in `docs/` and `README.md` (if applicable) to reflect the new behavior
 - Use **US English** in all code, comments, documentation, commit messages, MR descriptions, and UI copy — e.g. "color" not "colour", "center" not "centre", "canceled" not "cancelled", "authorization" not "authorisation"
 
 ---
