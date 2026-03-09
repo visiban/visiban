@@ -287,25 +287,23 @@ secret-detection:
 #
 # Verify Docker images build successfully before merging. Catches Dockerfile
 # drift early without pushing to any registry.
+# Uses kaniko instead of Docker-in-Docker — no privileged mode needed, works
+# out of the box on Kubernetes runners.
 
 backend-docker-build:
   extends: .on-mr
   stage: build
-  image: docker:26-cli
-  services:
-    - docker:26-dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
   script:
-    - docker build backend/ -f backend/Dockerfile
+    - /kaniko/executor --context=backend --dockerfile=backend/Dockerfile --no-push
 
 frontend-docker-build:
   extends: .on-mr
   stage: build
-  image: docker:26-cli
-  services:
-    - docker:26-dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
   script:
-    - docker build frontend/ -f frontend/Dockerfile
+    - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push
