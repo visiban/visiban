@@ -11,11 +11,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 - Move online presence indicator from the center of the board toolbar to the top-right corner for a cleaner layout
+- Analytics CSV export button restricted to admin and site_admin roles (closes #68)
 
 ### Fixed
 
+- Read notifications reappear after page refresh — notification list endpoint now returns only unread notifications; clicking a notification removes it from the dropdown (closes #71)
 - Board import failing with "Method POST not allowed" due to manually set Content-Type header stripping the multipart boundary
 - Board Members dialog can now be closed by pressing Escape (closes #70)
+- Database deadlock on bulk card move — concurrent position-reorder transactions now acquire row locks in consistent order via `select_for_update`; bulk move requests serialized on the frontend
 
 ### Added
 

@@ -1047,16 +1047,26 @@ class CardViewSet(viewsets.ModelViewSet):
                 moved_by=request.user,
             )
 
-        # Reorder siblings in source cell (fill gap)
+        # Lock cards in affected cells to prevent deadlocks from concurrent moves.
+        # select_for_update with consistent ordering ensures transactions wait
+        # rather than deadlock when bulk operations fire parallel requests.
         if column_changed or swimlane_changed:
+            # Lock source cell cards, then reorder to fill gap
+            list(Card.objects.filter(
+                board=board, column=card.column, swimlane=card.swimlane
+            ).exclude(pk=card.pk).order_by("pk").select_for_update())
             source_siblings = Card.objects.filter(
                 board=board, column=card.column, swimlane=card.swimlane
             ).exclude(pk=card.pk).order_by("position")
             for i, sibling in enumerate(source_siblings):
-                sibling.position = i
-                sibling.save(update_fields=["position"])
+                if sibling.position != i:
+                    sibling.position = i
+                    sibling.save(update_fields=["position"])
 
-        # Shift target cell siblings to make room
+        # Lock target cell cards, then shift to make room
+        list(Card.objects.filter(
+            board=board, column=target_column, swimlane=target_swimlane
+        ).exclude(pk=card.pk).order_by("pk").select_for_update())
         Card.objects.filter(
             board=board, column=target_column, swimlane=target_swimlane
         ).exclude(pk=card.pk).filter(position__gte=new_position).update(
@@ -1235,7 +1245,7 @@ class NotificationListView(APIView):
 
     def get(self, request):
         from .models import Notification
-        qs = Notification.objects.filter(recipient=request.user).select_related("card", "board")[:50]
+        qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
         data = [
             {
                 "id": n.id,

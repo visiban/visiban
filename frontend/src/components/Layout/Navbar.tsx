@@ -55,7 +55,7 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
   const handleClickNotification = async (n: Notification) => {
     if (!n.read) {
       await markRead([n.id]);
-      setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+      setNotifications((prev) => prev.filter((x) => x.id !== n.id));
       setUnreadCount((c) => Math.max(0, c - 1));
     }
     setShowBell(false);
@@ -144,9 +144,7 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
                     <button
                       key={n.id}
                       onClick={() => handleClickNotification(n)}
-                      className={`w-full text-left px-3 py-2.5 border-b border-gray-50 hover:bg-gray-50 transition ${
-                        !n.read ? "bg-blue-50" : ""
-                      }`}
+                      className="w-full text-left px-3 py-2.5 border-b border-gray-50 bg-blue-50 hover:bg-gray-50 transition"
                     >
                       <p className="text-xs text-gray-800 leading-snug">{n.verb}</p>
                       <p className="text-[10px] text-gray-400 mt-0.5">{relativeTime(n.created_at)}</p>
