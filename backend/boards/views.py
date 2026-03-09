@@ -1,6 +1,13 @@
+import csv
+import io
+import json
+import datetime
+
 from django.db import transaction
 from django.db.models import F
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils.text import slugify
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from .broadcast import broadcast_board_event
@@ -241,15 +248,10 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):
         """Export board data as CSV or JSON."""
-        import csv
-        import io
-        import datetime
-        from django.http import HttpResponse
-
         board, _ = get_board_for_user(pk, request.user)
         export_format = request.query_params.get("format", "csv")
         today = datetime.date.today().isoformat()
-        safe_name = board.name.replace(" ", "-").replace("/", "-")
+        safe_name = slugify(board.name) or "board"
 
         cards = (
             Card.objects.filter(board=board)
@@ -334,7 +336,6 @@ class BoardViewSet(viewsets.ModelViewSet):
                 "cards": cards_data,
             }
 
-            import json
             content = json.dumps(payload, indent=2, ensure_ascii=False)
             response = HttpResponse(content, content_type="application/json")
             response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.json"'
