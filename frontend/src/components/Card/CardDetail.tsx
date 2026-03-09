@@ -4,6 +4,7 @@ import { userDisplayName } from "../../types";
 import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
+import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import CardMovementTimeline from "./CardMovementTimeline";
 import MentionTextarea from "./MentionTextarea";
 
@@ -33,13 +34,11 @@ export function formatCommentTime(iso: string): string {
 }
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
-  { value: "low",    label: "Low",    color: "#6B7280" },
-  { value: "medium", label: "Medium", color: "#3B82F6" },
-  { value: "high",   label: "High",   color: "#F59E0B" },
-  { value: "urgent", label: "Urgent", color: "#EF4444" },
+  { value: "low",    label: "Low",    color: PRIORITY_COLORS.low },
+  { value: "medium", label: "Medium", color: PRIORITY_COLORS.medium },
+  { value: "high",   label: "High",   color: PRIORITY_COLORS.high },
+  { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
-
-const LABEL_COLORS = ["#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6"];
 
 export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onLabelAdded }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
@@ -48,7 +47,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [tab, setTab] = useState<"details" | "history">("details");
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
+  const [newLabelColor, setNewLabelColor] = useState(PALETTE_COLORS[0]);
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -364,7 +363,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         className="text-xs border border-blue-400 rounded-full px-2.5 py-1 outline-none w-28"
                       />
                       <div className="flex gap-1">
-                        {LABEL_COLORS.map((c) => (
+                        {PALETTE_COLORS.map((c) => (
                           <button
                             key={c}
                             onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) handleCreateLabel(c); }}

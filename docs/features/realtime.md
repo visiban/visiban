@@ -34,7 +34,7 @@ The client reconnects automatically after 3 seconds if the connection drops.
 | Event | Trigger |
 |---|---|
 | `column.created` | Column added to the board |
-| `column.updated` | Column renamed, recoloured, or limits changed |
+| `column.updated` | Column renamed, recolored, or limits changed |
 | `column.deleted` | Column deleted |
 
 ### Swimlane events
@@ -42,7 +42,7 @@ The client reconnects automatically after 3 seconds if the connection drops.
 | Event | Trigger |
 |---|---|
 | `swimlane.created` | Swimlane added to the board |
-| `swimlane.updated` | Swimlane renamed, recoloured, or collapsed state changed |
+| `swimlane.updated` | Swimlane renamed, recolored, or collapsed state changed |
 | `swimlane.deleted` | Swimlane deleted |
 
 All events include the full serialized object (or just the ID for deletion events) so the frontend can update local state without a round-trip to the API.

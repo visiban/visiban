@@ -1,13 +1,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
 import { userDisplayName } from "../../types";
-
-const PRIORITY_COLORS: Record<string, string> = {
-  low:    "#6B7280",
-  medium: "#3B82F6",
-  high:   "#F59E0B",
-  urgent: "#EF4444",
-};
+import { PRIORITY_COLORS } from "../../constants/colors";
 
 function formatDueDate(iso: string): { label: string; overdue: boolean } {
   const d = new Date(iso);

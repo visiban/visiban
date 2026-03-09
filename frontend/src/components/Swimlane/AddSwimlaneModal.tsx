@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createSwimlane } from "../../api/boards";
 import type { Swimlane } from "../../types";
+import { PALETTE_COLORS } from "../../constants/colors";
 
 interface Props {
   boardId: number;
@@ -8,12 +9,10 @@ interface Props {
   onClose: () => void;
 }
 
-const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
-
 export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [color, setColor] = useState(COLORS[0]);
+  const [color, setColor] = useState(PALETTE_COLORS[0]);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -58,7 +57,7 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Color</label>
             <div className="flex gap-2 flex-wrap">
-              {COLORS.map((c) => (
+              {PALETTE_COLORS.map((c) => (
                 <button
                   key={c}
                   onClick={() => setColor(c)}

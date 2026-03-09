@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment
+from .models import (
+    Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
+    CardComment, CardActivity, CardAttachment, CardChecklist, Notification,
+)
 
 admin.site.register(Board)
 admin.site.register(BoardMembership)
@@ -9,3 +12,7 @@ admin.site.register(Label)
 admin.site.register(Card)
 admin.site.register(CardMovement)
 admin.site.register(CardComment)
+admin.site.register(CardActivity)
+admin.site.register(CardAttachment)
+admin.site.register(CardChecklist)
+admin.site.register(Notification)
