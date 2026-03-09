@@ -38,6 +38,6 @@ Below the heatmap, cards that haven't moved in more than the configured stalled-
 
 ### CSV export
 
-Click **Export CSV** to download the heatmap data as a comma-separated file for use in spreadsheets.
+Click **Export CSV** to download the heatmap data as a comma-separated file for use in spreadsheets. The export button is only visible to **admin** and **site_admin** users.
 
 **API:** `GET /api/boards/{id}/analytics/?days=30&stalled_days=7`
