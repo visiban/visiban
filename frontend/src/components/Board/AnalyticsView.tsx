@@ -28,6 +28,7 @@ type DaysOption = 7 | 30 | 90;
 
 interface Props {
   boardId: number;
+  currentUserRole: string | null;
 }
 
 function cellColor(avg: number | null, median: number | null, isOutlier: boolean): string {
@@ -56,7 +57,7 @@ function exportCsv(data: AnalyticsData) {
   URL.revokeObjectURL(url);
 }
 
-export default function AnalyticsView({ boardId }: Props) {
+export default function AnalyticsView({ boardId, currentUserRole }: Props) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [days, setDays] = useState<DaysOption>(30);
   const [loading, setLoading] = useState(true);
@@ -95,12 +96,14 @@ export default function AnalyticsView({ boardId }: Props) {
             {d}d
           </button>
         ))}
-        <button
-          onClick={() => data && exportCsv(data)}
-          className="ml-auto text-xs px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
-        >
-          Export CSV
-        </button>
+        {(currentUserRole === "admin" || currentUserRole === "site_admin") && (
+          <button
+            onClick={() => data && exportCsv(data)}
+            className="ml-auto text-xs px-3 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
+          >
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* Heatmap */}
