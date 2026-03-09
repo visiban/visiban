@@ -85,7 +85,5 @@ export const importBoard = (file: File, name?: string) => {
   const formData = new FormData();
   formData.append('file', file);
   if (name) formData.append('name', name);
-  return client.post<Board>('/api/boards/import/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then((r) => r.data);
+  return client.post<Board>('/api/boards/import/', formData).then((r) => r.data);
 };
