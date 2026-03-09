@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist
+from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment
 from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
@@ -237,6 +237,154 @@ class BoardViewSet(viewsets.ModelViewSet):
             "swimlanes": swimlane_results,
             "stalled_threshold_days": stalled_days,
         })
+
+    @action(detail=True, methods=["get"])
+    def export(self, request, pk=None):
+        """Export board data as CSV or JSON."""
+        import csv
+        import io
+        import datetime
+        from django.http import HttpResponse
+
+        board, _ = get_board_for_user(pk, request.user)
+        export_format = request.query_params.get("format", "csv")
+        today = datetime.date.today().isoformat()
+        safe_name = board.name.replace(" ", "-").replace("/", "-")
+
+        cards = (
+            Card.objects.filter(board=board)
+            .select_related("column", "swimlane", "assignee", "created_by")
+            .prefetch_related(
+                "labels",
+                "movements__from_column",
+                "movements__to_column",
+                "movements__moved_by",
+                "comments__author",
+                "checklist_items",
+            )
+            .order_by("position")
+        )
+
+        if export_format == "json":
+            columns = board.columns.order_by("position")
+            swimlanes = board.swimlanes.order_by("position")
+            labels = board.labels.all()
+
+            cards_data = []
+            for card in cards:
+                movements = list(card.movements.order_by("moved_at"))
+                cards_data.append({
+                    "title": card.title,
+                    "description": card.description,
+                    "column": card.column.name,
+                    "swimlane": card.swimlane.name,
+                    "priority": card.priority,
+                    "assignee": card.assignee.username if card.assignee else None,
+                    "labels": [l.name for l in card.labels.all()],
+                    "due_date": card.due_date.isoformat() if card.due_date else None,
+                    "weight": card.weight,
+                    "position": card.position,
+                    "created_at": card.created_at.isoformat(),
+                    "created_by": card.created_by.username if card.created_by else None,
+                    "comments": [
+                        {
+                            "author": c.author.username if c.author else None,
+                            "body": c.body,
+                            "created_at": c.created_at.isoformat(),
+                        }
+                        for c in card.comments.order_by("created_at")
+                    ],
+                    "checklist": [
+                        {
+                            "text": item.text,
+                            "is_checked": item.is_checked,
+                        }
+                        for item in card.checklist_items.order_by("position")
+                    ],
+                })
+
+            payload = {
+                "name": board.name,
+                "description": board.description,
+                "columns": [
+                    {
+                        "name": col.name,
+                        "position": col.position,
+                        "color": col.color,
+                        "wip_limit": col.wip_limit,
+                        "weight_limit": col.weight_limit,
+                        "allow_card_creation": col.allow_card_creation,
+                    }
+                    for col in columns
+                ],
+                "swimlanes": [
+                    {
+                        "name": sw.name,
+                        "position": sw.position,
+                        "color": sw.color,
+                        "contact_email": sw.contact_email,
+                        "notes": sw.notes,
+                    }
+                    for sw in swimlanes
+                ],
+                "labels": [
+                    {"name": l.name, "color": l.color}
+                    for l in labels
+                ],
+                "cards": cards_data,
+            }
+
+            import json
+            content = json.dumps(payload, indent=2, ensure_ascii=False)
+            response = HttpResponse(content, content_type="application/json")
+            response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.json"'
+            return response
+
+        # Default: CSV export
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow([
+            "Card ID", "Title", "Description", "Column", "Swimlane",
+            "Priority", "Assignee", "Labels", "Due Date", "Weight",
+            "Created At", "Created By", "Last Moved At", "Movement Count",
+            "Movement History",
+        ])
+
+        for card in cards:
+            movements = list(card.movements.order_by("moved_at"))
+            label_names = ", ".join(l.name for l in card.labels.all())
+            last_moved = movements[-1].moved_at.isoformat() if movements else ""
+            history_parts = []
+            for mv in movements:
+                from_col = mv.from_column.name if mv.from_column else ""
+                to_col = mv.to_column.name if mv.to_column else ""
+                moved_by = mv.moved_by.username if mv.moved_by else ""
+                history_parts.append(
+                    f"{mv.moved_at.isoformat()}|{from_col}|{to_col}|{moved_by}"
+                )
+            history = "; ".join(history_parts)
+
+            writer.writerow([
+                card.id,
+                card.title,
+                card.description,
+                card.column.name,
+                card.swimlane.name,
+                card.priority,
+                card.assignee.username if card.assignee else "",
+                label_names,
+                card.due_date.isoformat() if card.due_date else "",
+                card.weight,
+                card.created_at.isoformat(),
+                card.created_by.username if card.created_by else "",
+                last_moved,
+                len(movements),
+                history,
+            ])
+
+        response = HttpResponse(buf.getvalue(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.csv"'
+        return response
 
     @action(detail=True, methods=["post"])
     def members(self, request, pk=None):
