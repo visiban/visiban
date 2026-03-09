@@ -356,14 +356,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0 flex-wrap">
         <ViewToggle view={view} onChange={setView} />
         <span className="w-px h-4 bg-gray-200 shrink-0" />
-        <span
-          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-500" : "text-gray-400"}`}
-          title={connected ? "Live — real-time updates active" : "Connecting…"}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-gray-300"}`} />
-          {connected ? "Live" : "Connecting…"}
-        </span>
-        <span className="w-px h-4 bg-gray-200 shrink-0" />
         <button
           onClick={() => setShowFilters((v) => !v)}
           className="text-xs text-blue-600 hover:text-blue-800 transition shrink-0"
@@ -424,6 +416,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             </button>
           </>
         )}
+        <span className="w-px h-4 bg-gray-200 shrink-0" />
+        <span
+          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-500" : "text-gray-400"}`}
+          title={connected ? "Live — real-time updates active" : "Connecting…"}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-gray-300"}`} />
+          {connected ? "Live" : "Connecting…"}
+        </span>
       </div>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
         {/*
