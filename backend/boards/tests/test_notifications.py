@@ -211,3 +211,72 @@ class CardAssignmentNotificationTests(TestCase):
         self.assertEqual(
             Notification.objects.filter(recipient=self.owner, card=self.card).count(), 0
         )
+
+
+class MentionNotificationEdgeCaseTests(TestCase):
+    """Edge cases for @mention notifications in comments."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.client.force_authenticate(self.owner)
+        self.board, self.col_a, _, self.swim = make_board(self.owner)
+        self.card = Card.objects.create(
+            board=self.board,
+            column=self.col_a,
+            swimlane=self.swim,
+            title="Mention Test Card",
+            created_by=self.owner,
+            position=0,
+        )
+
+    def _post_comment(self, body):
+        return self.client.post(
+            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
+            {"body": body},
+        )
+
+    @patch("boards.views.broadcast_board_event")
+    def test_self_mention_does_not_create_notification(self, _):
+        """Author mentioning themselves should NOT create a notification."""
+        resp = self._post_comment(f"Note to self: @{self.owner.username} fix this")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient=self.owner, card=self.card, verb__contains="mentioned"
+            ).count(),
+            0,
+        )
+
+    @patch("boards.views.broadcast_board_event")
+    def test_mentioning_non_board_member_does_not_notify(self, _):
+        """Mentioning a user who is not a board member should NOT create a notification."""
+        outsider = User.objects.create_user(username="outsider", password="pass")
+        resp = self._post_comment("Hey @outsider check this out")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(
+            Notification.objects.filter(recipient=outsider).count(), 0
+        )
+
+    @patch("boards.views.broadcast_board_event")
+    def test_duplicate_mention_creates_single_notification(self, _):
+        """Mentioning the same user twice in one comment should create only ONE notification."""
+        member = User.objects.create_user(username="member", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=member, role=BoardMembership.Role.MEMBER
+        )
+        resp = self._post_comment("@member please review. @member are you there?")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient=member, card=self.card, verb__contains="mentioned"
+            ).count(),
+            1,
+        )
+
+    @patch("boards.views.broadcast_board_event")
+    def test_mentioning_nonexistent_user_is_silently_ignored(self, _):
+        """Mentioning a username that does not exist should not cause errors."""
+        resp = self._post_comment("Hey @ghost_user_12345 what do you think?")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(Notification.objects.count(), 0)

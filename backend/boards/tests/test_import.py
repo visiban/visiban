@@ -1,7 +1,7 @@
 import io
 import json
 
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -252,3 +252,134 @@ class BoardImportCSVTests(TestCase):
         resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Unsupported", resp.data["detail"])
+
+
+class BoardImportEdgeCaseTests(TestCase):
+    """Edge case tests for board import: malformed files, duplicates, permissions."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="importer", password="pass")
+        self.client.force_authenticate(self.user)
+
+    def _make_json_file(self, data, filename="board.json"):
+        content = json.dumps(data).encode("utf-8")
+        f = io.BytesIO(content)
+        f.name = filename
+        return f
+
+    def _valid_json_data(self):
+        return {
+            "name": "Exported Board",
+            "description": "A test board",
+            "columns": [
+                {"name": "To Do", "position": 0, "color": "#3B82F6", "wip_limit": 5,
+                 "weight_limit": None, "allow_card_creation": True},
+            ],
+            "swimlanes": [
+                {"name": "General", "position": 0, "color": "#6B7280",
+                 "contact_email": "", "notes": ""},
+            ],
+            "labels": [
+                {"name": "Bug", "color": "#EF4444"},
+            ],
+            "cards": [],
+        }
+
+    def test_truncated_json_file_returns_400(self):
+        """Malformed JSON (truncated mid-object) should return 400."""
+        truncated = b'{"name": "Board", "columns": [{"name": "To Do"'
+        f = io.BytesIO(truncated)
+        f.name = "truncated.json"
+        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Invalid JSON", resp.data["detail"])
+
+    def test_csv_missing_title_column_returns_400(self):
+        """CSV without the required Title header should return 400."""
+        csv_content = (
+            "Card ID,Description,Column,Swimlane,Priority,Assignee,Labels,"
+            "Due Date,Weight,Created At,Created By,Last Moved At,Movement Count,"
+            "Movement History\n"
+            ",Some desc,To Do,General,medium,,,,,,,,,,\n"
+        )
+        f = io.BytesIO(csv_content.encode("utf-8"))
+        f.name = "missing_title.csv"
+        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("missing required headers", resp.data["detail"])
+        self.assertIn("Title", resp.data["detail"])
+
+    def test_empty_json_file_returns_400(self):
+        """An empty file with .json extension should return 400."""
+        f = io.BytesIO(b"")
+        f.name = "empty.json"
+        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_empty_csv_file_returns_400(self):
+        """An empty file with .csv extension should return 400."""
+        f = io.BytesIO(b"")
+        f.name = "empty.csv"
+        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_non_group_member_cannot_import_into_group(self):
+        """A user who is not a member of a group cannot import a board into it."""
+        from groups.models import Group, GroupMembership
+
+        group_owner = User.objects.create_user(username="gowner", password="pass")
+        group = Group.objects.create(name="Private Group", owner=group_owner)
+        GroupMembership.objects.create(
+            group=group, user=group_owner, role=GroupMembership.Role.ADMIN
+        )
+
+        data = self._valid_json_data()
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data), "group_id": group.pk},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Board.objects.filter(name="Exported Board").count(), 0)
+
+
+class BoardImportDuplicateLabelTests(TransactionTestCase):
+    """TransactionTestCase needed because IntegrityError breaks TestCase savepoints."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="importer", password="pass")
+        self.client.force_authenticate(self.user)
+
+    def _make_json_file(self, data, filename="board.json"):
+        content = json.dumps(data).encode("utf-8")
+        f = io.BytesIO(content)
+        f.name = filename
+        return f
+
+    def test_json_import_with_duplicate_label_names_rolls_back(self):
+        """Duplicate label names trigger an IntegrityError inside transaction.atomic().
+
+        The atomic block ensures the entire import is rolled back, so no board
+        is created. The unhandled IntegrityError surfaces as a server error.
+        """
+        data = {
+            "name": "Dup Labels Board",
+            "description": "",
+            "columns": [{"name": "To Do", "position": 0}],
+            "swimlanes": [{"name": "General", "position": 0}],
+            "labels": [
+                {"name": "Bug", "color": "#EF4444"},
+                {"name": "Bug", "color": "#FF0000"},
+            ],
+            "cards": [],
+        }
+        with self.assertRaises(Exception):
+            self.client.post(
+                "/api/boards/import/",
+                {"file": self._make_json_file(data)},
+                format="multipart",
+            )
+        # The atomic block ensures no board was created
+        self.assertEqual(Board.objects.filter(name="Dup Labels Board").count(), 0)
