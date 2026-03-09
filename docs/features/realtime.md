@@ -11,7 +11,7 @@ Visiban uses WebSockets (Django Channels + Redis) to push board changes to all c
 
 ## Connection status
 
-The board toolbar shows the connection state:
+The top-right corner of the board toolbar shows the connection state:
 
 - 🟢 **Live** — WebSocket connected, real-time updates active
 - ⚪ **Connecting…** — attempting to connect or reconnecting

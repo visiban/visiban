@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- Move online presence indicator from the center of the board toolbar to the top-right corner for a cleaner layout
+
 ### Fixed
 
 - Board import failing with "Method POST not allowed" due to manually set Content-Type header stripping the multipart boundary
