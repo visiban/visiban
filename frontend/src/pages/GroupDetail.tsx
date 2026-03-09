@@ -9,6 +9,8 @@ import CreateGroupModal from "../components/Group/CreateGroupModal";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
+import ImportBoardModal from "../components/Board/ImportBoardModal";
+import { importBoard } from "../api/boards";
 import type { Board, Group, GroupMembership, User } from "../types";
 
 interface Props {
@@ -32,6 +34,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const [movingBoard, setMovingBoard] = useState<Board | null>(null);
   const [showCreateSubgroup, setShowCreateSubgroup] = useState(false);
   const [creatingBoard, setCreatingBoard] = useState(false);
+  const [importingBoard, setImportingBoard] = useState(false);
   const [showSubgroupBoards, setShowSubgroupBoards] = useState(false);
   const [subgroupBoards, setSubgroupBoards] = useState<{ board: Board; groupName: string }[]>([]);
   const [loadingSubgroupBoards, setLoadingSubgroupBoards] = useState(false);
@@ -65,6 +68,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     const board = await createGroupBoard(groupId, { name, template });
     setBoards((prev) => [...prev, board]);
     setCreatingBoard(false);
+    navigate(`/boards/${board.id}`);
+  };
+
+  const handleImportBoard = async (file: File, name?: string) => {
+    const board = await importBoard(file, name, groupId);
+    setImportingBoard(false);
     navigate(`/boards/${board.id}`);
   };
 
@@ -181,6 +190,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
             <section>
               <div className="flex items-center gap-3 mb-3">
                 <h2 className="text-white font-semibold">Boards</h2>
+                {isAdmin && (
+                  <button
+                    onClick={() => setImportingBoard(true)}
+                    className="text-sm text-blue-400 hover:text-blue-300 transition"
+                  >
+                    Import
+                  </button>
+                )}
                 {subgroups.length > 0 && (
                   <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
                     <span className="text-xs text-gray-500">Show subgroup boards</span>
@@ -318,6 +335,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
             setMovingBoard(null);
           }}
           onClose={() => setMovingBoard(null)}
+        />
+      )}
+
+      {importingBoard && (
+        <ImportBoardModal
+          onImport={handleImportBoard}
+          onCancel={() => setImportingBoard(false)}
         />
       )}
 

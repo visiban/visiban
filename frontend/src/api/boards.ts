@@ -81,9 +81,10 @@ export const listLabels = (boardId: number) =>
 export const createLabel = (boardId: number, data: { name: string; color?: string }) =>
   client.post<Label>(`/api/boards/${boardId}/labels/`, data).then((r) => r.data);
 
-export const importBoard = (file: File, name?: string) => {
+export const importBoard = (file: File, name?: string, groupId?: number) => {
   const formData = new FormData();
   formData.append('file', file);
   if (name) formData.append('name', name);
+  if (groupId) formData.append('group_id', String(groupId));
   return client.post<Board>('/api/boards/import/', formData).then((r) => r.data);
 };
