@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, Column, Label, Swimlane,
+    Board, BoardMembership, Card, Column, Swimlane,
 )
 
 
