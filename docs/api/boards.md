@@ -29,6 +29,19 @@ Move board to a different group (or `null` for personal).
 
 ---
 
+## Export & Import
+
+### `GET /api/boards/{id}/export/`
+Export the board as CSV. Returns a downloadable file with one row per card including metadata and movement history. Available to all board members.
+
+### `GET /api/boards/{id}/export/?format=json`
+Export the board as JSON. Returns a structured object with columns, swimlanes, labels, and cards (including comments and checklists). Available to all board members.
+
+### `POST /api/boards/import/`
+Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field and an optional `name` field to override the board name. Creates a new board atomically. Requires authentication.
+
+---
+
 ## Members
 
 ### `POST /api/boards/{id}/members/`

@@ -10,6 +10,9 @@ client.interceptors.request.use((config) => {
   const match = document.cookie.match(/(^| )csrftoken=([^;]+)/);
   const csrfToken = match ? match[2] : null;
   if (csrfToken) config.headers["X-CSRFToken"] = csrfToken;
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 
