@@ -26,18 +26,21 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const handleMove = async (column: Column) => {
     setDropdown(null);
     setBusy(true);
-    const results = await Promise.allSettled(
-      selectedCards.map((card) =>
-        moveCard(board.id, card.id, {
+    // Serialize move requests to avoid database deadlocks from concurrent
+    // position-reorder transactions targeting the same column.
+    const updated: Card[] = [];
+    for (const card of selectedCards) {
+      try {
+        const result = await moveCard(board.id, card.id, {
           column_id: column.id,
           swimlane_id: card.swimlane,
           position: 9999,
-        })
-      )
-    );
-    const updated = results
-      .filter((r): r is PromiseFulfilledResult<{ card: Card }> => r.status === "fulfilled")
-      .map((r) => r.value.card);
+        });
+        updated.push(result.card);
+      } catch {
+        // Continue moving remaining cards on individual failures
+      }
+    }
     if (updated.length > 0) onCardsUpdated(updated);
     onClearSelection();
     setBusy(false);

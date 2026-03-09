@@ -69,6 +69,10 @@ npm run dev
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
 
+## Kubernetes / Helm
+
+A Helm chart is included for Kubernetes deployments. See [Deployment — Kubernetes / Helm](../architecture/deployment.md#kubernetes--helm) for install instructions, configuration values, and upgrade steps.
+
 ## Production with HTTPS
 
 The production stack (`docker-compose.prod.yml`) replaces the Vite dev server with:
