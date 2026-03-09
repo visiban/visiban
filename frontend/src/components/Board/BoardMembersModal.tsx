@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { BoardFull, BoardMembership } from "../../types";
 import { userDisplayName } from "../../types";
 import { setBoardMember, removeBoardMember } from "../../api/boards";
@@ -51,6 +51,14 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
       setSaving(null);
     }
   };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
