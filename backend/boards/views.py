@@ -134,6 +134,23 @@ class BoardViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    def _resolve_import_group(self, request):
+        """Return the Group instance if group_id is provided, else None."""
+        group_id = request.data.get("group_id")
+        if not group_id:
+            return None
+        from groups.models import Group, GroupMembership
+        group = get_object_or_404(Group, pk=group_id)
+        is_member = (
+            group.owner_id == request.user.id
+            or request.user.is_site_admin
+            or GroupMembership.objects.filter(group=group, user=request.user).exists()
+        )
+        if not is_member:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You are not a member of the target group.")
+        return group
+
     def _import_json(self, request, file):
         try:
             raw = file.read().decode("utf-8")
@@ -162,12 +179,14 @@ class BoardViewSet(viewsets.ModelViewSet):
                     )
 
         board_name = request.data.get("name") or data["name"]
+        group = self._resolve_import_group(request)
 
         with transaction.atomic():
             board = Board.objects.create(
                 name=board_name,
                 description=data.get("description", ""),
                 owner=request.user,
+                group=group,
             )
             BoardMembership.objects.create(
                 board=board, user=request.user, role=BoardMembership.Role.ADMIN
@@ -295,12 +314,14 @@ class BoardViewSet(viewsets.ModelViewSet):
                     )
 
         board_name = request.data.get("name") or "Imported Board"
+        group = self._resolve_import_group(request)
 
         with transaction.atomic():
             board = Board.objects.create(
                 name=board_name,
                 description="",
                 owner=request.user,
+                group=group,
             )
             BoardMembership.objects.create(
                 board=board, user=request.user, role=BoardMembership.Role.ADMIN
