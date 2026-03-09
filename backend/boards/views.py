@@ -3,6 +3,7 @@ import io
 import json
 import datetime
 
+from django.conf import settings as django_settings
 from django.db import transaction
 from django.db.models import F
 from django.http import HttpResponse
@@ -10,12 +11,13 @@ from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from .broadcast import broadcast_board_event
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist
+from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment
 from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
@@ -104,6 +106,299 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         board.save()
         return Response(BoardSerializer(board).data)
+
+    @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser])
+    def import_board(self, request):
+        """Import a board from a Visiban JSON or CSV export file."""
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_size = getattr(django_settings, "MAX_UPLOAD_SIZE", 10 * 1024 * 1024)
+        if file.size > max_size:
+            return Response(
+                {"detail": f"File too large. Maximum size is {max_size // (1024 * 1024)} MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        filename = file.name.lower() if file.name else ""
+        content_type = file.content_type or ""
+
+        if filename.endswith(".json") or "json" in content_type:
+            return self._import_json(request, file)
+        elif filename.endswith(".csv") or "csv" in content_type:
+            return self._import_csv(request, file)
+        else:
+            return Response(
+                {"detail": "Unsupported file format. Upload a .json or .csv file."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def _import_json(self, request, file):
+        try:
+            raw = file.read().decode("utf-8")
+            data = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            return Response({"detail": f"Invalid JSON: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not isinstance(data, dict):
+            return Response({"detail": "Invalid JSON: expected an object at the top level."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate required fields
+        if "name" not in data:
+            return Response({"detail": "Missing required field: name"}, status=status.HTTP_400_BAD_REQUEST)
+        if not data.get("columns"):
+            return Response({"detail": "Missing required field: columns"}, status=status.HTTP_400_BAD_REQUEST)
+        if not data.get("swimlanes"):
+            return Response({"detail": "Missing required field: swimlanes"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate cards have required fields
+        for i, card_data in enumerate(data.get("cards", [])):
+            for field in ("title", "column", "swimlane"):
+                if not card_data.get(field):
+                    return Response(
+                        {"detail": f"Card at index {i} is missing required field: {field}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        board_name = request.data.get("name") or data["name"]
+
+        with transaction.atomic():
+            board = Board.objects.create(
+                name=board_name,
+                description=data.get("description", ""),
+                owner=request.user,
+            )
+            BoardMembership.objects.create(
+                board=board, user=request.user, role=BoardMembership.Role.ADMIN
+            )
+
+            # Create columns
+            column_map = {}
+            for i, col in enumerate(data["columns"]):
+                column = Column.objects.create(
+                    board=board,
+                    name=col["name"],
+                    position=col.get("position", i),
+                    color=col.get("color", "#6B7280"),
+                    wip_limit=col.get("wip_limit"),
+                    weight_limit=col.get("weight_limit"),
+                    allow_card_creation=col.get("allow_card_creation", i == 0),
+                )
+                column_map[col["name"]] = column
+
+            # Create swimlanes
+            swimlane_map = {}
+            for i, sw in enumerate(data["swimlanes"]):
+                swimlane = Swimlane.objects.create(
+                    board=board,
+                    name=sw["name"],
+                    position=sw.get("position", i),
+                    color=sw.get("color", "#3B82F6"),
+                    contact_email=sw.get("contact_email", ""),
+                    notes=sw.get("notes", ""),
+                )
+                swimlane_map[sw["name"]] = swimlane
+
+            # Create labels
+            label_map = {}
+            for lbl in data.get("labels", []):
+                label = Label.objects.create(
+                    board=board,
+                    name=lbl["name"],
+                    color=lbl.get("color", "#EAB308"),
+                )
+                label_map[lbl["name"]] = label
+
+            # Create cards
+            for card_data in data.get("cards", []):
+                column = column_map.get(card_data["column"])
+                swimlane = swimlane_map.get(card_data["swimlane"])
+                if not column or not swimlane:
+                    continue
+
+                priority = card_data.get("priority", "medium")
+                if priority not in [c[0] for c in Card.Priority.choices]:
+                    priority = "medium"
+
+                card = Card.objects.create(
+                    board=board,
+                    column=column,
+                    swimlane=swimlane,
+                    title=card_data["title"],
+                    description=card_data.get("description", ""),
+                    priority=priority,
+                    due_date=card_data.get("due_date") or None,
+                    weight=card_data.get("weight", 1),
+                    position=card_data.get("position", 0),
+                    created_by=request.user,
+                )
+
+                # Assign labels
+                card_labels = []
+                for label_name in card_data.get("labels", []):
+                    label = label_map.get(label_name)
+                    if label:
+                        card_labels.append(label)
+                if card_labels:
+                    card.labels.set(card_labels)
+
+                # Create comments
+                for comment_data in card_data.get("comments", []):
+                    CardComment.objects.create(
+                        card=card,
+                        author=request.user,
+                        body=comment_data.get("body", ""),
+                    )
+
+                # Create checklist items
+                for ci_idx, checklist_data in enumerate(card_data.get("checklist", [])):
+                    CardChecklist.objects.create(
+                        card=card,
+                        text=checklist_data.get("text", ""),
+                        is_checked=checklist_data.get("is_checked", False),
+                        position=ci_idx,
+                    )
+
+        return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
+
+    def _import_csv(self, request, file):
+        try:
+            raw = file.read().decode("utf-8")
+            reader = csv.DictReader(io.StringIO(raw))
+            rows = list(reader)
+        except (UnicodeDecodeError, csv.Error) as exc:
+            return Response({"detail": f"Invalid CSV: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not rows:
+            return Response({"detail": "CSV file is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate required headers
+        required_headers = {"Title", "Column", "Swimlane"}
+        if reader.fieldnames is None:
+            return Response({"detail": "CSV file has no headers."}, status=status.HTTP_400_BAD_REQUEST)
+        headers = set(reader.fieldnames)
+        missing = required_headers - headers
+        if missing:
+            return Response(
+                {"detail": f"CSV is missing required headers: {', '.join(sorted(missing))}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate each row has required fields
+        for i, row in enumerate(rows):
+            for field in ("Title", "Column", "Swimlane"):
+                if not row.get(field, "").strip():
+                    return Response(
+                        {"detail": f"Row {i + 2} is missing required field: {field}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        board_name = request.data.get("name") or "Imported Board"
+
+        with transaction.atomic():
+            board = Board.objects.create(
+                name=board_name,
+                description="",
+                owner=request.user,
+            )
+            BoardMembership.objects.create(
+                board=board, user=request.user, role=BoardMembership.Role.ADMIN
+            )
+
+            # Extract unique columns and swimlanes in order of first appearance
+            column_map = {}
+            swimlane_map = {}
+            label_map = {}
+
+            for row in rows:
+                col_name = row["Column"].strip()
+                if col_name and col_name not in column_map:
+                    column_map[col_name] = None
+
+                sw_name = row["Swimlane"].strip()
+                if sw_name and sw_name not in swimlane_map:
+                    swimlane_map[sw_name] = None
+
+                labels_str = row.get("Labels", "").strip()
+                if labels_str:
+                    for label_name in labels_str.split(","):
+                        label_name = label_name.strip()
+                        if label_name and label_name not in label_map:
+                            label_map[label_name] = None
+
+            # Create columns
+            for i, col_name in enumerate(column_map):
+                column_map[col_name] = Column.objects.create(
+                    board=board,
+                    name=col_name,
+                    position=i,
+                    color="#6B7280",
+                    allow_card_creation=(i == 0),
+                )
+
+            # Create swimlanes
+            for i, sw_name in enumerate(swimlane_map):
+                swimlane_map[sw_name] = Swimlane.objects.create(
+                    board=board,
+                    name=sw_name,
+                    position=i,
+                    color="#3B82F6",
+                )
+
+            # Create labels
+            for label_name in label_map:
+                label_map[label_name] = Label.objects.create(
+                    board=board,
+                    name=label_name,
+                    color="#EAB308",
+                )
+
+            # Create cards
+            for row in rows:
+                column = column_map.get(row["Column"].strip())
+                swimlane = swimlane_map.get(row["Swimlane"].strip())
+                if not column or not swimlane:
+                    continue
+
+                priority = row.get("Priority", "medium").strip().lower()
+                if priority not in [c[0] for c in Card.Priority.choices]:
+                    priority = "medium"
+
+                due_date = row.get("Due Date", "").strip() or None
+
+                weight_str = row.get("Weight", "1").strip()
+                try:
+                    weight = int(weight_str)
+                except (ValueError, TypeError):
+                    weight = 1
+
+                card = Card.objects.create(
+                    board=board,
+                    column=column,
+                    swimlane=swimlane,
+                    title=row["Title"].strip(),
+                    description=row.get("Description", "").strip(),
+                    priority=priority,
+                    due_date=due_date,
+                    weight=weight,
+                    position=0,
+                    created_by=request.user,
+                )
+
+                # Assign labels
+                labels_str = row.get("Labels", "").strip()
+                if labels_str:
+                    card_labels = []
+                    for label_name in labels_str.split(","):
+                        label_name = label_name.strip()
+                        label = label_map.get(label_name)
+                        if label:
+                            card_labels.append(label)
+                    if card_labels:
+                        card.labels.set(card_labels)
+
+        return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):

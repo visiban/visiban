@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listBoards, createBoard, deleteBoard } from "../api/boards";
+import { listBoards, createBoard, deleteBoard, importBoard } from "../api/boards";
 import { listGroups } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
+import ImportBoardModal from "../components/Board/ImportBoardModal";
 import type { Board, Group, User } from "../types";
 
 interface Props {
@@ -25,6 +26,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [movingBoard, setMovingBoard] = useState<Board | null>(null);
+  const [importingBoard, setImportingBoard] = useState(false);
 
   useEffect(() => {
     listBoards()
@@ -48,6 +50,12 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     } catch {
       listBoards().then((all) => setBoards(all.filter((b) => !b.group)));
     }
+  };
+
+  const handleImportBoard = async (file: File, name?: string) => {
+    const board = await importBoard(file, name);
+    setImportingBoard(false);
+    navigate(`/boards/${board.id}`);
   };
 
   const personalBoards = boards;
@@ -87,6 +95,12 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white text-lg font-semibold">My Boards</h2>
+            <button
+              onClick={() => setImportingBoard(true)}
+              className="text-sm text-blue-400 hover:text-blue-300 transition"
+            >
+              Import
+            </button>
           </div>
           {loadingBoards ? (
             <p className="text-gray-500 text-sm">Loading…</p>
@@ -144,6 +158,13 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         <CreateBoardModal
           onConfirm={handleCreateBoard}
           onCancel={() => setCreatingBoard(false)}
+        />
+      )}
+
+      {importingBoard && (
+        <ImportBoardModal
+          onImport={handleImportBoard}
+          onCancel={() => setImportingBoard(false)}
         />
       )}
 
