@@ -29,10 +29,12 @@ workflow:
       when: never
     - if: '$CI_COMMIT_BRANCH'
 
+# Test and build run in the same stage so they execute in parallel — build
+# verification (kaniko) doesn't depend on test results, and running them
+# together saves a full stage of sequential waiting.
 stages:
   - lint
   - test
-  - build
   - security
 
 # Auto-retry on runner infrastructure failures (pod watcher sync, stuck
@@ -81,8 +83,9 @@ default:
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
-# Ruff: fast Python linter (replaces flake8 + isort + pyupgrade).
-# allow_failure: true — style issues are visible but do not block commits.
+# Ruff lint check + CodeClimate quality report in a single job — avoids
+# spinning up two pods and installing ruff twice.
+# allow_failure: true — style issues are visible but do not block merges.
 backend-lint:
   extends: .pip-cache
   stage: lint
@@ -91,17 +94,6 @@ backend-lint:
     - pip install --quiet ruff
   script:
     - ruff check backend/
-  allow_failure: true
-
-# Code quality report — converts ruff JSON output to CodeClimate format so
-# GitLab shows inline quality annotations on MR diffs.
-backend-code-quality:
-  extends: .pip-cache
-  stage: lint
-  image: python:3.12-slim
-  before_script:
-    - pip install --quiet ruff
-  script:
     - ruff check backend/ --output-format=json -o ruff-raw.json || true
     - |
       python3 - <<'PY'
@@ -191,6 +183,8 @@ migration-check:
 
 # ─── Frontend — lint ──────────────────────────────────────────────────────────
 
+# ESLint + TypeScript type checking in a single job — both need npm ci so
+# combining them eliminates a redundant pod spin-up and install cycle.
 frontend-lint:
   extends: .npm-cache
   stage: lint
@@ -200,19 +194,6 @@ frontend-lint:
     - npm ci --prefer-offline
   script:
     - npm run lint
-
-# TypeScript type checking — separate from ESLint, catches type errors that
-# linting misses. Checks tsconfig.app.json (application code) only; vite.config.ts
-# is excluded because vitest 2.x ships its own vite 5.x bundle which conflicts
-# with the project's vite 7.x when importing its types.
-frontend-typecheck:
-  extends: .npm-cache
-  stage: lint
-  image: node:20-alpine
-  before_script:
-    - cd frontend
-    - npm ci --prefer-offline
-  script:
     - npx tsc -p tsconfig.app.json --noEmit
 
 # ─── Frontend — test ──────────────────────────────────────────────────────────
@@ -299,10 +280,12 @@ secret-detection:
 # drift early without pushing to any registry.
 # Uses kaniko instead of Docker-in-Docker — no privileged mode needed, works
 # out of the box on Kubernetes runners.
+# Runs in the test stage alongside tests — build doesn't depend on test
+# results, so running them in parallel saves a full stage of waiting.
 
 backend-docker-build:
   extends: .on-mr
-  stage: build
+  stage: test
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
@@ -311,7 +294,7 @@ backend-docker-build:
 
 frontend-docker-build:
   extends: .on-mr
-  stage: build
+  stage: test
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
