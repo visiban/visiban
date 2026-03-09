@@ -1,7 +1,4 @@
 """Tests for pagination and ordering of boards, cards, and notifications."""
-import time
-from unittest.mock import patch
-
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -84,13 +81,13 @@ class NotificationOrderingTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_notifications_ordered_most_recent_first(self):
-        n1 = Notification.objects.create(
+        Notification.objects.create(
             recipient=self.user, verb="First", board=self.board,
         )
-        n2 = Notification.objects.create(
+        Notification.objects.create(
             recipient=self.user, verb="Second", board=self.board,
         )
-        n3 = Notification.objects.create(
+        Notification.objects.create(
             recipient=self.user, verb="Third", board=self.board,
         )
 

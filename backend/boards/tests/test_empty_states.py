@@ -1,12 +1,10 @@
 """Tests for empty state handling: no boards, no cards, no notifications."""
-from unittest.mock import patch
-
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Notification, Swimlane
+from boards.models import Board, BoardMembership, Column, Swimlane
 
 
 PATCH_BROADCAST = "boards.views.broadcast_board_event"
