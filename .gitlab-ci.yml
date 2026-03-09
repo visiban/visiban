@@ -35,6 +35,16 @@ stages:
   - build
   - security
 
+# Auto-retry on runner infrastructure failures (pod watcher sync, stuck
+# cleanup, image pull transients). Only retries on runner_system_failure
+# and stuck_or_timeout_failure — never on script failures.
+default:
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
 # ─── Rule templates ───────────────────────────────────────────────────────────
 #
 # Extend jobs with .on-mr to restrict them to MR pipelines only.
