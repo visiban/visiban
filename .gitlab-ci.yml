@@ -299,6 +299,7 @@ backend-docker-build:
     DOCKER_HOST: "tcp://docker:2375"
   script:
     - docker build backend/ -f backend/Dockerfile
+  allow_failure: true  # TODO: remove once DinD is confirmed working on K8s runner
 
 frontend-docker-build:
   extends: .on-mr
@@ -311,3 +312,4 @@ frontend-docker-build:
     DOCKER_HOST: "tcp://docker:2375"
   script:
     - docker build frontend/ -f frontend/Dockerfile
+  allow_failure: true  # TODO: remove once DinD is confirmed working on K8s runner
