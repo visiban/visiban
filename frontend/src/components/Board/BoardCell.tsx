@@ -12,11 +12,13 @@ interface Props {
   boardId: number;
   canEdit: boolean;
   filteredCardIds: Set<number> | null;
+  selectedCardIds: Set<number>;
+  onToggleCardSelection: (cardId: number) => void;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, canEdit, filteredCardIds, onCardClick, onCardAdded }: Props) {
+export default function BoardCell({ column, swimlane, cards, boardId, canEdit, filteredCardIds, selectedCardIds, onToggleCardSelection, onCardClick, onCardAdded }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -46,6 +48,8 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
               key={card.id}
               card={card}
               onClick={() => onCardClick(card)}
+              selected={selectedCardIds.has(card.id)}
+              onSelect={canEdit ? () => onToggleCardSelection(card.id) : undefined}
             />
           ))}
         </div>
