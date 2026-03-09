@@ -295,10 +295,8 @@ backend-docker-build:
   services:
     - docker:26-dind
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_HOST: "tcp://docker:2376"
-    DOCKER_TLS_VERIFY: "1"
-    DOCKER_CERT_PATH: "/certs/client"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
   script:
     - docker build backend/ -f backend/Dockerfile
 
@@ -309,9 +307,7 @@ frontend-docker-build:
   services:
     - docker:26-dind
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_HOST: "tcp://docker:2376"
-    DOCKER_TLS_VERIFY: "1"
-    DOCKER_CERT_PATH: "/certs/client"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
   script:
     - docker build frontend/ -f frontend/Dockerfile
