@@ -26,6 +26,14 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
     listGroups().then(setGroups).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleMove = async () => {
     if (selected === board.group) { onClose(); return; }
     setSaving(true);
