@@ -6,7 +6,7 @@ remain consistent after parallel moves.
 """
 from unittest.mock import patch
 
-from django.test import TestCase, TransactionTestCase
+from django.test import TransactionTestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 

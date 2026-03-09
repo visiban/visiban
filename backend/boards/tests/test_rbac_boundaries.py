@@ -1,6 +1,4 @@
 """RBAC boundary tests: viewer/collaborator permission enforcement across operations."""
-from unittest.mock import patch
-
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
