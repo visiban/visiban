@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { updateSwimlane, deleteSwimlane } from "../../api/boards";
 import type { Swimlane } from "../../types";
+import { COLUMN_COLORS } from "../../constants/colors";
 
 interface Props {
   boardId: number;
@@ -10,8 +11,6 @@ interface Props {
   onDeleted: (swimlaneId: number) => void;
   onClose: () => void;
 }
-
-const COLORS = ["#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 
 export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose }: Props) {
   const [name, setName] = useState(swimlane.name);
@@ -88,7 +87,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Color</label>
                 <div className="flex gap-2">
-                  {COLORS.map((c) => (
+                  {COLUMN_COLORS.map((c) => (
                     <button
                       key={c}
                       onClick={() => setColor(c)}

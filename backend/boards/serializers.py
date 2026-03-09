@@ -1,8 +1,14 @@
+import datetime
+
+from django.utils import timezone
 from rest_framework import serializers
+
 from accounts.models import User
 from accounts.serializers import UserSerializer
+
 from .models import (
-    Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist
+    Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
+    CardComment, CardActivity, CardAttachment, CardChecklist,
 )
 
 
@@ -110,8 +116,6 @@ class CardSerializer(serializers.ModelSerializer):
         return obj.checklist_items.filter(is_checked=True).count()
 
     def get_is_stale(self, obj):
-        import datetime
-        from django.utils import timezone
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
         last_mv = obj.movements.first()  # ordered by -moved_at

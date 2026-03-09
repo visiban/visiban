@@ -30,7 +30,7 @@ Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` 
 
 Click any card to open a side panel with full context:
 
-- **Priority** — low / medium / high / urgent, shown as a colour-coded left border
+- **Priority** — low / medium / high / urgent, shown as a color-coded left border
 - **Assignee** — any board member; triggers a notification on assignment
 - **Labels** — board-scoped tags for filtering and grouping
 - **Due date** — optional deadline
@@ -95,7 +95,7 @@ Powered by Django Channels and Redis — no configuration required in the defaul
 
 ## Groups & access control
 
-Boards can be organised into groups and subgroups (unlimited nesting). Group membership cascades down the hierarchy — add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.
+Boards can be organized into groups and subgroups (unlimited nesting). Group membership cascades down the hierarchy — add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.
 
 ```
 Acme Corp  ← add user here
@@ -116,6 +116,6 @@ New to Visiban? We recommend this order:
 
 1. [Board & Cards](board.md) — understand the grid, cards, and how to move things
 2. [Card History](card-history.md) — see what the audit trail captures
-3. [Groups](groups.md) — organise your boards and invite your team
+3. [Groups](groups.md) — organize your boards and invite your team
 4. [Analytics](analytics.md) — find bottlenecks and track velocity
 5. [Notifications](notifications.md) — stay on top of stale work

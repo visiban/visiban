@@ -1,37 +1,48 @@
 import csv
+import datetime
 import io
 import json
-import datetime
+import re
+import statistics
 
 from django.conf import settings as django_settings
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
-from .broadcast import broadcast_board_event
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment
+from accounts.models import User
+from groups.models import Group, GroupMembership, get_accessible_group_ids
+
+from .broadcast import broadcast_board_event
+from .models import (
+    Board, BoardMembership, Column, Swimlane, Label,
+    Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment,
+    Notification,
+)
 from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     ColumnSerializer, SwimlaneSerializer, LabelSerializer,
-    CardSerializer, CardMovementSerializer, CardCommentSerializer, CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
+    CardSerializer, CardMovementSerializer, CardCommentSerializer,
+    CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
 )
-from accounts.models import User
+from .templates import BOARD_TEMPLATES
 
 
 def get_board_for_user(board_id, user):
     board = get_object_or_404(Board, pk=board_id)
     role = get_board_role(user, board)
     if role is None:
-        from rest_framework.exceptions import PermissionDenied
         raise PermissionDenied
     return board, role
 
@@ -45,8 +56,6 @@ class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
 
     def get_queryset(self):
-        from django.db.models import Q
-        from groups.models import get_accessible_group_ids
         user = self.request.user
         if user.is_site_admin:
             return Board.objects.all()
@@ -57,7 +66,6 @@ class BoardViewSet(viewsets.ModelViewSet):
         ).distinct()
 
     def perform_create(self, serializer):
-        from .templates import BOARD_TEMPLATES
         board = serializer.save(owner=self.request.user)
         BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
 
@@ -77,7 +85,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         board = self.get_object()
         role = get_board_role(request.user, board)
         if board.owner != request.user and role != SITE_ADMIN:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -85,21 +93,17 @@ class BoardViewSet(viewsets.ModelViewSet):
     def move_group(self, request, pk=None):
         board, role = get_board_for_user(pk, request.user)
         if board.owner != request.user and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied
 
         group_id = request.data.get("group_id")  # None = move to personal
         if group_id is not None:
-            from groups.models import Group, GroupMembership
             group = get_object_or_404(Group, pk=group_id)
             is_member = (
                 group.owner_id == request.user.id or
                 GroupMembership.objects.filter(group=group, user=request.user).exists()
             )
             if not is_member:
-                return Response(
-                    {"error": "You are not a member of the target group."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+                raise PermissionDenied("You are not a member of the target group.")
             board.group = group
         else:
             board.group = None
@@ -139,7 +143,6 @@ class BoardViewSet(viewsets.ModelViewSet):
         group_id = request.data.get("group_id")
         if not group_id:
             return None
-        from groups.models import Group, GroupMembership
         group = get_object_or_404(Group, pk=group_id)
         is_member = (
             group.owner_id == request.user.id
@@ -147,7 +150,6 @@ class BoardViewSet(viewsets.ModelViewSet):
             or GroupMembership.objects.filter(group=group, user=request.user).exists()
         )
         if not is_member:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You are not a member of the target group.")
         return group
 
@@ -429,9 +431,6 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):
         """Per-swimlane card counts, stage distribution, and velocity."""
-        import datetime
-        from django.utils import timezone
-
         board, _ = get_board_for_user(pk, request.user)
         now = timezone.now()
         cutoff_7d = now - datetime.timedelta(days=7)
@@ -468,10 +467,6 @@ class BoardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def analytics(self, request, pk=None):
         """Time-in-stage heatmap with outlier detection and stalled cards."""
-        import datetime
-        import statistics
-        from django.utils import timezone
-
         board, _ = get_board_for_user(pk, request.user)
         days = int(request.query_params.get("days", 30))
         stalled_days = int(request.query_params.get("stalled_days", 7))
@@ -707,16 +702,13 @@ class BoardViewSet(viewsets.ModelViewSet):
     def members(self, request, pk=None):
         board, role = get_board_for_user(pk, request.user)
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied
         user_id = request.data.get("user_id")
         member_role = request.data.get("role", BoardMembership.Role.MEMBER)
         target_user = get_object_or_404(User, pk=user_id)
         # Only site admins can add/change other site admins
         if target_user.is_site_admin and role != SITE_ADMIN:
-            return Response(
-                {"detail": "Cannot modify a site admin's board membership."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            raise PermissionDenied("Cannot modify a site admin's board membership.")
         membership, created = BoardMembership.objects.get_or_create(
             board=board, user=target_user, defaults={"role": member_role}
         )
@@ -729,13 +721,10 @@ class BoardViewSet(viewsets.ModelViewSet):
     def remove_member(self, request, pk=None, user_id=None):
         board, role = get_board_for_user(pk, request.user)
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied
         target_user = get_object_or_404(User, pk=user_id)
         if target_user.is_site_admin and role != SITE_ADMIN:
-            return Response(
-                {"detail": "Cannot remove a site admin from a board."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            raise PermissionDenied("Cannot remove a site admin from a board.")
         BoardMembership.objects.filter(board=board, user=target_user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -760,7 +749,6 @@ class ColumnViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         max_pos = board.columns.count()
         column = serializer.save(board=board, position=max_pos)
@@ -769,7 +757,6 @@ class ColumnViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         column = serializer.save()
         broadcast_board_event(column.board_id, "column.updated", ColumnSerializer(column).data)
@@ -777,7 +764,6 @@ class ColumnViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         board_id = instance.board_id
         column_id = instance.id
@@ -788,7 +774,6 @@ class ColumnViewSet(viewsets.ModelViewSet):
     def reorder(self, request, board_pk=None):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         order = request.data.get("order", [])  # list of column IDs in new order
         with transaction.atomic():
@@ -823,7 +808,6 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         max_pos = board.swimlanes.count()
         swimlane = serializer.save(board=board, position=max_pos)
@@ -832,7 +816,6 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         swimlane = serializer.save()
         broadcast_board_event(swimlane.board_id, "swimlane.updated", SwimlaneSerializer(swimlane).data)
@@ -840,7 +823,6 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         board_id = instance.board_id
         swimlane_id = instance.id
@@ -851,7 +833,6 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     def reorder(self, request, board_pk=None):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         order = request.data.get("order", [])
         with transaction.atomic():
@@ -880,21 +861,18 @@ class LabelViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         serializer.save(board=board)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         serializer.save()
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         instance.delete()
 
@@ -924,11 +902,9 @@ class CardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         board, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
         if not column.allow_card_creation:
-            from rest_framework.exceptions import ValidationError
             raise ValidationError({"column": "Card creation is not allowed in this column."})
         swimlane = get_object_or_404(Swimlane, pk=serializer.validated_data["swimlane"].pk, board=board)
         max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
@@ -949,7 +925,6 @@ class CardViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         board_id = instance.board_id
         card_id = instance.id
@@ -959,7 +934,6 @@ class CardViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         _, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         partial = kwargs.pop("partial", False)
         card = self.get_object()
@@ -1004,7 +978,6 @@ class CardViewSet(viewsets.ModelViewSet):
             ))
             # Notify new assignee
             if card.assignee and card.assignee != request.user:
-                from .models import Notification
                 Notification.objects.create(
                     recipient=card.assignee,
                     verb=f"You were assigned to \"{card.title}\"",
@@ -1043,7 +1016,6 @@ class CardViewSet(viewsets.ModelViewSet):
     def move(self, request, board_pk=None, pk=None):
         board, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied
         card = get_object_or_404(Card, pk=pk, board=board)
 
@@ -1137,8 +1109,6 @@ class CardViewSet(viewsets.ModelViewSet):
             from_value="", to_value="", actor=request.user,
         )
         # Parse @username mentions and notify each mentioned board member
-        import re
-        from .models import Notification
         mentioned_usernames = set(re.findall(r"@(\w+)", comment.body))
         if mentioned_usernames:
             # Collect effective member IDs: direct memberships + owner + group-inherited + site admins
@@ -1169,7 +1139,6 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "post"], url_path="attachments")
     def attachments(self, request, board_pk=None, pk=None):
-        from django.conf import settings as django_settings
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
 
@@ -1265,7 +1234,6 @@ class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from .models import Notification
         qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
         data = [
             {
@@ -1288,7 +1256,6 @@ class NotificationMarkReadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        from .models import Notification
         if request.data.get("all"):
             Notification.objects.filter(recipient=request.user, read=False).update(read=True)
         else:
@@ -1302,7 +1269,6 @@ class NotificationUnreadCountView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from .models import Notification
         count = Notification.objects.filter(recipient=request.user, read=False).count()
         return Response({"count": count})
 
@@ -1312,5 +1278,4 @@ class VersionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from django.conf import settings
-        return Response({"version": settings.APP_VERSION})
+        return Response({"version": django_settings.APP_VERSION})

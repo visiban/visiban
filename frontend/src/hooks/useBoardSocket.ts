@@ -22,12 +22,12 @@ export function useBoardSocket(
 
     let ws: WebSocket;
     let reconnectTimer: ReturnType<typeof setTimeout>;
-    let cancelled = false;
+    let canceled = false;
 
     function connect() {
       ws = new WebSocket(url);
 
-      ws.onopen = () => { if (!cancelled) setConnected(true); };
+      ws.onopen = () => { if (!canceled) setConnected(true); };
 
       ws.onmessage = (e) => {
         try {
@@ -39,7 +39,7 @@ export function useBoardSocket(
       ws.onclose = (e) => {
         setConnected(false);
         // Reconnect unless we closed intentionally or auth was rejected
-        if (!cancelled && e.code !== 1000 && e.code !== 4001 && e.code !== 4003) {
+        if (!canceled && e.code !== 1000 && e.code !== 4001 && e.code !== 4003) {
           reconnectTimer = setTimeout(connect, 3000);
         }
       };
@@ -48,7 +48,7 @@ export function useBoardSocket(
     connect();
 
     return () => {
-      cancelled = true;
+      canceled = true;
       clearTimeout(reconnectTimer);
       ws?.close(1000);
     };

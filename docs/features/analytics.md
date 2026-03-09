@@ -20,9 +20,9 @@ Shows time-in-stage data derived from `CardMovement` records.
 
 ### Dwell time heatmap
 
-A table with swimlanes as rows and columns (stages) as columns. Each cell shows the median days a card spent in that stage. Cells are colour-coded:
+A table with swimlanes as rows and columns (stages) as columns. Each cell shows the median days a card spent in that stage. Cells are color-coded:
 
-| Colour | Meaning |
+| Color | Meaning |
 |---|---|
 | Green | At or below the board median |
 | Yellow | Up to 2× the board median |
