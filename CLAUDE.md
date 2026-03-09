@@ -26,7 +26,7 @@ When asked to create a release, run the release script. Ask for the version stri
    ```bash
    ./scripts/release.sh {version}
    ```
-   The script will: update `.env.example`, rotate `CHANGELOG.md`, commit, tag, push to `main`, and create the GitLab release automatically.
+   The script will: create a release branch, update `.env.example`, rotate `CHANGELOG.md`, commit, push the branch, create an MR, wait for the pipeline, merge, tag, and create the GitLab release automatically.
 4. Confirm `APP_VERSION` in the running stack matches the new version
 
 ---
@@ -40,7 +40,7 @@ When asked to create a release, run the release script. Ask for the version stri
   2. `git checkout -b <prefix>/<short-description>`
   3. Make changes, commit, push branch
   4. Open MR targeting `main`, merge when ready
-- The only commits that land on `main` directly are those made by `scripts/release.sh` (version bump commit + tag)
+- Release commits also go through branches and MRs — `scripts/release.sh` handles this automatically
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
 - Use **US English** in all code, comments, documentation, commit messages, MR descriptions, and UI copy — e.g. "color" not "colour", "center" not "centre", "canceled" not "cancelled", "authorization" not "authorisation"
