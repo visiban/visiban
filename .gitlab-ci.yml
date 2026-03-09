@@ -215,7 +215,31 @@ frontend-test:
     - cd frontend
     - npm ci --prefer-offline
   script:
-    - npm test -- --reporter=verbose
+    - npm test -- --reporter=verbose --coverage
+  coverage: '/All files\s+\|\s+(\d+(?:\.\d+)?)\s+\|/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: frontend/coverage/cobertura-coverage.xml
+    when: always
+
+# ─── Changelog check (MR only) ────────────────────────────────────────────────
+#
+# Warns when CHANGELOG.md was not updated in the MR diff.
+# allow_failure: true — some MRs (like pure CI config changes) legitimately
+# do not need changelog entries.
+
+changelog-check:
+  extends: .on-mr
+  stage: lint
+  image: alpine:3.19
+  before_script:
+    - apk add --no-cache git
+  script:
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=1
+    - git diff --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | grep -q "CHANGELOG.md" || (echo "ERROR — CHANGELOG.md was not updated. Please add an entry under [Unreleased]." && exit 1)
+  allow_failure: true
 
 # ─── Security (MR only) ───────────────────────────────────────────────────────
 #
@@ -282,6 +306,31 @@ secret-detection:
     expire_in: 1 week
     paths:
       - .secrets.baseline
+
+# License compliance — flag GPL-2.0/GPL-3.0 dependencies that are incompatible
+# with the project's Apache 2.0 license. Non-blocking so it warns but doesn't
+# gate merges.
+
+backend-license-check:
+  extends: [.on-mr, .pip-cache]
+  stage: security
+  image: python:3.12-slim
+  before_script:
+    - pip install --quiet -r backend/requirements.txt pip-licenses
+  script:
+    - pip-licenses --format=table --fail-on="GNU General Public License v3 (GPLv3);GNU General Public License v2 (GPLv2)"
+  allow_failure: true
+
+frontend-license-check:
+  extends: [.on-mr, .npm-cache]
+  stage: security
+  image: node:20-alpine
+  before_script:
+    - cd frontend
+    - npm ci --prefer-offline
+  script:
+    - npx license-checker --failOn "GPL-2.0;GPL-3.0" --summary
+  allow_failure: true
 
 # ─── Build verification (MR only) ─────────────────────────────────────────────
 #
