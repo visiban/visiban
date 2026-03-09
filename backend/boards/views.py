@@ -15,7 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment
+from .models import Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement, CardActivity, CardAttachment, CardChecklist
 from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
@@ -282,7 +282,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                     "swimlane": card.swimlane.name,
                     "priority": card.priority,
                     "assignee": card.assignee.username if card.assignee else None,
-                    "labels": [l.name for l in card.labels.all()],
+                    "labels": [lb.name for lb in card.labels.all()],
                     "due_date": card.due_date.isoformat() if card.due_date else None,
                     "weight": card.weight,
                     "position": card.position,
@@ -330,8 +330,8 @@ class BoardViewSet(viewsets.ModelViewSet):
                     for sw in swimlanes
                 ],
                 "labels": [
-                    {"name": l.name, "color": l.color}
-                    for l in labels
+                    {"name": lb.name, "color": lb.color}
+                    for lb in labels
                 ],
                 "cards": cards_data,
             }
@@ -353,7 +353,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         for card in cards:
             movements = list(card.movements.order_by("moved_at"))
-            label_names = ", ".join(l.name for l in card.labels.all())
+            label_names = ", ".join(lb.name for lb in card.labels.all())
             last_moved = movements[-1].moved_at.isoformat() if movements else ""
             history_parts = []
             for mv in movements:
