@@ -318,7 +318,7 @@ backend-license-check:
   before_script:
     - pip install --quiet -r backend/requirements.txt pip-licenses
   script:
-    - pip-licenses --format=table --fail-on="GNU General Public License v3 (GPLv3);GNU General Public License v2 (GPLv2)"
+    - pip-licenses --format=plain --fail-on="GNU General Public License v3 (GPLv3);GNU General Public License v2 (GPLv2)"
   allow_failure: true
 
 frontend-license-check:
