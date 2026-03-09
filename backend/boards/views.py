@@ -1245,7 +1245,7 @@ class NotificationListView(APIView):
 
     def get(self, request):
         from .models import Notification
-        qs = Notification.objects.filter(recipient=request.user).select_related("card", "board")[:50]
+        qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
         data = [
             {
                 "id": n.id,

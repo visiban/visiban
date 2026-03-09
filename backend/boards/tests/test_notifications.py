@@ -104,6 +104,38 @@ class StaleCardNotificationTests(TestCase):
         )
 
 
+class NotificationListViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="viewer", password="pass")
+        self.client.force_authenticate(self.user)
+        self.board, self.col_a, _, self.swim = make_board(self.user)
+
+    def test_list_excludes_read_notifications(self):
+        Notification.objects.create(
+            recipient=self.user, verb="unread notification", board=self.board, read=False
+        )
+        Notification.objects.create(
+            recipient=self.user, verb="read notification", board=self.board, read=True
+        )
+
+        resp = self.client.get("/api/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        verbs = [n["verb"] for n in resp.data]
+        self.assertIn("unread notification", verbs)
+        self.assertNotIn("read notification", verbs)
+
+    def test_mark_all_read_then_list_is_empty(self):
+        Notification.objects.create(
+            recipient=self.user, verb="will be read", board=self.board, read=False
+        )
+
+        self.client.post("/api/notifications/mark-read/", {"all": True})
+        resp = self.client.get("/api/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 0)
+
+
 class CardAssignmentNotificationTests(TestCase):
     def setUp(self):
         self.client = APIClient()
