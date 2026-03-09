@@ -65,6 +65,15 @@ export const getBoardAnalytics = (id: number, days = 30, stalledDays = 7) =>
     .get(`/api/boards/${id}/analytics/`, { params: { days, stalled_days: stalledDays } })
     .then((r) => r.data);
 
+// Export
+export const exportBoardCsv = (boardId: number) => {
+  window.open(`${client.defaults.baseURL}/api/boards/${boardId}/export/`, '_blank');
+};
+
+export const exportBoardJson = (boardId: number) => {
+  window.open(`${client.defaults.baseURL}/api/boards/${boardId}/export/?format=json`, '_blank');
+};
+
 // Labels
 export const listLabels = (boardId: number) =>
   client.get<Label[]>(`/api/boards/${boardId}/labels/`).then((r) => r.data);
