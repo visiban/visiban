@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import type { InternalAxiosRequestConfig, AxiosHeaders } from 'axios'
 
 // We test the interceptor logic by importing the client and inspecting its
