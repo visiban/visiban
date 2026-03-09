@@ -31,7 +31,7 @@ By default a group member gets the `member` board role. A board admin can overri
 
 ## Boards inside groups
 
-Boards belonging to a group are visible to all group members. Group admins can create new boards from the group detail page. Boards can be moved between groups (or back to personal) using the move button that appears on hover.
+Boards belonging to a group are visible to all group members. Group admins can create new boards from the group detail page, or **import** a board from a previously exported JSON or CSV file directly into the group. Boards can be moved between groups (or back to personal) using the move button that appears on hover.
 
 ## Subgroups
 

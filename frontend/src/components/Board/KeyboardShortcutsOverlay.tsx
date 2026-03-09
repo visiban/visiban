@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 interface Props {
   onClose: () => void;
 }
@@ -10,6 +12,14 @@ const SHORTCUTS = [
 ];
 
 export default function KeyboardShortcutsOverlay({ onClose }: Props) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
