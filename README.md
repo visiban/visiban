@@ -145,8 +145,10 @@ The board is a grid of columns and swimlane rows. Drop cards into any column to 
 
 - Drag cards between columns to advance them through your stages
 - Drag column headers left or right to reorder stages
+- Drag a column to the right edge to reveal a **trash zone** — drop to delete the column (with confirmation)
 - Hover a column header to reveal **+** buttons at its edges — insert a new column immediately left or right without drag-reordering
 - Right-click any board cell to add a card directly into that column and swimlane
+- **Bulk operations** — select multiple cards via checkboxes, then move, assign, set priority, or delete them all at once from a toolbar at the bottom of the board
 - Swimlanes can be collapsed to save screen space
 - Columns can be collapsed — they span the full board height and display per-swimlane card counts
 - Column headers stay fixed as you scroll horizontally
@@ -158,7 +160,7 @@ The board is a grid of columns and swimlane rows. Drop cards into any column to 
 | `f` | Toggle the filter bar |
 | `/` | Open the filter bar and focus the search input |
 | `?` | Show / hide the keyboard shortcuts overlay |
-| `Esc` | Close the card detail panel or any open dialog |
+| `Esc` | Deselect cards / close the card detail panel or any open dialog |
 
 ### Columns
 
@@ -211,6 +213,12 @@ Switch between three views from the toolbar:
 | **Board** | The live kanban grid with drag-and-drop |
 | **Summary** | Table of swimlane card counts with 7-day and 30-day velocity |
 | **Analytics** | Dwell-time heatmap per stage, outlier detection, stalled card list, CSV export |
+
+### Export & import
+
+Export a board as CSV or JSON from the **Export** dropdown in the board toolbar. CSV includes all cards with metadata and movement history; JSON includes the full board structure (columns, swimlanes, labels, cards with comments and checklists).
+
+Import a board from a previously exported JSON or CSV file via the **Import** button on the dashboard. The import atomically creates a new board with all structure and cards.
 
 ### Real-time sync
 

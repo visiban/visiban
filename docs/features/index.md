@@ -44,6 +44,16 @@ Click any card to open a side panel with full context:
 
 ---
 
+## Bulk operations & data portability
+
+Select multiple cards at once and apply bulk actions — move to a column, assign, set priority, or delete — all from a toolbar that appears at the bottom of the board.
+
+Export your board as CSV or JSON for backup or analysis, or import a previously exported board to recreate it with all its structure and cards.
+
+→ [Board & Cards](board.md#bulk-card-operations) · [Export & Import](board.md#export--import)
+
+---
+
 ## Analytics & visibility
 
 Three views are available from the board toolbar:
