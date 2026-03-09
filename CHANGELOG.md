@@ -24,6 +24,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Import board from Visiban JSON or CSV export — `POST /api/boards/import/` accepts a file upload and atomically creates a new board with columns, swimlanes, labels, cards (including comments and checklist items); dashboard "Import" button with file picker modal (closes #66)
 - Bulk card operations: select multiple cards via checkbox, then move to column, assign, set priority, or delete in batch; toolbar appears at the bottom when cards are selected; Escape clears selection (closes #53)
 
+### Docs
+
+- Updated README with export/import, bulk operations, and column trash zone features
+- Updated feature docs (board.md) with bulk card operations, export/import, column trash zone, and Escape key improvements
+- Updated API docs (boards.md) with export and import endpoints
+- Updated RBAC permission table with export, import, bulk operations, and analytics CSV export permissions
+
 ---
 
 ## [v1.0.0-rc.1] — 2026-03-08

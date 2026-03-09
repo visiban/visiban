@@ -32,6 +32,10 @@ Columns represent pipeline stages. Each column has:
 
 Columns can be reordered by dragging the column header left or right. Hover any column header to reveal **+** buttons at its left and right edges — click either one to insert a new column immediately beside it without needing to drag-reorder afterward. Admins can also edit or delete a column by clicking its header.
 
+### Column trash zone
+
+When dragging a column, a red **Delete** drop target appears at the right edge of the board. Drop the column on it to delete it. A confirmation dialog shows the number of cards that will be lost before proceeding.
+
 ## Cards
 
 Cards are displayed as compact horizontal rows with a colored left border indicating priority. Hovering over a card expands it inline to show additional metadata without opening the detail panel.
@@ -57,6 +61,21 @@ Cards are dragged between cells using @dnd-kit. Updates are **optimistic** — t
 
 Every drag that changes column or swimlane creates a `CardMovement` audit record automatically.
 
+## Bulk card operations
+
+Select multiple cards by clicking the checkbox that appears in the top-right corner of each card on hover. Selected cards are highlighted with a blue ring. A **bulk action toolbar** appears fixed at the bottom of the board when one or more cards are selected.
+
+| Action | Description |
+|---|---|
+| **Move to...** | Move all selected cards to a target column (each card stays in its current swimlane) |
+| **Assign to...** | Set or clear the assignee on all selected cards |
+| **Priority...** | Set priority on all selected cards |
+| **Delete** | Delete all selected cards (with confirmation) |
+
+Press **Escape** or click the **×** button to clear the selection. Selection is also cleared when starting a drag or opening a card detail panel. Bulk operations are only available to users with the **member** role or above.
+
+Each bulk action calls the existing individual card API endpoints via `Promise.allSettled`, so partial failures are handled gracefully.
+
 ## Right-click to add
 
 Right-click any board cell to open an inline card creation input directly in that column + swimlane.
@@ -68,7 +87,7 @@ Right-click any board cell to open an inline card creation input directly in tha
 | `f` | Toggle the filter bar |
 | `/` | Open the filter bar and focus the search input |
 | `?` | Show / hide the keyboard shortcuts overlay |
-| `Esc` | Close the card detail panel or any open dialog |
+| `Esc` | Deselect cards / close the card detail panel or any open dialog |
 
 Shortcuts are ignored when focus is inside an input, textarea, or select element.
 
@@ -98,10 +117,30 @@ The toolbar provides three views for the same board data:
 
 See [Analytics](analytics.md) for details.
 
+## Export & import
+
+### Export
+
+Click **Export** in the board toolbar to download the board data:
+
+- **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history
+- **JSON** — full board structure including columns, swimlanes, labels, and cards with comments and checklists
+
+Export is available to all board members (viewer and above). The export endpoints are:
+
+- `GET /api/boards/{id}/export/` — CSV
+- `GET /api/boards/{id}/export/?format=json` — JSON
+
+### Import
+
+Click **Import** on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards (including comments and checklist items for JSON imports). An optional board name override can be specified.
+
+- `POST /api/boards/import/` — multipart file upload
+
 ## Board member management
 
-Admins can manage board members directly from the board toolbar via the **Members** button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. See [Roles & Permissions](../rbac/roles.md) for what each role can do.
+Admins can manage board members directly from the board toolbar via the **Members** button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. Press **Escape** or click **×** to close the dialog. See [Roles & Permissions](../rbac/roles.md) for what each role can do.
 
 ## Real-time indicator
 
-The toolbar shows a green **Live** dot when the WebSocket connection is active. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
+The toolbar shows a green **Live** dot in the top-right area when the WebSocket connection is active. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).

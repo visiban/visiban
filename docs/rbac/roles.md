@@ -35,6 +35,13 @@ Visiban has five roles that control access at both the group and board level.
 | Create / edit / move / delete card | ✓ | ✓ | ✓ | — | — |
 | Comment on cards | ✓ | ✓ | ✓ | ✓ | — |
 | View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Bulk card operations (move, assign, priority, delete) | ✓ | ✓ | ✓ | — | — |
+| **Export & Import** | | | | | |
+| Export board (CSV / JSON) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Import board from file | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Analytics** | | | | | |
+| View analytics & summary | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Export analytics CSV | ✓ | ✓ | — | — | — |
 
 ## Site admin protection
 
