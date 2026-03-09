@@ -4,7 +4,9 @@ Visiban surfaces in-app notifications for three events: card assignment, @mentio
 
 ## Notification bell
 
-The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed. Each notification is a deep link — clicking it navigates to the relevant board and opens the card detail panel automatically.
+The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only **unread** notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.
+
+Click **Mark all read** to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.
 
 ## Assignment notifications
 
@@ -55,6 +57,6 @@ Schedule this as a daily cron job or Kubernetes CronJob in production:
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/notifications/` | List notifications for the current user |
+| `GET /api/notifications/` | List unread notifications for the current user (max 50) |
 | `GET /api/notifications/unread-count/` | Returns `{ "count": N }` |
-| `POST /api/notifications/mark-read/` | Mark notifications as read — body: `{ "ids": [1, 2] }` or `{}` to mark all |
+| `POST /api/notifications/mark-read/` | Mark notifications as read — body: `{ "ids": [1, 2] }` or `{ "all": true }` to mark all |

@@ -19,12 +19,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Board import failing with "Method POST not allowed" due to manually set Content-Type header stripping the multipart boundary
 - Board Members dialog can now be closed by pressing Escape (closes #70)
 - Database deadlock on bulk card move — concurrent position-reorder transactions now acquire row locks in consistent order via `select_for_update`; bulk move requests serialized on the frontend
+- Escape key now consistently closes all dialogs: ProfileModal, MoveBoardModal, BulkActionToolbar delete confirmation, and KeyboardShortcutsOverlay (closes #72)
 
 ### Added
 
 - Full board export: `GET /api/boards/{id}/export/` returns a CSV file with all cards, metadata, and movement history; `?format=json` returns a structured JSON export including columns, swimlanes, labels, cards, comments, and checklists; available to all board members (closes #54)
 - Export dropdown button in the board toolbar with CSV and JSON options
 - Import board from Visiban JSON or CSV export — `POST /api/boards/import/` accepts a file upload and atomically creates a new board with columns, swimlanes, labels, cards (including comments and checklist items); dashboard "Import" button with file picker modal (closes #66)
+- Import board directly into a group from the group detail page — admin-only; backend import endpoint accepts optional `group_id` to place the imported board into the target group
+- CI: replaced Docker-in-Docker with kaniko for image build verification — no privileged mode needed, works out of the box on Kubernetes runners
 - Bulk card operations: select multiple cards via checkbox, then move to column, assign, set priority, or delete in batch; toolbar appears at the bottom when cards are selected; Escape clears selection (closes #53)
 
 ### Docs

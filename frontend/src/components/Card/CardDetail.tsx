@@ -550,8 +550,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             <span className="text-[10px] text-gray-400" title={new Date(c.created_at).toLocaleString()}>{formatCommentTime(c.created_at)}</span>
                           </div>
                           <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 leading-relaxed">
-                            {c.body.split(/(@[\w.+-]+)/g).map((part, i) => // nosemgrep: regex_dos — hyphen is last in class (literal, not range); no nested quantifiers; false positive
-                              /^@[\w.+-]+$/.test(part) // nosemgrep: regex_dos
+                            {c.body.split(/(@[\w.+-]+)/g).map((part, i) => // nosemgrep: nodejs_scan.javascript-dos-rule-regex_dos
+                              /^@[\w.+-]+$/.test(part) // nosemgrep: nodejs_scan.javascript-dos-rule-regex_dos
                                 ? <span key={i} className="font-semibold text-blue-600">{part}</span>
                                 : part
                             )}

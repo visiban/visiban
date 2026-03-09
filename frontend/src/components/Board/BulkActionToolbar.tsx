@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { BoardFull, Card, Column } from "../../types";
 import { userDisplayName } from "../../types";
 import { moveCard, updateCard, deleteCard } from "../../api/cards";
@@ -17,6 +17,15 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const [dropdown, setDropdown] = useState<Dropdown>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmDelete(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [confirmDelete]);
 
   const count = selectedCardIds.size;
   const selectedCards = board.cards.filter((c) => selectedCardIds.has(c.id));

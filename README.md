@@ -212,7 +212,13 @@ Switch between three views from the toolbar:
 |---|---|
 | **Board** | The live kanban grid with drag-and-drop |
 | **Summary** | Table of swimlane card counts with 7-day and 30-day velocity |
-| **Analytics** | Dwell-time heatmap per stage, outlier detection, stalled card list, CSV export |
+| **Analytics** | Dwell-time heatmap per stage, outlier detection, stalled card list, CSV export (admin only) |
+
+### Export & import
+
+Export a board as CSV or JSON from the **Export** dropdown in the board toolbar. CSV includes all cards with metadata and movement history; JSON includes the full board structure (columns, swimlanes, labels, cards with comments and checklists).
+
+Import a board from a previously exported JSON or CSV file via the **Import** button on the dashboard or the group detail page. The import atomically creates a new board with all structure and cards. When importing from a group page, the board is placed directly into that group.
 
 ### Export & import
 
@@ -248,7 +254,7 @@ Group membership grants board access automatically. Board admins can override th
 
 ### Notifications
 
-In-app notifications for card assignment, @mentions in comments, and cards that have gone stale (not moved in a configurable number of days).
+In-app notifications for card assignment, @mentions in comments, and cards that have gone stale (not moved in a configurable number of days). The notification dropdown shows only unread notifications — clicking a notification marks it as read and navigates to the relevant card. Read notifications stay dismissed across page refreshes.
 
 ---
 
