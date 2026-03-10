@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Changelog update check on MR pipelines (non-blocking)
 - License compliance checks for backend (pip-licenses) and frontend (license-checker) on MR pipelines
 - Full board export: `GET /api/boards/{id}/export/` returns a CSV file with all cards, metadata, and movement history; `?format=json` returns a structured JSON export including columns, swimlanes, labels, cards, comments, and checklists; available to all board members (closes #54)
+- Medium-priority frontend tests: notification dropdown behavior, filter logic, import/export modals (closes #76)
 - Export dropdown button in the board toolbar with CSV and JSON options
 - Import board from Visiban JSON or CSV export — `POST /api/boards/import/` accepts a file upload and atomically creates a new board with columns, swimlanes, labels, cards (including comments and checklist items); dashboard "Import" button with file picker modal (closes #66)
 - Import board directly into a group from the group detail page — admin-only; backend import endpoint accepts optional `group_id` to place the imported board into the target group
