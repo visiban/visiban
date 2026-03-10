@@ -5,7 +5,7 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │                     Browser                         │
-│              React 18 + TypeScript SPA              │
+│              React 19 + TypeScript SPA              │
 │         Vite dev server / Nginx (production)        │
 └──────────────────────┬──────────────────────────────┘
                        │ HTTP / REST JSON
@@ -32,7 +32,7 @@
 | Cache / Pub-Sub | Redis 7 (Django Channels channel layer) |
 | Real-time | Django Channels 4, channels-redis |
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS 3 |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
 | Drag & Drop | @dnd-kit/core + @dnd-kit/sortable |
 | CI/CD | GitLab CI (Ruff, ESLint, pytest, Vitest, Semgrep SAST, pip-audit, kaniko) |
 | Infra | Docker Compose, Nginx, Helm (Kubernetes) |

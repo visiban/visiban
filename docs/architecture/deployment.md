@@ -22,7 +22,9 @@ docker push registry/visiban/backend:latest
 docker push registry/visiban/frontend:latest
 ```
 
-`Dockerfile.prod` runs `collectstatic`, then starts gunicorn with 2 workers. Adjust `--workers` for your CPU count.
+`backend/Dockerfile.prod` runs `collectstatic` and defaults to gunicorn (WSGI) with 2 workers — suitable for pushing a versioned image to a registry.
+
+> **Important:** `docker-compose.prod.yml` overrides the backend `command` to use **daphne** (ASGI) instead of gunicorn, which is required for WebSocket support. If you run the image directly (e.g. in Kubernetes without the Helm chart), use daphne: `daphne -b 0.0.0.0 -p 8000 visiban.asgi:application`. Running gunicorn directly will disable real-time board updates.
 
 ## Kubernetes / Helm
 
