@@ -186,8 +186,8 @@ class NotificationViewTests(TestCase):
     def test_list_notifications(self):
         r = self.client.get("/api/notifications/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()["results"]), 1)
-        self.assertEqual(r.json()["results"][0]["verb"], "Test notification")
+        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(r.json()[0]["verb"], "Test notification")
 
     def test_unread_count(self):
         r = self.client.get("/api/notifications/unread-count/")

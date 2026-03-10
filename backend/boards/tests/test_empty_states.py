@@ -79,7 +79,7 @@ class NotificationEmptyStateTests(TestCase):
     def test_notification_list_empty(self):
         resp = self.client.get("/api/notifications/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data["results"], [])
+        self.assertEqual(resp.data, [])
 
     def test_unread_count_zero(self):
         resp = self.client.get("/api/notifications/unread-count/")

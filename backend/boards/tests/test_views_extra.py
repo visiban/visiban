@@ -153,7 +153,7 @@ class CardAttachmentTests(TestCase):
             f"/api/boards/{self.board.id}/cards/{self.card.id}/attachments/"
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(r.json()["results"], [])
+        self.assertEqual(r.json(), [])
 
     def test_upload_attachment(self):
         content = b"hello file content"
