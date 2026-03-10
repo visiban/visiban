@@ -1,7 +1,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
-import { userDisplayName } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
+import Avatar from "../Common/Avatar";
 
 function formatDueDate(iso: string): { label: string; overdue: boolean } {
   const d = new Date(iso);
@@ -15,9 +15,6 @@ function formatDueDate(iso: string): { label: string; overdue: boolean } {
   return { label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), overdue: false };
 }
 
-function initials(name: string) {
-  return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-}
 
 interface Props {
   card: Card;
@@ -36,14 +33,13 @@ export default function CardItem({ card, onClick, overlay, selected, onSelect }:
 
   const dueInfo = card.due_date ? formatDueDate(card.due_date) : null;
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
-  const assigneeName = card.assignee ? userDisplayName(card.assignee) : null;
 
   const hasMetadata =
     card.labels.length > 0 ||
     card.checklist_total > 0 ||
     card.attachment_count > 0 ||
     dueInfo ||
-    assigneeName ||
+    card.assignee ||
     card.weight > 1 ||
     card.is_stale ||
     isRecent;
@@ -163,14 +159,9 @@ export default function CardItem({ card, onClick, overlay, selected, onSelect }:
               {card.priority}
             </span>
 
-            {/* Assignee initials — pushed to end via margin */}
-            {assigneeName && (
-              <span
-                className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 text-[8px] font-bold flex items-center justify-center shrink-0"
-                title={assigneeName}
-              >
-                {initials(assigneeName)}
-              </span>
+            {/* Assignee avatar */}
+            {card.assignee && (
+              <Avatar user={card.assignee} size="xs" className="ml-auto" />
             )}
           </div>
         )}

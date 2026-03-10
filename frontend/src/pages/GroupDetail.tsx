@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
@@ -283,7 +284,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
               <div className="flex flex-col gap-2">
                 {members.map((m) => (
                   <div key={m.user.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
-                    <p className="text-white text-sm">{m.user.display_name || m.user.username}</p>
+                    <div className="flex items-center gap-2">
+                      <Avatar user={m.user} size="sm" />
+                      <p className="text-white text-sm">{m.user.display_name || m.user.username}</p>
+                    </div>
                     {isAdmin && m.user.id !== user.id && !m.user.is_site_admin ? (
                       <div className="flex items-center gap-2">
                         <select
