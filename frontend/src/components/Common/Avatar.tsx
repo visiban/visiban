@@ -63,8 +63,9 @@ export default function Avatar({ user, size = "md", className = "" }: Props) {
 
   const initials = getInitials(user);
   const colorClass = PALETTE[hashUsername(user.username ?? "") % PALETTE.length];
+  const displayName = user.display_name?.trim() || `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() || user.username;
   return (
-    <div className={`${base} ${colorClass} text-white`}>
+    <div className={`${base} ${colorClass} text-white`} title={displayName}>
       {initials}
     </div>
   );

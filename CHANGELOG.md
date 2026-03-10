@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- `Avatar` initials fallback now renders with a `title` attribute set to the user's display name, restoring tooltip and accessibility querying
 - Board scroll area now has a dark background (`slate-900`), eliminating the white void below swimlane rows
 - Navbar logo switched to light variant (`visiban_lockup_light.png`) so it is visible on the dark navbar
 - Version badge in navbar styled as a subtle pill instead of bare floating text
