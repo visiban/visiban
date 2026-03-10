@@ -8,9 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Summary view stage distribution bars now display two-letter column initials inside each segment (hidden on segments narrower than 8% to avoid overflow)
+
 ### Fixed
 
 - `tsc -b` failing with `'test' does not exist in type 'UserConfigExport'` — vitest 2.x bundles its own copy of vite whose `declare module 'vite'` augmentation does not reach the top-level vite 7 types; split into a separate `vitest.config.ts` (imports `defineConfig` from `vitest/config`) so each config file is typed against the correct vite version
+- Board view regression: column headers, swimlane rows, and the board toolbar rendered with a white/light background after the brand color migration; migrated `bg-white`/`bg-gray-50` and `border-gray-200` to `bg-slate-800`/`border-slate-700` across `BoardView`, `ColumnHeader`, and `SwimlaneRow`
+- White screen after OAuth redirect — added a React `ErrorBoundary` around the app root so render-phase errors display a fallback UI with the error message instead of a blank page
+- `listBoards` and `listGroups` API functions not unwrapping paginated responses — both now access `.data.results` after the global `PageNumberPagination` was applied to list endpoints
 
 
 ### Changed

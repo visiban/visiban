@@ -10,7 +10,7 @@ export const removeBoardMember = (boardId: number, userId: number) =>
   client.delete(`/api/boards/${boardId}/members/${userId}/`);
 
 export const listBoards = () =>
-  client.get<Board[]>("/api/boards/").then((r) => r.data);
+  client.get<{ results: Board[] }>("/api/boards/").then((r) => r.data.results);
 
 export const createBoard = (data: { name: string; description?: string; template?: string }) =>
   client.post<Board>("/api/boards/", data).then((r) => r.data);

@@ -2,7 +2,7 @@ import client from "./client";
 import type { Group, GroupMembership, GroupInviteLink, Board } from "../types";
 
 export const listGroups = () =>
-  client.get<Group[]>("/api/groups/").then((r) => r.data);
+  client.get<{ results: Group[] }>("/api/groups/").then((r) => r.data.results);
 
 export const createGroup = (data: { name: string; parent?: number | null }) =>
   client.post<Group>("/api/groups/", data).then((r) => r.data);

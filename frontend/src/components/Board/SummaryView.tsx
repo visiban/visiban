@@ -61,20 +61,23 @@ export default function SummaryView({ boardId, columns }: Props) {
                 </td>
                 <td className="py-2 pr-4 text-right font-mono text-gray-700">{row.total_cards}</td>
                 <td className="py-2 pr-6">
-                  <div className="flex h-4 rounded overflow-hidden gap-px min-w-[120px]" style={{ width: 200 }}>
-                    {columns.map((col) => {
+                  <div className="flex h-5 rounded overflow-hidden gap-px min-w-[120px]" style={{ width: 200 }}>
+                    {columns.map((col, idx) => {
                       const count = row.stage_distribution[col] ?? 0;
                       const pct = (count / total) * 100;
+                      const initials = col.slice(0, 2).toUpperCase();
                       return (
                         <div
                           key={col}
                           title={`${col}: ${count}`}
-                          className="bg-blue-400 first:rounded-l last:rounded-r"
+                          className="bg-blue-400 first:rounded-l last:rounded-r overflow-hidden flex items-center justify-center text-[8px] font-bold text-white/80 leading-none"
                           style={{
                             width: `${pct}%`,
-                            opacity: 0.4 + (columns.indexOf(col) / columns.length) * 0.6,
+                            opacity: 0.4 + (idx / columns.length) * 0.6,
                           }}
-                        />
+                        >
+                          {pct >= 8 ? initials : ""}
+                        </div>
                       );
                     })}
                   </div>

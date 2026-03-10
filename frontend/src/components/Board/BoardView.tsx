@@ -332,7 +332,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   if (view === "summary") {
     return (
       <>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
         <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
@@ -343,7 +343,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   if (view === "analytics") {
     return (
       <>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
         <AnalyticsView boardId={board.id} currentUserRole={board.current_user_role} />
@@ -353,9 +353,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   return (
     <>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-b border-gray-200 shrink-0 flex-wrap">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 flex-wrap">
         <ViewToggle view={view} onChange={setView} />
-        <span className="w-px h-4 bg-gray-200 shrink-0" />
+        <span className="w-px h-4 bg-slate-600 shrink-0" />
         <button
           onClick={() => setShowFilters((v) => !v)}
           className="text-xs text-blue-600 hover:text-blue-800 transition shrink-0"
@@ -371,25 +371,25 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         {/* Inline filter controls — same row, wrap to next line on narrow viewports */}
         {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />}
 
-        <span className="w-px h-4 bg-gray-200 shrink-0" />
+        <span className="w-px h-4 bg-slate-600 shrink-0" />
         <div className="relative shrink-0" ref={exportRef}>
           <button
             onClick={() => setShowExport((v) => !v)}
-            className="text-xs text-gray-500 hover:text-gray-800 transition"
+            className="text-xs text-slate-400 hover:text-slate-200 transition"
           >
             Export
           </button>
           {showExport && (
-            <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30 min-w-[100px]">
+            <div className="absolute top-full right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 z-30 min-w-[100px]">
               <button
                 onClick={() => { exportBoardCsv(board.id); setShowExport(false); }}
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-gray-100 text-gray-700"
+                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-300"
               >
                 CSV
               </button>
               <button
                 onClick={() => { exportBoardJson(board.id); setShowExport(false); }}
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-gray-100 text-gray-700"
+                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-300"
               >
                 JSON
               </button>
@@ -400,23 +400,23 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         <span className="w-px h-4 bg-gray-200 ml-auto shrink-0" />
         <button
           onClick={() => setShowShortcuts((v) => !v)}
-          className="text-xs text-gray-400 hover:text-gray-600 transition font-mono shrink-0"
+          className="text-xs text-slate-500 hover:text-slate-300 transition font-mono shrink-0"
           title="Keyboard shortcuts (?)"
         >
           ?
         </button>
         {isAdmin && (
           <>
-            <span className="w-px h-4 bg-gray-200 shrink-0" />
+            <span className="w-px h-4 bg-slate-600 shrink-0" />
             <button
               onClick={() => setShowMembers(true)}
-              className="text-xs text-gray-500 hover:text-gray-800 transition shrink-0"
+              className="text-xs text-slate-400 hover:text-slate-200 transition shrink-0"
             >
               Members ({board.members.length})
             </button>
           </>
         )}
-        <span className="w-px h-4 bg-gray-200 shrink-0" />
+        <span className="w-px h-4 bg-slate-600 shrink-0" />
         <span
           className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-500" : "text-gray-400"}`}
           title={connected ? "Live — real-time updates active" : "Connecting…"}
@@ -432,7 +432,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         */}
         <div className="flex-1 overflow-auto">
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="flex sticky top-0 z-10 border-b border-gray-200 bg-gray-50">
+          <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
             {/* Corner — also sticky to the left */}
             <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center sticky left-0 z-20">
               {isAdmin && (
@@ -466,11 +466,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             {activeColumn ? (
               <ColumnTrashZone />
             ) : (
-              <div className="w-20 shrink-0 flex items-center px-2 bg-gray-50 border-l border-gray-200">
+              <div className="w-20 shrink-0 flex items-center px-2 bg-slate-800 border-l border-slate-700">
                 {isAdmin && (
                   <button
                     onClick={() => setShowAddColumn(true)}
-                    className="text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap px-2 py-1 rounded hover:bg-gray-100 transition"
+                    className="text-xs text-slate-400 hover:text-slate-200 whitespace-nowrap px-2 py-1 rounded hover:bg-slate-700 transition"
                   >
                     + Col
                   </button>
