@@ -117,4 +117,58 @@ describe('Dashboard', () => {
     await user.click(screen.getByText('+ New board'))
     expect(screen.getByText('New Board')).toBeInTheDocument()
   })
+
+  it('opens import modal on import click', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Import')
+    await user.click(screen.getByText('Import'))
+    expect(screen.getByText('Import Board')).toBeInTheDocument()
+  })
+
+  it('opens create group modal on new group click', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('+ New top-level group')
+    await user.click(screen.getByText('+ New top-level group'))
+    expect(screen.getByText('New Group')).toBeInTheDocument()
+  })
+
+  it('shows delete button on board hover', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+    ])
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    // Delete button should exist (hidden by CSS, but in DOM)
+    expect(screen.getByTitle('Delete board')).toBeInTheDocument()
+  })
+
+  it('shows delete confirmation on delete click', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+    ])
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    await user.click(screen.getByTitle('Delete board'))
+    expect(screen.getByText('Delete board?')).toBeInTheDocument()
+  })
+
+  it('shows move button for boards', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+    ])
+    renderDashboard()
+    await screen.findByText('Sprint Board')
+    expect(screen.getByTitle('Move to group')).toBeInTheDocument()
+  })
+
+  it('renders groups when available', async () => {
+    mockListGroups.mockResolvedValue([
+      { id: 1, name: 'Engineering', owner: fakeUser, parent: null, parent_name: null, member_count: 3, board_count: 2, subgroup_count: 0, created_at: '' },
+    ])
+    renderDashboard()
+    expect(await screen.findByText('Engineering')).toBeInTheDocument()
+  })
 })
