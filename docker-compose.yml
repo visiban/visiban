@@ -35,7 +35,7 @@ services:
     environment:
       DATABASE_URL: postgres://visiban:visiban@db:5432/visiban
       REDIS_URL: redis://redis:6379/0
-      APP_VERSION: 1.0.0-rc.2
+      APP_VERSION: 1.0.0-rc.1
     volumes:
       - ./backend:/app
     ports:
