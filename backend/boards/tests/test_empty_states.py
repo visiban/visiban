@@ -28,7 +28,7 @@ class DashboardEmptyStateTests(TestCase):
         """User with no boards should get an empty list, not an error."""
         resp = self.client.get("/api/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data, [])
+        self.assertEqual(resp.data["results"], [])
 
 
 class BoardNoCardsSummaryTests(TestCase):

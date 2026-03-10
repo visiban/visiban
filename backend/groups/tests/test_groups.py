@@ -24,7 +24,7 @@ class GroupCRUDTests(TestCase):
     def test_list_groups_returns_owned_group(self):
         r = self.client.get("/api/groups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        ids = [g["id"] for g in r.json()]
+        ids = [g["id"] for g in r.json()["results"]]
         self.assertIn(self.group.id, ids)
 
     def test_create_group(self):
@@ -57,7 +57,7 @@ class GroupCRUDTests(TestCase):
     def test_other_user_cannot_see_group(self):
         self.client.force_authenticate(self.other)
         r = self.client.get("/api/groups/")
-        ids = [g["id"] for g in r.json()]
+        ids = [g["id"] for g in r.json()["results"]]
         self.assertNotIn(self.group.id, ids)
 
 

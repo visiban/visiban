@@ -37,7 +37,7 @@ class BoardListOrderingTests(TestCase):
 
         resp = self.client.get("/api/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        ids = [b["id"] for b in resp.data]
+        ids = [b["id"] for b in resp.data["results"]]
         # board_a was updated last, so it should appear first
         self.assertEqual(ids[0], board_a.id)
 

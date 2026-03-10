@@ -50,7 +50,7 @@ class BoardCreationTests(TestCase):
 
         resp = self.client.get("/api/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        board_ids = [b["id"] for b in resp.data]
+        board_ids = [b["id"] for b in resp.data["results"]]
         other_boards = Board.objects.filter(owner=other).values_list("id", flat=True)
         for board_id in other_boards:
             self.assertNotIn(board_id, board_ids)

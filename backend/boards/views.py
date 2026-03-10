@@ -5,6 +5,7 @@ import json
 import re
 import statistics
 
+import django_filters
 from django.conf import settings as django_settings
 from django.db import transaction
 from django.db.models import F, Q
@@ -881,9 +882,33 @@ class LabelViewSet(viewsets.ModelViewSet):
 # Cards
 # ---------------------------------------------------------------------------
 
+class CardFilter(django_filters.FilterSet):
+    priority = django_filters.CharFilter(field_name="priority", lookup_expr="exact")
+    assignee = django_filters.NumberFilter(field_name="assignee__id")
+    unassigned = django_filters.BooleanFilter(field_name="assignee", lookup_expr="isnull")
+    column = django_filters.NumberFilter(field_name="column__id")
+    swimlane = django_filters.NumberFilter(field_name="swimlane__id")
+    due_before = django_filters.DateFilter(field_name="due_date", lookup_expr="lte")
+    due_after = django_filters.DateFilter(field_name="due_date", lookup_expr="gte")
+    overdue = django_filters.BooleanFilter(method="filter_overdue")
+
+    def filter_overdue(self, queryset, name, value):
+        today = datetime.date.today()
+        if value:
+            return queryset.filter(due_date__lt=today)
+        return queryset.exclude(due_date__lt=today)
+
+    class Meta:
+        model = Card
+        fields = ["priority", "assignee", "column", "swimlane"]
+
+
 class CardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CardSerializer
+    filterset_class = CardFilter
+    ordering_fields = ["position", "due_date", "created_at", "priority"]
+    ordering = ["position"]
 
     def _board_and_role(self):
         return get_board_for_user(self.kwargs["board_pk"], self.request.user)
@@ -1279,3 +1304,45 @@ class VersionView(APIView):
 
     def get(self, request):
         return Response({"version": django_settings.APP_VERSION})
+
+
+# ---------------------------------------------------------------------------
+# Health checks (#84)
+# ---------------------------------------------------------------------------
+
+class LivenessView(APIView):
+    """GET /api/health/liveness/ — K8s liveness probe. Returns 200 if the process is alive."""
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        return Response({"status": "ok"})
+
+
+class ReadinessView(APIView):
+    """GET /api/health/readiness/ — K8s readiness probe. Checks DB and Redis."""
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        errors = {}
+
+        # Check database
+        try:
+            from django.db import connection
+            connection.ensure_connection()
+        except Exception as exc:
+            errors["db"] = str(exc)
+
+        # Check Redis cache
+        try:
+            from django.core.cache import cache
+            cache.set("_health", "ok", timeout=5)
+            if cache.get("_health") != "ok":
+                errors["redis"] = "cache read/write mismatch"
+        except Exception as exc:
+            errors["redis"] = str(exc)
+
+        if errors:
+            return Response({"status": "error", "errors": errors}, status=503)
+        return Response({"status": "ok"})

@@ -290,5 +290,5 @@ class SiteAdminBoardListTests(TestCase):
     def test_site_admin_sees_all_boards(self):
         r = self.client.get("/api/boards/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        ids = [b["id"] for b in r.json()]
+        ids = [b["id"] for b in r.json()["results"]]
         self.assertIn(self.board.id, ids)
