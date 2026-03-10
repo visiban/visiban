@@ -62,6 +62,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Docs: `architecture/overview.md` listed React 18 — updated to React 19 to match `package.json`
+- Docs: `architecture/deployment.md` described `Dockerfile.prod` as using gunicorn without noting that `docker-compose.prod.yml` overrides this with daphne (ASGI) for WebSocket support — added a callout clarifying the distinction and the correct command for standalone image use
 - `LOGIN_REDIRECT_URL` and `ACCOUNT_LOGOUT_REDIRECT_URL` hardcoded to `http://localhost:5173` — production OAuth flows now redirect to `FRONTEND_URL`
 - Django cache and Channels WebSocket layer both reading from `REDIS_URL`, placing both on Redis db 0 — cache now uses `REDIS_CACHE_URL` (Docker Compose sets this to db 1 automatically; no `.env` change needed for dev)
 - `APP_VERSION` hardcoded in `docker-compose.yml` environment block overriding the value from `.env` — removed; version is now sourced exclusively from `.env` via `env_file`
