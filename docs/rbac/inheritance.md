@@ -1,6 +1,6 @@
 # Group Inheritance
 
-Roles are inherited through the group ancestry chain. A user with any role in a parent group automatically has that same role on all boards and sub-groups within it.
+Group roles are inherited through the group ancestry chain. A user with an `admin` or `member` role in a parent group automatically has that same role on all sub-groups and boards within it. Boards additionally support two roles that groups do not — `collaborator` and `viewer` — which can only be assigned explicitly via a `BoardMembership` record and are never inherited.
 
 ## How it works
 
