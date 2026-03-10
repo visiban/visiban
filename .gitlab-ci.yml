@@ -260,8 +260,14 @@ changelog-check:
   before_script:
     - apk add --no-cache git
   script:
-    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=1
-    - git diff --name-only origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | grep -q "CHANGELOG.md" || (echo "ERROR — CHANGELOG.md was not updated. Please add an entry under [Unreleased]." && exit 1)
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=20
+    - BASE=$(git merge-base origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME HEAD || echo "")
+    - |
+      if [ -z "$BASE" ]; then
+        echo "WARNING — could not determine merge base; skipping changelog check."
+        exit 0
+      fi
+    - git diff --name-only $BASE HEAD | grep -q "CHANGELOG.md" || (echo "ERROR — CHANGELOG.md was not updated. Please add an entry under [Unreleased]." && exit 1)
   allow_failure: true
 
 # ─── Security (MR only) ───────────────────────────────────────────────────────
