@@ -10,12 +10,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- Brand color system applied: Tailwind config extended with `primary` (#5B5FC7) and `accent` (#2DD4BF) tokens; page backgrounds migrated from gray-900 to slate-900, surfaces from gray-800 to slate-800; buttons, focus rings, and links updated to use brand tokens (closes #88)
+- Navbar: replaced text wordmark with `visiban_lockup_dark.png` horizontal logo lockup (closes #90)
+- Login page: replaced text heading with `visiban_wordmark_dark.png` logo; all brand color tokens applied (closes #90)
 - Move online presence indicator from the center of the board toolbar to the top-right corner for a cleaner layout
 - Analytics CSV export button restricted to admin and site_admin roles (closes #68)
 - CI pipeline optimized: path-based job skipping (backend/frontend changes only trigger relevant jobs), DAG scheduling with `needs: []` for parallel stage execution, `node_modules/` cached alongside npm download cache
 
 ### Fixed
 
+- `loginPage` and `navbar` tests failing after wordmark image replaced the "Visiban" text — assertions updated to use `getByAltText`
 - `changelog-check` CI job failing with "no merge base" on shallow clones — fetch target branch with `--depth=20` and use `git merge-base` instead of three-dot diff syntax
 - Docs: `inheritance.md` opening sentence incorrectly implied boards only carry group-level roles (admin/member); clarified that boards support four roles and that collaborator/viewer are board-only and never inherited (closes #91)
 - Read notifications reappear after page refresh — notification list endpoint now returns only unread notifications; clicking a notification removes it from the dropdown (closes #71)
@@ -27,6 +31,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Brand logo assets committed to `frontend/public/brand/` (10 PNG variants: primary, lockup, wordmark, icon-only, badge/canvas/fullbleed pulse — dark and light) (closes #90)
 - Frontend test coverage increased from 55% to 80%+: BoardView, CardDetail, CardMovementTimeline, MentionTextarea, SwimlaneRow, BoardCell, FilterBar, App routing, and API clients (auth, notifications); 422 tests across 39 test files
 - Favicon and PWA icons: `favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png` (180×180), `android-chrome-192x192.png`, `android-chrome-512x512.png`, and `site.webmanifest`; page title updated from "frontend" to "Visiban" (closes #89)
 - Frontend test coverage expanded from 3% to 54%+: hooks (useAuth, useBoard, useBoardSocket), API modules (cards, groups, notifications), component rendering tests for pages and key UI components including LoginPage, Navbar, ProfileModal, Dashboard, GroupDetail, JoinPage, modals, BulkActionToolbar, SummaryView, AnalyticsView, GroupTree, InviteLinkPanel, BoardMembersModal, and BoardSelector (closes #87)
