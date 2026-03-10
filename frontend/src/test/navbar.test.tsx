@@ -53,7 +53,7 @@ describe('Navbar', () => {
 
   it('renders app name link', () => {
     renderNavbar()
-    expect(screen.getByText('Visiban')).toBeInTheDocument()
+    expect(screen.getByAltText('Visiban')).toBeInTheDocument()
   })
 
   it('renders user display name', () => {
