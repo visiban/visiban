@@ -19,7 +19,7 @@ vi.mock('../hooks/useBoard', () => ({
 }))
 
 vi.mock('../components/Auth/LoginPage', () => ({
-  default: ({ onLogin: _onLogin }: { onLogin: (u: User) => void }) => <div data-testid="login-page">Login</div>,
+  default: () => <div data-testid="login-page">Login</div>,
 }))
 
 vi.mock('../components/Auth/ForceChangePasswordModal', () => ({
