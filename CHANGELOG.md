@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Frontend test coverage expanded from 3% to 54%+: hooks (useAuth, useBoard, useBoardSocket), API modules (cards, groups, notifications), component rendering tests for pages and key UI components including LoginPage, Navbar, ProfileModal, Dashboard, GroupDetail, JoinPage, modals, BulkActionToolbar, SummaryView, AnalyticsView, GroupTree, InviteLinkPanel, BoardMembersModal, and BoardSelector (closes #87)
 - Frontend test coverage reporting in CI with Cobertura artifact
 - Changelog update check on MR pipelines (non-blocking)
 - License compliance checks for backend (pip-licenses) and frontend (license-checker) on MR pipelines
