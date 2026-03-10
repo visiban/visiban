@@ -28,7 +28,7 @@ class DashboardEmptyStateTests(TestCase):
         """User with no boards should get an empty list, not an error."""
         resp = self.client.get("/api/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data, [])
+        self.assertEqual(resp.data["results"], [])
 
 
 class BoardNoCardsSummaryTests(TestCase):
@@ -79,7 +79,7 @@ class NotificationEmptyStateTests(TestCase):
     def test_notification_list_empty(self):
         resp = self.client.get("/api/notifications/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data, [])
+        self.assertEqual(resp.data["results"], [])
 
     def test_unread_count_zero(self):
         resp = self.client.get("/api/notifications/unread-count/")

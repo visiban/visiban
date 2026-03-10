@@ -24,7 +24,7 @@ class GroupCRUDTests(TestCase):
     def test_list_groups_returns_owned_group(self):
         r = self.client.get("/api/groups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        ids = [g["id"] for g in r.json()]
+        ids = [g["id"] for g in r.json()["results"]]
         self.assertIn(self.group.id, ids)
 
     def test_create_group(self):
@@ -57,7 +57,7 @@ class GroupCRUDTests(TestCase):
     def test_other_user_cannot_see_group(self):
         self.client.force_authenticate(self.other)
         r = self.client.get("/api/groups/")
-        ids = [g["id"] for g in r.json()]
+        ids = [g["id"] for g in r.json()["results"]]
         self.assertNotIn(self.group.id, ids)
 
 
@@ -73,7 +73,7 @@ class GroupMembersTests(TestCase):
     def test_list_members(self):
         r = self.client.get(f"/api/groups/{self.group.id}/members/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        user_ids = [m["user"]["id"] for m in r.json()]
+        user_ids = [m["user"]["id"] for m in r.json()["results"]]
         self.assertIn(self.member.id, user_ids)
 
     def test_update_member_role(self):
@@ -119,7 +119,7 @@ class GroupSubgroupsTests(TestCase):
     def test_list_subgroups(self):
         r = self.client.get(f"/api/groups/{self.parent.id}/subgroups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        ids = [g["id"] for g in r.json()]
+        ids = [g["id"] for g in r.json()["results"]]
         self.assertIn(self.child.id, ids)
 
 
@@ -165,7 +165,7 @@ class GroupBoardsTests(TestCase):
     def test_list_boards_in_group_empty(self):
         r = self.client.get(f"/api/groups/{self.group.id}/boards/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(r.json(), [])
+        self.assertEqual(r.json()["results"], [])
 
     def test_create_board_in_group(self):
         r = self.client.post(
