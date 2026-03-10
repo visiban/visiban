@@ -40,7 +40,7 @@ describe('Board API wrappers', () => {
   })
 
   it('listBoards calls GET /api/boards/', async () => {
-    mockClient.get.mockResolvedValue({ data: [{ id: 1 }] })
+    mockClient.get.mockResolvedValue({ data: { results: [{ id: 1 }] } })
     const result = await listBoards()
     expect(mockClient.get).toHaveBeenCalledWith('/api/boards/')
     expect(result).toEqual([{ id: 1 }])

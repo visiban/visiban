@@ -32,7 +32,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition overflow-hidden"
+        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-slate-700 bg-slate-800 cursor-pointer hover:bg-slate-700 transition overflow-hidden"
         onClick={onToggleCollapse}
         title={`Expand "${column.name}"`}
         {...attributes}
@@ -41,18 +41,18 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
         <span
           className={`text-xs font-medium px-1 py-0.5 rounded-full ${
-            overWip ? "bg-red-100 text-red-700" : "bg-gray-200 text-gray-500"
+            overWip ? "bg-red-900/50 text-red-400" : "bg-slate-700 text-slate-400"
           }`}
         >
           {cardCount}
         </span>
         <span
-          className="text-xs font-semibold text-gray-500 flex-1 flex items-center"
+          className="text-xs font-semibold text-slate-400 flex-1 flex items-center"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
         >
           {column.name}
         </span>
-        <span className="text-gray-400 text-xs">▶</span>
+        <span className="text-slate-500 text-xs">▶</span>
       </div>
     );
   }
@@ -62,7 +62,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative flex-1 min-w-[180px] px-3 py-3 border-r border-gray-200 bg-gray-50 group/col transition ${isAdmin ? "cursor-pointer hover:bg-gray-100" : ""}`}
+        className={`relative flex-1 min-w-[180px] px-3 py-3 border-r border-slate-700 bg-slate-800 group/col transition ${isAdmin ? "cursor-pointer hover:bg-slate-700" : ""}`}
         onClick={() => isAdmin && setEditing(true)}
         title={isAdmin ? "Click to edit column" : undefined}
       >
@@ -70,7 +70,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         {isAdmin && (
           <button
             onClick={(e) => { e.stopPropagation(); onInsertLeft?.(); }}
-            className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-50 hover:bg-blue-200 text-blue-400 hover:text-blue-700 text-sm font-bold transition z-10 rounded-l border-r border-blue-100"
+            className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-900/40 hover:bg-blue-800/60 text-blue-400 hover:text-blue-300 text-sm font-bold transition z-10 rounded-l border-r border-blue-800/50"
             title="Insert column to the left"
           >
             +
@@ -80,7 +80,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         {isAdmin && (
           <button
             onClick={(e) => { e.stopPropagation(); onInsertRight?.(); }}
-            className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-50 hover:bg-blue-200 text-blue-400 hover:text-blue-700 text-sm font-bold transition z-10 rounded-r border-l border-blue-100"
+            className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-900/40 hover:bg-blue-800/60 text-blue-400 hover:text-blue-300 text-sm font-bold transition z-10 rounded-r border-l border-blue-800/50"
             title="Insert column to the right"
           >
             +
@@ -90,7 +90,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           {/* Collapse toggle — stopPropagation so it doesn't open the edit modal */}
           <button
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-            className="text-gray-300 hover:text-gray-600 transition text-xs shrink-0"
+            className="text-slate-500 hover:text-slate-300 transition text-xs shrink-0"
             title="Collapse column"
           >
             ◀
@@ -104,12 +104,12 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             {...(isAdmin ? { ...attributes, ...listeners } : {})}
             onClick={(e) => e.stopPropagation()}
           />
-          <span className="font-semibold text-gray-700 text-sm truncate">{column.name}</span>
+          <span className="font-semibold text-slate-200 text-sm truncate">{column.name}</span>
 
           <div className="ml-auto flex items-center gap-1.5 shrink-0">
             <span
               className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                overWip ? "bg-red-100 text-red-700" : "bg-gray-200 text-gray-500"
+                overWip ? "bg-red-900/50 text-red-400" : "bg-slate-700 text-slate-400"
               }`}
               title="Cards / WIP limit"
             >
@@ -119,7 +119,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             {column.weight_limit !== null && (
               <span
                 className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                  overWeight ? "bg-orange-100 text-orange-700" : "bg-blue-50 text-blue-500"
+                  overWeight ? "bg-orange-900/50 text-orange-400" : "bg-blue-900/30 text-blue-400"
                 }`}
                 title="Total weight / weight limit"
               >
@@ -127,7 +127,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               </span>
             )}
 
-            {isAdmin && <span className="text-gray-300 group-hover:text-gray-500 transition text-xs">✎</span>}
+            {isAdmin && <span className="text-slate-600 group-hover/col:text-slate-400 transition text-xs">✎</span>}
           </div>
         </div>
       </div>

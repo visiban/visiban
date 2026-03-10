@@ -26,7 +26,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
 
   return (
     <>
-      <div className="flex border-b border-gray-200 even:bg-gray-50 odd:bg-white">
+      <div className="flex border-b border-slate-700 bg-slate-800">
         {/* Swimlane label — sticky to the left */}
         <div className="w-[220px] shrink-0 flex items-start gap-2 px-3 py-3 sticky left-0 z-10 bg-gray-800 border-r border-gray-700 group">
           {/* Color stripe */}
@@ -65,10 +65,10 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             return (
               <div
                 key={col.id}
-                className="w-10 shrink-0 border-r border-gray-100 flex items-center justify-center py-1"
+                className="w-10 shrink-0 border-r border-slate-700 flex items-center justify-center py-1"
               >
                 {cellCount > 0 && (
-                  <span className="text-xs text-gray-400 font-medium">{cellCount}</span>
+                  <span className="text-xs text-slate-400 font-medium">{cellCount}</span>
                 )}
               </div>
             );
@@ -79,10 +79,10 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             return (
               <div
                 key={col.id}
-                className="flex-1 min-w-[180px] border-r border-gray-100 flex items-center justify-center"
+                className="flex-1 min-w-[180px] border-r border-slate-700 flex items-center justify-center"
               >
                 {cellCount > 0 && (
-                  <span className="text-xs text-gray-400 italic">{cellCount} hidden</span>
+                  <span className="text-xs text-slate-400 italic">{cellCount} hidden</span>
                 )}
               </div>
             );

@@ -27,7 +27,7 @@ describe('groups API', () => {
   })
 
   it('listGroups fetches groups', async () => {
-    mockClient.get.mockResolvedValue({ data: [] })
+    mockClient.get.mockResolvedValue({ data: { results: [] } })
     const result = await listGroups()
     expect(mockClient.get).toHaveBeenCalledWith('/api/groups/')
     expect(result).toEqual([])
