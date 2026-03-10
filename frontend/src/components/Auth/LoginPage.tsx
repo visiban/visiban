@@ -53,10 +53,11 @@ export default function LoginPage({ onLogin }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="bg-gray-800 rounded-2xl shadow-2xl p-10 w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-white mb-2 text-center">Visiban</h1>
-        <p className="text-gray-400 text-center mb-8 text-sm">Swimlane pipeline board</p>
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="bg-slate-800 rounded-2xl shadow-2xl p-10 w-full max-w-sm">
+        <div className="flex flex-col items-center mb-8">
+          <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
+        </div>
 
         {/* Email/password form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 mb-5">
@@ -66,7 +67,7 @@ export default function LoginPage({ onLogin }: Props) {
             placeholder="Username or email"
             value={loginField}
             onChange={(e) => setLoginField(e.target.value)}
-            className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           <input
             type="password"
@@ -74,7 +75,7 @@ export default function LoginPage({ onLogin }: Props) {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           {mode === "register" && (
             <input
@@ -83,23 +84,23 @@ export default function LoginPage({ onLogin }: Props) {
               placeholder="Confirm password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
           )}
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+            className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
           >
             {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </button>
-          <p className="text-center text-xs text-gray-400">
+          <p className="text-center text-xs text-slate-400">
             {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               type="button"
               onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
-              className="text-blue-400 hover:text-blue-300 underline"
+              className="text-accent hover:text-accent/80 underline"
             >
               {mode === "login" ? "Create one" : "Sign in"}
             </button>
@@ -110,9 +111,9 @@ export default function LoginPage({ onLogin }: Props) {
         {providers && (providers.google || providers.github || providers.gitlab) && (
           <>
             <div className="flex items-center gap-3 mb-5">
-              <div className="flex-1 h-px bg-gray-600" />
-              <span className="text-xs text-gray-500">or continue with</span>
-              <div className="flex-1 h-px bg-gray-600" />
+              <div className="flex-1 h-px bg-slate-600" />
+              <span className="text-xs text-slate-500">or continue with</span>
+              <div className="flex-1 h-px bg-slate-600" />
             </div>
             <div className="flex flex-col gap-3">
               {providers.google && (
@@ -127,7 +128,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.github && (
                 <a
                   href={`${API}/accounts/github/login/?process=login`}
-                  className="flex items-center justify-center gap-3 bg-gray-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-gray-600 transition"
+                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition"
                 >
                   <GitHubIcon />
                   Continue with GitHub

@@ -25,8 +25,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <span className="text-gray-400">Loading…</span>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <span className="text-slate-400">Loading…</span>
       </div>
     );
   }
@@ -91,13 +91,13 @@ function BoardPage({ user, onLogout, onUserUpdated }: {
           { label: board?.name ?? "…" },
         ]}
       />
-      <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
-        <button onClick={handleBack} className="text-gray-400 hover:text-white text-sm transition">
+      <div className="flex items-center gap-2 px-4 py-2 bg-slate-800 border-b border-slate-700">
+        <button onClick={handleBack} className="text-slate-400 hover:text-white text-sm transition">
           ← {board?.group ? (board.group_name ?? "Group") : "Dashboard"}
         </button>
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
-        {loading && <div className="flex items-center justify-center h-full text-gray-400">Loading board…</div>}
+        {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading board…</div>}
         {error && <div className="flex items-center justify-center h-full text-red-400">{error}</div>}
         {board && (
           <BoardView
