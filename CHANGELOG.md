@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `LOGIN_REDIRECT_URL` and `ACCOUNT_LOGOUT_REDIRECT_URL` hardcoded to `http://localhost:5173` — production OAuth flows now redirect to `FRONTEND_URL`
 - Django cache and Channels WebSocket layer both reading from `REDIS_URL`, placing both on Redis db 0 — cache now uses `REDIS_CACHE_URL` (Docker Compose sets this to db 1 automatically; no `.env` change needed for dev)
 - `APP_VERSION` hardcoded in `docker-compose.yml` environment block overriding the value from `.env` — removed; version is now sourced exclusively from `.env` via `env_file`
+- `backend-test` CI job missing `REDIS_CACHE_URL` — throttling cache backend connected to `localhost:6379` instead of the Redis service, causing 248 test errors
 - `CSRF_TRUSTED_ORIGINS` silently reading from the `CORS_ALLOWED_ORIGINS` env var with no way to override — now has its own `CSRF_TRUSTED_ORIGINS` env var (behavior unchanged for existing deployments)
 
 ### Fixed
