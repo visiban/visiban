@@ -26,7 +26,7 @@ describe('LoginPage', () => {
 
   it('renders login form by default', () => {
     render(<LoginPage onLogin={onLogin} />)
-    expect(screen.getByText('Visiban')).toBeInTheDocument()
+    expect(screen.getByAltText('Visiban')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Username or email')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
     expect(screen.getByText('Sign in')).toBeInTheDocument()

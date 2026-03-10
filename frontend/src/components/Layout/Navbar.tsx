@@ -89,22 +89,22 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
 
   return (
     <>
-      <header className="h-12 bg-gray-900 flex items-center px-4 gap-2 shrink-0">
-        <Link to="/" className="text-white font-bold tracking-wide hover:text-gray-200 transition">
-          Visiban
+      <header className="h-12 bg-slate-900 flex items-center px-4 gap-2 shrink-0">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition">
+          <img src="/brand/visiban_lockup_dark.png" alt="Visiban" className="h-7" />
         </Link>
         {version && (
-          <span className="text-gray-600 text-[10px] font-mono select-none">{version}</span>
+          <span className="text-slate-600 text-[10px] font-mono select-none">{version}</span>
         )}
         {breadcrumb?.map((item, i) => (
           <span key={i} className="flex items-center gap-2">
-            <span className="text-gray-600">/</span>
+            <span className="text-slate-600">/</span>
             {item.href ? (
-              <Link to={item.href} className="text-gray-300 text-sm font-medium hover:text-white transition">
+              <Link to={item.href} className="text-slate-300 text-sm font-medium hover:text-white transition">
                 {item.label}
               </Link>
             ) : (
-              <span className="text-gray-300 text-sm font-medium">{item.label}</span>
+              <span className="text-slate-300 text-sm font-medium">{item.label}</span>
             )}
           </span>
         ))}
@@ -113,7 +113,7 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
           <div ref={bellRef} className="relative">
             <button
               onClick={openBell}
-              className="relative text-gray-400 hover:text-white transition p-1"
+              className="relative text-slate-400 hover:text-white transition p-1"
               title="Notifications"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -126,28 +126,28 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
               )}
             </button>
             {showBell && (
-              <div className="absolute right-0 top-8 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                  <span className="text-xs font-semibold text-gray-700">Notifications</span>
+              <div className="absolute right-0 top-8 w-80 bg-white rounded-lg shadow-xl border border-slate-200 z-50">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                  <span className="text-xs font-semibold text-slate-700">Notifications</span>
                   <button
                     onClick={handleMarkAll}
-                    className="text-xs text-blue-600 hover:text-blue-800"
+                    className="text-xs text-accent hover:text-accent/80"
                   >
                     Mark all read
                   </button>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center py-6">No notifications</p>
+                    <p className="text-xs text-slate-400 text-center py-6">No notifications</p>
                   )}
                   {notifications.map((n) => (
                     <button
                       key={n.id}
                       onClick={() => handleClickNotification(n)}
-                      className="w-full text-left px-3 py-2.5 border-b border-gray-50 bg-blue-50 hover:bg-gray-50 transition"
+                      className="w-full text-left px-3 py-2.5 border-b border-slate-50 bg-primary/5 hover:bg-slate-50 transition"
                     >
-                      <p className="text-xs text-gray-800 leading-snug">{n.verb}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{relativeTime(n.created_at)}</p>
+                      <p className="text-xs text-slate-800 leading-snug">{n.verb}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{relativeTime(n.created_at)}</p>
                     </button>
                   ))}
                 </div>
@@ -157,13 +157,13 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
 
           <button
             onClick={() => setShowProfile(true)}
-            className="text-gray-400 text-sm hover:text-white transition"
+            className="text-slate-400 text-sm hover:text-white transition"
           >
             {userDisplayName(user)}
           </button>
           <button
             onClick={onLogout}
-            className="text-xs text-gray-400 hover:text-white transition"
+            className="text-xs text-slate-400 hover:text-white transition"
           >
             Sign out
           </button>
