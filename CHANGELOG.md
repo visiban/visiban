@@ -40,6 +40,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Docs
 
+- Added testing and CI pipeline documentation to CONTRIBUTING.md, architecture overview, and docs index
+- Fixed duplicate "Export & import" section in README
 - Updated README with export/import, bulk operations, and column trash zone features
 - Updated feature docs (board.md) with bulk card operations, export/import, column trash zone, and Escape key improvements
 - Updated API docs (boards.md) with export and import endpoints

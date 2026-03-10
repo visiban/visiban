@@ -7,6 +7,7 @@ Thank you for taking the time to contribute. This document covers how to report 
 - [Filing a bug report](#filing-a-bug-report)
 - [Requesting a feature](#requesting-a-feature)
 - [Setting up for development](#setting-up-for-development)
+- [Running tests](#running-tests)
 - [Submitting a merge request](#submitting-a-merge-request)
 - [Code style](#code-style)
 
@@ -49,6 +50,56 @@ docker compose up --build
 ```
 
 For local backend development without Docker, see the **Local Development** section of the installation guide.
+
+---
+
+## Running tests
+
+### Locally
+
+**Backend:**
+
+```bash
+cd backend
+python manage.py test boards accounts groups --verbosity=2
+```
+
+For coverage:
+
+```bash
+pip install coverage
+coverage run --source=. manage.py test boards accounts groups
+coverage report --skip-covered
+```
+
+**Frontend:**
+
+```bash
+cd frontend
+npm test
+```
+
+### GitLab CI pipeline
+
+Every push triggers a GitLab CI pipeline that builds and validates the project. The pipeline is designed specifically for verifying builds — it does not deploy anything.
+
+| Stage | Job | What it does |
+|---|---|---|
+| **lint** | `backend-lint` | Ruff linter + CodeClimate quality report |
+| **lint** | `frontend-lint` | ESLint + TypeScript type checking (`tsc --noEmit`) |
+| **test** | `backend-test` | Django test suite with coverage (90% minimum threshold) |
+| **test** | `frontend-test` | Vitest test suite |
+| **test** | `migration-check` | Verifies all model changes have corresponding migrations |
+| **test** | `backend-docker-build` | Kaniko image build verification (MR only) |
+| **test** | `frontend-docker-build` | Kaniko image build verification (MR only) |
+| **security** | `backend-dep-scan` | pip-audit against the OSV vulnerability database (MR only) |
+| **security** | `frontend-dep-scan` | npm audit for HIGH/CRITICAL CVEs (MR only) |
+| **security** | `secret-detection` | detect-secrets scan for accidentally committed credentials (MR only) |
+| **security** | `semgrep-sast` | Semgrep static analysis for Python and TypeScript (MR only) |
+
+Lint and test jobs run on every pipeline (branches and MRs). Security, build verification, and license checks run only on MR pipelines.
+
+The pipeline must pass before an MR can be merged. Security and license jobs are non-blocking (`allow_failure: true`) — they surface warnings but do not prevent merges.
 
 ---
 

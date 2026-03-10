@@ -24,4 +24,5 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 | [Analytics](features/analytics.md) | Summary, velocity, and bottleneck views |
 | [Notifications](features/notifications.md) | Assignment and staleness alerts |
 | [Real-time Updates](features/realtime.md) | WebSocket live sync |
+| [CI/CD Pipeline](architecture/overview.md#cicd-pipeline) | Build verification and testing in GitLab CI |
 | [API Reference](api/boards.md) | Full endpoint documentation |
