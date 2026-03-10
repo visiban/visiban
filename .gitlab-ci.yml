@@ -50,7 +50,8 @@ default:
 # ─── Rule templates ───────────────────────────────────────────────────────────
 #
 # Extend jobs with .on-mr to restrict them to MR pipelines only.
-# Lint and test jobs have no rules so they run on every pipeline.
+# Lint and test jobs use path-based rules so they only run when relevant
+# files change, with a fallback to always run on the default branch.
 
 .on-mr:
   rules:
@@ -60,7 +61,9 @@ default:
 #
 # npm_config_cache uses an absolute path so it works regardless of which
 # directory the job cds into. Cache is keyed on the lockfile so it
-# auto-invalidates whenever dependencies change.
+# auto-invalidates whenever dependencies change. node_modules/ is cached
+# alongside the npm download cache to skip the npm ci extraction step on
+# warm cache hits.
 
 .npm-cache:
   variables:
@@ -68,9 +71,11 @@ default:
   cache:
     key:
       files: [frontend/package-lock.json]
-    paths: [.npm/]
+    paths:
+      - .npm/
+      - frontend/node_modules/
 
-# PIP_CACHE_DIR stores downloaded wheels/sdists. pip honours this env var
+# PIP_CACHE_DIR stores downloaded wheels/sdists. pip honors this env var
 # automatically so no extra flags are needed in before_script.
 
 .pip-cache:
@@ -90,6 +95,11 @@ backend-lint:
   extends: .pip-cache
   stage: lint
   image: python:3.12-slim
+  rules:
+    - changes:
+        - backend/**/*
+        - requirements*.txt
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - pip install --quiet ruff
   script:
@@ -132,7 +142,13 @@ backend-lint:
 backend-test:
   extends: .pip-cache
   stage: test
+  needs: []
   image: python:3.12-slim
+  rules:
+    - changes:
+        - backend/**/*
+        - requirements*.txt
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
     - name: postgres:16-alpine
       alias: postgres
@@ -168,7 +184,13 @@ backend-test:
 migration-check:
   extends: .pip-cache
   stage: test
+  needs: []
   image: python:3.12-slim
+  rules:
+    - changes:
+        - backend/**/*
+        - requirements*.txt
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   variables:
     DATABASE_URL: "postgres://ci:ci@localhost:5432/ci"
     REDIS_URL: "redis://localhost:6379/0"
@@ -189,6 +211,10 @@ frontend-lint:
   extends: .npm-cache
   stage: lint
   image: node:20-alpine
+  rules:
+    - changes:
+        - frontend/**/*
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -201,7 +227,12 @@ frontend-lint:
 frontend-test:
   extends: .npm-cache
   stage: test
+  needs: []
   image: node:20-alpine
+  rules:
+    - changes:
+        - frontend/**/*
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -220,6 +251,7 @@ frontend-test:
 # Warns when CHANGELOG.md was not updated in the MR diff.
 # allow_failure: true — some MRs (like pure CI config changes) legitimately
 # do not need changelog entries.
+# No path-based filtering — this should always run on MRs.
 
 changelog-check:
   extends: .on-mr
@@ -239,9 +271,12 @@ changelog-check:
 
 # pip-audit: checks Python packages against the OSV vulnerability database.
 backend-dep-scan:
-  extends: .on-mr
   stage: security
   image: python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/requirements.txt
   before_script:
     - pip install --quiet pip-audit
   script:
@@ -256,9 +291,13 @@ backend-dep-scan:
 
 # npm audit: flag HIGH or CRITICAL CVEs in frontend npm dependencies.
 frontend-dep-scan:
-  extends: [.on-mr, .npm-cache]
+  extends: .npm-cache
   stage: security
   image: node:20-alpine
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - frontend/package-lock.json
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -333,19 +372,29 @@ frontend-license-check:
 # results, so running them in parallel saves a full stage of waiting.
 
 backend-docker-build:
-  extends: .on-mr
   stage: test
+  needs: []
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - backend/Dockerfile
   script:
     - /kaniko/executor --context=backend --dockerfile=backend/Dockerfile --no-push
 
 frontend-docker-build:
-  extends: .on-mr
   stage: test
+  needs: []
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - frontend/**/*
+        - frontend/Dockerfile
   script:
     - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push
