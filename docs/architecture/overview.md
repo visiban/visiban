@@ -34,6 +34,7 @@
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS 3 |
 | Drag & Drop | @dnd-kit/core + @dnd-kit/sortable |
+| CI/CD | GitLab CI (Ruff, ESLint, pytest, Vitest, Semgrep SAST, pip-audit, kaniko) |
 | Infra | Docker Compose, Nginx, Helm (Kubernetes) |
 
 ## Django apps
@@ -61,6 +62,41 @@
 5. Redis fans the event out to all consumers in the group
 6. Each consumer forwards the event to its WebSocket client
 7. The `useBoardSocket` React hook applies the event to local state
+
+## CI/CD pipeline
+
+GitLab CI runs a build verification pipeline on every push. The pipeline validates code quality, runs tests, and scans for vulnerabilities — it does not deploy anything.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     GitLab CI Pipeline                      │
+│                                                             │
+│  lint                                                       │
+│  │  backend-lint   (Ruff + CodeClimate report)              │
+│  │  frontend-lint  (ESLint + tsc --noEmit)                  │
+│                                                             │
+│  test                                                       │
+│  │  backend-test          (Django tests, 90% coverage)      │
+│  │  frontend-test         (Vitest)                          │
+│  │  migration-check       (makemigrations --check)          │
+│  │  backend-docker-build  (kaniko, MR only)                 │
+│  │  frontend-docker-build (kaniko, MR only)                 │
+│                                                             │
+│  security (MR only)                                         │
+│  │  backend-dep-scan   (pip-audit / OSV)                    │
+│  │  frontend-dep-scan  (npm audit)                          │
+│  │  secret-detection   (detect-secrets)                     │
+│  │  semgrep-sast       (GitLab SAST component)              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Key design decisions:
+
+- **Build verification only** — the pipeline validates that the project builds and passes tests. It does not deploy to any environment.
+- **Test and build stages run in parallel** — Docker image builds (kaniko) don't depend on test results, so they share the `test` stage to avoid sequential waiting.
+- **Security jobs are non-blocking** — `allow_failure: true` so they surface warnings without gating merges.
+- **Kaniko for Docker builds** — no Docker-in-Docker or privileged mode needed, runs natively on Kubernetes runners.
+- **Auto-retry on infrastructure failures** — runner system failures and stuck pods are retried up to 2 times automatically.
 
 ## Frontend architecture
 

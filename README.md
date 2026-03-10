@@ -220,12 +220,6 @@ Export a board as CSV or JSON from the **Export** dropdown in the board toolbar.
 
 Import a board from a previously exported JSON or CSV file via the **Import** button on the dashboard or the group detail page. The import atomically creates a new board with all structure and cards. When importing from a group page, the board is placed directly into that group.
 
-### Export & import
-
-Export a board as CSV or JSON from the **Export** dropdown in the board toolbar. CSV includes all cards with metadata and movement history; JSON includes the full board structure (columns, swimlanes, labels, cards with comments and checklists).
-
-Import a board from a previously exported JSON or CSV file via the **Import** button on the dashboard. The import atomically creates a new board with all structure and cards.
-
 ### Real-time sync
 
 All open tabs on the same board stay in sync over a WebSocket connection. Card moves, edits, additions, deletions, and structural changes (columns, swimlanes) appear immediately without refreshing. The toolbar shows a green **Live** dot when connected. The client reconnects automatically if the connection drops.
@@ -270,6 +264,7 @@ In-app notifications for card assignment, @mentions in comments, and cards that 
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
 | Drag & drop | @dnd-kit/core + @dnd-kit/sortable |
+| CI/CD | GitLab CI (lint, test, security scan, Docker build verification) |
 | Infra | Docker Compose, Nginx, Helm (Kubernetes) |
 
 ---
