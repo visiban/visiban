@@ -46,7 +46,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Fixed duplicate "Export & import" section in README
 - Updated README with export/import, bulk operations, and column trash zone features
 - Updated feature docs (board.md) with bulk card operations, export/import, column trash zone, and Escape key improvements
-- Updated API docs (boards.md) with export and import endpoints
+- Updated API docs (boards.md) with export and import endpoints, including `group_id` parameter for group-targeted imports
 - Updated RBAC permission table with export, import, bulk operations, and analytics CSV export permissions
 
 ---
