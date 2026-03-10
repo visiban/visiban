@@ -11,6 +11,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - Summary view stage distribution bars now display two-letter column initials inside each segment (hidden on segments narrower than 8% to avoid overflow)
+- `FRONTEND_URL` env var controls the allauth post-login/logout redirect URL (previously hardcoded to `http://localhost:5173`, breaking production OAuth flows)
+- `REDIS_CACHE_URL` env var separates the Django cache Redis database (default db 1) from the Channels WebSocket layer (db 0), preventing key-space collisions when `REDIS_URL` is set
+- `CSRF_TRUSTED_ORIGINS` env var allows CSRF trusted origins to be set independently of `CORS_ALLOWED_ORIGINS`; defaults to `CORS_ALLOWED_ORIGINS` so no change is needed for existing deployments
+- Health check API documentation (`docs/api/health.md`) with liveness/readiness endpoint reference and Kubernetes probe example
+- Docs: documented that WIP and weight column limits are soft warnings — the API never blocks card creation or moves when limits are exceeded
+- Docs: documented that card assignees are not preserved on board import — cards are imported as unassigned
+- Docs: documented swimlane name uniqueness constraint per board (`400` on duplicate name)
+- Docs: documented `allow_card_creation=false` column behavior — returns `400 Bad Request` when a card is posted to a restricted column
+
+### Fixed
+
+- `LOGIN_REDIRECT_URL` and `ACCOUNT_LOGOUT_REDIRECT_URL` hardcoded to `http://localhost:5173` — production OAuth flows now redirect to `FRONTEND_URL`
+- Django cache and Channels WebSocket layer both reading from `REDIS_URL`, placing both on Redis db 0 — cache now uses `REDIS_CACHE_URL` (Docker Compose sets this to db 1 automatically; no `.env` change needed for dev)
+- `APP_VERSION` hardcoded in `docker-compose.yml` environment block overriding the value from `.env` — removed; version is now sourced exclusively from `.env` via `env_file`
+- `CSRF_TRUSTED_ORIGINS` silently reading from the `CORS_ALLOWED_ORIGINS` env var with no way to override — now has its own `CSRF_TRUSTED_ORIGINS` env var (behavior unchanged for existing deployments)
 
 ### Fixed
 

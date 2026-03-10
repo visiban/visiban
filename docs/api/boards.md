@@ -63,6 +63,8 @@ Create a column. Requires board admin.
 
 **Request** `{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false }`
 
+> When `allow_card_creation` is `false`, posting a new card to that column returns `400 Bad Request` with `{"column": "Card creation is not allowed in this column."}`. WIP and weight limits are informational soft limits — the API does not reject card creation or moves when they are exceeded.
+
 ### `PUT /api/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.
 
@@ -82,6 +84,8 @@ Reorder columns. Requires board admin.
 Create a swimlane. Requires board admin.
 
 **Request** `{ "name": "Acme Corp", "contact_email": "", "color": "#3B82F6" }`
+
+> Swimlane names are unique per board. Creating a swimlane with a name that already exists on the same board returns `400 Bad Request`.
 
 ### `PUT /api/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin.

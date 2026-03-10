@@ -90,11 +90,13 @@ DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
 
-# Cache (Redis — db 1, keeping db 0 for Channels)
+# Cache — uses REDIS_CACHE_URL (db 1 by default) to keep it separate from
+# Channels (db 0). Set REDIS_CACHE_URL explicitly if your Redis host differs
+# from REDIS_URL or you want to use the same DB (which is fine for dev).
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": env("REDIS_URL", default="redis://localhost:6379/1"),
+        "LOCATION": env("REDIS_CACHE_URL", default="redis://localhost:6379/1"),
     }
 }
 
@@ -163,8 +165,9 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF
-CSRF_TRUSTED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
+# CSRF — defaults to CORS_ALLOWED_ORIGINS so that a single env var covers both.
+# Override with CSRF_TRUSTED_ORIGINS if the two sets of origins must differ.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORIGINS)
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_HTTPONLY = False  # Must be False so JS can read it
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -173,8 +176,8 @@ SESSION_COOKIE_SAMESITE = "Lax"
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["username*", "email", "password1*", "password2*"]
-LOGIN_REDIRECT_URL = "http://localhost:5173"
-ACCOUNT_LOGOUT_REDIRECT_URL = "http://localhost:5173"
+LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
+ACCOUNT_LOGOUT_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {

@@ -59,10 +59,13 @@ npm run dev
 |---|:---:|---|
 | `DJANGO_SECRET_KEY` | Yes | Django secret key — generate with `python -c "import secrets; print(secrets.token_urlsafe(50))"` |
 | `DATABASE_URL` | Yes | PostgreSQL DSN e.g. `postgres://user:pass@host:5432/dbname` |
-| `REDIS_URL` | Yes | Redis DSN (default: `redis://redis:6379/0` in Docker Compose) |
+| `REDIS_URL` | Yes | Redis DSN for Channels / WebSocket (default: `redis://redis:6379/0` in Docker Compose) |
+| `REDIS_CACHE_URL` | No | Redis DSN for the Django cache — rate limiting, health checks (default: `redis://localhost:6379/1`). In Docker Compose this is set automatically. Use a different database index than `REDIS_URL` to avoid key collisions. |
+| `FRONTEND_URL` | No | Full URL of the React SPA (default: `http://localhost:5173`) — allauth redirects here after OAuth login/logout. **Must be set in production.** |
 | `DEBUG` | No | Set `True` for local dev only |
 | `ALLOWED_HOSTS` | No | Comma-separated hostnames (default: `localhost,127.0.0.1`) |
-| `CORS_ALLOWED_ORIGINS` | No | Comma-separated allowed frontend origins (default: `http://localhost:5173`) |
+| `CORS_ALLOWED_ORIGINS` | No | Comma-separated allowed frontend origins (default: `http://localhost:5173`). Also controls `CSRF_TRUSTED_ORIGINS` unless `CSRF_TRUSTED_ORIGINS` is set explicitly. |
+| `CSRF_TRUSTED_ORIGINS` | No | Override CSRF trusted origins independently of `CORS_ALLOWED_ORIGINS`. Defaults to `CORS_ALLOWED_ORIGINS`. |
 | `SITE_DOMAIN` | No | Public hostname used for OAuth callbacks (default: `localhost:8000`) — must match your OAuth app's redirect URI |
 | `DJANGO_SUPERUSER_USERNAME` | No | Override bootstrap admin username (default: `admin`) |
 | `DJANGO_SUPERUSER_EMAIL` | No | Override bootstrap admin email (default: `admin@localhost`) |
@@ -121,6 +124,7 @@ DJANGO_SECRET_KEY=<long random string>   # required — generate: python -c "imp
 DEBUG=false                              # required — never run DEBUG=true in production
 ALLOWED_HOSTS=yourdomain.com            # required
 CORS_ALLOWED_ORIGINS=https://yourdomain.com  # required
+FRONTEND_URL=https://yourdomain.com     # required — allauth redirects here after OAuth login/logout
 SITE_DOMAIN=yourdomain.com             # required — used for OAuth callback URLs
 
 # Database (Postgres runs inside Docker Compose)
@@ -128,7 +132,8 @@ DATABASE_URL=postgres://visiban:${DB_PASSWORD}@db:5432/visiban
 DB_PASSWORD=<strong password>           # required — used by both Django and Postgres
 
 # Redis (runs inside Docker Compose — no change needed)
-REDIS_URL=redis://redis:6379/0
+# REDIS_URL and REDIS_CACHE_URL are set in docker-compose.prod.yml environment block.
+# Only override here if you use an external Redis.
 
 # Let's Encrypt
 DOMAIN=yourdomain.com                   # required — must match your DNS A record
