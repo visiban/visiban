@@ -85,3 +85,35 @@ Enterprise features are things like: SSO/SAML, audit logs, advanced analytics, a
 - **Never add enterprise code to the OSS repo** — enterprise features live exclusively in `visiban/visiban-enterprise`
 - If a planned enterprise feature turns out to be essential for basic team workflows, flag it and suggest moving it to OSS
 - OSS should expose clean extension points (settings includes, URL patterns, hook interfaces) that enterprise can plug into without modifying OSS files
+
+---
+
+## Licensing
+
+- **OSS repo** — Apache 2.0. All files are covered by the root `LICENSE` file. Do not add per-file license headers to OSS files.
+- **Enterprise repo** — dual-licensed:
+  - Mirrored OSS files retain Apache 2.0 — never modify the root `LICENSE` file or add headers to mirrored files
+  - Enterprise-specific code lives exclusively under the `enterprise/` directory and is covered by the Elastic License 2.0 (`LICENSE-ENTERPRISE`)
+  - Every new file created under `enterprise/` must include this header comment at the top:
+    ```
+    # Copyright (c) Visiban. Licensed under the Elastic License 2.0.
+    # See LICENSE-ENTERPRISE in the repository root for details.
+    ```
+    Use the appropriate comment syntax for the file type (`//` for TypeScript/JavaScript, `#` for Python, etc.)
+- **Never** apply the ELv2 header to files outside `enterprise/` — OSS files are Apache 2.0 only
+- **Never** apply Apache 2.0 headers to files inside `enterprise/` — they are ELv2 only
+
+## Contributor License Agreement
+
+- All external contributors must agree to the CLA before their MR can be merged — see `CLA.md`
+- The default MR template (`.gitlab/merge_request_templates/Default.md`) includes a CLA checkbox; do not remove it
+- The CLA grants Visiban the right to use contributions in both the OSS (Apache 2.0) and enterprise (ELv2) products — this is intentional and must not be weakened
+- Core team members (employees/contractors with a signed agreement) are exempt from the CLA checkbox
+
+## Mirror and governance maintenance
+
+- OSS (`visiban/visiban`) push-mirrors to enterprise (`visiban/visiban-enterprise`) automatically on every push — all branches and tags
+- The mirror uses a PAT belonging to `visiban-mirror-bot` (Maintainer on enterprise) — **token expires 2027-03-10**
+- GitLab emails project maintainers after 3 consecutive mirror failures; ensure at least one maintainer has notifications enabled
+- Enterprise-specific code lives exclusively in `enterprise/` — this directory is not present in OSS and will never be overwritten by the mirror
+- Enterprise-specific dependencies (if any) belong in `enterprise/requirements.txt` / `enterprise/package.json` and must pass the same GPL license checks as OSS deps

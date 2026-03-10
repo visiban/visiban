@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- `CLA.md` — individual contributor license agreement; all external MRs require CLA acknowledgment via the default MR template
+- `NOTICE` file added to OSS repo for Apache 2.0 attribution compliance
+- Default MR template (`.gitlab/merge_request_templates/Default.md`) with CLA checkbox and standard checklist
 - Summary view stage distribution bars now display two-letter column initials inside each segment (hidden on segments narrower than 8% to avoid overflow)
 - `FRONTEND_URL` env var controls the allauth post-login/logout redirect URL (previously hardcoded to `http://localhost:5173`, breaking production OAuth flows)
 - `REDIS_CACHE_URL` env var separates the Django cache Redis database (default db 1) from the Channels WebSocket layer (db 0), preventing key-space collisions when `REDIS_URL` is set
