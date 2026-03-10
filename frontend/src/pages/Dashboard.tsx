@@ -8,6 +8,7 @@ import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
+import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
 import type { Board, Group, User } from "../types";
 
 interface Props {
@@ -27,6 +28,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [movingBoard, setMovingBoard] = useState<Board | null>(null);
   const [importingBoard, setImportingBoard] = useState(false);
+  const [joiningGroup, setJoiningGroup] = useState(false);
+  const [joinToken, setJoinToken] = useState("");
 
   useEffect(() => {
     listBoards()
@@ -59,12 +62,28 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   };
 
   const personalBoards = boards;
+  const isLoaded = !loadingBoards && !loadingGroups;
+  const isEmpty = isLoaded && boards.length === 0 && groups.length === 0;
+
+  const handleJoinGroup = () => setJoiningGroup(true);
+
+  const handleJoinSubmit = () => {
+    const token = joinToken.trim().replace(/.*\/join\//, "");
+    if (token) navigate(`/join/${token}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+
+        {isEmpty && (
+          <OnboardingEmptyState
+            onCreateBoard={() => setCreatingBoard(true)}
+            onJoinGroup={handleJoinGroup}
+          />
+        )}
 
         {/* Groups */}
         <section className="mb-10">
@@ -187,6 +206,28 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           onCreated={(g) => { setGroups((prev) => [g, ...prev]); navigate(`/groups/${g.id}`); }}
           onClose={() => setShowCreateGroup(false)}
         />
+      )}
+
+      {joiningGroup && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-white font-semibold text-lg mb-1">Join a group</h3>
+            <p className="text-gray-400 text-sm mb-4">Paste the invite link or token you received.</p>
+            <input
+              type="text"
+              value={joinToken}
+              onChange={(e) => setJoinToken(e.target.value)}
+              placeholder="https://…/join/abc123 or abc123"
+              className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500 mb-4"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); if (e.key === "Escape") setJoiningGroup(false); }}
+            />
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setJoiningGroup(false)} className="text-gray-400 text-sm hover:text-white px-3 py-1.5">Cancel</button>
+              <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 rounded-lg">Join</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmDeleteId !== null && (() => {
