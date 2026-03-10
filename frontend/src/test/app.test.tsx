@@ -19,6 +19,7 @@ vi.mock('../hooks/useBoard', () => ({
 }))
 
 vi.mock('../components/Auth/LoginPage', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   default: ({ onLogin }: { onLogin: (u: User) => void }) => <div data-testid="login-page">Login</div>,
 }))
 

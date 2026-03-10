@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardMovementTimeline from '../components/Card/CardMovementTimeline'
-import type { CardMovement, CardActivity } from '../types'
 
 vi.mock('../api/cards', () => ({
   getCardMovements: vi.fn(),

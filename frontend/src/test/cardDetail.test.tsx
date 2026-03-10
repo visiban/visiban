@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardDetail from '../components/Card/CardDetail'
-import type { Card, BoardFull, User, Label } from '../types'
+import type { Card, BoardFull, User } from '../types'
 
 vi.mock('../api/cards', () => ({
   deleteCard: vi.fn(),
@@ -37,16 +37,9 @@ vi.mock('../components/Card/MentionTextarea', () => ({
   ),
 }))
 
-import { updateCard, deleteCard, getCardComments, addCardComment, getCardAttachments, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from '../api/cards'
-import { createLabel } from '../api/boards'
+import { updateCard, getCardComments, getCardAttachments, getChecklist } from '../api/cards'
 
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
-const mockDeleteCard = deleteCard as ReturnType<typeof vi.fn>
-const mockAddCardComment = addCardComment as ReturnType<typeof vi.fn>
-const mockCreateLabel = createLabel as ReturnType<typeof vi.fn>
-const mockAddChecklistItem = addChecklistItem as ReturnType<typeof vi.fn>
-const mockUpdateChecklistItem = updateChecklistItem as ReturnType<typeof vi.fn>
-const mockDeleteChecklistItem = deleteChecklistItem as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',

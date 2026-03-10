@@ -97,7 +97,6 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   }
 }
 
-const noop = () => {}
 const defaultProps = () => ({
   board: makeBoard(),
   onMoveCard: vi.fn(),
