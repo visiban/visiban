@@ -27,6 +27,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- API filtering for cards via `django-filter`: filter by `priority`, `assignee`, `column`, `swimlane`, `due_before`, `due_after`, `overdue`, `unassigned`; ordering by `position`, `due_date`, `created_at`, `priority` (closes #78)
+- API pagination: `PageNumberPagination` with `page_size=50` applied globally to all list endpoints (closes #79)
+- API rate limiting: `AnonRateThrottle` (60/hour) and `UserRateThrottle` (1000/hour) via DRF throttling; Redis cache configured for multi-process correctness (closes #80)
+- Health check endpoints: `GET /api/health/liveness/` (process alive) and `GET /api/health/readiness/` (checks DB + Redis) — no auth required, suitable for K8s probes (closes #84)
+- Static file serving via whitenoise: `WhiteNoiseMiddleware` added, `CompressedManifestStaticFilesStorage` configured, `collectstatic` runs on container startup (closes #85)
 - Frontend test coverage increased from 55% to 80%+: BoardView, CardDetail, CardMovementTimeline, MentionTextarea, SwimlaneRow, BoardCell, FilterBar, App routing, and API clients (auth, notifications); 422 tests across 39 test files
 - Favicon and PWA icons: `favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png` (180×180), `android-chrome-192x192.png`, `android-chrome-512x512.png`, and `site.webmanifest`; page title updated from "frontend" to "Visiban" (closes #89)
 - Frontend test coverage expanded from 3% to 54%+: hooks (useAuth, useBoard, useBoardSocket), API modules (cards, groups, notifications), component rendering tests for pages and key UI components including LoginPage, Navbar, ProfileModal, Dashboard, GroupDetail, JoinPage, modals, BulkActionToolbar, SummaryView, AnalyticsView, GroupTree, InviteLinkPanel, BoardMembersModal, and BoardSelector (closes #87)
