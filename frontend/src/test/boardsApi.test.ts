@@ -31,7 +31,8 @@ import {
 } from '../api/boards'
 import { moveCard, createCard } from '../api/cards'
 
-const mockClient = vi.mocked(client)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockClient = client as any
 
 describe('Board API wrappers', () => {
   beforeEach(() => {
