@@ -109,6 +109,37 @@ describe('MoveBoardModal', () => {
     render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getByText('Move')).toBeDisabled()
   })
+
+  it('shows Personal (no group) option after loading', async () => {
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
+    expect(await screen.findByText('Personal (no group)')).toBeInTheDocument()
+  })
+
+  it('shows cancel button', () => {
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByText('Cancel')).toBeInTheDocument()
+  })
+
+  it('calls onClose when cancel is clicked', async () => {
+    const onClose = vi.fn()
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={onClose} />)
+    await userEvent.setup().click(screen.getByText('Cancel'))
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('shows loading state initially', () => {
+    render(<MoveBoardModal board={fakeBoard} onMoved={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByText('Loading groups…')).toBeInTheDocument()
+  })
+
+  it('enables move button when different selection is made', async () => {
+    const boardInGroup: Board = { ...fakeBoard, group: 5 }
+    render(<MoveBoardModal board={boardInGroup} onMoved={vi.fn()} onClose={vi.fn()} />)
+    // Wait for groups to load
+    const personalOption = await screen.findByText('Personal (no group)')
+    await userEvent.setup().click(personalOption)
+    expect(screen.getByText('Move')).not.toBeDisabled()
+  })
 })
 
 describe('CreateGroupModal', () => {

@@ -110,4 +110,113 @@ describe('GroupDetail', () => {
 
     expect(await screen.findByText('Delete group')).toBeInTheDocument()
   })
+
+  it('shows + New board button for admin', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    expect(await screen.findByText('+ New board')).toBeInTheDocument()
+  })
+
+  it('shows + New subgroup button for admin', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    expect(await screen.findByText('+ New subgroup')).toBeInTheDocument()
+  })
+
+  it('shows Import button for admin', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    expect(await screen.findByText('Import')).toBeInTheDocument()
+  })
+
+  it('renders subgroups when available', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([
+      { id: 2, name: 'Frontend', owner: fakeUser, parent: 1, parent_name: 'Engineering', member_count: 1, board_count: 0, subgroup_count: 0, created_at: '' },
+    ])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    expect(await screen.findByText('Frontend')).toBeInTheDocument()
+  })
+
+  it('renders member list with roles', async () => {
+    const otherUser: User = { ...fakeUser, id: 2, username: 'alice', display_name: 'Alice Smith' }
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+      { id: 2, user: otherUser, role: 'member', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    // Members are displayed
+    expect(await screen.findByText('Alice Smith')).toBeInTheDocument()
+    // Admin can see role selectors and remove buttons for other members
+    expect(screen.getByText('Remove')).toBeInTheDocument()
+  })
+
+  it('hides admin controls for non-admin member', async () => {
+    const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner })
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'member', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    await screen.findByText('Members')
+    expect(screen.queryByText('Delete group')).not.toBeInTheDocument()
+    expect(screen.queryByText('+ New board')).not.toBeInTheDocument()
+  })
+
+  it('shows invite link panel for admin', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    await screen.findByText('Members')
+    // InviteLinkPanel renders for admin
+    expect(screen.getByText('Generate invite link')).toBeInTheDocument()
+  })
+
+  it('shows no subgroups message for non-admin', async () => {
+    const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner })
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'member', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    expect(await screen.findByText('No subgroups.')).toBeInTheDocument()
+  })
 })
