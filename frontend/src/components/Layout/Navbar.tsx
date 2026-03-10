@@ -91,10 +91,10 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
     <>
       <header className="h-12 bg-slate-900 flex items-center px-4 gap-2 shrink-0">
         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition">
-          <img src="/brand/visiban_lockup_dark.png" alt="Visiban" className="h-7" />
+          <img src="/brand/visiban_lockup_light.png" alt="Visiban" className="h-6" />
         </Link>
         {version && (
-          <span className="text-slate-600 text-[10px] font-mono select-none">{version}</span>
+          <span className="text-slate-500 text-[9px] font-mono select-none bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5">{version}</span>
         )}
         {breadcrumb?.map((item, i) => (
           <span key={i} className="flex items-center gap-2">

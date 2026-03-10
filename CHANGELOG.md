@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- Board scroll area now has a dark background (`slate-900`), eliminating the white void below swimlane rows
+- Navbar logo switched to light variant (`visiban_lockup_light.png`) so it is visible on the dark navbar
+- Version badge in navbar styled as a subtle pill instead of bare floating text
+- View toggle (Board / Summary / Analytics) now uses dark theme colors, removing the jarring light-gray pill on the dark controls bar
+- Stray `gray-200` separator in the board controls bar replaced with consistent `slate-600`
+
 ---
 
 ## [v1.0.0-rc.2] — 2026-03-10

@@ -80,14 +80,14 @@ function ViewToggle({
       className={`text-xs px-2.5 py-1 rounded transition ${
         view === val
           ? "bg-blue-600 text-white"
-          : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+          : "text-slate-400 hover:text-white hover:bg-slate-600"
       }`}
     >
       {label}
     </button>
   );
   return (
-    <div className="flex items-center gap-0.5 bg-gray-100 rounded p-0.5">
+    <div className="flex items-center gap-0.5 bg-slate-700 rounded p-0.5">
       {btn("Board", "board")}
       {btn("Summary", "summary")}
       {btn("Analytics", "analytics")}
@@ -397,7 +397,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           )}
         </div>
 
-        <span className="w-px h-4 bg-gray-200 ml-auto shrink-0" />
+        <span className="w-px h-4 bg-slate-600 ml-auto shrink-0" />
         <button
           onClick={() => setShowShortcuts((v) => !v)}
           className="text-xs text-slate-500 hover:text-slate-300 transition font-mono shrink-0"
@@ -430,7 +430,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
         */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto bg-slate-900">
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
             {/* Corner — also sticky to the left */}
