@@ -8,6 +8,7 @@ import BoardView from "./components/Board/BoardView";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
+import SettingsPage from "./pages/SettingsPage";
 import type { User } from "./types";
 
 export default function App() {
@@ -51,6 +52,9 @@ export default function App() {
           } />
           <Route path="/boards/:id" element={
             <BoardPage user={user} onLogout={logout} onUserUpdated={updateUser} />
+          } />
+          <Route path="/settings" element={
+            <SettingsPage user={user} onLogout={logout} onUserUpdated={updateUser} />
           } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </>
