@@ -33,4 +33,34 @@ describe('KeyboardShortcutsOverlay', () => {
     fireEvent.click(screen.getByText('Keyboard shortcuts'))
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  it('calls onClose when the Escape key is pressed', () => {
+    const onClose = vi.fn()
+    render(<KeyboardShortcutsOverlay onClose={onClose} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('renders all shortcut keys as <kbd> elements', () => {
+    const { container } = render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    const kbds = container.querySelectorAll('kbd')
+    const keys = Array.from(kbds).map((el) => el.textContent)
+    expect(keys).toContain('f')
+    expect(keys).toContain('/')
+    expect(keys).toContain('?')
+    expect(keys).toContain('Esc')
+  })
+
+  it('renders in a fixed overlay container', () => {
+    const { container } = render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    const root = container.firstChild as HTMLElement
+    expect(root.className).toContain('fixed')
+    expect(root.className).toContain('inset-0')
+  })
+
+  it('contains a heading for screen readers', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    const heading = screen.getByText('Keyboard shortcuts')
+    expect(heading.tagName.toLowerCase()).toBe('h3')
+  })
 })
