@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 - Move online presence indicator from the center of the board toolbar to the top-right corner for a cleaner layout
 - Analytics CSV export button restricted to admin and site_admin roles (closes #68)
+- CI pipeline optimized: path-based job skipping (backend/frontend changes only trigger relevant jobs), DAG scheduling with `needs: []` for parallel stage execution, `node_modules/` cached alongside npm download cache
 
 ### Fixed
 
