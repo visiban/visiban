@@ -6,8 +6,8 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 - Column headers are sticky on horizontal scroll
 - Each column shows a live card count and total weight
-- WIP limit exceeded → header turns red
-- Weight limit exceeded → header turns orange
+- WIP limit exceeded → header turns red (visual warning only — the API does not block cards)
+- Weight limit exceeded → header turns orange (visual warning only)
 
 ## Swimlanes
 
@@ -134,6 +134,8 @@ Export is available to all board members (viewer and above). The export endpoint
 ### Import
 
 Click **Import** on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards (including comments and checklist items for JSON imports). An optional board name override can be specified.
+
+> **Limitation:** Card assignees are not preserved on import — all cards are imported as unassigned. Reassign cards manually after import, or use the bulk assign action.
 
 - `POST /api/boards/import/` — multipart file upload
 
