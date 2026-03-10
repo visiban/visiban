@@ -16,6 +16,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- `changelog-check` CI job failing with "no merge base" on shallow clones — fetch target branch with `--depth=20` and use `git merge-base` instead of three-dot diff syntax
+- Docs: `inheritance.md` opening sentence incorrectly implied boards only carry group-level roles (admin/member); clarified that boards support four roles and that collaborator/viewer are board-only and never inherited (closes #91)
 - Read notifications reappear after page refresh — notification list endpoint now returns only unread notifications; clicking a notification removes it from the dropdown (closes #71)
 - Board import failing with "Method POST not allowed" due to manually set Content-Type header stripping the multipart boundary
 - Board Members dialog can now be closed by pressing Escape (closes #70)
@@ -26,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - Frontend test coverage increased from 55% to 80%+: BoardView, CardDetail, CardMovementTimeline, MentionTextarea, SwimlaneRow, BoardCell, FilterBar, App routing, and API clients (auth, notifications); 422 tests across 39 test files
+- Favicon and PWA icons: `favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png` (180×180), `android-chrome-192x192.png`, `android-chrome-512x512.png`, and `site.webmanifest`; page title updated from "frontend" to "Visiban" (closes #89)
 - Frontend test coverage expanded from 3% to 54%+: hooks (useAuth, useBoard, useBoardSocket), API modules (cards, groups, notifications), component rendering tests for pages and key UI components including LoginPage, Navbar, ProfileModal, Dashboard, GroupDetail, JoinPage, modals, BulkActionToolbar, SummaryView, AnalyticsView, GroupTree, InviteLinkPanel, BoardMembersModal, and BoardSelector (closes #87)
 - Frontend test coverage reporting in CI with Cobertura artifact
 - Changelog update check on MR pipelines (non-blocking)
