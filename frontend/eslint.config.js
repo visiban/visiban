@@ -27,6 +27,8 @@ export default defineConfig([
       'react-hooks/preserve-manual-memoization': 'off',
       // Non-component exports in component files are used for testing utilities
       'react-refresh/only-export-components': 'warn',
+      // Allow _-prefixed names to indicate intentionally unused variables/args
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
 ])
