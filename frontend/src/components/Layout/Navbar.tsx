@@ -124,9 +124,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
               )}
             </button>
             {showBell && (
-              <div className="absolute right-0 top-8 w-80 bg-white rounded-lg shadow-xl border border-slate-200 z-50">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
-                  <span className="text-xs font-semibold text-slate-700">Notifications</span>
+              <div className="absolute right-0 top-8 w-80 bg-slate-800 rounded-lg shadow-xl border border-slate-700 z-50">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-700">
+                  <span className="text-xs font-semibold text-slate-300">Notifications</span>
                   <button
                     onClick={handleMarkAll}
                     className="text-xs text-accent hover:text-accent/80"
@@ -142,9 +142,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                     <button
                       key={n.id}
                       onClick={() => handleClickNotification(n)}
-                      className="w-full text-left px-3 py-2.5 border-b border-slate-50 bg-primary/5 hover:bg-slate-50 transition"
+                      className="w-full text-left px-3 py-2.5 border-b border-slate-700 hover:bg-slate-700 transition"
                     >
-                      <p className="text-xs text-slate-800 leading-snug">{n.verb}</p>
+                      <p className="text-xs text-slate-200 leading-snug">{n.verb}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">{relativeTime(n.created_at)}</p>
                     </button>
                   ))}

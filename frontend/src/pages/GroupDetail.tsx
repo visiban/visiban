@@ -234,7 +234,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                       onClick={() => setShowSubgroupBoards((v) => !v)}
                       className={`relative w-8 h-4 rounded-full transition-colors ${showSubgroupBoards ? "bg-blue-600" : "bg-gray-600"}`}
                     >
-                      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${showSubgroupBoards ? "translate-x-4" : ""}`} />
+                      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-slate-100 rounded-full shadow transition-transform ${showSubgroupBoards ? "translate-x-4" : ""}`} />
                     </button>
                   </label>
                 )}

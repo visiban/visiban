@@ -40,7 +40,7 @@ export default function SummaryView({ boardId, columns }: Props) {
     <div className="flex-1 overflow-auto p-4">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wider">
+          <tr className="border-b border-slate-700 text-left text-xs text-slate-500 uppercase tracking-wider">
             <th className="pb-2 pr-4 font-medium">Swimlane</th>
             <th className="pb-2 pr-4 font-medium text-right">Cards</th>
             <th className="pb-2 pr-6 font-medium">Stage Distribution</th>
@@ -52,14 +52,14 @@ export default function SummaryView({ boardId, columns }: Props) {
           {data.swimlanes.map((row) => {
             const total = row.total_cards || 1;
             return (
-              <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={row.id} className="border-b border-slate-700 hover:bg-slate-800/50">
                 <td className="py-2 pr-4">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
-                    <span className="font-medium text-gray-800">{row.name}</span>
+                    <span className="font-medium text-slate-200">{row.name}</span>
                   </div>
                 </td>
-                <td className="py-2 pr-4 text-right font-mono text-gray-700">{row.total_cards}</td>
+                <td className="py-2 pr-4 text-right font-mono text-slate-300">{row.total_cards}</td>
                 <td className="py-2 pr-6">
                   <div className="flex h-5 rounded overflow-hidden gap-px min-w-[120px]" style={{ width: 200 }}>
                     {columns.map((col, idx) => {
