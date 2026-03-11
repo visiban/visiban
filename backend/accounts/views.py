@@ -41,11 +41,14 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not request.user.check_password(current_password):
-            return Response(
-                {"detail": "Current password is incorrect."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Social-only accounts have no usable password — skip the current
+        # password check so they can set one for the first time.
+        if request.user.has_usable_password():
+            if not request.user.check_password(current_password):
+                return Response(
+                    {"detail": "Current password is incorrect."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         request.user.set_password(new_password)
         request.user.must_change_password = False
