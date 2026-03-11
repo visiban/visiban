@@ -63,22 +63,22 @@ function CheckboxDropdown<T extends string | number>({ label, options, selected,
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`border rounded px-2 py-1 text-sm bg-white outline-none flex items-center gap-1 ${
-          selected.length > 0 ? "border-blue-400 text-blue-700" : "border-gray-300 text-gray-700"
-        } hover:border-blue-400 transition`}
+        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition ${
+          selected.length > 0 ? "border-blue-400 text-blue-400" : "border-slate-600 text-slate-300 hover:border-slate-400"
+        }`}
       >
         {displayLabel}
-        <svg className="w-3 h-3 text-gray-400" viewBox="0 0 16 16" fill="currentColor">
+        <svg className="w-3 h-3 text-slate-500" viewBox="0 0 16 16" fill="currentColor">
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
         </svg>
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+        <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
           {options.map((opt) => (
             <label
               key={opt.value}
-              className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm text-gray-700"
+              className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-300"
             >
               <input
                 type="checkbox"
@@ -114,11 +114,11 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
 
 export default function FilterBar({ board, filters, onChange, searchRef }: Props) {
   const activeCount = countActiveFilters(filters);
-  const sel = "border border-gray-300 rounded px-2 py-1 text-sm bg-white outline-none focus:border-blue-400";
+  const sel = "bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 outline-none focus:border-blue-400";
 
   return (
     <>
-      <span className="w-px h-4 bg-gray-200 shrink-0" />
+      <span className="w-px h-4 bg-slate-600 shrink-0" />
 
       <input
         ref={searchRef}
@@ -126,7 +126,7 @@ export default function FilterBar({ board, filters, onChange, searchRef }: Props
         placeholder="Search cards…"
         value={filters.search}
         onChange={(e) => onChange({ ...filters, search: e.target.value })}
-        className="border border-gray-300 rounded px-2 py-1 text-sm w-36 outline-none focus:border-blue-400 shrink-0"
+        className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 placeholder-slate-500 w-36 outline-none focus:border-blue-400 shrink-0"
       />
 
       <select
@@ -172,7 +172,7 @@ export default function FilterBar({ board, filters, onChange, searchRef }: Props
       {activeCount > 0 && (
         <button
           onClick={() => onChange(EMPTY_FILTER)}
-          className="text-xs text-gray-400 hover:text-gray-600 underline shrink-0"
+          className="text-xs text-slate-500 hover:text-slate-300 underline shrink-0 transition"
         >
           Clear all
         </button>

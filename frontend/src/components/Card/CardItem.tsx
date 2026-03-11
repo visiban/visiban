@@ -24,10 +24,11 @@ interface Props {
   onClick?: () => void;
   overlay?: boolean;
   selected?: boolean;
+  highlighted?: boolean;
   onSelect?: () => void;
 }
 
-export default function CardItem({ card, onClick, overlay, selected, onSelect }: Props) {
+export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect }: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
 
   const isRecent = card.last_moved_at
@@ -58,7 +59,7 @@ export default function CardItem({ card, onClick, overlay, selected, onSelect }:
         hover:shadow-lg hover:border-gray-200 hover:z-20
         ${isDragging && !overlay ? "opacity-25 shadow-none" : ""}
         ${overlay ? "shadow-xl rotate-1 opacity-95" : ""}
-        ${selected ? "ring-2 ring-blue-400 border-blue-200 bg-blue-50/30" : card.is_stale ? "ring-1 ring-inset ring-amber-300 border-gray-100" : "border-gray-100"}
+        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 animate-pulse" : selected ? "ring-2 ring-blue-400 border-blue-200 bg-blue-50/30" : card.is_stale ? "ring-1 ring-inset ring-amber-300 border-gray-100" : "border-gray-100"}
       `}
       style={{ borderLeft: `3px solid ${priorityColor}` }}
     >
