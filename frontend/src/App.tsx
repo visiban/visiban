@@ -4,6 +4,7 @@ import { useBoard } from "./hooks/useBoard";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
 import Navbar from "./components/Layout/Navbar";
+import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
@@ -44,25 +45,36 @@ export default function App() {
       {/* Auth-gated routes */}
       {user ? (
         <>
-          <Route path="/" element={
-            <Dashboard user={user} onLogout={logout} onUserUpdated={updateUser} />
+          <Route path="/*" element={
+            <div className="flex h-screen overflow-hidden">
+              <AppSidebar user={user} />
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} />
+              </div>
+            </div>
           } />
-          <Route path="/groups/:id" element={
-            <GroupDetail user={user} onLogout={logout} onUserUpdated={updateUser} />
-          } />
-          <Route path="/boards/:id" element={
-            <BoardPage user={user} onLogout={logout} onUserUpdated={updateUser} />
-          } />
-          <Route path="/settings" element={
-            <SettingsPage user={user} onLogout={logout} onUserUpdated={updateUser} />
-          } />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </>
       ) : (
         <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
       )}
     </Routes>
     </>
+  );
+}
+
+function AuthenticatedRoutes({ user, onLogout, onUserUpdated }: {
+  user: User;
+  onLogout: () => void;
+  onUserUpdated: (user: User) => void;
+}) {
+  return (
+    <Routes>
+      <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+      <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+      <Route path="/boards/:id" element={<BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+      <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
@@ -85,7 +97,7 @@ function BoardPage({ user, onLogout, onUserUpdated }: {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       <Navbar
         user={user}
         onLogout={onLogout}
