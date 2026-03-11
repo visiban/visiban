@@ -14,6 +14,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Column headers now use `min-w-[200px]` (matching board cells), fixing horizontal misalignment between headers and card columns
+- Column headers are taller with a two-row layout: name on the first row, labeled `WIP` and `Weight` stats on the second row; limits display `∞` when unset rather than hiding the stat
 - Label creation button (`+ New label`) in `CardDetail` is now hidden from non-admins — previously shown to all members, triggering a silent 403 on submit
 - Label API failures in `CardDetail` now surface an inline error message; optimistic toggle updates are rolled back on failure
 - `Avatar` initials fallback now renders with a `title` attribute set to the user's display name, restoring tooltip and accessibility querying

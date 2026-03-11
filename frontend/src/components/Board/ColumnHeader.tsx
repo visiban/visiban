@@ -62,7 +62,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative flex-1 min-w-[180px] px-3 py-3 border-r border-slate-700 bg-slate-800 group/col transition ${isAdmin ? "cursor-pointer hover:bg-slate-700" : ""}`}
+        className={`relative flex-1 min-w-[200px] px-3 py-2 border-r border-slate-700 bg-slate-800 group/col transition ${isAdmin ? "cursor-pointer hover:bg-slate-700" : ""}`}
         onClick={() => isAdmin && setEditing(true)}
         title={isAdmin ? "Click to edit column" : undefined}
       >
@@ -86,8 +86,9 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             +
           </button>
         )}
+
+        {/* Row 1: collapse toggle, color dot, name, edit icon */}
         <div className="flex items-center gap-2">
-          {/* Collapse toggle — stopPropagation so it doesn't open the edit modal */}
           <button
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
             className="text-slate-500 hover:text-slate-300 transition text-xs shrink-0"
@@ -95,8 +96,6 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           >
             ◀
           </button>
-
-          {/* Drag handle — admins only */}
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
             style={{ backgroundColor: column.color }}
@@ -105,30 +104,29 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             onClick={(e) => e.stopPropagation()}
           />
           <span className="font-semibold text-slate-200 text-sm truncate">{column.name}</span>
+          {isAdmin && <span className="ml-auto text-slate-600 group-hover/col:text-slate-400 transition text-xs shrink-0">✎</span>}
+        </div>
 
-          <div className="ml-auto flex items-center gap-1.5 shrink-0">
-            <span
-              className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                overWip ? "bg-red-900/50 text-red-400" : "bg-slate-700 text-slate-400"
-              }`}
-              title="Cards / WIP limit"
-            >
-              {column.wip_limit !== null ? `${cardCount}/${column.wip_limit}` : cardCount}
+        {/* Row 2: WIP and Weight stats with labels */}
+        <div className="flex items-center gap-3 mt-1.5 pl-[26px]">
+          <span
+            className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
+            title="Cards in column / WIP limit"
+          >
+            WIP{" "}
+            <span className={`font-semibold ${overWip ? "text-red-400" : "text-slate-300"}`}>
+              {cardCount}/{column.wip_limit ?? "∞"}
             </span>
-
-            {column.weight_limit !== null && (
-              <span
-                className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                  overWeight ? "bg-orange-900/50 text-orange-400" : "bg-blue-900/30 text-blue-400"
-                }`}
-                title="Total weight / weight limit"
-              >
-                ⚖ {totalWeight}/{column.weight_limit}
-              </span>
-            )}
-
-            {isAdmin && <span className="text-slate-600 group-hover/col:text-slate-400 transition text-xs">✎</span>}
-          </div>
+          </span>
+          <span
+            className={`text-[10px] font-medium ${overWeight ? "text-orange-400" : "text-slate-500"}`}
+            title="Total card weight / weight budget"
+          >
+            Weight{" "}
+            <span className={`font-semibold ${overWeight ? "text-orange-400" : "text-slate-300"}`}>
+              {totalWeight}/{column.weight_limit ?? "∞"}
+            </span>
+          </span>
         </div>
       </div>
 
