@@ -15,7 +15,7 @@ export function userDisplayName(user: Pick<User, "display_name" | "first_name" |
 }
 
 export interface BoardMembership {
-  id: number;
+  id: number | null;
   user: User;
   role: "admin" | "member" | "collaborator" | "viewer";
   joined_at: string;
