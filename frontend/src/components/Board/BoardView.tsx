@@ -127,6 +127,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [highlightedCardId, setHighlightedCardId] = useState<number | null>(null);
+  const [cardNotFound, setCardNotFound] = useState(false);
 
   // Auto-open card from ?card= query param (e.g. from notification deep-link)
   useEffect(() => {
@@ -135,7 +137,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     const card = board.cards.find((c) => c.id === cardId);
     if (card) {
       setSelectedCard(card);
+      setHighlightedCardId(cardId);
+      setTimeout(() => setHighlightedCardId(null), 1500);
       setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
+    } else {
+      setCardNotFound(true);
+      setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
+      setTimeout(() => setCardNotFound(false), 4000);
     }
   }, [board.cards, searchParams, setSearchParams]);
   const [showAddColumn, setShowAddColumn] = useState(false);
@@ -425,6 +433,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {connected ? "Live" : "Connecting…"}
         </span>
       </div>
+      {cardNotFound && (
+        <div className="mx-4 mt-2 px-4 py-2 bg-amber-900/50 border border-amber-700 rounded-lg text-amber-200 text-sm">
+          Card not found — it may have been archived or deleted.
+        </div>
+      )}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
         {/*
           Single scroll container — header and body share the same horizontal
@@ -507,6 +520,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               collapsedColumnIds={collapsedColumns}
               filteredCardIds={filteredCardIds}
               selectedCardIds={selectedCardIds}
+              highlightedCardId={highlightedCardId}
               onToggleCardSelection={toggleCardSelection}
               onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
               onCardAdded={onCardAdded}

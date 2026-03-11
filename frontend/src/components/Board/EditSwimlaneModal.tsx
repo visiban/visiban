@@ -38,28 +38,28 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+      <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
         {confirmDelete ? (
           cardCount > 0 ? (
             <>
-              <h2 className="text-base font-semibold text-gray-800 mb-2">Cannot delete swimlane</h2>
-              <p className="text-sm text-gray-600 mb-5">
-                <span className="font-medium">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
+              <h2 className="text-base font-semibold text-white mb-2">Cannot delete swimlane</h2>
+              <p className="text-sm text-slate-400 mb-5">
+                <span className="font-medium text-slate-200">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
               </p>
               <div className="flex justify-end">
-                <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+                <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm bg-slate-700 text-slate-200 rounded-lg hover:bg-slate-600 transition">
                   OK
                 </button>
               </div>
             </>
           ) : (
             <>
-              <h2 className="text-base font-semibold text-gray-800 mb-2">Delete swimlane?</h2>
-              <p className="text-sm text-gray-600 mb-5">
-                Delete <span className="font-medium">{swimlane.name}</span>? This cannot be undone.
+              <h2 className="text-base font-semibold text-white mb-2">Delete swimlane?</h2>
+              <p className="text-sm text-slate-400 mb-5">
+                Delete <span className="font-medium text-slate-200">{swimlane.name}</span>? This cannot be undone.
               </p>
               <div className="flex gap-3 justify-end">
-                <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition">
+                <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition">
                   Cancel
                 </button>
                 <button onClick={handleDelete} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
@@ -70,28 +70,28 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           )
         ) : (
           <>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Edit Swimlane</h2>
+            <h2 className="text-lg font-semibold text-white mb-4">Edit Swimlane</h2>
 
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Name *</label>
+                <label className="text-xs text-slate-400 mb-1 block">Name *</label>
                 <input
                   autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onClose(); }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-blue-400"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Color</label>
+                <label className="text-xs text-slate-400 mb-1 block">Color</label>
                 <div className="flex gap-2">
                   {COLUMN_COLORS.map((c) => (
                     <button
                       key={c}
                       onClick={() => setColor(c)}
-                      className={`w-7 h-7 rounded-full border-2 transition ${color === c ? "border-gray-900 scale-110" : "border-transparent"}`}
+                      className={`w-7 h-7 rounded-full border-2 transition ${color === c ? "border-white scale-110" : "border-transparent"}`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -102,12 +102,12 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
             <div className="flex justify-between items-center mt-5">
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="text-sm text-red-500 hover:text-red-700 transition"
+                className="text-sm text-red-400 hover:text-red-300 transition"
               >
                 Delete swimlane
               </button>
               <div className="flex gap-2">
-                <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
+                <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
                 <button
                   onClick={handleSave}
                   disabled={!name.trim() || saving}

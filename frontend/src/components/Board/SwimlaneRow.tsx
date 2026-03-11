@@ -13,6 +13,7 @@ interface Props {
   collapsedColumnIds: Set<number>;
   filteredCardIds: Set<number> | null;
   selectedCardIds: Set<number>;
+  highlightedCardId?: number | null;
   onToggleCardSelection: (cardId: number) => void;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
@@ -20,7 +21,7 @@ interface Props {
   onSwimlaneDeleted: (swimlaneId: number) => void;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, collapsedColumnIds, filteredCardIds, selectedCardIds, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, collapsedColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -98,6 +99,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               canEdit={canEdit}
               filteredCardIds={filteredCardIds}
               selectedCardIds={selectedCardIds}
+              highlightedCardId={highlightedCardId}
               onToggleCardSelection={onToggleCardSelection}
               onCardClick={onCardClick}
               onCardAdded={onCardAdded}

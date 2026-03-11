@@ -30,26 +30,26 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">
           {parentGroup ? `New subgroup of "${parentGroup.name}"` : "New Group"}
         </h2>
         <div className="flex flex-col gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Name *</label>
+            <label className="text-xs text-slate-400 mb-1 block">Name *</label>
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") onClose(); }}
               placeholder="e.g. Engineering"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400"
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-blue-400"
             />
           </div>
-          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {error && <p className="text-red-400 text-xs">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
+          <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || saving}

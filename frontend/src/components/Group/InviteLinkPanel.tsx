@@ -34,15 +34,15 @@ export default function InviteLinkPanel({ groupId }: Props) {
   };
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-      <h3 className="text-sm font-semibold text-gray-700 mb-3">Invite link</h3>
+    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+      <h3 className="text-sm font-semibold text-slate-300 mb-3">Invite link</h3>
       {link ? (
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <input
               readOnly
               value={link}
-              className="flex-1 text-xs bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-600 outline-none"
+              className="flex-1 text-xs bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 outline-none"
             />
             <button
               onClick={handleCopy}
@@ -53,7 +53,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
           </div>
           <button
             onClick={handleRevoke}
-            className="text-xs text-red-500 hover:text-red-700 self-start transition"
+            className="text-xs text-red-400 hover:text-red-300 self-start transition"
           >
             Revoke link
           </button>

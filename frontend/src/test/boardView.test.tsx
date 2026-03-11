@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
+
+// Controllable search params for deep-link tests
+let mockSearchParams = new URLSearchParams()
+const mockSetSearchParams = vi.fn()
 
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -21,7 +25,7 @@ vi.mock('@dnd-kit/sortable', () => ({
 }))
 
 vi.mock('react-router-dom', () => ({
-  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  useSearchParams: () => [mockSearchParams, mockSetSearchParams],
 }))
 
 vi.mock('../hooks/useBoardSocket', () => ({
@@ -114,7 +118,10 @@ const defaultProps = () => ({
 })
 
 describe('BoardView', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
+  })
 
   it('renders view toggle buttons', () => {
     render(<BoardView {...defaultProps()} />)
@@ -235,5 +242,40 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByTitle('Keyboard shortcuts (?)'))
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
+  })
+
+  it('?card= param opens CardDetail for a matching card', () => {
+    mockSearchParams = new URLSearchParams('card=1')
+    const card = {
+      id: 1, column: 10, swimlane: 20, title: 'Deep Link Card',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: 1,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false,
+    }
+    const props = defaultProps()
+    props.board = makeBoard({ cards: [card] })
+    render(<BoardView {...props} />)
+    expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+    expect(screen.getByText('Deep Link Card')).toBeInTheDocument()
+    expect(mockSetSearchParams).toHaveBeenCalled()
+  })
+
+  it('?card= param shows "Card not found" banner when card is missing', () => {
+    mockSearchParams = new URLSearchParams('card=999')
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByText(/Card not found/)).toBeInTheDocument()
+    expect(mockSetSearchParams).toHaveBeenCalled()
+  })
+
+  it('"Card not found" banner auto-dismisses after 4s', async () => {
+    vi.useFakeTimers()
+    mockSearchParams = new URLSearchParams('card=999')
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByText(/Card not found/)).toBeInTheDocument()
+    await act(async () => { vi.advanceTimersByTime(4000) })
+    expect(screen.queryByText(/Card not found/)).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 })

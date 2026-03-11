@@ -114,6 +114,20 @@ describe('CardItem', () => {
     render(<CardItem card={card} />)
     expect(screen.getByTitle('3/5 checklist items')).toBeInTheDocument()
   })
+
+  it('applies highlight ring classes when highlighted prop is true', () => {
+    const { container } = render(<CardItem card={makeCard()} highlighted />)
+    const root = container.firstChild as HTMLElement
+    expect(root.className).toContain('ring-2')
+    expect(root.className).toContain('ring-blue-400')
+    expect(root.className).toContain('animate-pulse')
+  })
+
+  it('does not apply highlight ring classes when highlighted is false', () => {
+    const { container } = render(<CardItem card={makeCard()} highlighted={false} />)
+    const root = container.firstChild as HTMLElement
+    expect(root.className).not.toContain('animate-pulse')
+  })
 })
 
 // ---------------------------------------------------------------------------

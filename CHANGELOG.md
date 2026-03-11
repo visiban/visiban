@@ -15,6 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Version badge in navbar styled as a subtle pill instead of bare floating text
 - View toggle (Board / Summary / Analytics) now uses dark theme colors, removing the jarring light-gray pill on the dark controls bar
 - Stray `gray-200` separator in the board controls bar replaced with consistent `slate-600`
+- All modals and overlay panels converted to dark theme (`slate-800` panels, `slate-900` inputs, `slate-600` borders) — covers InviteLinkPanel, AddColumnModal, EditColumnModal, EditSwimlaneModal, AddSwimlaneModal, KeyboardShortcutsOverlay, ProfileModal, BoardMembersModal, CreateGroupModal, MoveBoardModal, FilterBar, and CardDetail
 
 ---
 
