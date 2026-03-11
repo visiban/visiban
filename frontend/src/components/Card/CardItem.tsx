@@ -53,7 +53,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border relative z-0
+      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border relative z-0 overflow-hidden
         hover:-translate-y-0.5 hover:brightness-110 hover:z-20
         ${isDragging && !overlay ? "opacity-25" : ""}
         ${overlay ? "-translate-y-2 rotate-1 opacity-95" : ""}
