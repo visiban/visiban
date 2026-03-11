@@ -36,6 +36,7 @@ stages:
   - lint
   - test
   - security
+  - deploy
 
 # Auto-retry on runner infrastructure failures (pod watcher sync, stuck
 # cleanup, image pull transients). Only retries on runner_system_failure
@@ -405,3 +406,26 @@ frontend-docker-build:
         - frontend/Dockerfile
   script:
     - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push
+
+# ─── Docs — GitLab Pages (main only) ──────────────────────────────────────────
+#
+# Builds MkDocs and publishes to GitLab Pages, which serves docs.visiban.com
+# via a custom domain configured in GitLab project settings → Pages.
+# The job name must be exactly "pages" for GitLab Pages to pick it up.
+
+pages:
+  stage: deploy
+  image: python:3.12-slim
+  needs: []
+  before_script:
+    - pip install --quiet -r docs/requirements.txt
+  script:
+    - mkdocs build --site-dir public
+  artifacts:
+    paths:
+      - public/
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - docs/**/*
+        - mkdocs.yml
