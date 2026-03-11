@@ -237,7 +237,6 @@ function ComingSoonTab({ title }: { title: string }) {
 const THEME_OPTIONS: { value: ThemePreference; label: string; description: string }[] = [
   { value: "system", label: "System", description: "Follows your OS preference" },
   { value: "dark",   label: "Dark",   description: "Always use dark mode" },
-  { value: "light",  label: "Light",  description: "Always use light mode" },
 ];
 
 function AppearanceTab() {
@@ -273,6 +272,15 @@ function AppearanceTab() {
               </span>
             </button>
           ))}
+
+          {/* Light mode placeholder — shown once light-mode styles are implemented */}
+          <div className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border border-gray-700 bg-gray-800/50 opacity-50 cursor-not-allowed">
+            <span className="w-4 h-4 rounded-full border-2 border-gray-600 shrink-0" />
+            <span>
+              <span className="block text-sm font-medium text-gray-400">Light</span>
+              <span className="block text-xs text-gray-600">Coming soon</span>
+            </span>
+          </div>
         </div>
       </div>
     </div>
