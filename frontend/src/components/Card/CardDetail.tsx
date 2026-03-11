@@ -48,6 +48,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(PALETTE_COLORS[0]);
+  const [labelError, setLabelError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,23 +99,33 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     const newLabels = has
       ? localCard.labels.filter((l) => l.id !== label.id)
       : [...localCard.labels, label];
+    const prev = localCard;
     setLocalCard((c) => ({ ...c, labels: newLabels }));
-    const updated = await updateCard(board.id, localCard.id, { label_ids: newLabels.map((l) => l.id) });
-    setLocalCard(updated);
-    onUpdated(updated);
+    try {
+      const updated = await updateCard(board.id, localCard.id, { label_ids: newLabels.map((l) => l.id) });
+      setLocalCard(updated);
+      onUpdated(updated);
+    } catch {
+      setLocalCard(prev);
+    }
   };
 
   const handleCreateLabel = async (colorOverride?: string) => {
     if (!newLabelName.trim()) return;
+    setLabelError(null);
     const color = colorOverride ?? newLabelColor;
-    const label = await createLabel(board.id, { name: newLabelName.trim(), color });
-    onLabelAdded(label);
-    const updatedLabelIds = [...localCard.labels.map((l) => l.id), label.id];
-    const updated = await updateCard(board.id, localCard.id, { label_ids: updatedLabelIds });
-    setLocalCard(updated);
-    onUpdated(updated);
-    setNewLabelName("");
-    setAddingLabel(false);
+    try {
+      const label = await createLabel(board.id, { name: newLabelName.trim(), color });
+      onLabelAdded(label);
+      const updatedLabelIds = [...localCard.labels.map((l) => l.id), label.id];
+      const updated = await updateCard(board.id, localCard.id, { label_ids: updatedLabelIds });
+      setLocalCard(updated);
+      onUpdated(updated);
+      setNewLabelName("");
+      setAddingLabel(false);
+    } catch {
+      setLabelError("Failed to create label. Only board admins can create labels.");
+    }
   };
 
   const handleComment = async () => {
@@ -194,6 +205,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const role = board.current_user_role;
   const canEdit = role === "site_admin" || role === "admin" || role === "member";
+  const canManageLabels = role === "site_admin" || role === "admin";
   const canComment = canEdit || role === "collaborator";
 
   const allLabels = [...board.labels];
@@ -351,39 +363,44 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   })}
 
                   {addingLabel ? (
-                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <input
-                        autoFocus
-                        value={newLabelName}
-                        onChange={(e) => setNewLabelName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleCreateLabel(); if (e.key === "Escape") setAddingLabel(false); }}
-                        placeholder="Label name"
-                        className="text-xs bg-slate-900 border border-blue-400 rounded-full px-2.5 py-1 outline-none w-28 text-slate-200"
-                      />
-                      <div className="flex gap-1">
-                        {PALETTE_COLORS.map((c) => (
-                          <button
-                            key={c}
-                            onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) handleCreateLabel(c); }}
-                            className={`w-5 h-5 rounded-full border-2 transition ${newLabelColor === c ? "border-white scale-110" : "border-transparent"}`}
-                            style={{ backgroundColor: c }}
-                            title={newLabelName.trim() ? `Create "${newLabelName.trim()}" with this color` : "Pick color"}
-                          />
-                        ))}
+                    <div className="flex flex-col gap-1 mt-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <input
+                          autoFocus
+                          value={newLabelName}
+                          onChange={(e) => { setNewLabelName(e.target.value); setLabelError(null); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleCreateLabel(); if (e.key === "Escape") { setAddingLabel(false); setLabelError(null); } }}
+                          placeholder="Label name"
+                          className="text-xs bg-slate-900 border border-blue-400 rounded-full px-2.5 py-1 outline-none w-28 text-slate-200"
+                        />
+                        <div className="flex gap-1">
+                          {PALETTE_COLORS.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) handleCreateLabel(c); }}
+                              className={`w-5 h-5 rounded-full border-2 transition ${newLabelColor === c ? "border-white scale-110" : "border-transparent"}`}
+                              style={{ backgroundColor: c }}
+                              title={newLabelName.trim() ? `Create "${newLabelName.trim()}" with this color` : "Pick color"}
+                            />
+                          ))}
+                        </div>
+                        {!newLabelName.trim() && (
+                          <span className="text-[10px] text-slate-500">type a name first</span>
+                        )}
+                        <button onClick={() => { setAddingLabel(false); setLabelError(null); }} className="text-xs text-slate-500 hover:text-slate-300 transition">✕</button>
                       </div>
-                      {!newLabelName.trim() && (
-                        <span className="text-[10px] text-slate-500">type a name first</span>
+                      {labelError && (
+                        <p className="text-[10px] text-red-400 mt-0.5">{labelError}</p>
                       )}
-                      <button onClick={() => setAddingLabel(false)} className="text-xs text-slate-500 hover:text-slate-300 transition">✕</button>
                     </div>
-                  ) : (
+                  ) : canManageLabels ? (
                     <button
                       onClick={() => setAddingLabel(true)}
                       className="text-xs text-slate-500 hover:text-slate-300 border border-dashed border-slate-600 hover:border-slate-400 rounded-full px-2.5 py-1 transition"
                     >
                       + New label
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
 

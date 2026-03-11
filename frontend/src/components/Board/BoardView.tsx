@@ -53,8 +53,8 @@ function ColumnTrashZone() {
       ref={setNodeRef}
       className={`w-20 shrink-0 flex items-center justify-center px-2 border-l transition-colors ${
         isOver
-          ? "bg-red-100 border-red-300"
-          : "bg-red-50 border-gray-200"
+          ? "bg-red-900/50 border-red-700"
+          : "bg-red-950/30 border-slate-700"
       }`}
     >
       <span className={`text-xs font-medium whitespace-nowrap ${isOver ? "text-red-700" : "text-red-400"}`}>
@@ -429,7 +429,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-500" : "text-gray-400"}`}
           title={connected ? "Live — real-time updates active" : "Connecting…"}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-gray-300"}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-slate-500"}`} />
           {connected ? "Live" : "Connecting…"}
         </span>
       </div>
@@ -551,7 +551,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             <div className="flex-1 min-w-[180px] px-3 py-3 border border-blue-400 bg-blue-50 rounded shadow-xl opacity-90">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
-                <span className="font-semibold text-gray-700 text-sm">{activeColumn.name}</span>
+                <span className="font-semibold text-slate-300 text-sm">{activeColumn.name}</span>
               </div>
             </div>
           )}

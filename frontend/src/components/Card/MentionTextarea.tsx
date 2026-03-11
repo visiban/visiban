@@ -111,20 +111,20 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
       {mention.active && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 bottom-full mb-1 left-0 w-56 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+          className="absolute z-50 bottom-full mb-1 left-0 w-56 bg-slate-800 border border-slate-600 rounded-lg shadow-lg overflow-hidden"
         >
           {suggestions.map((u, i) => (
             <button
               key={u.id}
               type="button"
               onMouseDown={(e) => { e.preventDefault(); insertMention(u.username); }}
-              className={`w-full text-left px-3 py-2 text-sm flex flex-col hover:bg-blue-50 transition ${
-                i === selectedIndex ? "bg-blue-50" : ""
+              className={`w-full text-left px-3 py-2 text-sm flex flex-col hover:bg-slate-700 transition ${
+                i === selectedIndex ? "bg-slate-700" : ""
               }`}
             >
-              <span className="font-medium text-gray-800">@{u.username}</span>
+              <span className="font-medium text-slate-200">@{u.username}</span>
               {userDisplayName(u) !== u.username && (
-                <span className="text-xs text-gray-400">{userDisplayName(u)}</span>
+                <span className="text-xs text-slate-400">{userDisplayName(u)}</span>
               )}
             </button>
           ))}
