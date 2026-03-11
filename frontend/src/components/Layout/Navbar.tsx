@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { User, Notification } from "../../types";
 import { userDisplayName } from "../../types";
-import ProfileModal from "../Auth/ProfileModal";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
 import { getVersion } from "../../api/auth";
 
@@ -18,8 +17,7 @@ interface Props {
   onUserUpdated: (user: User) => void;
 }
 
-export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Props) {
-  const [showProfile, setShowProfile] = useState(false);
+export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showBell, setShowBell] = useState(false);
@@ -156,7 +154,7 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
           </div>
 
           <button
-            onClick={() => setShowProfile(true)}
+            onClick={() => navigate("/settings")}
             className="text-slate-400 text-sm hover:text-white transition"
           >
             {userDisplayName(user)}
@@ -170,13 +168,6 @@ export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated }: Pr
         </div>
       </header>
 
-      {showProfile && (
-        <ProfileModal
-          user={user}
-          onClose={() => setShowProfile(false)}
-          onUpdated={(updated) => { onUserUpdated(updated); setShowProfile(false); }}
-        />
-      )}
     </>
   );
 }
