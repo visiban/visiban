@@ -51,18 +51,18 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-white rounded-md cursor-pointer select-none transition-all border shadow-sm relative z-0
-        hover:shadow-lg hover:border-gray-200 hover:z-20
+      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border shadow-sm relative z-0
+        hover:shadow-lg hover:brightness-110 hover:z-20
         ${isDragging && !overlay ? "opacity-25 shadow-none" : ""}
         ${overlay ? "shadow-xl rotate-1 opacity-95" : ""}
-        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 animate-pulse" : selected ? "ring-2 ring-blue-400 border-blue-200 bg-blue-50/30" : card.is_stale ? "ring-1 ring-inset ring-amber-300 border-gray-100" : "border-gray-100"}
+        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : card.is_stale ? "ring-1 ring-inset ring-amber-400" : ""}
       `}
-      style={{ borderLeft: `3px solid ${priorityColor}` }}
+      style={{ borderColor: priorityColor }}
     >
       {onSelect && (
         <div
           className={`absolute top-1 right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
-            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-gray-300 bg-white opacity-0 group-hover:opacity-100"}
+            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-gray-600 bg-gray-700 opacity-0 group-hover:opacity-100"}
           `}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(); }}
           onPointerDown={(e) => e.stopPropagation()}
@@ -75,12 +75,12 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
         </div>
       )}
       <div className="px-2.5 py-2">
-        <p className="text-xs font-medium text-gray-800 leading-snug line-clamp-2">{card.title}</p>
+        <p className="text-xs font-medium text-gray-100 leading-snug line-clamp-2">{card.title}</p>
 
         {/* Description — revealed on hover */}
         {card.description && (
           <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-150 ease-out">
-            <p className="text-[10px] text-gray-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-gray-50 pt-1.5">
+            <p className="text-[10px] text-gray-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-gray-700 pt-1.5">
               {card.description}
             </p>
           </div>
