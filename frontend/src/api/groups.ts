@@ -45,3 +45,6 @@ export const resolveJoinToken = (token: string) =>
 
 export const joinGroup = (token: string) =>
   client.post<Group>(`/api/groups/join/${token}/`).then((r) => r.data);
+
+export const transferGroupOwnership = (groupId: number, newOwnerId: number, confirmation: string) =>
+  client.post(`/api/groups/${groupId}/transfer-ownership/`, { new_owner_id: newOwnerId, confirmation }).then((r) => r.data);
