@@ -17,7 +17,7 @@ interface Props {
   onUserUpdated: (user: User) => void;
 }
 
-export default function Navbar({ user, breadcrumb, onLogout, onUserUpdated: _onUserUpdated }: Props) {
+export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showBell, setShowBell] = useState(false);
