@@ -38,8 +38,8 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
     <div
       ref={setNodeRef}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
-      className={`flex-1 min-w-[200px] min-h-[80px] p-2 border-r border-gray-100 transition-colors ${
-        isOver ? "bg-blue-50/60" : ""
+      className={`flex-1 min-w-[200px] min-h-[80px] p-2 border-r border-gray-700/50 transition-colors ${
+        isOver ? "bg-blue-900/20" : ""
       }`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
@@ -57,7 +57,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
         </div>
         {cards.length === 0 && active && (
           <div className={`h-10 rounded border-2 border-dashed transition-colors ${
-            isOver ? "border-blue-400 bg-blue-50" : "border-gray-200"
+            isOver ? "border-blue-500 bg-blue-900/20" : "border-gray-700"
           }`} />
         )}
       </SortableContext>
@@ -71,7 +71,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAdding(false); }}
               placeholder="Card title…"
-              className="w-full text-xs border border-blue-400 rounded-md px-2 py-1.5 outline-none bg-white"
+              className="w-full text-xs border border-blue-500 rounded-md px-2 py-1.5 outline-none bg-gray-800 text-gray-100 placeholder-gray-500"
             />
             <div className="flex gap-1.5 mt-1.5">
               <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded-md hover:bg-blue-700 transition font-medium">Add</button>
@@ -81,7 +81,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className="mt-1 w-full text-left text-[11px] text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-md px-1.5 py-1 transition"
+            className="mt-1 w-full text-left text-[11px] text-gray-500 hover:text-gray-300 hover:bg-gray-700/50 rounded-md px-1.5 py-1 transition"
           >
             + Add card
           </button>

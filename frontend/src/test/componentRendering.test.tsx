@@ -75,11 +75,11 @@ describe('CardItem', () => {
     expect(screen.getByText('Fix login bug')).toBeInTheDocument()
   })
 
-  it('applies a left border color matching the priority', () => {
+  it('applies a full border color matching the priority', () => {
     const { container } = render(<CardItem card={makeCard({ priority: 'urgent' })} />)
     const root = container.firstChild as HTMLElement
     // urgent = #EF4444
-    expect(root.style.borderLeft).toContain('#EF4444')
+    expect(root.style.borderColor.toLowerCase()).toContain('#ef4444')
   })
 
   it('renders label pills when labels are provided', () => {
