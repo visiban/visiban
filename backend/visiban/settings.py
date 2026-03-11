@@ -156,8 +156,12 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/hour",
-        "user": "1000/hour",
+        # In development throttling is disabled (effectively unlimited).
+        # In production use sane but generous limits; polling endpoints
+        # (notifications, version) fire every 15–30 s so a single active
+        # user easily makes 500+ authenticated requests per hour.
+        "anon": "9999/hour" if DEBUG else "300/hour",
+        "user": "9999/hour" if DEBUG else "5000/hour",
     },
 }
 
