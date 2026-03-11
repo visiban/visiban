@@ -167,7 +167,7 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getByTitle('Cards in column / WIP limit')).toHaveTextContent('2')
   })
 
   it('shows card count / WIP limit when wip_limit is set', () => {
