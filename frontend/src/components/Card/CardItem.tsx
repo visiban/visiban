@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
@@ -27,6 +28,7 @@ interface Props {
 
 export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect }: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
+  const [hovered, setHovered] = useState(false);
 
   const isRecent = card.last_moved_at
     ? Date.now() - new Date(card.last_moved_at).getTime() < 86_400_000
@@ -51,13 +53,24 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border shadow-sm relative z-0
-        hover:shadow-lg hover:brightness-110 hover:z-20
-        ${isDragging && !overlay ? "opacity-25 shadow-none" : ""}
-        ${overlay ? "shadow-xl rotate-1 opacity-95" : ""}
+      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border relative z-0
+        hover:-translate-y-0.5 hover:brightness-110 hover:z-20
+        ${isDragging && !overlay ? "opacity-25" : ""}
+        ${overlay ? "-translate-y-2 rotate-1 opacity-95" : ""}
         ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : card.is_stale ? "ring-1 ring-inset ring-amber-400" : ""}
       `}
-      style={{ borderColor: priorityColor }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        borderColor: priorityColor,
+        boxShadow: isDragging && !overlay
+          ? "none"
+          : overlay
+          ? "0 8px 0 rgba(0,0,0,0.55), 0 16px 40px rgba(0,0,0,0.5)"
+          : hovered
+          ? "0 4px 0 rgba(0,0,0,0.5), 0 6px 16px rgba(0,0,0,0.35)"
+          : "0 2px 0 rgba(0,0,0,0.45), 0 1px 6px rgba(0,0,0,0.25)",
+      }}
     >
       {onSelect && (
         <div
