@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { updateCurrentUser, changePassword } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
 import type { User } from "../types";
+import { useTheme } from "../context/ThemeContext";
+import type { ThemePreference } from "../context/ThemeContext";
 
 type Tab = "profile" | "security" | "notifications" | "appearance";
 
@@ -232,6 +234,51 @@ function ComingSoonTab({ title }: { title: string }) {
   );
 }
 
+const THEME_OPTIONS: { value: ThemePreference; label: string; description: string }[] = [
+  { value: "system", label: "System", description: "Follows your OS preference" },
+  { value: "dark",   label: "Dark",   description: "Always use dark mode" },
+  { value: "light",  label: "Light",  description: "Always use light mode" },
+];
+
+function AppearanceTab() {
+  const { preference, setPreference } = useTheme();
+
+  return (
+    <div className="flex flex-col gap-5 max-w-lg">
+      <h2 className="text-white text-lg font-semibold">Appearance</h2>
+
+      <div>
+        <p className="text-sm text-gray-400 mb-3">Theme</p>
+        <div className="flex flex-col gap-2">
+          {THEME_OPTIONS.map(({ value, label, description }) => (
+            <button
+              key={value}
+              onClick={() => setPreference(value)}
+              className={`flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border transition ${
+                preference === value
+                  ? "border-blue-500 bg-blue-600/10 text-white"
+                  : "border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-500"
+              }`}
+            >
+              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                preference === value ? "border-blue-500" : "border-gray-500"
+              }`}>
+                {preference === value && (
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                )}
+              </span>
+              <span>
+                <span className="block text-sm font-medium">{label}</span>
+                <span className="block text-xs text-gray-500">{description}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TABS: { id: Tab; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
@@ -282,7 +329,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "security" && <SecurityTab user={user} />}
             {activeTab === "notifications" && <ComingSoonTab title="Notifications" />}
-            {activeTab === "appearance" && <ComingSoonTab title="Appearance" />}
+            {activeTab === "appearance" && <AppearanceTab />}
           </div>
         </div>
       </main>

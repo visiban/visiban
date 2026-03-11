@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Theme switcher** in Settings → Appearance: choose System (follows OS preference), Dark, or Light; preference is persisted in `localStorage` and applied immediately without a page reload; a FOUC-prevention inline script in `index.html` applies the saved class before first paint
 - Cards now have a layered 3D raised shadow: a bottom-offset shadow simulates physical thickness, hover lifts the card with a deeper shadow, and the drag overlay uses an exaggerated lift for clear feedback
 - `GroupDetail` now has **Boards** and **Settings** tabs; member management, invite link panel, and the danger zone (group deletion) are consolidated under Settings, which is hidden from non-admins
 - **Board Settings** modal extended with three tabs: **Members** (view members and manage roles; inline remove confirmation; role descriptions on hover — admin only for edits), **Invite** (typeahead user search, staged invite list with per-user role picker — admin only), and **Data** (existing CSV/JSON export); the separate Members button is replaced by a unified Settings button visible to all roles
