@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import type { User, Group } from '../types'
@@ -93,10 +93,13 @@ describe('GroupDetail', () => {
     ])
     renderGroupDetail()
 
+    // Boards tab is shown by default
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
     expect(screen.getByText('Subgroups')).toBeInTheDocument()
-    expect(screen.getByText('Boards')).toBeInTheDocument()
-    expect(screen.getByText('Members')).toBeInTheDocument()
+
+    // Members and Settings content live in the Settings tab
+    fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0])
+    expect(await screen.findByText('Members')).toBeInTheDocument()
   })
 
   it('shows delete group button for admin', async () => {
@@ -108,6 +111,8 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
+    // Navigate to Settings tab where the danger zone lives
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
     expect(await screen.findByText('Delete group')).toBeInTheDocument()
   })
 
@@ -172,7 +177,8 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Members are displayed
+    // Navigate to Settings tab where members are listed
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
     expect(await screen.findByText('Alice Smith')).toBeInTheDocument()
     // Admin can see role selectors and remove buttons for other members
     expect(screen.getByText('Remove')).toBeInTheDocument()
@@ -188,7 +194,9 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await screen.findByText('Members')
+    // Non-admin lands on Boards tab; Settings tab is hidden entirely
+    await screen.findByText('No subgroups.')
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
     expect(screen.queryByText('Delete group')).not.toBeInTheDocument()
     expect(screen.queryByText('+ New board')).not.toBeInTheDocument()
   })
@@ -202,9 +210,9 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await screen.findByText('Members')
-    // InviteLinkPanel renders for admin
-    expect(screen.getByText('Generate invite link')).toBeInTheDocument()
+    // Navigate to Settings tab where the invite link panel lives
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    expect(await screen.findByText('Generate invite link')).toBeInTheDocument()
   })
 
   it('shows no subgroups message for non-admin', async () => {

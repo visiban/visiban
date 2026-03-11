@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
@@ -24,6 +24,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [group, setGroup] = useState<Group | null>(null);
   const [subgroups, setSubgroups] = useState<Group[]>([]);
@@ -98,6 +99,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const isAdmin = group?.owner.id === user.id ||
     members.find((m) => m.user.id === user.id)?.role === "admin";
 
+  const activeTab = isAdmin && searchParams.get("tab") === "settings" ? "settings" : "boards";
+
   const breadcrumb = group ? [
     ...(group.parent ? [{ label: group.parent_name ?? "Group", href: `/groups/${group.parent}` }] : []),
     { label: group.name },
@@ -131,7 +134,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
       <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-white text-2xl font-bold">{group.name}</h1>
             <p className="text-gray-500 text-sm mt-1">
@@ -142,19 +145,42 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
             </p>
           </div>
           {isAdmin && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleDeleteGroup}
-                className="text-sm text-red-500 hover:text-red-400 transition"
-              >
-                Delete group
-              </button>
-            </div>
+            <button
+              onClick={() => setSearchParams({ tab: "settings" })}
+              className="text-sm text-gray-400 hover:text-white transition"
+            >
+              Settings
+            </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 flex flex-col gap-8">
+        {/* Tab bar */}
+        <div className="flex gap-1 border-b border-gray-700 mb-8">
+          <button
+            onClick={() => setSearchParams({})}
+            className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
+              activeTab === "boards"
+                ? "text-white border-blue-500"
+                : "text-gray-400 hover:text-white border-transparent"
+            }`}
+          >
+            Boards
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setSearchParams({ tab: "settings" })}
+              className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
+                activeTab === "settings"
+                  ? "text-white border-blue-500"
+                  : "text-gray-400 hover:text-white border-transparent"
+              }`}
+            >
+              Settings
+            </button>
+          )}
+        </div>
+
+        {activeTab === "boards" && <div className="flex flex-col gap-8">
 
             {/* Subgroups */}
             <section>
@@ -271,16 +297,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                 )}
               </div>
             </section>
-          </div>
+          </div>}
 
-          {/* Sidebar */}
-          <div className="flex flex-col gap-6">
-            {/* Invite link — admins only */}
-            {isAdmin && <InviteLinkPanel groupId={groupId} />}
+        {activeTab === "settings" && (
+          <div className="max-w-2xl flex flex-col gap-8">
 
             {/* Members */}
             <section>
-              <h2 className="text-white font-semibold mb-3">Members</h2>
+              <h2 className="text-white font-semibold mb-1">Members</h2>
+              <p className="text-gray-500 text-sm mb-4">Manage who has access to this group and their roles.</p>
               <div className="flex flex-col gap-2">
                 {members.map((m) => (
                   <div key={m.user.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
@@ -317,8 +342,23 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                 ))}
               </div>
             </section>
+
+            {/* Invite links */}
+            <InviteLinkPanel groupId={groupId} />
+
+            {/* Danger zone */}
+            <section className="border border-red-900/50 rounded-xl p-5">
+              <h2 className="text-red-400 font-semibold mb-1">Danger zone</h2>
+              <p className="text-gray-500 text-sm mb-4">These actions are permanent and cannot be undone.</p>
+              <button
+                onClick={handleDeleteGroup}
+                className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded-lg transition"
+              >
+                Delete group
+              </button>
+            </section>
           </div>
-        </div>
+        )}
       </main>
 
       {creatingBoard && (
