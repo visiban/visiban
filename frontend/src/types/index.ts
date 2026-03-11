@@ -8,6 +8,7 @@ export interface User {
   display_name: string;
   is_site_admin: boolean;
   must_change_password: boolean;
+  has_usable_password?: boolean;
 }
 
 export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {

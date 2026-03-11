@@ -113,7 +113,10 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
   );
 }
 
-function SecurityTab() {
+function SecurityTab({ user }: { user: User }) {
+  // Default true: older API responses that predate this field should be
+  // treated as password accounts so the current-password field is shown.
+  const hasPw = user.has_usable_password ?? true;
   const [form, setForm] = useState({ current_password: "", new_password: "", confirm: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,8 +131,8 @@ function SecurityTab() {
       setError("New passwords do not match.");
       return;
     }
-    if (form.new_password.length < 8) {
-      setError("New password must be at least 8 characters.");
+    if (form.new_password.length < 12) {
+      setError("New password must be at least 12 characters.");
       return;
     }
     setSaving(true);
@@ -140,7 +143,11 @@ function SecurityTab() {
       setSaved(true);
       setForm({ current_password: "", new_password: "", confirm: "" });
     } catch {
-      setError("Failed to change password. Check your current password and try again.");
+      setError(
+        hasPw
+          ? "Failed to change password. Check your current password and try again."
+          : "Failed to set password. Please try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -150,17 +157,26 @@ function SecurityTab() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
       <h2 className="text-white text-lg font-semibold">Security</h2>
 
-      <label className="flex flex-col gap-1 text-sm text-gray-400">
-        Current password
-        <input
-          type="password"
-          value={form.current_password}
-          onChange={set("current_password")}
-          required
-          autoComplete="current-password"
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
-        />
-      </label>
+      {!hasPw && (
+        <p className="text-sm text-gray-400">
+          You signed in with a social account. Set a password below to also enable
+          username/password login.
+        </p>
+      )}
+
+      {hasPw && (
+        <label className="flex flex-col gap-1 text-sm text-gray-400">
+          Current password
+          <input
+            type="password"
+            value={form.current_password}
+            onChange={set("current_password")}
+            required
+            autoComplete="current-password"
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          />
+        </label>
+      )}
 
       <label className="flex flex-col gap-1 text-sm text-gray-400">
         New password
@@ -170,7 +186,7 @@ function SecurityTab() {
           onChange={set("new_password")}
           required
           autoComplete="new-password"
-          minLength={8}
+          minLength={12}
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
       </label>
@@ -188,7 +204,11 @@ function SecurityTab() {
       </label>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
-      {saved && <p className="text-sm text-green-400">Password changed successfully.</p>}
+      {saved && (
+        <p className="text-sm text-green-400">
+          {hasPw ? "Password changed successfully." : "Password set successfully."}
+        </p>
+      )}
 
       <div>
         <button
@@ -196,7 +216,7 @@ function SecurityTab() {
           disabled={saving}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-5 py-2 rounded-lg transition"
         >
-          {saving ? "Changing…" : "Change password"}
+          {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
         </button>
       </div>
     </form>
@@ -260,7 +280,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} />}
-            {activeTab === "security" && <SecurityTab />}
+            {activeTab === "security" && <SecurityTab user={user} />}
             {activeTab === "notifications" && <ComingSoonTab title="Notifications" />}
             {activeTab === "appearance" && <ComingSoonTab title="Appearance" />}
           </div>
