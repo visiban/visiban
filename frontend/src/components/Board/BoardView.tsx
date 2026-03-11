@@ -23,7 +23,7 @@ import CardItem from "../Card/CardItem";
 import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
-import BoardMembersModal from "./BoardMembersModal";
+import BoardSettingsModal from "./BoardSettingsModal";
 import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
@@ -150,7 +150,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // When non-null, new column is inserted at this index (0 = first)
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [showAddSwimlane, setShowAddSwimlane] = useState(false);
-  const [showMembers, setShowMembers] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
@@ -413,17 +413,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         >
           ?
         </button>
-        {isAdmin && (
-          <>
-            <span className="w-px h-4 bg-slate-600 shrink-0" />
-            <button
-              onClick={() => setShowMembers(true)}
-              className="text-xs text-slate-400 hover:text-slate-200 transition shrink-0"
-            >
-              Members ({board.members.length})
-            </button>
-          </>
-        )}
+        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <button
+          onClick={() => setShowSettings(true)}
+          className="text-xs text-slate-400 hover:text-slate-200 transition shrink-0"
+        >
+          Settings
+        </button>
         <span className="w-px h-4 bg-slate-600 shrink-0" />
         <span
           className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-500" : "text-gray-400"}`}
@@ -604,11 +600,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         />
       )}
 
-      {isAdmin && showMembers && (
-        <BoardMembersModal
+      {showSettings && (
+        <BoardSettingsModal
           board={board}
-          onClose={() => setShowMembers(false)}
-          onMembersChanged={() => setShowMembers(false)}
+          isAdmin={isAdmin}
+          onClose={() => setShowSettings(false)}
         />
       )}
 

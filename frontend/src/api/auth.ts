@@ -23,3 +23,6 @@ export const getAuthProviders = () =>
 
 export const changePassword = (current_password: string, new_password: string) =>
   client.post<{ detail: string }>("/api/auth/change-password/", { current_password, new_password }).then((r) => r.data);
+
+export const searchUsers = (query: string) =>
+  client.get<User[]>(`/api/users/?search=${encodeURIComponent(query)}`).then((r) => r.data);

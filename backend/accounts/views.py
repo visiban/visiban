@@ -1,9 +1,33 @@
 from django.conf import settings
+from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from .serializers import UserSerializer
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
+class UserSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get("search", "").strip()
+        if len(query) < 2:
+            return Response([])
+        users = (
+            User.objects.filter(
+                Q(display_name__icontains=query)
+                | Q(email__icontains=query)
+                | Q(username__icontains=query)
+                | Q(first_name__icontains=query)
+            )
+            .exclude(pk=request.user.pk)
+            .order_by("display_name", "username")[:10]
+        )
+        return Response(UserSerializer(users, many=True).data)
 
 
 class AuthProvidersView(APIView):

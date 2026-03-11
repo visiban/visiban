@@ -61,8 +61,8 @@ vi.mock('../components/Board/AddColumnModal', () => ({
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
   default: () => <div data-testid="add-swimlane-modal">Add Swimlane Modal</div>,
 }))
-vi.mock('../components/Board/BoardMembersModal', () => ({
-  default: () => <div data-testid="members-modal">Members Modal</div>,
+vi.mock('../components/Board/BoardSettingsModal', () => ({
+  default: () => <div data-testid="settings-modal">Settings Modal</div>,
 }))
 vi.mock('../components/Board/FilterBar', () => ({
   default: () => <div data-testid="filter-bar">FilterBar</div>,
@@ -145,16 +145,16 @@ describe('BoardView', () => {
     expect(screen.getByText('Export')).toBeInTheDocument()
   })
 
-  it('renders Members button for admin', () => {
+  it('renders Settings button', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('Members (1)')).toBeInTheDocument()
+    expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
-  it('hides Members button for viewer', () => {
+  it('renders Settings button for viewer too', () => {
     const props = defaultProps()
     props.board = makeBoard({ current_user_role: 'viewer' })
     render(<BoardView {...props} />)
-    expect(screen.queryByText('Members (1)')).not.toBeInTheDocument()
+    expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
   it('renders column headers', () => {
