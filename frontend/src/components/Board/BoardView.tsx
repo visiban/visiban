@@ -444,6 +444,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           scroll so fixed-width columns always line up.
         */}
         <div className="flex-1 overflow-auto bg-slate-900">
+          {/*
+            min-w-max wrapper — gives the sticky header row and all swimlane
+            rows the same containing-block width (max-content).  Without this,
+            a sticky element may be sized to the scroll-container's layout
+            width rather than the full scrollable content width, so its flex-1
+            columns become narrower than the corresponding cells below.
+          */}
+          <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
             {/* Corner — also sticky to the left */}
@@ -543,6 +551,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               )}
             </div>
           )}
+          </div>{/* end min-w-max wrapper */}
         </div>
 
         <DragOverlay>

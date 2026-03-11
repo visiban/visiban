@@ -80,7 +80,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             return (
               <div
                 key={col.id}
-                className="flex-1 min-w-[180px] border-r border-slate-700 flex items-center justify-center"
+                className="flex-1 min-w-[200px] border-r border-slate-700 flex items-center justify-center"
               >
                 {cellCount > 0 && (
                   <span className="text-xs text-slate-400 italic">{cellCount} hidden</span>
