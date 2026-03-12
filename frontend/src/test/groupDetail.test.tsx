@@ -218,7 +218,11 @@ describe('GroupDetail', () => {
 
     // Navigate to Settings tab where the invite link panel lives
     fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+<<<<<<< HEAD
     expect(await screen.findByText('Invite link')).toBeInTheDocument()
+=======
+    expect(await screen.findByText('Invite links')).toBeInTheDocument()
+>>>>>>> 2a0e539 (fix: update InviteLinkPanel tests for redesigned multi-link UI)
   })
 
   it('shows subgroup empty state description for non-admin', async () => {
