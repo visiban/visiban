@@ -410,8 +410,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         </button>
         <span className="w-px h-4 bg-slate-600 shrink-0" />
         <button
-          onClick={() => setShowSettings(true)}
-          className="text-xs text-slate-400 hover:text-slate-200 transition shrink-0"
+          onClick={() => { if (isAdmin) setShowSettings(true); }}
+          className={`text-xs transition shrink-0 ${isAdmin ? "text-slate-400 hover:text-slate-200" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
+          title={isAdmin ? undefined : "You need admin access to change board settings"}
+          disabled={!isAdmin}
         >
           Settings
         </button>
