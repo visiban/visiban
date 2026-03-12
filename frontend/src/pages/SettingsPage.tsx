@@ -242,11 +242,68 @@ function SecurityTab({ user }: { user: User }) {
   );
 }
 
-function ComingSoonTab({ title }: { title: string }) {
+function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const prefs = {
+    notif_card_assigned: user.notif_card_assigned ?? true,
+    notif_mentioned: user.notif_mentioned ?? true,
+    notif_due_soon: user.notif_due_soon ?? false,
+    notif_card_moved: user.notif_card_moved ?? false,
+    notif_comment_added: user.notif_comment_added ?? false,
+  };
+
+  const toggle = async (field: keyof typeof prefs) => {
+    const newVal = !prefs[field];
+    setSaving(field);
+    setError(null);
+    try {
+      const updated = await updateCurrentUser({ [field]: newVal });
+      onUserUpdated(updated);
+    } catch {
+      setError("Failed to save. Please try again.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const rows: { key: keyof typeof prefs; label: string; description: string }[] = [
+    { key: "notif_card_assigned", label: "Card assigned to me", description: "When someone assigns a card to you" },
+    { key: "notif_mentioned", label: "Someone @mentions me", description: "When you are mentioned in a comment" },
+    { key: "notif_due_soon", label: "Due date approaching", description: "24h warning before a card you own is due" },
+    { key: "notif_card_moved", label: "Card I’m watching is moved", description: "When a watched card changes column" },
+    { key: "notif_comment_added", label: "Comment on a watched card", description: "When someone comments on a card you’re watching" },
+  ];
+
   return (
-    <div className="max-w-lg">
-      <h2 className="text-white text-lg font-semibold mb-2">{title}</h2>
-      <p className="text-gray-500 text-sm">This section is coming soon.</p>
+    <div className="flex flex-col gap-5 max-w-lg">
+      <h2 className="text-white text-lg font-semibold">Notifications</h2>
+      <p className="text-sm text-gray-400">Choose which events send you a notification.</p>
+      <div className="flex flex-col gap-3">
+        {rows.map(({ key, label, description }) => (
+          <label key={key} className="flex items-center justify-between gap-4 cursor-pointer">
+            <span>
+              <span className="block text-sm text-white">{label}</span>
+              <span className="block text-xs text-gray-500">{description}</span>
+            </span>
+            <button
+              role="switch"
+              aria-checked={prefs[key]}
+              disabled={saving === key}
+              onClick={() => toggle(key)}
+              className={`relative w-10 h-6 rounded-full transition shrink-0 ${
+                prefs[key] ? "bg-blue-600" : "bg-gray-700"
+              } disabled:opacity-50`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                prefs[key] ? "left-5" : "left-1"
+              }`} />
+            </button>
+          </label>
+        ))}
+      </div>
+      {error && <p className="text-sm text-red-400">{error}</p>}
     </div>
   );
 }
@@ -353,7 +410,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "security" && <SecurityTab user={user} />}
-            {activeTab === "notifications" && <ComingSoonTab title="Notifications" />}
+            {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "appearance" && <AppearanceTab />}
           </div>
         </div>
