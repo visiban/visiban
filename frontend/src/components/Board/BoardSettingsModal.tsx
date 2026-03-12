@@ -17,7 +17,7 @@ interface Props {
   isAdmin: boolean;
   onClose: () => void;
   initialTab?: "general" | "members" | "invite" | "data";
-  onBoardSettingsChanged: (patch: Record<string, unknown>) => Promise<void>;
+  onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
 }
 
 type Tab = "general" | "members" | "invite" | "data";
@@ -217,7 +217,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     setCloseEditorOnEnter(next);
                     setSavingGeneral(true);
                     try {
-                      await onBoardSettingsChanged({ close_editor_on_enter: next });
+                      await onBoardSettingsChanged?.({ close_editor_on_enter: next });
                     } catch {
                       setCloseEditorOnEnter(!next);
                     } finally {

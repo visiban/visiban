@@ -44,7 +44,7 @@ interface Props {
   onSwimlaneDeleted: (swimlaneId: number) => void;
   onSwimlanesReordered: (orderedIds: number[]) => void;
   onLabelAdded: (label: Label) => void;
-  onBoardSettingsChanged: (patch: Record<string, unknown>) => Promise<void>;
+  onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
 }
 
 function ColumnTrashZone() {
