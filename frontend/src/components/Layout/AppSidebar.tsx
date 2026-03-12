@@ -74,7 +74,7 @@ export default function AppSidebar({ user: _user }: Props) {
 
   return (
     <aside
-      className={`${sidebarWidth} shrink-0 bg-slate-900 border-r border-slate-700 flex flex-col h-full overflow-hidden transition-all duration-200`}
+      className={`${sidebarWidth} shrink-0 bg-slate-900 border-r border-slate-700 hidden lg:flex flex-col h-full overflow-hidden transition-all duration-200`}
       style={{ minWidth: collapsed ? "48px" : "220px", maxWidth: collapsed ? "48px" : "220px" }}
     >
       {/* Collapse toggle */}
@@ -196,15 +196,22 @@ export default function AppSidebar({ user: _user }: Props) {
         )}
       </nav>
 
-      {/* Footer: new board link */}
+      {/* Footer: new board / new group links */}
       {!collapsed && (
-        <div className="shrink-0 border-t border-slate-700 px-3 py-2">
+        <div className="shrink-0 border-t border-slate-700 px-3 py-2 flex flex-col gap-1">
           <Link
             to="/"
             className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
           >
             <span className="text-base leading-none">+</span>
             <span>New board</span>
+          </Link>
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
+          >
+            <span className="text-base leading-none">+</span>
+            <span>New group</span>
           </Link>
         </div>
       )}
