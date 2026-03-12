@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Onboarding empty state** (#103): new users with no boards or groups see a welcome screen with a Visiban board illustration, a short description, and two CTAs — "Create my first board" and "Join a group with an invite link"
 - **Notification deep-linking** (#105): clicking a notification navigates to the relevant board and, when the notification is tied to a card, automatically opens the card detail modal; board-only notifications (e.g. membership events) navigate to the board without opening a card; if the card cannot be found in the board data (archived or deleted) a transient "Card not found" banner is shown and dismissed after 4 seconds
 
 - **Invite link improvements** (#99): group invite links now support a customizable name, per-link role (member/viewer), and expiry (1/7/30 days or Never); groups can have up to 5 active links; expired links show a clear visual state and cannot be used to join; each link can be revoked independently
