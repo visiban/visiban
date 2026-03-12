@@ -60,21 +60,42 @@ default:
 
 # ─── Cache templates ──────────────────────────────────────────────────────────
 #
-# npm_config_cache uses an absolute path so it works regardless of which
-# directory the job cds into. Cache is keyed on the lockfile so it
-# auto-invalidates whenever dependencies change. node_modules/ is cached
-# alongside the npm download cache to skip the npm ci extraction step on
-# warm cache hits.
+# Cache uses MinIO as the S3-compatible distributed backend so all runners
+# share a warm cache across jobs and branches.
+#
+# Required CI/CD project variables (Settings → CI/CD → Variables):
+#   MINIO_ENDPOINT   — host:port of the MinIO server, e.g. minio.internal:9000
+#   MINIO_ACCESS_KEY — MinIO access key
+#   MINIO_SECRET_KEY — MinIO secret key
+#   MINIO_BUCKET     — bucket name, e.g. visiban-ci-cache
+#
+# Runner config.toml must enable the S3 backend:
+#   [runners.cache]
+#     Type   = "s3"
+#     Shared = true
+#     [runners.cache.s3]
+#       ServerAddress = "<MINIO_ENDPOINT>"
+#       AccessKey     = "<MINIO_ACCESS_KEY>"
+#       SecretKey     = "<MINIO_SECRET_KEY>"
+#       BucketName    = "<MINIO_BUCKET>"
+#       Insecure      = false   # set true if MinIO has no TLS
+#
+# Cache keys include a fixed prefix so entries are grouped cleanly inside
+# the S3 bucket. The lockfile hash provides automatic invalidation when
+# dependencies change. node_modules/ is cached alongside the npm download
+# cache to skip extraction on warm hits.
 
 .npm-cache:
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
     key:
+      prefix: "npm"
       files: [frontend/package-lock.json]
     paths:
       - .npm/
       - frontend/node_modules/
+    policy: pull-push
 
 # PIP_CACHE_DIR stores downloaded wheels/sdists. pip honors this env var
 # automatically so no extra flags are needed in before_script.
@@ -84,8 +105,10 @@ default:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   cache:
     key:
+      prefix: "pip"
       files: [backend/requirements.txt]
     paths: [.cache/pip/]
+    policy: pull-push
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
