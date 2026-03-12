@@ -68,8 +68,6 @@ export default function AppSidebar({ user: _user }: Props) {
   // Only top-level groups (no parent)
   const topLevelGroups = groups.filter((g) => g.parent === null);
 
-  const groupInitial = (name: string) => name.charAt(0).toUpperCase();
-
   const sidebarWidth = collapsed ? "w-12" : "w-56";
 
   return (
@@ -127,9 +125,9 @@ export default function AppSidebar({ user: _user }: Props) {
                       title={group.name}
                       onClick={() => toggleGroup(group.id)}
                     >
-                      <span className="text-xs font-bold">
-                        {groupInitial(group.name)}
-                      </span>
+                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                      </svg>
                     </div>
                   ) : (
                     <>
@@ -173,7 +171,9 @@ export default function AppSidebar({ user: _user }: Props) {
                     className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-slate-500"
                     title="Personal boards"
                   >
-                    <span className="text-xs font-bold">P</span>
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v6a1 1 0 001 1h4v-4h2v4h4a1 1 0 001-1v-6h1a1 1 0 00.707-1.707l-7-7z" />
+                    </svg>
                   </div>
                 ) : (
                   <>
