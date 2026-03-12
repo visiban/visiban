@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { BoardFull, BoardMembership, User } from "../../types";
 import { userDisplayName } from "../../types";
-import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember } from "../../api/boards";
+import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard } from "../../api/boards";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
@@ -19,6 +19,7 @@ interface Props {
   onClose: () => void;
   initialTab?: "general" | "members" | "invite" | "data" | "display";
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
+  onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
@@ -59,13 +60,14 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardSettingsChanged, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardSettingsChanged, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const [closeEditorOnEnter, setCloseEditorOnEnter] = useState(board.close_editor_on_enter);
   const [savingGeneral, setSavingGeneral] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
 
   const [inviteQuery, setInviteQuery] = useState("");
   const [suggestions, setSuggestions] = useState<User[]>([]);
@@ -437,23 +439,62 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
           {/* ── Data tab ── */}
           {tab === "data" && (
-            <section>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Export</h3>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { exportBoardCsv(board.id); onClose(); }}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2 px-4 rounded-lg transition"
-                >
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => { exportBoardJson(board.id); onClose(); }}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2 px-4 rounded-lg transition"
-                >
-                  Export JSON
-                </button>
-              </div>
-            </section>
+            <div className="flex flex-col gap-6">
+              <section>
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Export</h3>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { exportBoardCsv(board.id); onClose(); }}
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2 px-4 rounded-lg transition"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => { exportBoardJson(board.id); onClose(); }}
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2 px-4 rounded-lg transition"
+                  >
+                    Export JSON
+                  </button>
+                </div>
+              </section>
+
+              {isAdmin && onBoardDeleted && (
+                <section className="border-t border-slate-700 pt-5">
+                  <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Danger Zone</h3>
+                  <p className="text-sm text-slate-400 mb-3">
+                    Permanently delete <span className="text-slate-200 font-medium">{board.name}</span> and all its cards, columns, and history. This cannot be undone.
+                  </p>
+                  {board.cards.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs text-slate-500">
+                        Type <span className="text-slate-300 font-mono">{board.name}</span> to confirm deletion.
+                      </p>
+                      <input
+                        type="text"
+                        value={deleteInput}
+                        onChange={(e) => setDeleteInput(e.target.value)}
+                        placeholder={board.name}
+                        className="w-full bg-slate-700 text-white text-sm rounded-lg px-3 py-2 border border-slate-600 focus:outline-none focus:border-red-500"
+                      />
+                      <button
+                        disabled={deleteInput !== board.name}
+                        onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
+                        className="w-full bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium py-2 px-4 rounded-lg transition"
+                      >
+                        Delete board
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
+                      className="w-full bg-red-700 hover:bg-red-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition"
+                    >
+                      Delete board
+                    </button>
+                  )}
+                </section>
+              )}
+            </div>
           )}
 
           {/* ── Display tab ── */}
