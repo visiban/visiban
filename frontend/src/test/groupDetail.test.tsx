@@ -217,7 +217,7 @@ describe('GroupDetail', () => {
 
     // Navigate to Settings tab where the invite link panel lives
     fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-    expect(await screen.findByText('Invite links')).toBeInTheDocument()
+    expect(await screen.findByText('Invite link')).toBeInTheDocument()
   })
 
   it('shows subgroup empty state description for non-admin', async () => {
