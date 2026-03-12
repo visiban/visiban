@@ -13,6 +13,10 @@ vi.mock('../api/groups', () => ({
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
   deleteGroup: vi.fn(),
+  listInviteLinks: vi.fn().mockResolvedValue([]),
+  createInviteLink: vi.fn(),
+  revokeInviteLink: vi.fn(),
+  transferGroupOwnership: vi.fn(),
 }))
 
 vi.mock('../api/boards', () => ({
@@ -128,7 +132,7 @@ describe('GroupDetail', () => {
     expect(await screen.findByText('+ New board')).toBeInTheDocument()
   })
 
-  it('shows + New subgroup button for admin', async () => {
+  it('shows + Create subgroup button for admin', async () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([
       { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
@@ -137,7 +141,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    expect(await screen.findByText('+ New subgroup')).toBeInTheDocument()
+    expect(await screen.findByText('+ Create subgroup')).toBeInTheDocument()
   })
 
   it('shows Import button for admin', async () => {
@@ -195,10 +199,11 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     // Non-admin lands on Boards tab; Settings tab is hidden entirely
-    await screen.findByText('No subgroups.')
+    await screen.findByText(/Subgroups let you organize/)
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
     expect(screen.queryByText('Delete group')).not.toBeInTheDocument()
     expect(screen.queryByText('+ New board')).not.toBeInTheDocument()
+    expect(screen.queryByText('+ Create subgroup')).not.toBeInTheDocument()
   })
 
   it('shows invite link panel for admin', async () => {
@@ -212,10 +217,10 @@ describe('GroupDetail', () => {
 
     // Navigate to Settings tab where the invite link panel lives
     fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-    expect(await screen.findByText('Generate invite link')).toBeInTheDocument()
+    expect(await screen.findByText('Invite link')).toBeInTheDocument()
   })
 
-  it('shows no subgroups message for non-admin', async () => {
+  it('shows subgroup empty state description for non-admin', async () => {
     const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
     mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner })
     mockGetGroupMembers.mockResolvedValue([
@@ -225,6 +230,18 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    expect(await screen.findByText('No subgroups.')).toBeInTheDocument()
+    expect(await screen.findByText('Subgroups let you organize boards and members into nested workspaces.')).toBeInTheDocument()
+  })
+
+  it('shows subgroup empty state description for admin', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([
+      { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
+    ])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    expect(await screen.findByText('Subgroups let you organize boards and members into nested workspaces.')).toBeInTheDocument()
   })
 })
