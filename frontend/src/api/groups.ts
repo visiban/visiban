@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Group, GroupMembership, GroupInviteLink, Board } from "../types";
+import type { Group, GroupLabel, GroupMembership, GroupInviteLink, Board, Priority } from "../types";
 
 export const listGroups = () =>
   client.get<{ results: Group[] }>("/api/groups/").then((r) => r.data.results);
@@ -34,11 +34,17 @@ export const getGroupBoards = (id: number) =>
 export const createGroupBoard = (id: number, data: { name: string; description?: string; template?: string }) =>
   client.post<Board>(`/api/groups/${id}/boards/`, data).then((r) => r.data);
 
-export const generateInviteLink = (id: number) =>
-  client.post<GroupInviteLink>(`/api/groups/${id}/invite-link/`).then((r) => r.data);
+export const listInviteLinks = (id: number) =>
+  client.get<GroupInviteLink[]>(`/api/groups/${id}/invite-links/`).then((r) => r.data);
 
-export const deactivateInviteLink = (id: number) =>
-  client.delete(`/api/groups/${id}/invite-link/`);
+export const createInviteLink = (
+  id: number,
+  data: { name?: string; role?: "member" | "viewer"; expires_at?: string | null },
+) =>
+  client.post<GroupInviteLink>(`/api/groups/${id}/invite-links/`, data).then((r) => r.data);
+
+export const revokeInviteLink = (groupId: number, linkId: number) =>
+  client.delete(`/api/groups/${groupId}/invite-links/${linkId}/`);
 
 export const resolveJoinToken = (token: string) =>
   client.get<{ group_id: number; group_name: string }>(`/api/groups/join/${token}/`).then((r) => r.data);
@@ -48,3 +54,29 @@ export const joinGroup = (token: string) =>
 
 export const transferGroupOwnership = (groupId: number, newOwnerId: number, confirmation: string) =>
   client.post(`/api/groups/${groupId}/transfer-ownership/`, { new_owner_id: newOwnerId, confirmation }).then((r) => r.data);
+
+// ------------------------------------------------------------------
+// Group labels (shared label library)
+// ------------------------------------------------------------------
+
+export const getGroupLabels = (id: number) =>
+  client.get<GroupLabel[]>(`/api/groups/${id}/labels/`).then((r) => r.data);
+
+export const createGroupLabel = (id: number, data: { name: string; color: string }) =>
+  client.post<GroupLabel>(`/api/groups/${id}/labels/`, data).then((r) => r.data);
+
+export const updateGroupLabel = (groupId: number, labelId: number, data: { name?: string; color?: string }) =>
+  client.patch<GroupLabel>(`/api/groups/${groupId}/labels/${labelId}/`, data).then((r) => r.data);
+
+export const deleteGroupLabel = (groupId: number, labelId: number) =>
+  client.delete(`/api/groups/${groupId}/labels/${labelId}/`);
+
+// ------------------------------------------------------------------
+// Board defaults (default member role, allowed priorities)
+// ------------------------------------------------------------------
+
+export const updateGroupBoardDefaults = (
+  id: number,
+  data: { default_board_member_role?: "admin" | "member" | "collaborator" | "viewer"; allowed_priorities?: Priority[] },
+) =>
+  client.patch<Group>(`/api/groups/${id}/board-defaults/`, data).then((r) => r.data);

@@ -64,11 +64,12 @@ const fakeBoard: BoardFull = {
     { id: 10, user: fakeUser, role: 'admin', joined_at: '' },
     { id: 11, user: fakeMember2, role: 'member', joined_at: '' },
   ],
+  staleness_threshold_days: 7,
+  close_editor_on_enter: false,
+  allowed_priorities: [],
   created_at: '',
   updated_at: '',
   current_user_role: 'admin',
-  staleness_threshold_days: 7,
-  close_editor_on_enter: false,
 }
 
 // ─── Modal basics ──────────────────────────────────────────────────────────

@@ -58,3 +58,35 @@ export function browserTimezone(): string {
     return "UTC";
   }
 }
+
+/** Returns today's date as YYYY-MM-DD in the given IANA timezone (falls back to UTC). */
+export function todayInTimezone(tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz || "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    return `${get("year")}-${get("month")}-${get("day")}`;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+/** Returns a display label and overdue flag for a due date string (YYYY-MM-DD). */
+export function formatDueDate(
+  date: string,
+  tz: string,
+): { label: string; overdue: boolean } {
+  const today = todayInTimezone(tz);
+  if (date < today) return { label: `Due ${date}`, overdue: true };
+  if (date === today) return { label: "Due today", overdue: false };
+  // Show relative label for next 6 days, otherwise absolute date
+  const msUntil = new Date(date + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime();
+  const daysUntil = Math.round(msUntil / 86_400_000);
+  if (daysUntil === 1) return { label: "Due tomorrow", overdue: false };
+  if (daysUntil <= 6) return { label: `Due in ${daysUntil} days`, overdue: false };
+  return { label: `Due ${date}`, overdue: false };
+}

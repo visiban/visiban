@@ -28,6 +28,8 @@ import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
+import { useViewPrefs } from "../../hooks/useViewPrefs";
+import { todayInTimezone } from "../../utils/date";
 
 interface Props {
   board: BoardFull;
@@ -45,6 +47,7 @@ interface Props {
   onSwimlanesReordered: (orderedIds: number[]) => void;
   onLabelAdded: (label: Label) => void;
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
+  userTimezone?: string;
 }
 
 function ColumnTrashZone() {
@@ -96,9 +99,13 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, userTimezone = "" }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
+
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleHiddenSwimlane, setCardFieldPref } = useViewPrefs(board.id);
+  const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
+  const hiddenSwimlaneIds = new Set(viewPrefs.hiddenSwimlaneIds);
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     if (event.type === "card.created") {
@@ -208,14 +215,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const filteredCardIds: Set<number> | null = (() => {
     if (countActiveFilters(filters) === 0) return null;
-    // Build today/nextWeek as local YYYY-MM-DD strings so they compare
-    // correctly against due_date (also YYYY-MM-DD) without timezone drift.
-    const now = new Date();
+    // Use the user's stored timezone so that "Today" / "Overdue" boundaries
+    // are computed at midnight in their local time, not the browser's locale.
+    const todayStr = todayInTimezone(userTimezone);
+    const nextWeekMs = new Date(todayStr + "T00:00:00Z").getTime() + 7 * 86_400_000;
+    const nw = new Date(nextWeekMs);
     const pad = (n: number) => String(n).padStart(2, "0");
-    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    const nextWeek = new Date(now);
-    nextWeek.setDate(now.getDate() + 7);
-    const nextWeekStr = `${nextWeek.getFullYear()}-${pad(nextWeek.getMonth() + 1)}-${pad(nextWeek.getDate())}`;
+    const nextWeekStr = `${nw.getUTCFullYear()}-${pad(nw.getUTCMonth() + 1)}-${pad(nw.getUTCDate())}`;
     const matching = board.cards.filter((card) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -470,6 +476,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                   onColumnUpdated={onColumnUpdated}
                   onColumnDeleted={onColumnDeleted}
                   collapsed={collapsedColumns.has(col.id)}
+                  hidden={hiddenColumnIds.has(col.id)}
                   onToggleCollapse={() => toggleColumn(col.id)}
                   onInsertLeft={() => { setInsertPosition(idx); setShowAddColumn(true); }}
                   onInsertRight={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
@@ -511,7 +518,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {/* Swimlane rows */}
           {board.columns.length > 0 && (
             <SortableContext items={board.swimlanes.map((s) => `swim:${s.id}`)} strategy={verticalListSortingStrategy}>
-              {board.swimlanes.map((swimlane, idx) => (
+              {board.swimlanes
+                .filter((swimlane) => !hiddenSwimlaneIds.has(swimlane.id))
+                .map((swimlane, idx) => (
             <SwimlaneRow
               key={swimlane.id}
               swimlane={swimlane}
@@ -522,6 +531,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               canEdit={canEdit}
               closeEditorOnEnter={board.close_editor_on_enter}
               collapsedColumnIds={collapsedColumns}
+              hiddenColumnIds={hiddenColumnIds}
               filteredCardIds={filteredCardIds}
               selectedCardIds={selectedCardIds}
               highlightedCardId={highlightedCardId}
@@ -532,6 +542,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               onSwimlaneDeleted={onSwimlaneDeleted}
               onInsertAbove={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
               onInsertBelow={() => { setInsertSwimlanePosition(idx + 1); setShowAddSwimlane(true); }}
+              hideLabels={viewPrefs.hideLabels}
+              hideDueDate={viewPrefs.hideDueDate}
+              hideAssignee={viewPrefs.hideAssignee}
+              hidePriority={viewPrefs.hidePriority}
+              userTimezone={userTimezone}
             />
               ))}
             </SortableContext>
@@ -555,7 +570,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         </div>
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay />}
+          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} />}
           {activeColumn && (
             <div className="flex-1 min-w-[180px] px-3 py-3 border border-blue-400 bg-blue-50 rounded shadow-xl opacity-90">
               <div className="flex items-center gap-2">
@@ -615,6 +630,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           board={board}
           isAdmin={isAdmin}
           onClose={() => setShowSettings(false)}
+          viewPrefs={viewPrefs}
+          onToggleHiddenColumn={toggleHiddenColumn}
+          onToggleHiddenSwimlane={toggleHiddenSwimlane}
+          onSetCardFieldPref={setCardFieldPref}
           onBoardSettingsChanged={onBoardSettingsChanged}
         />
       )}

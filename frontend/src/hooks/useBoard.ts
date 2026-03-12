@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
+import { getBoardFull, updateBoard as apiUpdateBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
 
@@ -152,10 +152,16 @@ export function useBoard() {
     await apiDeleteSwimlane(boardId, swimlaneId);
   }, [boardId]);
 
-  const patchBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
-    await apiPatchBoard(boardId, patch);
+  const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
+    if (!board) return;
     setBoard((b) => b ? { ...b, ...patch } : b);
-  }, [boardId]);
+    try {
+      await apiUpdateBoard(boardId, patch as Parameters<typeof apiUpdateBoard>[1]);
+    } catch {
+      // Reload fresh state on failure
+      load();
+    }
+  }, [board, boardId, load]);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, patchBoardSettings };
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings };
 }

@@ -18,9 +18,14 @@ interface Props {
   onToggleCardSelection: (cardId: number) => void;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
+  hideLabels?: boolean;
+  hideDueDate?: boolean;
+  hideAssignee?: boolean;
+  hidePriority?: boolean;
+  userTimezone?: string;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded }: Props) {
+export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -53,6 +58,11 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
               selected={selectedCardIds.has(card.id)}
               highlighted={highlightedCardId === card.id}
               onSelect={canEdit ? () => onToggleCardSelection(card.id) : undefined}
+              hideLabels={hideLabels}
+              hideDueDate={hideDueDate}
+              hideAssignee={hideAssignee}
+              hidePriority={hidePriority}
+              userTimezone={userTimezone}
             />
           ))}
         </div>
@@ -73,6 +83,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   if (closeEditorOnEnter) { e.preventDefault(); handleAdd(); }
+                  // else: fall through so the browser inserts a newline (default textarea behavior)
                 }
                 if (e.key === "Escape") setAdding(false);
               }}

@@ -14,7 +14,7 @@ import {
   listGroups, createGroup, getGroup, updateGroup, deleteGroup,
   getGroupMembers, removeGroupMember, updateGroupMemberRole,
   getSubgroups, getGroupBoards, createGroupBoard,
-  generateInviteLink, deactivateInviteLink,
+  listInviteLinks, createInviteLink, revokeInviteLink,
   resolveJoinToken, joinGroup,
 } from '../api/groups'
 
@@ -106,18 +106,26 @@ describe('groups API', () => {
     expect(result).toEqual(board)
   })
 
-  it('generateInviteLink posts to invite endpoint', async () => {
+  it('listInviteLinks fetches invite links', async () => {
+    const links = [{ id: 1, token: 'abc123' }]
+    mockClient.get.mockResolvedValue({ data: links })
+    const result = await listInviteLinks(1)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/groups/1/invite-links/')
+    expect(result).toEqual(links)
+  })
+
+  it('createInviteLink posts to invite-links endpoint', async () => {
     const link = { id: 1, token: 'abc123' }
     mockClient.post.mockResolvedValue({ data: link })
-    const result = await generateInviteLink(1)
-    expect(mockClient.post).toHaveBeenCalledWith('/api/groups/1/invite-link/')
+    const result = await createInviteLink(1, {})
+    expect(mockClient.post).toHaveBeenCalledWith('/api/groups/1/invite-links/', {})
     expect(result).toEqual(link)
   })
 
-  it('deactivateInviteLink sends delete', async () => {
+  it('revokeInviteLink sends delete', async () => {
     mockClient.delete.mockResolvedValue({})
-    await deactivateInviteLink(1)
-    expect(mockClient.delete).toHaveBeenCalledWith('/api/groups/1/invite-link/')
+    await revokeInviteLink(1, 7)
+    expect(mockClient.delete).toHaveBeenCalledWith('/api/groups/1/invite-links/7/')
   })
 
   it('resolveJoinToken fetches join info', async () => {

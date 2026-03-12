@@ -12,12 +12,13 @@ interface Props {
   onColumnUpdated: (column: Column) => void;
   onColumnDeleted: (columnId: number) => void;
   collapsed: boolean;
+  hidden?: boolean;
   onToggleCollapse: () => void;
   onInsertLeft?: () => void;
   onInsertRight?: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, onToggleCollapse, onInsertLeft, onInsertRight }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, hidden, onToggleCollapse, onInsertLeft, onInsertRight }: Props) {
   const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}`, disabled: !isAdmin });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
@@ -26,6 +27,19 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const totalWeight = cards.reduce((sum, c) => sum + c.weight, 0);
   const overWip = column.wip_limit !== null && cardCount > column.wip_limit;
   const overWeight = column.weight_limit !== null && totalWeight > column.weight_limit;
+
+  // Hidden by view prefs — render a narrow stub matching hidden cell width
+  if (hidden) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="w-10 shrink-0 border-r border-slate-700 bg-slate-800/50"
+        {...attributes}
+        {...listeners}
+      />
+    );
+  }
 
   if (collapsed) {
     return (

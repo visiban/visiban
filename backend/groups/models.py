@@ -33,12 +33,26 @@ def get_accessible_group_ids(user):
 
 
 class Group(models.Model):
+    class DefaultMemberRole(models.TextChoices):
+        ADMIN = "admin"
+        MEMBER = "member"
+        COLLABORATOR = "collaborator"
+        VIEWER = "viewer"
+
     name = models.CharField(max_length=255)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_groups"
     )
     parent = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.CASCADE, related_name="subgroups"
+    )
+    default_board_member_role = models.CharField(
+        max_length=20,
+        choices=DefaultMemberRole.choices,
+        default=DefaultMemberRole.MEMBER,
+    )
+    allowed_priorities = models.JSONField(
+        default=list,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -47,6 +61,12 @@ class Group(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_allowed_priorities(self):
+        """Return allowed_priorities, falling back to all priorities if empty."""
+        if self.allowed_priorities:
+            return self.allowed_priorities
+        return ["low", "medium", "high", "urgent"]
 
     def ancestors(self, max_depth=6):
         """Return list of ancestor groups from immediate parent up to root."""
@@ -58,6 +78,20 @@ class Group(models.Model):
             node = node.parent
             depth += 1
         return chain
+
+
+class GroupLabel(models.Model):
+    """Shared label library for a group — copied to new boards on creation."""
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="labels")
+    name = models.CharField(max_length=50)
+    color = models.CharField(max_length=7, default="#EAB308")
+
+    class Meta:
+        db_table = "group_labels"
+        unique_together = ["group", "name"]
+
+    def __str__(self):
+        return f"{self.group.name} / {self.name}"
 
 
 class GroupMembership(models.Model):
@@ -79,6 +113,10 @@ class GroupMembership(models.Model):
 
 
 class GroupInviteLink(models.Model):
+    class Role(models.TextChoices):
+        MEMBER = "member"
+        VIEWER = "viewer"
+
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="invite_links")
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     created_by = models.ForeignKey(
@@ -86,6 +124,18 @@ class GroupInviteLink(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    name = models.CharField(max_length=100, blank=True, default="")
+    role = models.CharField(
+        max_length=10, choices=Role.choices, default=Role.MEMBER
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "group_invite_links"
+
+    @property
+    def is_expired(self):
+        if self.expires_at is None:
+            return False
+        from django.utils import timezone
+        return timezone.now() > self.expires_at

@@ -16,6 +16,10 @@ class Board(models.Model):
     )
     staleness_threshold_days = models.PositiveIntegerField(default=7)
     close_editor_on_enter = models.BooleanField(default=True)
+    allowed_priorities = models.JSONField(
+        default=list,
+        help_text="Allowed card priorities on this board. Empty list means all priorities are allowed.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

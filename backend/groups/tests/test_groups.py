@@ -131,27 +131,29 @@ class GroupInviteLinkTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_create_invite_link(self):
-        r = self.client.post(f"/api/groups/{self.group.id}/invite-link/")
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        r = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertIn("token", r.json())
 
-    def test_create_invite_link_idempotent(self):
-        r1 = self.client.post(f"/api/groups/{self.group.id}/invite-link/")
-        r2 = self.client.post(f"/api/groups/{self.group.id}/invite-link/")
-        self.assertEqual(r1.json()["token"], r2.json()["token"])
+    def test_create_multiple_invite_links(self):
+        r1 = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
+        r2 = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
+        self.assertEqual(r1.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r2.status_code, status.HTTP_201_CREATED)
+        self.assertNotEqual(r1.json()["token"], r2.json()["token"])
 
     def test_revoke_invite_link(self):
-        self.client.post(f"/api/groups/{self.group.id}/invite-link/")
-        r = self.client.delete(f"/api/groups/{self.group.id}/invite-link/")
+        link = self.client.post(f"/api/groups/{self.group.id}/invite-links/").json()
+        r = self.client.delete(f"/api/groups/{self.group.id}/invite-links/{link['id']}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(
-            GroupInviteLink.objects.filter(group=self.group, is_active=True).exists()
+            GroupInviteLink.objects.filter(pk=link["id"], is_active=True).exists()
         )
 
     def test_non_admin_cannot_create_link(self):
         outsider = User.objects.create_user(username="out", password="pass")
         self.client.force_authenticate(outsider)
-        r = self.client.post(f"/api/groups/{self.group.id}/invite-link/")
+        r = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 

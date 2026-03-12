@@ -4,6 +4,7 @@ import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember } from "../../api/boards";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
+import type { ViewPrefs } from "../../hooks/useViewPrefs";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -16,11 +17,15 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "general" | "members" | "invite" | "data";
+  initialTab?: "general" | "members" | "invite" | "data" | "display";
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
+  viewPrefs?: ViewPrefs;
+  onToggleHiddenColumn?: (columnId: number) => void;
+  onToggleHiddenSwimlane?: (swimlaneId: number) => void;
+  onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority", value: boolean) => void;
 }
 
-type Tab = "general" | "members" | "invite" | "data";
+type Tab = "general" | "members" | "invite" | "data" | "display";
 
 interface StagedInvite {
   user: User;
@@ -54,7 +59,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardSettingsChanged }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardSettingsChanged, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
@@ -178,10 +183,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 px-6 gap-1">
-          {(["general", "members", "invite", "data"] as Tab[]).map((t) => {
+          {(["general", "members", "invite", "data", "display"] as Tab[]).map((t) => {
             if (t === "invite" && !isAdmin) return null;
             if (t === "general" && !isAdmin) return null;
-            const label = t === "general" ? "General" : t === "members" ? `Members (${members.length})` : t === "invite" ? "Invite" : "Data";
+            const label =
+              t === "general" ? "General"
+              : t === "members" ? `Members (${members.length})`
+              : t === "invite" ? "Invite"
+              : t === "data" ? "Data"
+              : "Display";
             return (
               <button
                 key={t}
@@ -444,6 +454,110 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </button>
               </div>
             </section>
+          )}
+
+          {/* ── Display tab ── */}
+          {tab === "display" && viewPrefs && onToggleHiddenColumn && onToggleHiddenSwimlane && onSetCardFieldPref && (
+            <div className="flex flex-col gap-5">
+              <p className="text-xs text-slate-500">
+                These preferences are personal and stored in your browser. They do not affect what other users see.
+              </p>
+
+              {/* Columns */}
+              {board.columns.length > 0 && (
+                <section>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Columns</h3>
+                  <div className="flex flex-col gap-0">
+                    {board.columns.map((col) => {
+                      const isHidden = viewPrefs.hiddenColumnIds.includes(col.id);
+                      return (
+                        <label
+                          key={col.id}
+                          className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                            <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                              {col.name}
+                            </span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={!isHidden}
+                            onChange={() => onToggleHiddenColumn(col.id)}
+                            className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Swimlanes */}
+              {board.swimlanes.length > 0 && (
+                <section>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Swimlanes</h3>
+                  <div className="flex flex-col gap-0">
+                    {board.swimlanes.map((lane) => {
+                      const isHidden = viewPrefs.hiddenSwimlaneIds.includes(lane.id);
+                      return (
+                        <label
+                          key={lane.id}
+                          className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: lane.color }} />
+                            <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                              {lane.name}
+                            </span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={!isHidden}
+                            onChange={() => onToggleHiddenSwimlane(lane.id)}
+                            className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Card fields */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Card fields</h3>
+                <div className="flex flex-col gap-0">
+                  {(
+                    [
+                      { field: "hideLabels",   label: "Labels" },
+                      { field: "hideDueDate",  label: "Due date" },
+                      { field: "hideAssignee", label: "Assignee" },
+                      { field: "hidePriority", label: "Priority badge" },
+                    ] as { field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority"; label: string }[]
+                  ).map(({ field, label }) => {
+                    const hidden = viewPrefs[field];
+                    return (
+                      <label
+                        key={field}
+                        className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer"
+                      >
+                        <span className={`text-sm ${hidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                          {label}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={!hidden}
+                          onChange={(e) => onSetCardFieldPref(field, !e.target.checked)}
+                          className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
           )}
         </div>
 

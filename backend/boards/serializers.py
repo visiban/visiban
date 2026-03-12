@@ -146,7 +146,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "name", "description", "owner", "group", "group_name", "member_count", "staleness_threshold_days", "close_editor_on_enter", "created_at", "updated_at"]
+        fields = ["id", "name", "description", "owner", "group", "group_name", "member_count", "staleness_threshold_days", "close_editor_on_enter", "allowed_priorities", "created_at", "updated_at"]
         read_only_fields = ["created_at", "updated_at"]
 
     def get_member_count(self, obj):
@@ -167,7 +167,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "close_editor_on_enter",
-            "created_at", "updated_at", "current_user_role",
+            "allowed_priorities", "created_at", "updated_at", "current_user_role",
         ]
 
     def get_members(self, obj):
