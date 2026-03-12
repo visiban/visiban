@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Notification deep-linking** (#105): clicking a notification navigates to the relevant board and, when the notification is tied to a card, automatically opens the card detail modal; board-only notifications (e.g. membership events) navigate to the board without opening a card; if the card cannot be found in the board data (archived or deleted) a transient "Card not found" banner is shown and dismissed after 4 seconds
+
 - **Invite link improvements** (#99): group invite links now support a customizable name, per-link role (member/viewer), and expiry (1/7/30 days or Never); groups can have up to 5 active links; expired links show a clear visual state and cannot be used to join; each link can be revoked independently
 - New card inline editor now submits on Enter (default on); Shift+Enter always inserts a newline; configurable per board via Board Settings → General → “Close editor on Enter” toggle; setting stored as `close_editor_on_enter` on the `Board` model (default `True`)
 - Per-trigger notification preferences in Settings → Notifications: toggle on/off card-assigned, @mention, due-date warning, card-moved, and comment-added events; preferences saved immediately on toggle and persisted per user (#95)
