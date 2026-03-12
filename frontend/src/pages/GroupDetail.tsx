@@ -224,33 +224,43 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
             {/* Subgroups */}
             <section>
-              <h2 className="text-white font-semibold mb-3">Subgroups</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {subgroups.map((sg) => (
-                  <button
-                    key={sg.id}
-                    onClick={() => navigate(`/groups/${sg.id}`)}
-                    className="bg-gray-800 hover:bg-gray-700 rounded-xl p-4 text-left transition"
-                  >
-                    <p className="text-white font-medium">{sg.name}</p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
-                    </p>
-                  </button>
-                ))}
+              <div className="flex items-center gap-3 mb-3">
+                <h2 className="text-white font-semibold">Subgroups</h2>
                 {isAdmin && (
                   <button
                     onClick={() => setShowCreateSubgroup(true)}
-                    className="border-2 border-dashed border-gray-700 hover:border-gray-500 hover:bg-gray-800/50 rounded-xl p-4 text-left transition group"
+                    className="text-sm text-blue-400 hover:text-blue-300 transition"
                   >
-                    <p className="text-gray-500 group-hover:text-gray-300 font-medium transition">+ New subgroup</p>
-                    <p className="text-gray-600 text-xs mt-1">Create a nested group inside {group.name}</p>
+                    + Create subgroup
                   </button>
                 )}
-                {!isAdmin && subgroups.length === 0 && (
-                  <p className="text-gray-600 text-sm col-span-2">No subgroups.</p>
-                )}
               </div>
+              {subgroups.length === 0 ? (
+                <p className="text-gray-500 text-sm">
+                  Subgroups let you organize boards and members into nested workspaces.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {subgroups.map((sg) => (
+                    <button
+                      key={sg.id}
+                      onClick={() => navigate(`/groups/${sg.id}`)}
+                      className="bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-800/50 rounded-xl p-4 text-left transition"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        {/* Group/subgroup icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                        </svg>
+                        <p className="text-white font-medium">{sg.name}</p>
+                      </div>
+                      <p className="text-indigo-400/70 text-xs">
+                        {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Boards */}
@@ -286,8 +296,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                       onClick={() => navigate(`/boards/${b.id}`)}
                       className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-left px-4 py-3 rounded-xl transition"
                     >
-                      <p className="font-medium">{b.name}</p>
-                      {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
+                      <div className="flex items-center gap-2">
+                        {/* Board icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                        <p className="font-medium">{b.name}</p>
+                      </div>
+                      {b.description && <p className="text-sm text-gray-400 mt-0.5 ml-6">{b.description}</p>}
                     </button>
                     <button
                       onClick={() => setMovingBoard(b)}
@@ -326,11 +342,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                         onClick={() => navigate(`/boards/${b.id}`)}
                         className="w-full bg-gray-800 hover:bg-gray-700 text-white text-left px-4 py-3 rounded-xl transition"
                       >
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{b.name}</p>
+                        <div className="flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                          </svg>
+                          <p className="font-medium flex-1">{b.name}</p>
                           <span className="text-xs text-gray-500 ml-2 shrink-0">{groupName}</span>
                         </div>
-                        {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
+                        {b.description && <p className="text-sm text-gray-400 mt-0.5 ml-6">{b.description}</p>}
                       </button>
                     ))
                   )
