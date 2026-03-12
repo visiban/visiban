@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
+from django.utils import timezone
 
 
 def get_accessible_group_ids(user):
@@ -135,7 +136,4 @@ class GroupInviteLink(models.Model):
 
     @property
     def is_expired(self):
-        if self.expires_at is None:
-            return False
-        from django.utils import timezone
-        return timezone.now() > self.expires_at
+        return self.expires_at is not None and self.expires_at < timezone.now()

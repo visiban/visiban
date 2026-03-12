@@ -37,8 +37,10 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
     setError(null);
     setSaved(false);
     try {
-      const payload = { ...form, timezone: form.timezone || browserTimezone() };
-      const updated = await updateCurrentUser(payload);
+      const updated = await updateCurrentUser({
+        ...form,
+        timezone: form.timezone || browserTimezone(),
+      });
       onUserUpdated(updated);
       setSaved(true);
     } catch {
@@ -89,6 +91,20 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
           required
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm text-gray-400">
+        Timezone
+        <select
+          value={form.timezone}
+          onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+        >
+          <option value="">Detect automatically ({browserTimezone()})</option>
+          {TIMEZONE_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label} — {value}</option>
+          ))}
+        </select>
       </label>
 
       <label className="flex flex-col gap-1 text-sm text-gray-400">

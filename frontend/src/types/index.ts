@@ -234,10 +234,10 @@ export interface GroupMembership {
 export interface GroupInviteLink {
   id: number;
   token: string;
-  is_active: boolean;
-  created_at: string;
   name: string;
   role: "member" | "viewer";
   expires_at: string | null;
+  is_active: boolean;
   is_expired: boolean;
+  created_at: string;
 }

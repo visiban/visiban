@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -235,9 +236,36 @@ class GroupViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = GroupInviteLinkSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        link = serializer.save(group=group, created_by=request.user, is_active=True)
+        name = request.data.get("name", "")
+        role = request.data.get("role", GroupInviteLink.Role.MEMBER)
+        if role not in GroupInviteLink.Role.values:
+            return Response(
+                {"role": f"Must be one of: {', '.join(GroupInviteLink.Role.values)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        expiry_days = request.data.get("expiry_days")
+        expires_at = None
+        if expiry_days is not None:
+            import datetime
+            try:
+                expiry_days = int(expiry_days)
+            except (TypeError, ValueError):
+                return Response(
+                    {"expiry_days": "Must be an integer number of days."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if expiry_days > 0:
+                expires_at = timezone.now() + datetime.timedelta(days=expiry_days)
+
+        link = GroupInviteLink.objects.create(
+            group=group,
+            created_by=request.user,
+            name=name,
+            role=role,
+            expires_at=expires_at,
+            is_active=True,
+        )
         return Response(GroupInviteLinkSerializer(link).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path=r"invite-links/(?P<link_id>[^/.]+)")
@@ -315,7 +343,10 @@ class JoinGroupView(APIView):
     def get(self, request, token):
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
         if link.is_expired:
-            return Response({"detail": "This invite link has expired."}, status=status.HTTP_410_GONE)
+            return Response(
+                {"detail": "This invite link has expired."},
+                status=status.HTTP_410_GONE,
+            )
         return Response({
             "group_id": link.group_id,
             "group_name": link.group.name,
@@ -325,7 +356,10 @@ class JoinGroupView(APIView):
     def post(self, request, token):
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
         if link.is_expired:
-            return Response({"detail": "This invite link has expired."}, status=status.HTTP_410_GONE)
+            return Response(
+                {"detail": "This invite link has expired."},
+                status=status.HTTP_410_GONE,
+            )
         membership, created = GroupMembership.objects.get_or_create(
             group=link.group,
             user=request.user,

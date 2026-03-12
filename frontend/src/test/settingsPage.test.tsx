@@ -350,6 +350,14 @@ describe('AppearanceTab', () => {
 // ---------------------------------------------------------------------------
 
 describe('NotificationsTab', () => {
+  it('shows notification preference toggles', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByText('Notifications'))
+    expect(screen.getByText('Choose which events send you a notification.')).toBeInTheDocument()
+    expect(screen.getByText('Card assigned to me')).toBeInTheDocument()
+  })
+
   it('shows the Notifications heading', async () => {
     const user = userEvent.setup()
     renderSettings()
