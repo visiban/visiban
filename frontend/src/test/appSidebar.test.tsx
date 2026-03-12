@@ -53,11 +53,12 @@ describe('AppSidebar', () => {
     vi.mocked(listBoards).mockResolvedValue([fakeBoard, personalBoard])
   })
 
-  it('renders the collapse toggle button', () => {
+  it('renders the collapse toggle button', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
     expect(screen.getByTitle('Collapse sidebar')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
   })
 
   it('shows group names after loading', async () => {
@@ -86,12 +87,13 @@ describe('AppSidebar', () => {
     expect(screen.getByTitle('Expand sidebar')).toBeInTheDocument()
   })
 
-  it('restores collapsed state from localStorage', () => {
+  it('restores collapsed state from localStorage', async () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
     expect(screen.getByTitle('Expand sidebar')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument())
   })
 
   it('highlights active board by route', async () => {

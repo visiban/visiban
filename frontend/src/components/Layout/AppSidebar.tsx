@@ -70,7 +70,7 @@ export default function AppSidebar({ user: _user }: Props) {
 
   const groupInitial = (name: string) => name.charAt(0).toUpperCase();
 
-  const sidebarWidth = collapsed ? "w-12" : "w-55";
+  const sidebarWidth = collapsed ? "w-12" : "w-56";
 
   return (
     <aside
