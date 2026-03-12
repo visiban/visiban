@@ -101,11 +101,11 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Confirm new password')).toBeInTheDocument()
   })
 
-  it('tab navigation: clicking Notifications shows coming soon', async () => {
+  it('tab navigation: clicking Notifications shows notification toggles', async () => {
     const user = userEvent.setup()
     renderSettings()
     await user.click(screen.getByText('Notifications'))
-    expect(screen.getByText('This section is coming soon.')).toBeInTheDocument()
+    expect(screen.getByText('Choose which events send you a notification.')).toBeInTheDocument()
   })
 
   it('tab navigation: clicking Appearance shows theme options', async () => {
@@ -346,25 +346,47 @@ describe('AppearanceTab', () => {
 })
 
 // ---------------------------------------------------------------------------
-// ComingSoonTab (Notifications)
+// NotificationsTab
 // ---------------------------------------------------------------------------
 
-describe('ComingSoonTab — Notifications', () => {
-  it('shows "coming soon" message', async () => {
-    const user = userEvent.setup()
-    renderSettings()
-    await user.click(screen.getByText('Notifications'))
-    expect(screen.getByText('This section is coming soon.')).toBeInTheDocument()
-  })
-
+describe('NotificationsTab', () => {
   it('shows the Notifications heading', async () => {
     const user = userEvent.setup()
     renderSettings()
     await user.click(screen.getByText('Notifications'))
-    // There's an h2 with "Notifications" in the content area
     const headings = screen.getAllByText('Notifications')
-    // At least one is an h2
     const h2 = headings.find((el) => el.tagName === 'H2')
     expect(h2).toBeInTheDocument()
+  })
+
+  it('renders all five notification preference rows', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByText('Notifications'))
+    expect(screen.getByText('Card assigned to me')).toBeInTheDocument()
+    expect(screen.getByText('Someone @mentions me')).toBeInTheDocument()
+    expect(screen.getByText('Due date approaching')).toBeInTheDocument()
+    expect(screen.getByText(/Card I.m watching is moved/)).toBeInTheDocument()
+    expect(screen.getByText('Comment on a watched card')).toBeInTheDocument()
+  })
+
+  it('toggles call updateCurrentUser with the new value', async () => {
+    const user = userEvent.setup()
+    mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, notif_due_soon: true })
+    renderSettings()
+    await user.click(screen.getByText('Notifications'))
+    const switches = screen.getAllByRole('switch')
+    await user.click(switches[2])
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ notif_due_soon: true })
+  })
+
+  it('shows error message when save fails', async () => {
+    const user = userEvent.setup()
+    mockUpdateCurrentUser.mockRejectedValueOnce(new Error('network'))
+    renderSettings()
+    await user.click(screen.getByText('Notifications'))
+    const switches = screen.getAllByRole('switch')
+    await user.click(switches[0])
+    expect(await screen.findByText('Failed to save. Please try again.')).toBeInTheDocument()
   })
 })

@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("accounts", "0004_add_must_change_password"),
+        ("accounts", "0005_add_user_timezone"),
     ]
 
     operations = [
