@@ -29,6 +29,63 @@ export function countActiveFilters(f: FilterState): number {
   ].filter(Boolean).length;
 }
 
+interface SingleSelectDropdownProps<T extends string | number> {
+  label: string;
+  options: { value: T; label: string }[];
+  selected: T | null;
+  onChange: (selected: T | null) => void;
+}
+
+function SingleSelectDropdown<T extends string | number>({ label, options, selected, onChange }: SingleSelectDropdownProps<T>) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const displayLabel = selected === null
+    ? label
+    : options.find((o) => o.value === selected)?.label ?? label;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition ${
+          selected !== null ? "border-blue-400 text-blue-400" : "border-slate-600 text-slate-300 hover:border-slate-400"
+        }`}
+      >
+        {displayLabel}
+        <svg className="w-3 h-3 text-slate-500" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { onChange(selected === opt.value ? null : opt.value); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 hover:bg-slate-700 text-sm transition ${
+                selected === opt.value ? "text-blue-400" : "text-slate-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface CheckboxDropdownProps<T extends string | number> {
   label: string;
   options: { value: T; label: string; color?: string }[];
@@ -112,9 +169,15 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: "#EF4444" },
 ];
 
+const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: string }[] = [
+  { value: "overdue", label: "Overdue" },
+  { value: "today", label: "Today" },
+  { value: "this_week", label: "Due this week" },
+  { value: "none", label: "No due date" },
+];
+
 export default function FilterBar({ board, filters, onChange, searchRef }: Props) {
   const activeCount = countActiveFilters(filters);
-  const sel = "bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 outline-none focus:border-blue-400";
 
   return (
     <>
@@ -129,19 +192,15 @@ export default function FilterBar({ board, filters, onChange, searchRef }: Props
         className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 placeholder-slate-500 w-36 outline-none focus:border-blue-400 shrink-0"
       />
 
-      <select
-        value={filters.assigneeId ?? ""}
-        onChange={(e) => onChange({ ...filters, assigneeId: e.target.value === "" ? null : Number(e.target.value) })}
-        className={sel + " shrink-0"}
-      >
-        <option value="">Assignee</option>
-        <option value="-1">Unassigned</option>
-        {board.members.map((m) => (
-          <option key={m.user.id} value={m.user.id}>
-            {userDisplayName(m.user)}
-          </option>
-        ))}
-      </select>
+      <SingleSelectDropdown
+        label="Assignee"
+        options={[
+          { value: -1, label: "Unassigned" },
+          ...board.members.map((m) => ({ value: m.user.id, label: userDisplayName(m.user) })),
+        ]}
+        selected={filters.assigneeId}
+        onChange={(assigneeId) => onChange({ ...filters, assigneeId })}
+      />
 
       <CheckboxDropdown
         label="Label"
@@ -157,17 +216,12 @@ export default function FilterBar({ board, filters, onChange, searchRef }: Props
         onChange={(priorities) => onChange({ ...filters, priorities })}
       />
 
-      <select
-        value={filters.dueDate ?? ""}
-        onChange={(e) => onChange({ ...filters, dueDate: (e.target.value as FilterState["dueDate"]) || null })}
-        className={sel + " shrink-0"}
-      >
-        <option value="">Due date</option>
-        <option value="overdue">Overdue</option>
-        <option value="today">Today</option>
-        <option value="this_week">Due this week</option>
-        <option value="none">No due date</option>
-      </select>
+      <SingleSelectDropdown
+        label="Due date"
+        options={DUE_DATE_OPTIONS}
+        selected={filters.dueDate}
+        onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
+      />
 
       {activeCount > 0 && (
         <button
