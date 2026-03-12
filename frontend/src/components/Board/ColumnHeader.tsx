@@ -57,6 +57,8 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
     );
   }
 
+  const nonAdminTitle = "You need admin access to change board settings";
+
   return (
     <>
       <div
@@ -66,26 +68,24 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         onClick={() => isAdmin && setEditing(true)}
         title={isAdmin ? "Click to edit column" : undefined}
       >
-        {/* Insert-left button — visible on hover */}
-        {isAdmin && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onInsertLeft?.(); }}
-            className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-900/40 hover:bg-blue-800/60 text-blue-400 hover:text-blue-300 text-sm font-bold transition z-10 rounded-l border-r border-blue-800/50"
-            title="Insert column to the left"
-          >
-            +
-          </button>
-        )}
-        {/* Insert-right button — visible on hover */}
-        {isAdmin && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onInsertRight?.(); }}
-            className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/col:opacity-100 bg-blue-900/40 hover:bg-blue-800/60 text-blue-400 hover:text-blue-300 text-sm font-bold transition z-10 rounded-r border-l border-blue-800/50"
-            title="Insert column to the right"
-          >
-            +
-          </button>
-        )}
+        {/* Insert-left button — visible on hover for admins; always visible but dimmed for non-admins */}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (isAdmin) onInsertLeft?.(); }}
+          className={`absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center bg-blue-900/40 text-blue-400 text-sm font-bold transition z-10 rounded-l border-r border-blue-800/50 ${isAdmin ? "opacity-0 group-hover/col:opacity-100 hover:bg-blue-800/60 hover:text-blue-300" : "opacity-50 cursor-not-allowed"}`}
+          title={isAdmin ? "Insert column to the left" : nonAdminTitle}
+          disabled={!isAdmin}
+        >
+          +
+        </button>
+        {/* Insert-right button — visible on hover for admins; always visible but dimmed for non-admins */}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (isAdmin) onInsertRight?.(); }}
+          className={`absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center bg-blue-900/40 text-blue-400 text-sm font-bold transition z-10 rounded-r border-l border-blue-800/50 ${isAdmin ? "opacity-0 group-hover/col:opacity-100 hover:bg-blue-800/60 hover:text-blue-300" : "opacity-50 cursor-not-allowed"}`}
+          title={isAdmin ? "Insert column to the right" : nonAdminTitle}
+          disabled={!isAdmin}
+        >
+          +
+        </button>
 
         {/* Row 1: collapse toggle, color dot, name, edit icon */}
         <div className="flex items-center gap-2">
@@ -104,7 +104,13 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             onClick={(e) => e.stopPropagation()}
           />
           <span className="font-semibold text-slate-200 text-sm truncate">{column.name}</span>
-          {isAdmin && <span className="ml-auto text-slate-600 group-hover/col:text-slate-400 transition text-xs shrink-0">✎</span>}
+          {/* Edit icon — shown to all, dimmed and non-interactive for non-admins */}
+          <span
+            className={`ml-auto transition text-xs shrink-0 ${isAdmin ? "text-slate-600 group-hover/col:text-slate-400" : "text-slate-700 opacity-50 cursor-not-allowed"}`}
+            title={isAdmin ? "Click to edit column" : nonAdminTitle}
+          >
+            ✎
+          </span>
         </div>
 
         {/* Row 2: WIP and Weight stats with labels */}
