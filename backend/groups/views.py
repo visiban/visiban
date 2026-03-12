@@ -315,7 +315,10 @@ class JoinGroupView(APIView):
     def get(self, request, token):
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
         if link.is_expired:
-            return Response({"detail": "This invite link has expired."}, status=status.HTTP_410_GONE)
+            return Response(
+                {"detail": "This invite link has expired."},
+                status=status.HTTP_410_GONE,
+            )
         return Response({
             "group_id": link.group_id,
             "group_name": link.group.name,
@@ -325,7 +328,10 @@ class JoinGroupView(APIView):
     def post(self, request, token):
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
         if link.is_expired:
-            return Response({"detail": "This invite link has expired."}, status=status.HTTP_410_GONE)
+            return Response(
+                {"detail": "This invite link has expired."},
+                status=status.HTTP_410_GONE,
+            )
         membership, created = GroupMembership.objects.get_or_create(
             group=link.group,
             user=request.user,

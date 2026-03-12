@@ -46,6 +46,20 @@ export const createInviteLink = (
 export const revokeInviteLink = (groupId: number, linkId: number) =>
   client.delete(`/api/groups/${groupId}/invite-links/${linkId}/`);
 
+export const listInviteLinks = (groupId: number) =>
+  client.get<GroupInviteLink[]>(`/api/groups/${groupId}/invite-links/`).then((r) => r.data);
+
+export const createInviteLink = (
+  groupId: number,
+  data: { name?: string; role?: "admin" | "member" | "viewer"; expiry_days?: number | null },
+) =>
+  client
+    .post<GroupInviteLink>(`/api/groups/${groupId}/invite-links/`, data)
+    .then((r) => r.data);
+
+export const revokeInviteLink = (groupId: number, linkId: number) =>
+  client.delete(`/api/groups/${groupId}/invite-links/${linkId}/`);
+
 export const resolveJoinToken = (token: string) =>
   client.get<{ group_id: number; group_name: string }>(`/api/groups/join/${token}/`).then((r) => r.data);
 

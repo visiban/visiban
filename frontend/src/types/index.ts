@@ -234,7 +234,11 @@ export interface GroupMembership {
 export interface GroupInviteLink {
   id: number;
   token: string;
+  name: string;
+  role: "admin" | "member" | "viewer";
+  expires_at: string | null;
   is_active: boolean;
+  is_expired: boolean;
   created_at: string;
   name: string;
   role: "member" | "viewer";
