@@ -167,15 +167,18 @@ backend-test:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet coverage
+    - pip install --quiet coverage unittest-xml-reporting
   script:
     - cd backend
-    - coverage run --source=. manage.py test boards accounts groups --verbosity=0
+    - coverage run --source=. manage.py test boards accounts groups
+        --testrunner=xmlrunner.extra.djangotestrunner.XMLTestRunner
+        --verbosity=0
     - coverage report --skip-covered --fail-under=90
     - coverage xml -o coverage.xml
   coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+)%/'
   artifacts:
     reports:
+      junit: backend/test-results/TEST-*.xml
       coverage_report:
         coverage_format: cobertura
         path: backend/coverage.xml
@@ -239,10 +242,11 @@ frontend-test:
     - cd frontend
     - npm ci --prefer-offline
   script:
-    - npm test -- --reporter=verbose --coverage
+    - npm test -- --reporter=default --reporter=junit --outputFile.junit=junit.xml --coverage
   coverage: '/All files\s+\|\s+(\d+(?:\.\d+)?)\s+\|/'
   artifacts:
     reports:
+      junit: frontend/junit.xml
       coverage_report:
         coverage_format: cobertura
         path: frontend/coverage/cobertura-coverage.xml
