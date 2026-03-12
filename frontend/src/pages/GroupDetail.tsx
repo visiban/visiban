@@ -4,7 +4,7 @@ import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
-  transferGroupOwnership,
+  transferGroupOwnership, createGroupLabel, deleteGroupLabel, updateGroupBoardDefaults,
 } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
@@ -13,7 +13,7 @@ import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
 import { importBoard } from "../api/boards";
-import type { Board, Group, GroupMembership, User } from "../types";
+import type { Board, Group, GroupLabel, GroupMembership, Priority, User } from "../types";
 
 interface Props {
   user: User;
@@ -51,6 +51,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const [transferConfirmation, setTransferConfirmation] = useState("");
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
+
+  // Board defaults state
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#EAB308");
+  const [addingLabel, setAddingLabel] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
+  const [savingDefaults, setSavingDefaults] = useState(false);
+  const [defaultsError, setDefaultsError] = useState<string | null>(null);
+  const [defaultsSaved, setDefaultsSaved] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -122,6 +131,56 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
       setTransferError(detail ?? "Transfer failed. Please try again.");
     } finally {
       setTransferring(false);
+    }
+  };
+
+  const handleAddGroupLabel = async () => {
+    if (!newLabelName.trim()) return;
+    setLabelError(null);
+    setAddingLabel(true);
+    try {
+      const label = await createGroupLabel(groupId, { name: newLabelName.trim(), color: newLabelColor });
+      setGroup((prev) => prev ? { ...prev, shared_labels: [...prev.shared_labels, label] } : prev);
+      setNewLabelName("");
+      setNewLabelColor("#EAB308");
+    } catch {
+      setLabelError("Failed to add label. The name may already exist.");
+    } finally {
+      setAddingLabel(false);
+    }
+  };
+
+  const handleDeleteGroupLabel = async (label: GroupLabel) => {
+    if (!confirm(`Remove shared label "${label.name}"?`)) return;
+    await deleteGroupLabel(groupId, label.id);
+    setGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.filter((l) => l.id !== label.id) } : prev);
+  };
+
+  const handleTogglePriority = async (priority: Priority) => {
+    if (!group) return;
+    const current = group.allowed_priorities.length > 0 ? group.allowed_priorities : (["low", "medium", "high", "urgent"] as Priority[]);
+    const next = current.includes(priority)
+      ? current.filter((p) => p !== priority)
+      : [...current, priority];
+    // Keep at least one priority enabled
+    if (next.length === 0) return;
+    const updated = await updateGroupBoardDefaults(groupId, { allowed_priorities: next });
+    setGroup((prev) => prev ? { ...prev, allowed_priorities: updated.allowed_priorities } : prev);
+  };
+
+  const handleDefaultRoleChange = async (role: "admin" | "member" | "collaborator" | "viewer") => {
+    if (!group) return;
+    setDefaultsError(null);
+    setSavingDefaults(true);
+    try {
+      const updated = await updateGroupBoardDefaults(groupId, { default_board_member_role: role });
+      setGroup((prev) => prev ? { ...prev, default_board_member_role: updated.default_board_member_role } : prev);
+      setDefaultsSaved(true);
+      setTimeout(() => setDefaultsSaved(false), 2000);
+    } catch {
+      setDefaultsError("Failed to save default member role.");
+    } finally {
+      setSavingDefaults(false);
     }
   };
 
@@ -405,6 +464,117 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
             {/* Invite links */}
             <InviteLinkPanel groupId={groupId} />
+
+            {/* Board defaults */}
+            <section>
+              <h2 className="text-white font-semibold mb-1">Board defaults</h2>
+              <p className="text-gray-500 text-sm mb-4">
+                These settings apply to new boards created in this group. Existing boards are not affected.
+              </p>
+
+              {/* Default member role */}
+              <div className="mb-5">
+                <label className="text-gray-400 text-sm block mb-2">Default member role for new boards</label>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={group.default_board_member_role ?? "member"}
+                    onChange={(e) => handleDefaultRoleChange(e.target.value as "admin" | "member" | "collaborator" | "viewer")}
+                    disabled={savingDefaults}
+                    className="bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="collaborator">Collaborator</option>
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  {defaultsSaved && <span className="text-green-400 text-xs">Saved</span>}
+                  {defaultsError && <span className="text-red-400 text-xs">{defaultsError}</span>}
+                </div>
+              </div>
+
+              {/* Allowed priorities */}
+              <div className="mb-5">
+                <label className="text-gray-400 text-sm block mb-2">Allowed priorities on new boards</label>
+                <div className="flex flex-wrap gap-2">
+                  {(["low", "medium", "high", "urgent"] as Priority[]).map((p) => {
+                    const effectivePriorities = group.allowed_priorities.length > 0 ? group.allowed_priorities : (["low", "medium", "high", "urgent"] as Priority[]);
+                    const active = effectivePriorities.includes(p);
+                    const colorMap: Record<Priority, string> = {
+                      low: "bg-green-900/60 border-green-700 text-green-300",
+                      medium: "bg-yellow-900/60 border-yellow-700 text-yellow-300",
+                      high: "bg-orange-900/60 border-orange-700 text-orange-300",
+                      urgent: "bg-red-900/60 border-red-700 text-red-300",
+                    };
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => handleTogglePriority(p)}
+                        className={`px-3 py-1 rounded-lg border text-xs font-medium transition capitalize ${
+                          active
+                            ? colorMap[p]
+                            : "bg-gray-800 border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-400"
+                        }`}
+                        title={active ? `Disable ${p} priority` : `Enable ${p} priority`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-gray-600 text-xs mt-2">Click to toggle. At least one priority must remain enabled.</p>
+              </div>
+
+              {/* Shared label library */}
+              <div>
+                <label className="text-gray-400 text-sm block mb-2">Shared label library</label>
+                <p className="text-gray-600 text-xs mb-3">Labels added here are copied to every new board created in this group.</p>
+                <div className="flex flex-col gap-1.5 mb-3">
+                  {(group.shared_labels ?? []).map((label) => (
+                    <div key={label.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                      <span
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: label.color }}
+                      />
+                      <span className="text-white text-sm flex-1">{label.name}</span>
+                      <button
+                        onClick={() => handleDeleteGroupLabel(label)}
+                        className="text-gray-600 hover:text-red-400 transition text-xs"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  {(group.shared_labels ?? []).length === 0 && (
+                    <p className="text-gray-600 text-sm">No shared labels yet.</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={newLabelColor}
+                    onChange={(e) => setNewLabelColor(e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer bg-transparent border border-gray-600"
+                    title="Label color"
+                  />
+                  <input
+                    type="text"
+                    value={newLabelName}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddGroupLabel(); }}
+                    placeholder="Label name…"
+                    className="flex-1 bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={handleAddGroupLabel}
+                    disabled={addingLabel || !newLabelName.trim()}
+                    className="text-sm text-white bg-blue-700 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded-lg transition"
+                  >
+                    Add
+                  </button>
+                </div>
+                {labelError && <p className="text-red-400 text-xs mt-1">{labelError}</p>}
+              </div>
+            </section>
 
             {/* Danger zone */}
             <section className="border border-red-900/50 rounded-xl p-5">

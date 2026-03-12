@@ -1,3 +1,19 @@
+export interface NotificationPrefs {
+  card_assigned: boolean;
+  mention: boolean;
+  due_soon: boolean;
+  watched_card_moved: boolean;
+  watched_card_comment: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  card_assigned: true,
+  mention: true,
+  due_soon: false,
+  watched_card_moved: false,
+  watched_card_comment: false,
+};
+
 export interface User {
   id: number;
   username: string;
@@ -9,6 +25,7 @@ export interface User {
   is_site_admin: boolean;
   must_change_password: boolean;
   has_usable_password?: boolean;
+  notification_prefs?: NotificationPrefs;
   timezone?: string;
   notif_card_assigned?: boolean;
   notif_mentioned?: boolean;
@@ -180,9 +197,16 @@ export interface BoardFull {
   members: BoardMembership[];
   staleness_threshold_days: number;
   close_editor_on_enter: boolean;
+  allowed_priorities: Priority[];
   created_at: string;
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
+}
+
+export interface GroupLabel {
+  id: number;
+  name: string;
+  color: string;
 }
 
 export interface Group {
@@ -195,6 +219,9 @@ export interface Group {
   board_count: number;
   subgroup_count: number;
   created_at: string;
+  default_board_member_role: "admin" | "member" | "collaborator" | "viewer";
+  allowed_priorities: Priority[];
+  shared_labels: GroupLabel[];
 }
 
 export interface GroupMembership {
@@ -209,4 +236,8 @@ export interface GroupInviteLink {
   token: string;
   is_active: boolean;
   created_at: string;
+  name: string;
+  role: "member" | "viewer";
+  expires_at: string | null;
+  is_expired: boolean;
 }

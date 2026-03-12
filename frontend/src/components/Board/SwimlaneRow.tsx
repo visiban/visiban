@@ -14,6 +14,7 @@ interface Props {
   canEdit: boolean;
   closeEditorOnEnter: boolean;
   collapsedColumnIds: Set<number>;
+  hiddenColumnIds?: Set<number>;
   filteredCardIds: Set<number> | null;
   selectedCardIds: Set<number>;
   highlightedCardId?: number | null;
@@ -24,9 +25,14 @@ interface Props {
   onSwimlaneDeleted: (swimlaneId: number) => void;
   onInsertAbove?: () => void;
   onInsertBelow?: () => void;
+  hideLabels?: boolean;
+  hideDueDate?: boolean;
+  hideAssignee?: boolean;
+  hidePriority?: boolean;
+  userTimezone?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -112,6 +118,20 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const cellCards = cards.filter((c) => c.column === col.id);
           const cellCount = cellCards.length;
 
+          // Hidden by view prefs — show a narrow placeholder to preserve grid alignment
+          if (hiddenColumnIds?.has(col.id)) {
+            return (
+              <div
+                key={col.id}
+                className="w-10 shrink-0 border-r border-slate-700 flex items-center justify-center py-1"
+              >
+                {cellCount > 0 && (
+                  <span className="text-xs text-slate-600 font-medium">{cellCount}</span>
+                )}
+              </div>
+            );
+          }
+
           if (collapsedColumnIds.has(col.id)) {
             // Collapsed column: show per-swimlane card count
             return (
@@ -155,6 +175,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               onToggleCardSelection={onToggleCardSelection}
               onCardClick={onCardClick}
               onCardAdded={onCardAdded}
+              hideLabels={hideLabels}
+              hideDueDate={hideDueDate}
+              hideAssignee={hideAssignee}
+              hidePriority={hidePriority}
+              userTimezone={userTimezone}
             />
           );
         })}

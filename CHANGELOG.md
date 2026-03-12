@@ -8,26 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- Collapsed sidebar now shows a folder icon for groups and a home icon for the Personal section instead of single-letter initials; full names remain accessible via hover tooltip
-- Board settings controls (column edit, swimlane edit, Settings button) are now rendered but visually disabled (`opacity-50`, `cursor-not-allowed`) for non-admins instead of being hidden; hovering shows "You need admin access to change board settings"
-- Board Settings Invite typeahead suggestions now appear correctly; the dropdown was previously clipped by the modal's `overflow-y-auto` scroll container — fixed by rendering it with `position: fixed` outside the overflow boundary
-- Assignee and due date filters now use the same custom dropdown style as priority and label: consistent button appearance, blue active state when a filter is selected, and a styled dropdown panel instead of native `<select>` elements
-- Accepting a group invite via `/join/:token` now redirects to `/groups/:id` (the joined group's page) and shows a "You've joined [Group Name]" confirmation banner; unauthenticated users are redirected to login with the token preserved and the join completes automatically after authentication (#104)
+- New card inline editor now submits on Enter (default on); Shift+Enter always inserts a newline; configurable per board via Board Settings → General → “Close editor on Enter” toggle; setting stored as `close_editor_on_enter` on the `Board` model (default `True`)
+- Per-trigger notification preferences in Settings → Notifications: toggle on/off card-assigned, @mention, due-date warning, card-moved, and comment-added events; preferences saved immediately on toggle and persisted per user (#95)
+- **User timezone setting** (#96): users can select their timezone in Settings → Profile; defaults to browser-detected timezone on first save; due date labels (“Today”, “Overdue”) and the due date filter evaluate against the stored timezone instead of the system locale
+- **Group-level board defaults** (#102): group admins can configure a default member role (admin/member/collaborator/viewer), allowed priorities (low/medium/high/urgent), and a shared label library per group; new boards created in the group inherit these defaults — labels are copied to the board on creation, and allowed priorities are applied if a non-default subset is configured; settings are managed in the group Settings tab under a new “Board defaults” section
+- **Board Display preferences** (all roles): a new Display tab in Board Settings lets every user personalise their own view — hide individual columns, hide individual swimlanes, and toggle card-level fields (labels, due date, assignee, priority badge); preferences are stored in `localStorage` keyed by `board:{id}:view-prefs` with no backend required; changes apply immediately without a page reload and never affect the underlying data or other users' views (#111)
+- JUnit XML test reports published as CI artifacts for both `backend-test` and `frontend-test` jobs; the Tests tab on every MR pipeline now shows per-test results, pass/fail counts, and timing
+- Frontend test coverage raised from 72% to 85%+: new test suites for `SettingsPage`, `ThemeContext`, `ErrorBoundary`, and `BoardSettingsModal`; expanded suites for `App`, `CardItem`, `Avatar`, `BulkActionToolbar`, `GroupTree`, and the boards API client
+- `GroupDetail` subgroup discoverability improvements: subgroups now appear in their own clearly labeled section with a dedicated “Create subgroup” button in the section header; an empty state message explains the purpose of subgroups (“Subgroups let you organize boards and members into nested workspaces.”) for both admins and non-admins; boards and subgroups are visually distinguished with different card styles (indigo tint for subgroups, gray for boards) and icons (#101)
 
 ### Added
 
-<<<<<<< HEAD
-- New card inline editor now submits on Enter (default on); Shift+Enter always inserts a newline; configurable per board via Board Settings → General → "Close editor on Enter" toggle; setting stored as `close_editor_on_enter` on the `Board` model (default `True`)
-=======
-- Per-trigger notification preferences in Settings → Notifications: toggle on/off card-assigned, @mention, due-date warning, card-moved, and comment-added events; preferences saved immediately on toggle and persisted per user (#95)
->>>>>>> 41cbcff (feat: per-trigger notification preferences in user settings (#95))
-- JUnit XML test reports published as CI artifacts for both `backend-test` and `frontend-test` jobs; the Tests tab on every MR pipeline now shows per-test results, pass/fail counts, and timing
-- Frontend test coverage raised from 72% to 85%+: new test suites for `SettingsPage`, `ThemeContext`, `ErrorBoundary`, and `BoardSettingsModal`; expanded suites for `App`, `CardItem`, `Avatar`, `BulkActionToolbar`, `GroupTree`, and the boards API client
-- `GroupDetail` subgroup discoverability improvements: subgroups now appear in their own clearly labeled section with a dedicated "Create subgroup" button in the section header; an empty state message explains the purpose of subgroups ("Subgroups let you organize boards and members into nested workspaces.") for both admins and non-admins; boards and subgroups are visually distinguished with different card styles (indigo tint for subgroups, gray for boards) and icons (#101)
-
-- **User timezone setting** (#96): users can select their timezone in Settings → Profile; defaults to browser-detected timezone on first save; due date labels (“Today”, “Overdue”) and the due date filter evaluate against the stored timezone instead of the system locale
 - **Theme switcher** in Settings → Appearance: choose System (follows OS preference), Dark, or Light; preference is persisted in `localStorage` and applied immediately without a page reload; a FOUC-prevention inline script in `index.html` applies the saved class before first paint
 - `GroupMembership` now supports a `viewer` role; group viewers get read-only access to all boards in the group — mapped directly to the existing `BoardMembership` viewer access model
 - Swimlanes can be reordered by dragging their label (⠿ handle, admin only); each swimlane sidebar shows `+` insert-above and insert-below buttons on hover for positional insertion without rearranging existing rows
@@ -40,8 +33,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Collapsed sidebar now shows a folder icon for groups and a home icon for the Personal section instead of single-letter initials; full names remain accessible via hover tooltip
+- Board settings controls (column edit, swimlane edit, Settings button) are now rendered but visually disabled (`opacity-50`, `cursor-not-allowed`) for non-admins instead of being hidden; hovering shows “You need admin access to change board settings”
 - Board Settings Invite typeahead suggestions now appear correctly; the dropdown was previously clipped by the modal's `overflow-y-auto` scroll container — fixed by rendering it with `position: fixed` outside the overflow boundary
-- Social-only accounts (OAuth/GitLab/GitHub/Google) can now set a password from the Security settings tab without supplying a current password — previously the request always failed with "Current password is incorrect" because Django sets an unusable password for social-only accounts
+- Assignee and due date filters now use the same custom dropdown style as priority and label: consistent button appearance, blue active state when a filter is selected, and a styled dropdown panel instead of native `<select>` elements
+- Accepting a group invite via `/join/:token` now redirects to `/groups/:id` (the joined group's page) and shows a “You've joined [Group Name]” confirmation banner; unauthenticated users are redirected to login with the token preserved and the join completes automatically after authentication (#104)
+- Social-only accounts (OAuth/GitLab/GitHub/Google) can now set a password from the Security settings tab without supplying a current password — previously the request always failed with “Current password is incorrect” because Django sets an unusable password for social-only accounts
 - Security tab now adapts its UI for social accounts: the "Current password" field is hidden and the button label reflects first-time password creation
 - Password minimum length validation in the Security tab frontend aligned to 12 characters, matching the backend requirement
 - Column headers now use `min-w-[200px]` (matching board cells), fixing horizontal misalignment between headers and card columns

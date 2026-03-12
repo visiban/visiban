@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Group, GroupMembership, GroupInviteLink
-from .serializers import GroupSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
+from .models import Group, GroupLabel, GroupMembership, GroupInviteLink
+from .serializers import GroupSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
 
 
 def _require_group_admin(user, group):
@@ -147,6 +147,20 @@ class GroupViewSet(viewsets.ModelViewSet):
         ])
         Swimlane.objects.create(board=board, name="General", position=0, color="#6B7280")
 
+        # Apply group defaults: copy shared labels and allowed priorities
+        from boards.models import Label as BoardLabel
+        group_labels = group.labels.all()
+        if group_labels.exists():
+            BoardLabel.objects.bulk_create([
+                BoardLabel(board=board, name=gl.name, color=gl.color)
+                for gl in group_labels
+            ], ignore_conflicts=True)
+
+        allowed = group.get_allowed_priorities()
+        if allowed != ["low", "medium", "high", "urgent"]:
+            board.allowed_priorities = allowed
+            board.save(update_fields=["allowed_priorities"])
+
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
@@ -201,24 +215,90 @@ class GroupViewSet(viewsets.ModelViewSet):
         return Response(GroupSerializer(group, context={"request": request}).data)
 
     # ------------------------------------------------------------------
-    # Invite link
+    # Invite links
     # ------------------------------------------------------------------
 
-    @action(detail=True, methods=["post", "delete"], url_path="invite-link")
-    def invite_link(self, request, pk=None):
+    @action(detail=True, methods=["get", "post"], url_path="invite-links")
+    def invite_links(self, request, pk=None):
         group = self.get_object()
         _require_group_admin(request.user, group)
 
-        if request.method == "POST":
-            link, _ = GroupInviteLink.objects.get_or_create(
-                group=group, is_active=True,
-                defaults={"created_by": request.user},
-            )
-            return Response(GroupInviteLinkSerializer(link).data, status=status.HTTP_200_OK)
+        if request.method == "GET":
+            links = GroupInviteLink.objects.filter(group=group, is_active=True).order_by("created_at")
+            return Response(GroupInviteLinkSerializer(links, many=True).data)
 
-        # DELETE — deactivate all active links
-        GroupInviteLink.objects.filter(group=group, is_active=True).update(is_active=False)
+        # POST — create a new invite link (max 5 active per group)
+        active_count = GroupInviteLink.objects.filter(group=group, is_active=True).count()
+        if active_count >= 5:
+            return Response(
+                {"detail": "Maximum of 5 active invite links per group."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = GroupInviteLinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        link = serializer.save(group=group, created_by=request.user, is_active=True)
+        return Response(GroupInviteLinkSerializer(link).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path=r"invite-links/(?P<link_id>[^/.]+)")
+    def revoke_invite_link(self, request, pk=None, link_id=None):
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+        link = get_object_or_404(GroupInviteLink, pk=link_id, group=group, is_active=True)
+        link.is_active = False
+        link.save(update_fields=["is_active"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ------------------------------------------------------------------
+    # Board defaults (shared labels, allowed priorities, default role)
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["get", "post"], url_path="labels")
+    def group_labels(self, request, pk=None):
+        """GET/POST group-level shared label library."""
+        group = self.get_object()
+        _require_group_member(request.user, group)
+
+        if request.method == "GET":
+            return Response(GroupLabelSerializer(group.labels.all(), many=True).data)
+
+        # POST — create a label (admin only)
+        _require_group_admin(request.user, group)
+        serializer = GroupLabelSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        label = serializer.save(group=group)
+        return Response(GroupLabelSerializer(label).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch", "delete"], url_path=r"labels/(?P<label_id>[^/.]+)")
+    def update_group_label(self, request, pk=None, label_id=None):
+        """PATCH or DELETE a group shared label."""
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+        label = get_object_or_404(GroupLabel, pk=label_id, group=group)
+
+        if request.method == "DELETE":
+            label.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        # PATCH — update name/color
+        serializer = GroupLabelSerializer(label, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(GroupLabelSerializer(label).data)
+
+    @action(detail=True, methods=["patch"], url_path="board-defaults")
+    def board_defaults(self, request, pk=None):
+        """PATCH group board defaults: default_board_member_role, allowed_priorities."""
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+
+        allowed_fields = {"default_board_member_role", "allowed_priorities"}
+        data = {k: v for k, v in request.data.items() if k in allowed_fields}
+
+        serializer = GroupSerializer(group, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(GroupSerializer(group).data)
 
 
 class JoinGroupView(APIView):
@@ -234,17 +314,22 @@ class JoinGroupView(APIView):
 
     def get(self, request, token):
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
+        if link.is_expired:
+            return Response({"detail": "This invite link has expired."}, status=status.HTTP_410_GONE)
         return Response({
             "group_id": link.group_id,
             "group_name": link.group.name,
+            "role": link.role,
         })
 
     def post(self, request, token):
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
+        if link.is_expired:
+            return Response({"detail": "This invite link has expired."}, status=status.HTTP_410_GONE)
         membership, created = GroupMembership.objects.get_or_create(
             group=link.group,
             user=request.user,
-            defaults={"role": GroupMembership.Role.MEMBER},
+            defaults={"role": link.role},
         )
         group_data = GroupSerializer(link.group).data
         return Response(group_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

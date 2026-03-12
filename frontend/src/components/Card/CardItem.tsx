@@ -3,18 +3,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
-
-function formatDueDate(iso: string): { label: string; overdue: boolean } {
-  const d = new Date(iso);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
-  if (diff < 0)  return { label: `${Math.abs(diff)}d late`, overdue: true };
-  if (diff === 0) return { label: "Today", overdue: false };
-  if (diff === 1) return { label: "Tomorrow", overdue: false };
-  if (diff < 7)  return { label: `${diff}d`, overdue: false };
-  return { label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), overdue: false };
-}
+import { formatDueDate } from "../../utils/date";
 
 
 interface Props {
@@ -24,9 +13,14 @@ interface Props {
   selected?: boolean;
   highlighted?: boolean;
   onSelect?: () => void;
+  hideLabels?: boolean;
+  hideDueDate?: boolean;
+  hideAssignee?: boolean;
+  hidePriority?: boolean;
+  userTimezone?: string;
 }
 
-export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect }: Props) {
+export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone = "" }: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
   const [hovered, setHovered] = useState(false);
 
@@ -34,7 +28,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
     ? Date.now() - new Date(card.last_moved_at).getTime() < 86_400_000
     : false;
 
-  const dueInfo = card.due_date ? formatDueDate(card.due_date) : null;
+  const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone) : null;
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
 
   const hasMetadata =
@@ -102,7 +96,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
         {hasMetadata && (
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
             {/* Label pills */}
-            {card.labels.slice(0, 3).map((label) => {
+            {!hideLabels && card.labels.slice(0, 3).map((label) => {
               const display = label.name.length > 4 ? label.name.slice(0, 2).toUpperCase() : label.name;
               return (
                 <span
@@ -115,7 +109,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
                 </span>
               );
             })}
-            {card.labels.length > 3 && (
+            {!hideLabels && card.labels.length > 3 && (
               <span className="text-[9px] text-gray-400 shrink-0">+{card.labels.length - 3}</span>
             )}
 
@@ -139,7 +133,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
             )}
 
             {/* Due date */}
-            {dueInfo && (
+            {!hideDueDate && dueInfo && (
               <span
                 className={`text-[10px] font-medium shrink-0 ${dueInfo.overdue ? "text-red-500" : "text-gray-400"}`}
                 title={`Due ${card.due_date}`}
@@ -166,15 +160,17 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
             )}
 
             {/* Priority label — visible on hover */}
-            <span
-              className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0 capitalize"
-              style={{ color: priorityColor }}
-            >
-              {card.priority}
-            </span>
+            {!hidePriority && (
+              <span
+                className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0 capitalize"
+                style={{ color: priorityColor }}
+              >
+                {card.priority}
+              </span>
+            )}
 
             {/* Assignee avatar */}
-            {card.assignee && (
+            {!hideAssignee && card.assignee && (
               <Avatar user={card.assignee} size="xs" className="ml-auto" />
             )}
           </div>
