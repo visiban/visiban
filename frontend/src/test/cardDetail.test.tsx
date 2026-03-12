@@ -66,6 +66,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     cards: [], labels: [{ id: 100, name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     created_at: '', updated_at: '', current_user_role: 'admin',
+    staleness_threshold_days: 7, close_editor_on_enter: false,
     ...overrides,
   }
 }

@@ -12,6 +12,7 @@ interface Props {
   boardId: number;
   isAdmin: boolean;
   canEdit: boolean;
+  closeEditorOnEnter: boolean;
   collapsedColumnIds: Set<number>;
   filteredCardIds: Set<number> | null;
   selectedCardIds: Set<number>;
@@ -25,7 +26,7 @@ interface Props {
   onInsertBelow?: () => void;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, collapsedColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted , onInsertAbove, onInsertBelow }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -148,6 +149,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               cards={cellCards.sort((a, b) => a.position - b.position)}
               boardId={boardId}
               canEdit={canEdit}
+              closeEditorOnEnter={closeEditorOnEnter}
               filteredCardIds={filteredCardIds}
               selectedCardIds={selectedCardIds}
               highlightedCardId={highlightedCardId}

@@ -172,6 +172,8 @@ export interface BoardFull {
   cards: Card[];
   labels: Label[];
   members: BoardMembership[];
+  staleness_threshold_days: number;
+  close_editor_on_enter: boolean;
   created_at: string;
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;

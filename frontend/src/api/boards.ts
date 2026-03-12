@@ -24,6 +24,9 @@ export const getBoardFull = (id: number) =>
 export const updateBoard = (id: number, data: Partial<Board>) =>
   client.put<Board>(`/api/boards/${id}/`, data).then((r) => r.data);
 
+export const patchBoard = (id: number, data: Record<string, unknown>) =>
+  client.patch<Board>(`/api/boards/${id}/`, data).then((r) => r.data);
+
 export const deleteBoard = (id: number) =>
   client.delete(`/api/boards/${id}/`);
 

@@ -54,6 +54,7 @@ const defaultProps = () => ({
   boardId: 1,
   isAdmin: true,
   canEdit: true,
+  closeEditorOnEnter: false,
   collapsedColumnIds: new Set<number>(),
   filteredCardIds: null as Set<number> | null,
   selectedCardIds: new Set<number>(),

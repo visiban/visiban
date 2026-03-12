@@ -67,6 +67,8 @@ const fakeBoard: BoardFull = {
   created_at: '',
   updated_at: '',
   current_user_role: 'admin',
+  staleness_threshold_days: 7,
+  close_editor_on_enter: false,
 }
 
 // ─── Modal basics ──────────────────────────────────────────────────────────

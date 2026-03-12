@@ -44,6 +44,7 @@ const defaultProps = () => ({
   cards: [] as Card[],
   boardId: 1,
   canEdit: true,
+  closeEditorOnEnter: false,
   filteredCardIds: null as Set<number> | null,
   selectedCardIds: new Set<number>(),
   onToggleCardSelection: vi.fn(),

@@ -44,6 +44,7 @@ interface Props {
   onSwimlaneDeleted: (swimlaneId: number) => void;
   onSwimlanesReordered: (orderedIds: number[]) => void;
   onLabelAdded: (label: Label) => void;
+  onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
 }
 
 function ColumnTrashZone() {
@@ -95,7 +96,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -517,6 +518,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               boardId={board.id}
               isAdmin={isAdmin}
               canEdit={canEdit}
+              closeEditorOnEnter={board.close_editor_on_enter}
               collapsedColumnIds={collapsedColumns}
               filteredCardIds={filteredCardIds}
               selectedCardIds={selectedCardIds}
@@ -611,6 +613,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           board={board}
           isAdmin={isAdmin}
           onClose={() => setShowSettings(false)}
+          onBoardSettingsChanged={onBoardSettingsChanged}
         />
       )}
 

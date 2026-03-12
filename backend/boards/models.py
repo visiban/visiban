@@ -15,6 +15,7 @@ class Board(models.Model):
         "groups.Group", null=True, blank=True, on_delete=models.SET_NULL, related_name="boards"
     )
     staleness_threshold_days = models.PositiveIntegerField(default=7)
+    close_editor_on_enter = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

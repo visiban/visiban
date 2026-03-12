@@ -49,6 +49,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     current_user_role: 'admin',
+    staleness_threshold_days: 7,
+    close_editor_on_enter: false,
     ...overrides,
   }
 }
