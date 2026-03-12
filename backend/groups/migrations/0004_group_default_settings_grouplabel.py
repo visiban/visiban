@@ -5,7 +5,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("groups", "0003_groupinvitelink_name_role_expires_at"),
+        ("groups", "0002_groupmembership_viewer_role"),
     ]
 
     operations = [
