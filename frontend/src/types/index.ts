@@ -192,7 +192,7 @@ export interface Group {
 export interface GroupMembership {
   id: number;
   user: User;
-  role: "admin" | "member";
+  role: "admin" | "member" | "viewer";
   joined_at: string;
 }
 

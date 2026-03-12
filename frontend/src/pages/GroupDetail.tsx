@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
@@ -24,7 +24,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const joinedGroupName: string | null = (location.state as { joinedGroup?: string } | null)?.joinedGroup ?? null;
+  const [joinToast, setJoinToast] = useState(joinedGroupName);
 
   const [group, setGroup] = useState<Group | null>(null);
   const [subgroups, setSubgroups] = useState<Group[]>([]);
@@ -85,7 +89,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     setMembers((prev) => prev.filter((m) => m.user.id !== userId));
   };
 
-  const handleRoleChange = async (userId: number, role: "admin" | "member") => {
+  const handleRoleChange = async (userId: number, role: "admin" | "member" | "viewer") => {
     const updated = await updateGroupMemberRole(groupId, userId, role);
     setMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, role: updated.role } : m));
   };
@@ -125,6 +129,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
+
+      {joinToast && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-green-900/60 border-b border-green-700/50 text-green-300 text-sm">
+          <span>You've joined <strong className="text-green-200">{joinToast}</strong>. Welcome!</span>
+          <button onClick={() => setJoinToast(null)} className="text-green-500 hover:text-green-300 transition text-lg leading-none shrink-0">×</button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
         <button onClick={() => navigate(group.parent ? `/groups/${group.parent}` : "/")} className="text-gray-400 hover:text-white text-sm transition">
@@ -317,9 +328,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                       <div className="flex items-center gap-2">
                         <select
                           value={m.role}
-                          onChange={(e) => handleRoleChange(m.user.id, e.target.value as "admin" | "member")}
+                          onChange={(e) => handleRoleChange(m.user.id, e.target.value as "admin" | "member" | "viewer")}
                           className="bg-gray-700 text-gray-300 text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none"
                         >
+                          <option value="viewer">Viewer</option>
                           <option value="member">Member</option>
                           <option value="admin">Admin</option>
                         </select>
