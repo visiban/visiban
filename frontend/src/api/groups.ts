@@ -34,24 +34,12 @@ export const getGroupBoards = (id: number) =>
 export const createGroupBoard = (id: number, data: { name: string; description?: string; template?: string }) =>
   client.post<Board>(`/api/groups/${id}/boards/`, data).then((r) => r.data);
 
-export const listInviteLinks = (id: number) =>
-  client.get<GroupInviteLink[]>(`/api/groups/${id}/invite-links/`).then((r) => r.data);
-
-export const createInviteLink = (
-  id: number,
-  data: { name?: string; role?: "member" | "viewer"; expires_at?: string | null },
-) =>
-  client.post<GroupInviteLink>(`/api/groups/${id}/invite-links/`, data).then((r) => r.data);
-
-export const revokeInviteLink = (groupId: number, linkId: number) =>
-  client.delete(`/api/groups/${groupId}/invite-links/${linkId}/`);
-
 export const listInviteLinks = (groupId: number) =>
   client.get<GroupInviteLink[]>(`/api/groups/${groupId}/invite-links/`).then((r) => r.data);
 
 export const createInviteLink = (
   groupId: number,
-  data: { name?: string; role?: "admin" | "member" | "viewer"; expiry_days?: number | null },
+  data: { name?: string; role?: "member" | "viewer"; expiry_days?: number | null },
 ) =>
   client
     .post<GroupInviteLink>(`/api/groups/${groupId}/invite-links/`, data)
