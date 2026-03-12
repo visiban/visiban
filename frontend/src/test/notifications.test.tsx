@@ -5,6 +5,12 @@ import { MemoryRouter } from 'react-router-dom'
 import type { User, Notification } from '../types'
 import Navbar from '../components/Layout/Navbar'
 
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
+
 // ---- Mocks ----
 
 const mockNotifications: Notification[] = [
@@ -75,6 +81,48 @@ describe('Notification dropdown', () => {
     mockedListNotifications.mockResolvedValue([])
     mockedMarkAllRead.mockResolvedValue(undefined)
     mockedMarkRead.mockResolvedValue(undefined)
+  })
+
+  it('clicking a card notification navigates to /boards/:id?card=:card_id', async () => {
+    const user = userEvent.setup()
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([mockNotifications[0]])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle('Notifications'))
+    await waitFor(() => screen.getByText('Alice moved card "Setup CI" to Done'))
+
+    await user.click(screen.getByText('Alice moved card "Setup CI" to Done'))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/boards/1?card=10')
+  })
+
+  it('clicking a board-only notification (no card_id) navigates to /boards/:id', async () => {
+    const user = userEvent.setup()
+    const boardOnlyNotification: Notification = {
+      id: 3,
+      verb: 'You were added to Sprint 1',
+      card_id: null,
+      card_title: null,
+      board_id: 1,
+      board_name: 'Sprint 1',
+      read: false,
+      created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
+    }
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([boardOnlyNotification])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle('Notifications'))
+    await waitFor(() => screen.getByText('You were added to Sprint 1'))
+
+    await user.click(screen.getByText('You were added to Sprint 1'))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/boards/1')
   })
 
   it('shows unread count badge when there are unread notifications', async () => {
