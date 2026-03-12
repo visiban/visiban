@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Board Settings Invite typeahead suggestions now appear correctly; the dropdown was previously clipped by the modal's `overflow-y-auto` scroll container — fixed by rendering it with `position: fixed` outside the overflow boundary
 - Social-only accounts (OAuth/GitLab/GitHub/Google) can now set a password from the Security settings tab without supplying a current password — previously the request always failed with "Current password is incorrect" because Django sets an unusable password for social-only accounts
 - Security tab now adapts its UI for social accounts: the "Current password" field is hidden and the button label reflects first-time password creation
 - Password minimum length validation in the Security tab frontend aligned to 12 characters, matching the backend requirement

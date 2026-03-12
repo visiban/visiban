@@ -66,6 +66,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
+  const [dropdownAnchor, setDropdownAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,9 +85,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         const results = await searchUsers(inviteQuery.trim());
         const memberIds = new Set(members.map((m) => m.user.id));
         const stagedIds = new Set(staged.map((s) => s.user.id));
-        setSuggestions(results.filter((u) => !memberIds.has(u.id) && !stagedIds.has(u.id)));
+        const filtered = results.filter((u) => !memberIds.has(u.id) && !stagedIds.has(u.id));
+        if (filtered.length > 0 && searchInputRef.current) {
+          const rect = searchInputRef.current.getBoundingClientRect();
+          setDropdownAnchor({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+        } else {
+          setDropdownAnchor(null);
+        }
+        setSuggestions(filtered);
       } catch {
         setSuggestions([]);
+        setDropdownAnchor(null);
       }
     }, 300);
   }, [inviteQuery, members, staged]);
@@ -118,6 +128,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const addToStaged = (user: User) => {
     setStaged((prev) => [...prev, { user, role: "member" }]);
     setSuggestions([]);
+    setDropdownAnchor(null);
     setInviteQuery("");
     searchInputRef.current?.focus();
   };
@@ -287,12 +298,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   autoFocus
                   value={inviteQuery}
                   onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
-                  onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setInviteQuery(""); } }}
+                  onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setDropdownAnchor(null); setInviteQuery(""); } }}
                   placeholder="Search by name or email…"
                   className="w-full bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 placeholder-slate-500"
                 />
-                {suggestions.length > 0 && (
-                  <div className="absolute top-full mt-1 left-0 right-0 bg-slate-800 border border-slate-600 rounded-xl shadow-xl z-10 overflow-hidden">
+                {suggestions.length > 0 && dropdownAnchor && (
+                  <div
+                    style={{ position: "fixed", top: dropdownAnchor.top, left: dropdownAnchor.left, width: dropdownAnchor.width }}
+                    className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl z-[60] overflow-hidden"
+                  >
                     {suggestions.map((u) => (
                       <button
                         key={u.id}
