@@ -27,11 +27,13 @@ const personalBoard: Board = {
 }
 
 const mockUseLocation = vi.fn(() => ({ pathname: '/' }))
+const mockNavigate = vi.fn()
 
 vi.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }: { to: string; children: React.ReactNode; [k: string]: unknown }) =>
     <a href={to} {...props}>{children}</a>,
   useLocation: () => mockUseLocation(),
+  useNavigate: () => mockNavigate,
 }))
 
 vi.mock('../api/groups', () => ({
@@ -49,6 +51,7 @@ import { listBoards } from '../api/boards'
 describe('AppSidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockNavigate.mockReset()
     localStorage.clear()
     vi.mocked(listGroups).mockResolvedValue([fakeGroup])
     vi.mocked(listBoards).mockResolvedValue([fakeBoard, personalBoard])
@@ -76,8 +79,24 @@ describe('AppSidebar', () => {
   it('expanding a group reveals its boards', async () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getByText('Alpha'))
-    await userEvent.setup().click(screen.getByText('Alpha'))
+    await userEvent.setup().click(screen.getByLabelText('Expand group'))
     expect(screen.getByText('Sprint Board')).toBeInTheDocument()
+  })
+
+  it('clicking group name collapses sidebar and navigates to group', async () => {
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Alpha'))
+    await userEvent.setup().click(screen.getByText('Alpha'))
+    expect(mockNavigate).toHaveBeenCalledWith('/groups/10')
+    expect(localStorage.getItem('sidebar-collapsed')).toBe('true')
+  })
+
+  it('clicking a board link collapses the sidebar', async () => {
+    localStorage.setItem('sidebar-groups-expanded', JSON.stringify([10]))
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Sprint Board'))
+    await userEvent.setup().click(screen.getByText('Sprint Board'))
+    expect(localStorage.getItem('sidebar-collapsed')).toBe('true')
   })
 
   it('collapses sidebar when toggle is clicked', async () => {
@@ -109,7 +128,7 @@ describe('AppSidebar', () => {
   it('persists group expanded state in localStorage', async () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getByText('Alpha'))
-    await userEvent.setup().click(screen.getByText('Alpha'))
+    await userEvent.setup().click(screen.getByLabelText('Expand group'))
     const stored = JSON.parse(localStorage.getItem('sidebar-groups-expanded') || '[]')
     expect(stored).toContain(10)
   })

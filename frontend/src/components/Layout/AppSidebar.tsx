@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User, Group, Board } from "../../types";
 import { listGroups } from "../../api/groups";
 import { listBoards } from "../../api/boards";
@@ -10,6 +10,7 @@ interface Props {
 
 export default function AppSidebar({ user: _user }: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [collapsed, setCollapsed] = useState(() =>
     localStorage.getItem("sidebar-collapsed") === "true"
@@ -42,6 +43,13 @@ export default function AppSidebar({ user: _user }: Props) {
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", String(collapsed));
   }, [collapsed]);
+
+  const collapse = useCallback(() => setCollapsed(true), []);
+
+  const navigateTo = useCallback((path: string) => {
+    setCollapsed(true);
+    navigate(path);
+  }, [navigate]);
 
   const toggleGroup = (id: number) => {
     setExpandedGroups((prev) => {
@@ -120,26 +128,32 @@ export default function AppSidebar({ user: _user }: Props) {
               return (
                 <div key={group.id}>
                   {collapsed ? (
-                    <div
-                      className="flex items-center justify-center h-8 mx-1 my-0.5 rounded cursor-pointer text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                    <Link
+                      to={`/groups/${group.id}`}
+                      className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
                       title={group.name}
-                      onClick={() => toggleGroup(group.id)}
                     >
                       <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                       </svg>
-                    </div>
+                    </Link>
                   ) : (
                     <>
-                      <button
-                        onClick={() => toggleGroup(group.id)}
-                        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-slate-800 transition text-sm"
-                      >
-                        <span className="text-slate-500 text-xs w-3 shrink-0">
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => toggleGroup(group.id)}
+                          className="shrink-0 flex items-center justify-center w-6 h-8 pl-3 text-slate-500 hover:text-white transition text-xs"
+                          aria-label={isExpanded ? "Collapse group" : "Expand group"}
+                        >
                           {isExpanded ? "▾" : "▸"}
-                        </span>
-                        <span className="truncate font-medium">{group.name}</span>
-                      </button>
+                        </button>
+                        <button
+                          onClick={() => navigateTo(`/groups/${group.id}`)}
+                          className="flex-1 flex items-center gap-1.5 pr-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-slate-800 transition text-sm min-w-0 rounded"
+                        >
+                          <span className="truncate font-medium">{group.name}</span>
+                        </button>
+                      </div>
                       {isExpanded && (
                         <div>
                           {groupBoards.map((board) => (
@@ -148,6 +162,7 @@ export default function AppSidebar({ user: _user }: Props) {
                               board={board}
                               active={board.id === activeBoardId}
                               indent={2}
+                              onNavigate={collapse}
                             />
                           ))}
                           {groupBoards.length === 0 && (
@@ -186,6 +201,7 @@ export default function AppSidebar({ user: _user }: Props) {
                         board={board}
                         active={board.id === activeBoardId}
                         indent={1}
+                        onNavigate={collapse}
                       />
                     ))}
                   </>
@@ -223,15 +239,18 @@ function BoardItem({
   board,
   active,
   indent,
+  onNavigate,
 }: {
   board: Board;
   active: boolean;
   indent: 1 | 2;
+  onNavigate: () => void;
 }) {
   const paddingLeft = indent === 2 ? "pl-9" : "pl-5";
   return (
     <Link
       to={`/boards/${board.id}`}
+      onClick={onNavigate}
       className={`flex items-center gap-1.5 ${paddingLeft} pr-3 py-1.5 text-sm transition truncate ${
         active
           ? "bg-blue-600/20 text-blue-400 font-medium"
