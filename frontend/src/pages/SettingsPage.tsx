@@ -16,6 +16,7 @@ interface Props {
 }
 
 function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     display_name: user.display_name ?? "",
     first_name: user.first_name ?? "",
@@ -43,6 +44,7 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
       });
       onUserUpdated(updated);
       setSaved(true);
+      setTimeout(() => navigate("/"), 1500);
     } catch {
       setError("Failed to save changes. Please try again.");
     } finally {

@@ -163,6 +163,22 @@ describe('ProfileTab', () => {
     await waitFor(() => expect(screen.getByText('Changes saved.')).toBeInTheDocument())
   })
 
+  it('navigates to "/" after the saved flash', async () => {
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(screen.getByText('Changes saved.')).toBeInTheDocument())
+    // Find the navigate timeout (1500ms delay) and invoke it directly
+    const navigateCall = timeoutSpy.mock.calls.find(([, delay]) => delay === 1500)
+    expect(navigateCall).toBeDefined()
+    expect(mockNavigate).not.toHaveBeenCalled()
+    ;(navigateCall![0] as () => void)()
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+    timeoutSpy.mockRestore()
+  })
+
   it('shows error message on save failure', async () => {
     mockUpdateCurrentUser.mockRejectedValueOnce(new Error('Server error'))
     const user = userEvent.setup()
@@ -384,6 +400,7 @@ describe('NotificationsTab', () => {
     renderSettings()
     await user.click(screen.getByText('Notifications'))
     const switches = screen.getAllByRole('switch')
+    // notif_due_soon is the 3rd switch (index 2), default false → clicking turns it on
     await user.click(switches[2])
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ notif_due_soon: true })
   })
