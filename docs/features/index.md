@@ -106,7 +106,7 @@ Acme Corp  ← add user here
 
 Four board roles let you grant exactly the right level of access: **admin**, **member**, **collaborator** (comment-only), and **viewer** (read-only).
 
-→ [Groups](groups.md) · [Roles & Permissions](../rbac/roles.md)
+→ [Groups](groups.md) · [Roles & Permissions](rbac/roles.md)
 
 ---
 

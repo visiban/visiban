@@ -21,13 +21,13 @@ Each group has members with one of two roles:
 | `admin` | Manage members, create subgroups and boards, delete the group |
 | `member` | View boards and subgroups, create personal boards |
 
-Membership is **inherited** — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants. You don't need to add users to each subgroup individually. See [Group Inheritance](../rbac/inheritance.md) for full details.
+Membership is **inherited** — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants. You don't need to add users to each subgroup individually. See [Group Inheritance](rbac/inheritance.md) for full details.
 
 ## Board roles vs group roles
 
 Group roles (`admin` / `member`) control access to the group itself. Once inside a board, finer-grained board roles apply: **admin**, **member**, **collaborator**, and **viewer**.
 
-By default a group member gets the `member` board role. A board admin can override this per-user from the **Members** button in the board toolbar. See [Roles & Permissions](../rbac/roles.md).
+By default a group member gets the `member` board role. A board admin can override this per-user from the **Members** button in the board toolbar. See [Roles & Permissions](rbac/roles.md).
 
 ## Boards inside groups
 

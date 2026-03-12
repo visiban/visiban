@@ -141,7 +141,7 @@ Click **Import** on the dashboard to create a new board from a previously export
 
 ## Board member management
 
-Admins can manage board members directly from the board toolbar via the **Members** button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. Press **Escape** or click **×** to close the dialog. See [Roles & Permissions](../rbac/roles.md) for what each role can do.
+Admins can manage board members directly from the board toolbar via the **Members** button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. Press **Escape** or click **×** to close the dialog. See [Roles & Permissions](rbac/roles.md) for what each role can do.
 
 ## Real-time indicator
 

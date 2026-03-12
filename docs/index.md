@@ -20,7 +20,7 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 |---|---|
 | [Installation](getting-started/installation.md) | Get up and running with Docker or locally |
 | [First Boot](getting-started/first-boot.md) | Bootstrap your first site admin |
-| [Roles & Permissions](rbac/roles.md) | Understand who can do what |
+| [Roles & Permissions](features/rbac/roles.md) | Understand who can do what |
 | [Analytics](features/analytics.md) | Summary, velocity, and bottleneck views |
 | [Notifications](features/notifications.md) | Assignment and staleness alerts |
 | [Real-time Updates](features/realtime.md) | WebSocket live sync |
