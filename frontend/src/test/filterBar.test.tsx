@@ -27,10 +27,25 @@ describe('FilterBar', () => {
     expect(screen.getByPlaceholderText('Search cards…')).toBeInTheDocument()
   })
 
-  it('renders assignee select with members', () => {
+  it('renders assignee dropdown button', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     expect(screen.getByText('Assignee')).toBeInTheDocument()
+  })
+
+  it('clicking assignee dropdown shows options', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    await userEvent.setup().click(screen.getByText('Assignee'))
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+  })
+
+  it('clicking due date dropdown shows options', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    await userEvent.setup().click(screen.getByText('Due date'))
+    expect(screen.getByText('Overdue')).toBeInTheDocument()
+    expect(screen.getByText('Today')).toBeInTheDocument()
+    expect(screen.getByText('Due this week')).toBeInTheDocument()
+    expect(screen.getByText('No due date')).toBeInTheDocument()
   })
 
   it('renders label dropdown', () => {
