@@ -30,7 +30,7 @@ export default function JoinPage({ user }: Props) {
     setJoining(true);
     try {
       await joinGroup(token);
-      navigate(`/groups/${groupId}`);
+      navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } });
     } finally {
       setJoining(false);
     }
