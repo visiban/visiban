@@ -99,9 +99,6 @@ describe('GroupTree', () => {
       </MemoryRouter>
     )
     expect(screen.queryByText('Backend')).not.toBeInTheDocument()
-    const chevron = screen.getByTitle(/Add subgroup to Engineering/)
-      .closest('[class*="group/row"]')
-      ?.querySelector('button:first-child') as HTMLElement
     // click the expand chevron (first button in the row)
     const allButtons = screen.getAllByRole('button')
     // The chevron is the first button inside the Engineering row
