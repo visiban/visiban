@@ -32,12 +32,12 @@ export default function SummaryView({ boardId, columns }: Props) {
       .catch(() => { setError("Failed to load summary."); setLoading(false); });
   }, [boardId]);
 
-  if (loading) return <div className="flex-1 flex items-center justify-center text-gray-400">Loading summary…</div>;
-  if (error) return <div className="flex-1 flex items-center justify-center text-red-500">{error}</div>;
+  if (loading) return <div className="flex-1 flex items-center justify-center bg-slate-900 text-slate-400">Loading summary…</div>;
+  if (error) return <div className="flex-1 flex items-center justify-center bg-slate-900 text-red-500">{error}</div>;
   if (!data) return null;
 
   return (
-    <div className="flex-1 overflow-auto p-4">
+    <div className="flex-1 overflow-auto p-4 bg-slate-900">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="border-b border-slate-700 text-left text-xs text-slate-500 uppercase tracking-wider">
