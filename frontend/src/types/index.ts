@@ -180,6 +180,7 @@ export interface Board {
   group: number | null;
   group_name: string | null;
   member_count: number;
+  card_count: number;
   created_at: string;
   updated_at: string;
 }
