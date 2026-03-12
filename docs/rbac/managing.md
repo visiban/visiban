@@ -24,7 +24,7 @@ PATCH /api/groups/{group_id}/members/42/
 DELETE /api/groups/{group_id}/members/42/
 ```
 
-Valid group roles: `admin`, `member`
+Valid group roles: `admin`, `member`, `viewer`
 
 ## Granting site admin
 

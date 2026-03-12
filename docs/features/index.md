@@ -110,6 +110,16 @@ Four board roles let you grant exactly the right level of access: **admin**, **m
 
 ---
 
+## Navigation
+
+The application sidebar gives you persistent access to your full group and board hierarchy from any page. It collapses to a 48 px icon rail to save space, expands back to 220 px, and remembers both states across reloads via `localStorage`. The active board is highlighted automatically based on the current route.
+
+The sidebar is visible only on desktop (1024 px and wider). On mobile, use the top navigation bar instead.
+
+→ [Navigation](navigation.md)
+
+---
+
 ## What to read next
 
 New to Visiban? We recommend this order:
