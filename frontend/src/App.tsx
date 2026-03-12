@@ -113,7 +113,7 @@ function BoardPage({ user, onLogout, onUserUpdated }: {
           ← {board?.group ? (board.group_name ?? "Group") : "Dashboard"}
         </button>
       </div>
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
         {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading board…</div>}
         {error && <div className="flex items-center justify-center h-full text-red-400">{error}</div>}
         {board && (
