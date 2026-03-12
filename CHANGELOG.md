@@ -18,7 +18,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+<<<<<<< HEAD
 - New card inline editor now submits on Enter (default on); Shift+Enter always inserts a newline; configurable per board via Board Settings → General → "Close editor on Enter" toggle; setting stored as `close_editor_on_enter` on the `Board` model (default `True`)
+=======
+- Per-trigger notification preferences in Settings → Notifications: toggle on/off card-assigned, @mention, due-date warning, card-moved, and comment-added events; preferences saved immediately on toggle and persisted per user (#95)
+>>>>>>> 41cbcff (feat: per-trigger notification preferences in user settings (#95))
 - JUnit XML test reports published as CI artifacts for both `backend-test` and `frontend-test` jobs; the Tests tab on every MR pipeline now shows per-test results, pass/fail counts, and timing
 - Frontend test coverage raised from 72% to 85%+: new test suites for `SettingsPage`, `ThemeContext`, `ErrorBoundary`, and `BoardSettingsModal`; expanded suites for `App`, `CardItem`, `Avatar`, `BulkActionToolbar`, `GroupTree`, and the boards API client
 - `GroupDetail` subgroup discoverability improvements: subgroups now appear in their own clearly labeled section with a dedicated "Create subgroup" button in the section header; an empty state message explains the purpose of subgroups ("Subgroups let you organize boards and members into nested workspaces.") for both admins and non-admins; boards and subgroups are visually distinguished with different card styles (indigo tint for subgroups, gray for boards) and icons (#101)

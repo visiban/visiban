@@ -10,6 +10,11 @@ export interface User {
   must_change_password: boolean;
   has_usable_password?: boolean;
   timezone?: string;
+  notif_card_assigned?: boolean;
+  notif_mentioned?: boolean;
+  notif_due_soon?: boolean;
+  notif_card_moved?: boolean;
+  notif_comment_added?: boolean;
 }
 
 export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {
