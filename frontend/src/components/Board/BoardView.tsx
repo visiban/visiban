@@ -14,7 +14,7 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../../types";
 import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
@@ -42,6 +42,7 @@ interface Props {
   onSwimlaneAdded: (swimlane: Swimlane) => void;
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
   onSwimlaneDeleted: (swimlaneId: number) => void;
+  onSwimlanesReordered: (orderedIds: number[]) => void;
   onLabelAdded: (label: Label) => void;
 }
 
@@ -94,7 +95,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onLabelAdded }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -125,6 +126,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
+  const [activeSwimlane, setActiveSwimlane] = useState<Swimlane | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<number | null>(null);
   const [cardNotFound, setCardNotFound] = useState(false);
@@ -149,6 +151,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // When non-null, new column is inserted at this index (0 = first)
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
   const [showAddSwimlane, setShowAddSwimlane] = useState(false);
+  // When non-null, new swimlane is inserted at this index (0 = first)
+  const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
@@ -257,6 +261,19 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
 
+  const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
+    onSwimlaneAdded(swimlane);
+    if (insertSwimlanePosition !== null) {
+      const currentIds = board.swimlanes.map((s) => s.id);
+      const newOrder = [
+        ...currentIds.slice(0, insertSwimlanePosition),
+        swimlane.id,
+        ...currentIds.slice(insertSwimlanePosition),
+      ];
+      onSwimlanesReordered(newOrder);
+    }
+  }, [board.swimlanes, insertSwimlanePosition, onSwimlaneAdded, onSwimlanesReordered]);
+
   const toggleColumn = (id: number) => setCollapsedColumns((prev) => {
     const next = new Set(prev);
     if (next.has(id)) { next.delete(id); } else { next.add(id); }
@@ -270,6 +287,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     const id = String(e.active.id);
     if (id.startsWith("col:")) {
       setActiveColumn(board.columns.find((c) => c.id === Number(id.slice(4))) ?? null);
+    } else if (id.startsWith("swim:")) {
+      setActiveSwimlane(board.swimlanes.find((s) => s.id === Number(id.slice(5))) ?? null);
     } else {
       setActiveCard(board.cards.find((c) => c.id === Number(id)) ?? null);
     }
@@ -303,6 +322,20 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       if (oldIndex === -1 || newIndex === -1) return;
       const reordered = arrayMove(board.columns, oldIndex, newIndex);
       onColumnsReordered(reordered.map((c) => c.id));
+      return;
+    }
+
+    if (activeId.startsWith("swim:")) {
+      setActiveSwimlane(null);
+      if (!over) return;
+      const overId = String(over.id);
+      if (!overId.startsWith("swim:")) return;
+      if (activeId === overId) return;
+      const oldIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === activeId);
+      const newIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const reordered = arrayMove(board.swimlanes, oldIndex, newIndex);
+      onSwimlanesReordered(reordered.map((s) => s.id));
       return;
     }
 
@@ -415,7 +448,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center sticky left-0 z-20">
               {isAdmin && (
                 <button
-                  onClick={() => setShowAddSwimlane(true)}
+                  onClick={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
                   className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
                 >
                   + Swimlane
@@ -473,7 +506,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           )}
 
           {/* Swimlane rows */}
-          {board.columns.length > 0 && board.swimlanes.map((swimlane) => (
+          {board.columns.length > 0 && (
+            <SortableContext items={board.swimlanes.map((s) => `swim:${s.id}`)} strategy={verticalListSortingStrategy}>
+              {board.swimlanes.map((swimlane, idx) => (
             <SwimlaneRow
               key={swimlane.id}
               swimlane={swimlane}
@@ -491,8 +526,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               onCardAdded={onCardAdded}
               onSwimlaneUpdated={onSwimlaneUpdated}
               onSwimlaneDeleted={onSwimlaneDeleted}
+              onInsertAbove={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
+              onInsertBelow={() => { setInsertSwimlanePosition(idx + 1); setShowAddSwimlane(true); }}
             />
-          ))}
+              ))}
+            </SortableContext>
+          )}
 
           {/* Empty state: has columns but no swimlanes */}
           {board.columns.length > 0 && board.swimlanes.length === 0 && (
@@ -519,6 +558,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
                 <span className="font-semibold text-slate-300 text-sm">{activeColumn.name}</span>
               </div>
+            </div>
+          )}
+          {activeSwimlane && (
+            <div className="w-[220px] px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90 flex items-center gap-2">
+              <span className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: activeSwimlane.color }} />
+              <span className="font-semibold text-white text-sm truncate">{activeSwimlane.name}</span>
             </div>
           )}
         </DragOverlay>
@@ -556,8 +601,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       {isAdmin && showAddSwimlane && (
         <AddSwimlaneModal
           boardId={board.id}
-          onAdded={(swimlane) => { onSwimlaneAdded(swimlane); setShowAddSwimlane(false); }}
-          onClose={() => setShowAddSwimlane(false)}
+          onAdded={(swimlane) => { handleSwimlaneAdded(swimlane); setShowAddSwimlane(false); setInsertSwimlanePosition(null); }}
+          onClose={() => { setShowAddSwimlane(false); setInsertSwimlanePosition(null); }}
         />
       )}
 
