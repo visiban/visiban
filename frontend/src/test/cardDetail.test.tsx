@@ -65,6 +65,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     swimlanes: [{ id: 20, name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }],
     cards: [], labels: [{ id: 100, name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
+    staleness_threshold_days: 7, close_editor_on_enter: false, allowed_priorities: [],
     created_at: '', updated_at: '', current_user_role: 'admin',
     staleness_threshold_days: 7, close_editor_on_enter: false,
     ...overrides,

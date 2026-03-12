@@ -4,13 +4,13 @@ import userEvent from '@testing-library/user-event'
 import InviteLinkPanel from '../components/Group/InviteLinkPanel'
 
 vi.mock('../api/groups', () => ({
-  generateInviteLink: vi.fn(),
-  deactivateInviteLink: vi.fn(),
+  createInviteLink: vi.fn(),
+  revokeInviteLink: vi.fn(),
 }))
 
-import { generateInviteLink } from '../api/groups'
+import { createInviteLink } from '../api/groups'
 
-const mockGenerateInviteLink = generateInviteLink as ReturnType<typeof vi.fn>
+const mockCreateInviteLink = createInviteLink as ReturnType<typeof vi.fn>
 
 describe('InviteLinkPanel', () => {
   beforeEach(() => { vi.clearAllMocks() })
@@ -22,7 +22,7 @@ describe('InviteLinkPanel', () => {
   })
 
   it('shows generated link', async () => {
-    mockGenerateInviteLink.mockResolvedValue({ id: 1, token: 'abc123', is_active: true, created_at: '' })
+    mockCreateInviteLink.mockResolvedValue({ id: 1, token: 'abc123', is_active: true, created_at: '', name: '', role: 'member', expires_at: null, is_expired: false })
     render(<InviteLinkPanel groupId={1} />)
 
     await userEvent.setup().click(screen.getByText('Generate invite link'))

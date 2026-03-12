@@ -1,20 +1,23 @@
 import { useState } from "react";
-import { generateInviteLink, deactivateInviteLink } from "../../api/groups";
+import { createInviteLink, revokeInviteLink } from "../../api/groups";
+import type { GroupInviteLink } from "../../types";
 
 interface Props {
   groupId: number;
 }
 
 export default function InviteLinkPanel({ groupId }: Props) {
-  const [link, setLink] = useState<string | null>(null);
+  const [activeLink, setActiveLink] = useState<GroupInviteLink | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const link = activeLink ? `${window.location.origin}/join/${activeLink.token}` : null;
 
   const handleGenerate = async () => {
     setLoading(true);
     try {
-      const data = await generateInviteLink(groupId);
-      setLink(`${window.location.origin}/join/${data.token}`);
+      const data = await createInviteLink(groupId, {});
+      setActiveLink(data);
     } finally {
       setLoading(false);
     }
@@ -28,9 +31,10 @@ export default function InviteLinkPanel({ groupId }: Props) {
   };
 
   const handleRevoke = async () => {
+    if (!activeLink) return;
     if (!confirm("Revoke this link? Anyone who has it will no longer be able to join.")) return;
-    await deactivateInviteLink(groupId);
-    setLink(null);
+    await revokeInviteLink(groupId, activeLink.id);
+    setActiveLink(null);
   };
 
   return (

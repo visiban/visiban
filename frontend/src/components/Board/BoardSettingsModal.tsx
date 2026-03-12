@@ -23,6 +23,7 @@ interface Props {
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
   onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority", value: boolean) => void;
+  onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
 }
 
 type Tab = "general" | "members" | "invite" | "data" | "display";

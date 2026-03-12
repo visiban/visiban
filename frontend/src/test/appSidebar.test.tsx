@@ -13,6 +13,7 @@ const fakeUser: User = {
 const fakeGroup: Group = {
   id: 10, name: 'Alpha', owner: fakeUser, parent: null, parent_name: null,
   member_count: 1, board_count: 1, subgroup_count: 0, created_at: '',
+  default_board_member_role: 'member', allowed_priorities: [], shared_labels: [],
 }
 
 const fakeBoard: Board = {

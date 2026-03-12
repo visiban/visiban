@@ -97,6 +97,9 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     cards: [],
     labels: [{ id: 100, name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
+    staleness_threshold_days: 7,
+    close_editor_on_enter: false,
+    allowed_priorities: ['low', 'medium', 'high', 'critical'] as BoardFull['allowed_priorities'],
     created_at: '', updated_at: '',
     current_user_role: 'admin',
     staleness_threshold_days: 7,
@@ -120,6 +123,7 @@ const defaultProps = () => ({
   onSwimlaneDeleted: vi.fn(),
   onSwimlanesReordered: vi.fn(),
   onLabelAdded: vi.fn(),
+  onBoardSettingsChanged: vi.fn(),
 })
 
 describe('BoardView', () => {
