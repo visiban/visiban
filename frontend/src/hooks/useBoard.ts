@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { getBoardFull, reorderColumns as apiReorderColumns, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
+import { getBoardFull, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
 
@@ -126,6 +126,23 @@ export function useBoard() {
     }
   }, [board, boardId]);
 
+
+  const reorderSwimlanes = useCallback(async (orderedIds: number[]) => {
+    if (!board) return;
+    const prev = board.swimlanes;
+    setBoard((b) => {
+      if (!b) return b;
+      const map = new Map(b.swimlanes.map((s) => [s.id, s]));
+      return { ...b, swimlanes: orderedIds.map((id) => map.get(id)!).filter(Boolean) };
+    });
+    try {
+      const updated = await apiReorderSwimlanes(boardId, orderedIds);
+      setBoard((b) => b ? { ...b, swimlanes: updated } : b);
+    } catch {
+      setBoard((b) => b ? { ...b, swimlanes: prev } : b);
+    }
+  }, [board, boardId]);
+
   const updateSwimlane = useCallback((swimlane: Swimlane) => {
     setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.map((s) => s.id === swimlane.id ? swimlane : s) } : b);
   }, []);
@@ -135,5 +152,5 @@ export function useBoard() {
     await apiDeleteSwimlane(boardId, swimlaneId);
   }, [boardId]);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane };
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane };
 }

@@ -12,6 +12,7 @@ vi.mock('@dnd-kit/core', () => ({
 vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   verticalListSortingStrategy: {},
+  useSortable: () => ({ setNodeRef: () => {}, attributes: {}, listeners: {}, transform: null, transition: undefined, isDragging: false }),
 }))
 
 vi.mock('../components/Board/BoardCell', () => ({

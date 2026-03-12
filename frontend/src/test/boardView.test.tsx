@@ -21,7 +21,9 @@ vi.mock('@dnd-kit/core', () => ({
 vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   horizontalListSortingStrategy: {},
+  verticalListSortingStrategy: {},
   arrayMove: vi.fn(),
+  useSortable: () => ({ setNodeRef: () => {}, attributes: {}, listeners: {}, transform: null, transition: undefined, isDragging: false }),
 }))
 
 vi.mock('react-router-dom', () => ({
@@ -114,6 +116,7 @@ const defaultProps = () => ({
   onSwimlaneAdded: vi.fn(),
   onSwimlaneUpdated: vi.fn(),
   onSwimlaneDeleted: vi.fn(),
+  onSwimlanesReordered: vi.fn(),
   onLabelAdded: vi.fn(),
 })
 

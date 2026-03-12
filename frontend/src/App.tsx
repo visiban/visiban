@@ -85,7 +85,7 @@ function BoardPage({ user, onLogout, onUserUpdated }: {
 }) {
   const navigate = useNavigate();
   const { board, loading, error, moveCard, addCard, removeCard, addColumn, removeColumn,
-    addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, updateSwimlane, removeSwimlane
+    addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane
   } = useBoard();
 
   const handleBack = () => {
@@ -129,6 +129,7 @@ function BoardPage({ user, onLogout, onUserUpdated }: {
             onSwimlaneAdded={addSwimlane}
             onSwimlaneUpdated={updateSwimlane}
             onSwimlaneDeleted={removeSwimlane}
+            onSwimlanesReordered={reorderSwimlanes}
             onLabelAdded={addLabel}
           />
         )}
