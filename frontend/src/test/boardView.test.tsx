@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
@@ -140,9 +140,9 @@ describe('BoardView', () => {
     expect(screen.getByText('Filters')).toBeInTheDocument()
   })
 
-  it('renders Export button', () => {
+  it('does not render Export button in toolbar (export is in board settings)', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('Export')).toBeInTheDocument()
+    expect(screen.queryByText('Export')).not.toBeInTheDocument()
   })
 
   it('renders Settings button', () => {
@@ -208,11 +208,10 @@ describe('BoardView', () => {
     expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
-  it('clicking Export shows CSV and JSON options', async () => {
+  it('clicking Settings opens the settings modal', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByText('Export'))
-    expect(screen.getByText('CSV')).toBeInTheDocument()
-    expect(screen.getByText('JSON')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByText('Settings'))
+    expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
   })
 
   it('renders + Col button for admin', () => {

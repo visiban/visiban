@@ -27,7 +27,6 @@ import BoardSettingsModal from "./BoardSettingsModal";
 import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
-import { exportBoardCsv, exportBoardJson } from "../../api/boards";
 import BulkActionToolbar from "./BulkActionToolbar";
 
 interface Props {
@@ -157,9 +156,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   const [view, setView] = useState<"board" | "summary" | "analytics">("board");
-  const [showExport, setShowExport] = useState(false);
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
-  const exportRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const toggleCardSelection = useCallback((cardId: number) => {
@@ -172,16 +169,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   }, []);
 
   const clearSelection = useCallback(() => setSelectedCardIds(new Set()), []);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-        setShowExport(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -378,32 +365,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
         {/* Inline filter controls — same row, wrap to next line on narrow viewports */}
         {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />}
-
-        <span className="w-px h-4 bg-slate-600 shrink-0" />
-        <div className="relative shrink-0" ref={exportRef}>
-          <button
-            onClick={() => setShowExport((v) => !v)}
-            className="text-xs text-slate-400 hover:text-slate-200 transition"
-          >
-            Export
-          </button>
-          {showExport && (
-            <div className="absolute top-full right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 z-30 min-w-[100px]">
-              <button
-                onClick={() => { exportBoardCsv(board.id); setShowExport(false); }}
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-300"
-              >
-                CSV
-              </button>
-              <button
-                onClick={() => { exportBoardJson(board.id); setShowExport(false); }}
-                className="block w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-300"
-              >
-                JSON
-              </button>
-            </div>
-          )}
-        </div>
 
         <span className="w-px h-4 bg-slate-600 ml-auto shrink-0" />
         <button
