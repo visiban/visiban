@@ -64,6 +64,7 @@ class GroupMembership(models.Model):
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
+        VIEWER = "viewer"
 
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="memberships")
     user = models.ForeignKey(
