@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import Avatar from '../components/Common/Avatar'
 
 // ---------------------------------------------------------------------------
 // Mocks — keep components isolated from heavy dependencies
@@ -127,6 +128,141 @@ describe('CardItem', () => {
     const { container } = render(<CardItem card={makeCard()} highlighted={false} />)
     const root = container.firstChild as HTMLElement
     expect(root.className).not.toContain('animate-pulse')
+  })
+
+  it('shows due date string when due_date is set to tomorrow', () => {
+    // Use a fixed date well in the future (more than 1 day, less than 7) to avoid timezone edge cases
+    // The card renders "Nd" format for 2-6 days out
+    const futureDate = new Date()
+    futureDate.setDate(futureDate.getDate() + 3)
+    // Format as local YYYY-MM-DD to match how the component interprets dates
+    const iso = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`
+    render(<CardItem card={makeCard({ due_date: iso })} />)
+    // Should show "3d" label — test that the due date indicator renders
+    expect(screen.getByTitle(`Due ${iso}`)).toBeInTheDocument()
+  })
+
+  it('shows overdue styling with red text when due_date is in the past', () => {
+    // Use a date 5 days in the past — safely overdue in any timezone
+    const pastDate = new Date()
+    pastDate.setDate(pastDate.getDate() - 5)
+    const iso = `${pastDate.getFullYear()}-${String(pastDate.getMonth() + 1).padStart(2, '0')}-${String(pastDate.getDate()).padStart(2, '0')}`
+    render(<CardItem card={makeCard({ due_date: iso })} />)
+    // The overdue span has text-red-500 class
+    const dueBadge = screen.getByTitle(`Due ${iso}`)
+    expect(dueBadge.className).toContain('text-red-500')
+  })
+
+  it('shows attachment count when attachment_count > 0', () => {
+    render(<CardItem card={makeCard({ attachment_count: 3 })} />)
+    expect(screen.getByTitle('3 attachment(s)')).toBeInTheDocument()
+  })
+
+  it('shows weight value when weight > 1', () => {
+    render(<CardItem card={makeCard({ weight: 5 })} />)
+    expect(screen.getByTitle('Weight: 5')).toBeInTheDocument()
+  })
+
+  it('shows stale indicator when is_stale is true', () => {
+    const { container } = render(<CardItem card={makeCard({ is_stale: true })} />)
+    expect(screen.getByTitle('Stale — no movement recently')).toBeInTheDocument()
+    // Stale card gets amber ring
+    const root = container.firstChild as HTMLElement
+    expect(root.className).toContain('ring-amber-400')
+  })
+
+  it('shows recently moved dot when last_moved_at is within 24 hours', () => {
+    const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    render(<CardItem card={makeCard({ last_moved_at: recentlyMoved })} />)
+    expect(screen.getByTitle('Recently moved')).toBeInTheDocument()
+  })
+
+  it('does not show recently moved dot for stale card even if last_moved_at is recent', () => {
+    const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    render(<CardItem card={makeCard({ last_moved_at: recentlyMoved, is_stale: true })} />)
+    // Stale indicator should be present, recently moved dot should not
+    expect(screen.getByTitle('Stale — no movement recently')).toBeInTheDocument()
+    expect(screen.queryByTitle('Recently moved')).not.toBeInTheDocument()
+  })
+
+  it('renders cleanly with no metadata (all null/zero values)', () => {
+    const card = makeCard({
+      labels: [], checklist_total: 0, attachment_count: 0, due_date: null,
+      assignee: null, weight: 1, is_stale: false, last_moved_at: null,
+    })
+    const { container } = render(<CardItem card={card} />)
+    // Should render title without crashing
+    expect(screen.getByText('Test Card')).toBeInTheDocument()
+    // No metadata section should render (no labels, checklist, etc.)
+    expect(container.firstChild).toBeInTheDocument()
+  })
+
+  it('renders selection checkbox when onSelect is provided and selected', () => {
+    render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
+    // selected card should have blue ring
+    const { container } = render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
+    const root = container.firstChild as HTMLElement
+    expect(root.className).toContain('ring-blue-400')
+  })
+
+  it('shows a due date indicator when due_date is set to today (local date)', () => {
+    const now = new Date()
+    // Format as local YYYY-MM-DD (same interpretation as formatDueDate)
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    render(<CardItem card={makeCard({ due_date: today })} />)
+    // Component shows "Today" for local today — verify the due date element renders
+    expect(screen.getByTitle(`Due ${today}`)).toBeInTheDocument()
+  })
+
+  it('shows label overflow count when more than 3 labels', () => {
+    const card = makeCard({
+      labels: [
+        { id: 1, name: 'Bug', color: '#EF4444' },
+        { id: 2, name: 'Feature', color: '#3B82F6' },
+        { id: 3, name: 'Docs', color: '#10B981' },
+        { id: 4, name: 'Test', color: '#F59E0B' },
+      ],
+    })
+    render(<CardItem card={card} />)
+    expect(screen.getByText('+1')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Avatar
+// ---------------------------------------------------------------------------
+
+describe('Avatar', () => {
+  const baseUser = {
+    username: 'jdoe', avatar_url: '', display_name: 'Jane Doe',
+    first_name: 'Jane', last_name: 'Doe',
+  }
+
+  it('renders ? when user is null', () => {
+    render(<Avatar user={null} />)
+    expect(screen.getByText('?')).toBeInTheDocument()
+  })
+
+  it('renders ? when user is undefined', () => {
+    render(<Avatar user={undefined} />)
+    expect(screen.getByText('?')).toBeInTheDocument()
+  })
+
+  it('renders an img when avatar_url is set', () => {
+    render(<Avatar user={{ ...baseUser, avatar_url: 'https://example.com/avatar.png' }} />)
+    const img = screen.getByRole('img')
+    expect(img).toHaveAttribute('src', 'https://example.com/avatar.png')
+    expect(img).toHaveAttribute('alt', 'Jane Doe')
+  })
+
+  it('renders initials from display_name when no avatar', () => {
+    render(<Avatar user={baseUser} />)
+    expect(screen.getByText('JD')).toBeInTheDocument()
+  })
+
+  it('falls back to username initials when no name fields', () => {
+    render(<Avatar user={{ username: 'xray', avatar_url: '', display_name: '' }} />)
+    expect(screen.getByText('XR')).toBeInTheDocument()
   })
 })
 

@@ -21,13 +21,24 @@ import {
   getBoardFull,
   updateBoard,
   deleteBoard,
+  moveBoardToGroup,
   importBoard,
   exportBoardCsv,
   exportBoardJson,
   getBoardAnalytics,
+  getBoardSummary,
   createColumn,
+  updateColumn,
+  deleteColumn,
   reorderColumns,
   createSwimlane,
+  updateSwimlane,
+  deleteSwimlane,
+  reorderSwimlanes,
+  listLabels,
+  createLabel,
+  setBoardMember,
+  removeBoardMember,
 } from '../api/boards'
 import { moveCard, createCard } from '../api/cards'
 
@@ -150,6 +161,88 @@ describe('Board API wrappers', () => {
     mockClient.post.mockResolvedValue({ data: { id: 1 } })
     await createSwimlane(2, { name: 'Customer A', color: '#00ff00' })
     expect(mockClient.post).toHaveBeenCalledWith('/api/boards/2/swimlanes/', { name: 'Customer A', color: '#00ff00' })
+  })
+
+  it('moveBoardToGroup sends POST with group_id', async () => {
+    mockClient.post.mockResolvedValue({ data: { id: 5, group: 10 } })
+    await moveBoardToGroup(5, 10)
+    expect(mockClient.post).toHaveBeenCalledWith('/api/boards/5/move-group/', { group_id: 10 })
+  })
+
+  it('moveBoardToGroup accepts null to ungroup a board', async () => {
+    mockClient.post.mockResolvedValue({ data: { id: 5, group: null } })
+    const result = await moveBoardToGroup(5, null)
+    expect(mockClient.post).toHaveBeenCalledWith('/api/boards/5/move-group/', { group_id: null })
+    expect(result).toEqual({ id: 5, group: null })
+  })
+
+  it('getBoardSummary calls GET /api/boards/:id/summary/', async () => {
+    mockClient.get.mockResolvedValue({ data: { total_cards: 5 } })
+    const result = await getBoardSummary(1)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/boards/1/summary/')
+    expect(result).toEqual({ total_cards: 5 })
+  })
+
+  it('getBoardAnalytics uses default days=30 stalled_days=7 when not specified', async () => {
+    mockClient.get.mockResolvedValue({ data: {} })
+    await getBoardAnalytics(1)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/boards/1/analytics/', {
+      params: { days: 30, stalled_days: 7 },
+    })
+  })
+
+  it('updateColumn sends PUT to /api/boards/:id/columns/:colId/', async () => {
+    mockClient.put.mockResolvedValue({ data: { id: 10, name: 'In Progress' } })
+    await updateColumn(1, 10, { name: 'In Progress' })
+    expect(mockClient.put).toHaveBeenCalledWith('/api/boards/1/columns/10/', { name: 'In Progress' })
+  })
+
+  it('deleteColumn sends DELETE to /api/boards/:id/columns/:colId/', async () => {
+    await deleteColumn(1, 10)
+    expect(mockClient.delete).toHaveBeenCalledWith('/api/boards/1/columns/10/')
+  })
+
+  it('updateSwimlane sends PUT to /api/boards/:id/swimlanes/:swimlaneId/', async () => {
+    mockClient.put.mockResolvedValue({ data: { id: 20, name: 'Lane B' } })
+    await updateSwimlane(1, 20, { name: 'Lane B' })
+    expect(mockClient.put).toHaveBeenCalledWith('/api/boards/1/swimlanes/20/', { name: 'Lane B' })
+  })
+
+  it('deleteSwimlane sends DELETE to /api/boards/:id/swimlanes/:swimlaneId/', async () => {
+    await deleteSwimlane(1, 20)
+    expect(mockClient.delete).toHaveBeenCalledWith('/api/boards/1/swimlanes/20/')
+  })
+
+  it('reorderSwimlanes sends POST with order array', async () => {
+    mockClient.post.mockResolvedValue({ data: [] })
+    await reorderSwimlanes(1, [21, 20])
+    expect(mockClient.post).toHaveBeenCalledWith('/api/boards/1/swimlanes/reorder/', { order: [21, 20] })
+  })
+
+  it('listLabels calls GET /api/boards/:id/labels/', async () => {
+    mockClient.get.mockResolvedValue({ data: [{ id: 1, name: 'Bug', color: '#EF4444' }] })
+    const result = await listLabels(1)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/boards/1/labels/')
+    expect(result).toEqual([{ id: 1, name: 'Bug', color: '#EF4444' }])
+  })
+
+  it('createLabel sends POST /api/boards/:id/labels/ with data', async () => {
+    mockClient.post.mockResolvedValue({ data: { id: 2, name: 'Feature', color: '#3B82F6' } })
+    const result = await createLabel(1, { name: 'Feature', color: '#3B82F6' })
+    expect(mockClient.post).toHaveBeenCalledWith('/api/boards/1/labels/', { name: 'Feature', color: '#3B82F6' })
+    expect(result).toEqual({ id: 2, name: 'Feature', color: '#3B82F6' })
+  })
+
+  it('setBoardMember calls POST /api/boards/:id/members/ with user_id and role', async () => {
+    mockClient.post.mockResolvedValue({ data: { id: 1, user: { id: 7 }, role: 'member' } })
+    const result = await setBoardMember(1, 7, 'member')
+    expect(mockClient.post).toHaveBeenCalledWith('/api/boards/1/members/', { user_id: 7, role: 'member' })
+    expect(result).toEqual({ id: 1, user: { id: 7 }, role: 'member' })
+  })
+
+  it('removeBoardMember calls DELETE /api/boards/:id/members/:userId/', async () => {
+    await removeBoardMember(1, 7)
+    expect(mockClient.delete).toHaveBeenCalledWith('/api/boards/1/members/7/')
   })
 })
 
