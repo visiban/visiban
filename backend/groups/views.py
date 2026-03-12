@@ -150,6 +150,57 @@ class GroupViewSet(viewsets.ModelViewSet):
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
+    # Ownership transfer
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["post"], url_path="transfer-ownership")
+    def transfer_ownership(self, request, pk=None):
+        from rest_framework.exceptions import PermissionDenied
+        group = self.get_object()
+
+        # Only current owner can transfer
+        if group.owner_id != request.user.id:
+            raise PermissionDenied("Only the group owner can transfer ownership.")
+
+        new_owner_id = request.data.get("new_owner_id")
+        confirmation = request.data.get("confirmation", "")
+
+        # Require typing the group name as confirmation
+        if confirmation != group.name:
+            return Response(
+                {"detail": "Confirmation does not match the group name."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # New owner must be a current admin member
+        try:
+            membership = GroupMembership.objects.get(group=group, user_id=new_owner_id)
+        except GroupMembership.DoesNotExist:
+            return Response(
+                {"detail": "New owner must already be a group member."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if membership.role != GroupMembership.Role.ADMIN:
+            return Response(
+                {"detail": "New owner must be an admin of this group."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Transfer: new owner gets owner role, previous owner becomes admin
+        from django.db import transaction
+        with transaction.atomic():
+            group.owner_id = new_owner_id
+            group.save(update_fields=["owner_id"])
+            # Ensure previous owner stays as admin member
+            GroupMembership.objects.update_or_create(
+                group=group, user=request.user,
+                defaults={"role": GroupMembership.Role.ADMIN},
+            )
+
+        return Response(GroupSerializer(group, context={"request": request}).data)
+
+    # ------------------------------------------------------------------
     # Invite link
     # ------------------------------------------------------------------
 

@@ -4,6 +4,7 @@ import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
+  transferGroupOwnership,
 } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
@@ -44,6 +45,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const [showSubgroupBoards, setShowSubgroupBoards] = useState(false);
   const [subgroupBoards, setSubgroupBoards] = useState<{ board: Board; groupName: string }[]>([]);
   const [loadingSubgroupBoards, setLoadingSubgroupBoards] = useState(false);
+
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferNewOwnerId, setTransferNewOwnerId] = useState<number | "">("");
+  const [transferConfirmation, setTransferConfirmation] = useState("");
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -99,6 +106,28 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     await deleteGroup(groupId);
     navigate("/");
   };
+
+  const handleTransferOwnership = async () => {
+    if (!group || transferNewOwnerId === "") return;
+    setTransferError(null);
+    setTransferring(true);
+    try {
+      const updated = await transferGroupOwnership(groupId, transferNewOwnerId, transferConfirmation);
+      setGroup(updated);
+      setShowTransferModal(false);
+      setTransferNewOwnerId("");
+      setTransferConfirmation("");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setTransferError(detail ?? "Transfer failed. Please try again.");
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const adminMembers = members.filter(
+    (m) => m.role === "admin" && m.user.id !== user.id
+  );
 
   const isAdmin = group?.owner.id === user.id ||
     members.find((m) => m.user.id === user.id)?.role === "admin";
@@ -362,12 +391,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
             <section className="border border-red-900/50 rounded-xl p-5">
               <h2 className="text-red-400 font-semibold mb-1">Danger zone</h2>
               <p className="text-gray-500 text-sm mb-4">These actions are permanent and cannot be undone.</p>
-              <button
-                onClick={handleDeleteGroup}
-                className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded-lg transition"
-              >
-                Delete group
-              </button>
+              <div className="flex flex-wrap gap-3">
+                {group.owner.id === user.id && (
+                  <button
+                    onClick={() => { setTransferError(null); setShowTransferModal(true); }}
+                    className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded-lg transition"
+                  >
+                    Transfer ownership
+                  </button>
+                )}
+                <button
+                  onClick={handleDeleteGroup}
+                  className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded-lg transition"
+                >
+                  Delete group
+                </button>
+              </div>
             </section>
           </div>
         )}
@@ -407,6 +446,73 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
           onCreated={(sg) => { setSubgroups((prev) => [...prev, sg]); navigate(`/groups/${sg.id}`); }}
           onClose={() => setShowCreateSubgroup(false)}
         />
+      )}
+
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h2 className="text-white font-semibold text-lg mb-1">Transfer ownership</h2>
+            <p className="text-gray-400 text-sm mb-5">
+              Transfer ownership of <span className="text-white font-medium">{group.name}</span> to another admin.
+              You will remain as an admin after the transfer.
+            </p>
+
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="text-gray-400 text-sm block mb-1">New owner</label>
+                {adminMembers.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No other admins found. Promote a member to admin first.</p>
+                ) : (
+                  <select
+                    value={transferNewOwnerId}
+                    onChange={(e) => setTransferNewOwnerId(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Select an admin…</option>
+                    {adminMembers.map((m) => (
+                      <option key={m.user.id} value={m.user.id}>
+                        {m.user.display_name || m.user.username}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="text-gray-400 text-sm block mb-1">
+                  Type the group name to confirm: <span className="text-white font-medium">{group.name}</span>
+                </label>
+                <input
+                  type="text"
+                  value={transferConfirmation}
+                  onChange={(e) => setTransferConfirmation(e.target.value)}
+                  placeholder={group.name}
+                  className="w-full bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {transferError && (
+                <p className="text-red-400 text-sm">{transferError}</p>
+              )}
+
+              <div className="flex gap-3 justify-end pt-1">
+                <button
+                  onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
+                  className="text-sm text-gray-400 hover:text-white px-4 py-2 rounded-lg transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTransferOwnership}
+                  disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group.name}
+                  className="text-sm text-white bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition"
+                >
+                  {transferring ? "Transferring…" : "Transfer ownership"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
