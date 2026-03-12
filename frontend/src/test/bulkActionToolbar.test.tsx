@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BulkActionToolbar from '../components/Board/BulkActionToolbar'
 import type { BoardFull } from '../types'
@@ -9,6 +9,11 @@ vi.mock('../api/cards', () => ({
   updateCard: vi.fn(),
   deleteCard: vi.fn(),
 }))
+
+import { moveCard, updateCard, deleteCard } from '../api/cards'
+const mockMoveCard = moveCard as ReturnType<typeof vi.fn>
+const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
+const mockDeleteCard = deleteCard as ReturnType<typeof vi.fn>
 
 function makeBoard(): BoardFull {
   return {
@@ -138,5 +143,262 @@ describe('BulkActionToolbar', () => {
     )
     await userEvent.setup().click(screen.getByTitle('Deselect all (Esc)'))
     expect(onClear).toHaveBeenCalledOnce()
+  })
+
+  it('cancels delete confirmation when Cancel is clicked', async () => {
+    const user = userEvent.setup()
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Delete'))
+    expect(screen.getByText('Delete 2 cards?')).toBeInTheDocument()
+    await user.click(screen.getByText('Cancel'))
+    expect(screen.queryByText('Delete 2 cards?')).not.toBeInTheDocument()
+  })
+
+  it('shows singular "card" in delete confirmation for single selection', async () => {
+    const user = userEvent.setup()
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Delete'))
+    expect(screen.getByText('Delete 1 card?')).toBeInTheDocument()
+    expect(screen.getByText(/This will permanently delete this card/)).toBeInTheDocument()
+  })
+
+  it('calls handleMove and onCardsUpdated when a column is selected in move dropdown', async () => {
+    const user = userEvent.setup()
+    const updatedCard = { ...makeBoard().cards[0], column: 11 }
+    mockMoveCard.mockResolvedValue({ card: updatedCard })
+    const onCardsUpdated = vi.fn()
+    const onClearSelection = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100])}
+        onCardsUpdated={onCardsUpdated}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={onClearSelection}
+      />
+    )
+    await user.click(screen.getByText('Move to...'))
+    await user.click(screen.getByText('Done'))
+
+    await waitFor(() => expect(onClearSelection).toHaveBeenCalled())
+    expect(onCardsUpdated).toHaveBeenCalledWith([updatedCard])
+    expect(mockMoveCard).toHaveBeenCalledWith(1, 100, {
+      column_id: 11,
+      swimlane_id: 20,
+      position: 9999,
+    })
+  })
+
+  it('continues moving remaining cards when one move fails', async () => {
+    const user = userEvent.setup()
+    const updatedCard = { ...makeBoard().cards[1], column: 11 }
+    mockMoveCard
+      .mockRejectedValueOnce(new Error('fail'))
+      .mockResolvedValueOnce({ card: updatedCard })
+    const onCardsUpdated = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={onCardsUpdated}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Move to...'))
+    await user.click(screen.getByText('Done'))
+
+    await waitFor(() => expect(onCardsUpdated).toHaveBeenCalledWith([updatedCard]))
+  })
+
+  it('calls handleAssign with user id when a member is selected', async () => {
+    const user = userEvent.setup()
+    const updatedCard = { ...makeBoard().cards[0], assignee: makeBoard().members[0].user }
+    mockUpdateCard.mockResolvedValue(updatedCard)
+    const onCardsUpdated = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100])}
+        onCardsUpdated={onCardsUpdated}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Assign to...'))
+    await user.click(screen.getByText('Jane Doe'))
+
+    await waitFor(() => expect(onCardsUpdated).toHaveBeenCalledWith([updatedCard]))
+    expect(mockUpdateCard).toHaveBeenCalledWith(1, 100, { assignee_id: 1 })
+  })
+
+  it('calls handleAssign with null when Unassign is selected', async () => {
+    const user = userEvent.setup()
+    const updatedCard = { ...makeBoard().cards[0], assignee: null }
+    mockUpdateCard.mockResolvedValue(updatedCard)
+    const onCardsUpdated = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100])}
+        onCardsUpdated={onCardsUpdated}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Assign to...'))
+    await user.click(screen.getByText('Unassign'))
+
+    await waitFor(() => expect(onCardsUpdated).toHaveBeenCalledWith([updatedCard]))
+    expect(mockUpdateCard).toHaveBeenCalledWith(1, 100, { assignee_id: null })
+  })
+
+  it('calls handlePriority and onCardsUpdated when a priority is selected', async () => {
+    const user = userEvent.setup()
+    const updatedCard = { ...makeBoard().cards[0], priority: 'urgent' as const }
+    mockUpdateCard.mockResolvedValue(updatedCard)
+    const onCardsUpdated = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100])}
+        onCardsUpdated={onCardsUpdated}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Priority...'))
+    await user.click(screen.getByText('urgent'))
+
+    await waitFor(() => expect(onCardsUpdated).toHaveBeenCalledWith([updatedCard]))
+    expect(mockUpdateCard).toHaveBeenCalledWith(1, 100, { priority: 'urgent' })
+  })
+
+  it('calls onCardsDeleted and onClearSelection when delete is confirmed', async () => {
+    const user = userEvent.setup()
+    mockDeleteCard.mockResolvedValue(undefined)
+    const onCardsDeleted = vi.fn()
+    const onClearSelection = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={onCardsDeleted}
+        onClearSelection={onClearSelection}
+      />
+    )
+    // Open confirmation modal
+    await user.click(screen.getByText('Delete'))
+    // Modal's confirm Delete button is inside the dialog — use the red confirm button
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete' })
+    // The confirm button is the last/second Delete button (modal's confirm)
+    await user.click(deleteButtons[deleteButtons.length - 1])
+
+    await waitFor(() => expect(onCardsDeleted).toHaveBeenCalledWith([100]))
+    expect(onClearSelection).toHaveBeenCalled()
+  })
+
+  it('toggles move dropdown closed when clicked twice', async () => {
+    const user = userEvent.setup()
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Move to...'))
+    expect(screen.getByText('To Do')).toBeInTheDocument()
+    await user.click(screen.getByText('Move to...'))
+    expect(screen.queryByText('To Do')).not.toBeInTheDocument()
+  })
+
+  it('closes delete confirmation on Escape key', async () => {
+    const user = userEvent.setup()
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Delete'))
+    expect(screen.getByText('Delete 2 cards?')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByText('Delete 2 cards?')).not.toBeInTheDocument()
+    )
+  })
+
+  it('shows Working... indicator while busy', async () => {
+    const user = userEvent.setup()
+    // Mock a slow delete to observe busy state
+    let resolveDelete!: () => void
+    mockDeleteCard.mockReturnValue(new Promise<void>((res) => { resolveDelete = res }))
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Delete'))
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete' })
+    await user.click(deleteButtons[deleteButtons.length - 1])
+
+    expect(screen.getByText('Working...')).toBeInTheDocument()
+    resolveDelete()
+    await waitFor(() => expect(screen.queryByText('Working...')).not.toBeInTheDocument())
+  })
+
+  it('does not call onCardsUpdated when all moves fail', async () => {
+    const user = userEvent.setup()
+    mockMoveCard.mockRejectedValue(new Error('network error'))
+    const onCardsUpdated = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={onCardsUpdated}
+        onCardsDeleted={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Move to...'))
+    await user.click(screen.getByText('Done'))
+
+    await waitFor(() => expect(mockMoveCard).toHaveBeenCalledTimes(2))
+    expect(onCardsUpdated).not.toHaveBeenCalled()
   })
 })
