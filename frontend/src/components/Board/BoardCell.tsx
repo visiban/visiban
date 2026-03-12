@@ -11,6 +11,7 @@ interface Props {
   cards: Card[];
   boardId: number;
   canEdit: boolean;
+  closeEditorOnEnter: boolean;
   filteredCardIds: Set<number> | null;
   selectedCardIds: Set<number>;
   highlightedCardId?: number | null;
@@ -19,7 +20,7 @@ interface Props {
   onCardAdded: (card: Card) => void;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, canEdit, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded }: Props) {
+export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -69,7 +70,12 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, f
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAdding(false); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  if (closeEditorOnEnter) { e.preventDefault(); handleAdd(); }
+                }
+                if (e.key === "Escape") setAdding(false);
+              }}
               placeholder="Card title…"
               className="w-full text-xs border border-blue-500 rounded-md px-2 py-1.5 outline-none bg-gray-800 text-gray-100 placeholder-gray-500"
             />
