@@ -23,7 +23,6 @@ const fakeBoard: BoardFull = {
   ],
   staleness_threshold_days: 7, close_editor_on_enter: false, allowed_priorities: [],
   created_at: '', updated_at: '', current_user_role: 'admin',
-  staleness_threshold_days: 7, close_editor_on_enter: false,
 }
 
 describe('BoardMembersModal', () => {
