@@ -46,11 +46,11 @@ nav:
     - Real-time Updates: features/realtime.md
     - Card History: features/card-history.md
     - Groups: features/groups.md
-  - RBAC:
-    - rbac/index.md
-    - Roles & Permissions: rbac/roles.md
-    - Group Inheritance: rbac/inheritance.md
-    - Managing Roles: rbac/managing.md
+    - Roles & Permissions:
+      - features/rbac/index.md
+      - Overview: features/rbac/roles.md
+      - Group Inheritance: features/rbac/inheritance.md
+      - Managing Roles: features/rbac/managing.md
   - API Reference:
     - api/index.md
     - Authentication: api/authentication.md

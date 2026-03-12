@@ -4,7 +4,7 @@
 
 A site admin has unrestricted access to every board and group on the instance. They are protected — no regular admin can remove or demote them.
 
-See [Roles & Permissions](../rbac/roles.md) for the full permission table.
+See [Roles & Permissions](../features/rbac/roles.md) for the full permission table.
 
 ## First site admin
 
