@@ -9,6 +9,7 @@ export interface User {
   is_site_admin: boolean;
   must_change_password: boolean;
   has_usable_password?: boolean;
+  timezone?: string;
 }
 
 export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {

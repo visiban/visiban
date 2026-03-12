@@ -5,6 +5,7 @@ import Navbar from "../components/Layout/Navbar";
 import type { User } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import type { ThemePreference } from "../context/ThemeContext";
+import { TIMEZONE_OPTIONS, browserTimezone } from "../utils/date";
 
 type Tab = "profile" | "security" | "notifications" | "appearance";
 
@@ -21,6 +22,7 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
     last_name: user.last_name ?? "",
     email: user.email ?? "",
     username: user.username ?? "",
+    timezone: user.timezone ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,8 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
     setError(null);
     setSaved(false);
     try {
-      const updated = await updateCurrentUser(form);
+      const payload = { ...form, timezone: form.timezone || browserTimezone() };
+      const updated = await updateCurrentUser(payload);
       onUserUpdated(updated);
       setSaved(true);
     } catch {
@@ -97,6 +100,20 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
           required
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm text-gray-400">
+        Timezone
+        <select
+          value={form.timezone || browserTimezone()}
+          onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+        >
+          {TIMEZONE_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label} — {value}</option>
+          ))}
+        </select>
+        <span className="text-xs text-gray-500">Used for due date labels and filters</span>
       </label>
 
       {error && <p className="text-sm text-red-400">{error}</p>}

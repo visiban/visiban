@@ -8,6 +8,7 @@ class User(AbstractUser):
     display_name = models.CharField(max_length=150, blank=True)
     is_site_admin = models.BooleanField(default=False)
     must_change_password = models.BooleanField(default=False)
+    timezone = models.CharField(max_length=64, blank=True, default="")
 
     class Meta:
         db_table = "users"
