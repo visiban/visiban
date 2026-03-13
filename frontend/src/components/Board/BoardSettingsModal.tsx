@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { BoardFull, BoardMembership, User } from "../../types";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard } from "../../api/boards";
@@ -34,28 +35,48 @@ interface StagedInvite {
 }
 
 function RoleTooltip() {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+
+  const show = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setAnchor({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+  };
+  const hide = () => setAnchor(null);
+
   return (
-    <div className="relative group/roletip inline-flex items-center">
+    <div className="inline-flex items-center">
       <button
+        ref={btnRef}
         type="button"
         className="w-4 h-4 rounded-full border border-slate-600 text-[10px] text-slate-400 hover:text-slate-200 hover:border-slate-400 flex items-center justify-center transition"
         aria-label="Role descriptions"
         tabIndex={0}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
       >
         ?
       </button>
-      <div
-        role="tooltip"
-        className="absolute left-6 bottom-0 z-50 w-72 bg-slate-900 border border-slate-600 rounded-xl p-3 shadow-xl pointer-events-none opacity-0 group-hover/roletip:opacity-100 transition"
-      >
-        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Role permissions</p>
-        {ROLES.map((r) => (
-          <div key={r.value} className="py-1 border-b border-slate-700 last:border-0">
-            <span className="text-xs font-semibold text-slate-100 capitalize">{r.label}</span>
-            <span className="text-xs text-slate-400"> — {r.description}</span>
-          </div>
-        ))}
-      </div>
+      {anchor && createPortal(
+        <div
+          role="tooltip"
+          style={{ position: "fixed", top: anchor.top, right: anchor.right, maxWidth: 280, zIndex: 9999 }}
+          className="w-72 bg-slate-900 border border-slate-600 rounded-xl p-3 shadow-xl pointer-events-none"
+        >
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Role permissions</p>
+          {ROLES.map((r) => (
+            <div key={r.value} className="py-1 border-b border-slate-700 last:border-0">
+              <span className="text-xs font-semibold text-slate-100 capitalize">{r.label}</span>
+              <span className="text-xs text-slate-400"> — {r.description}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
