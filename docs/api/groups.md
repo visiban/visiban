@@ -35,7 +35,7 @@ Change a member's role. Requires group admin. Cannot modify a site admin.
 
 **Request** `{ "role": "admin" }`
 
-Valid roles: `admin`, `member`
+Valid roles: `admin`, `member`, `collaborator`, `viewer`
 
 ### `DELETE /api/groups/{id}/members/{user_id}/`
 Remove a member. Requires group admin. Cannot remove a site admin.
@@ -63,13 +63,40 @@ Create a board in this group. Requires group admin.
 
 ## Invite links
 
-### `POST /api/groups/{id}/invite-link/`
-Generate (or return existing) an active invite link. Requires group admin.
+A group can have up to 5 active invite links. Each link has an independent name, role, and expiry.
 
-**Response** `{ "id": 1, "token": "abc123", "is_active": true, "created_at": "..." }`
+### `GET /api/groups/{id}/invite-links/`
+List all invite links for this group. Requires group admin.
 
-### `DELETE /api/groups/{id}/invite-link/`
-Deactivate all active invite links. Requires group admin.
+### `POST /api/groups/{id}/invite-links/`
+Create a new invite link. Requires group admin.
+
+**Request**
+```json
+{ "name": "Team link", "role": "member", "expiry_days": 7 }
+```
+
+All fields are optional. `role` defaults to `member`; `expiry_days` may be `1`, `7`, `30`, or `null` (never expires).
+
+Valid roles: `admin`, `member`, `collaborator`, `viewer`
+
+**Response** `{ "id": 1, "token": "abc123", "name": "Team link", "role": "member", "is_active": true, "expires_at": "...", "created_at": "..." }`
+
+### `DELETE /api/groups/{id}/invite-links/{link_id}/`
+Revoke a single invite link. Requires group admin.
+
+---
+
+## Favorites
+
+### `POST /api/groups/{id}/star/`
+Star (favorite) a group. Requires authentication.
+
+### `DELETE /api/groups/{id}/star/`
+Unstar a group. Requires authentication.
+
+### `GET /api/groups/?starred=true`
+List only starred groups for the current user.
 
 ---
 
@@ -81,6 +108,6 @@ Resolve an invite token to a group name. No authentication required.
 **Response** `{ "group_id": 5, "group_name": "Engineering" }`
 
 ### `POST /api/groups/join/{token}/`
-Join the group as a `member`. Requires authentication.
+Join the group with the role configured on the invite link. Requires authentication.
 
 **Response** `201 Created` (first join) or `200 OK` (already a member).

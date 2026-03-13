@@ -14,21 +14,20 @@ Acme Corp  (top-level group)
 
 ## Membership
 
-Each group has members with one of three roles:
+Each group has members with one of four roles:
 
 | Role | What they can do |
 |---|---|
 | `admin` | Manage members, create subgroups and boards, delete the group |
 | `member` | View boards and subgroups, create personal boards |
-| `viewer` | Read-only access to all boards in the group — can view cards and card history but cannot create, edit, move, or delete cards or manage members |
+| `collaborator` | View boards in the group; can comment on cards but cannot create, edit, move, or delete them |
+| `viewer` | Read-only access to all boards in the group — can view cards and card history but cannot create, edit, move, delete cards, or manage members |
 
 Membership is **inherited** — a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants. You don't need to add users to each subgroup individually. See [Group Inheritance](rbac/inheritance.md) for full details.
 
 ## Board roles vs group roles
 
-Group roles (`admin` / `member`) control access to the group itself. Once inside a board, finer-grained board roles apply: **admin**, **member**, **collaborator**, and **viewer**.
-
-By default a group member gets the `member` board role. A board admin can override this per-user from the **Members** button in the board toolbar. See [Roles & Permissions](rbac/roles.md).
+All four roles — `admin`, `member`, `collaborator`, and `viewer` — are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the **Members** button in the board toolbar. See [Roles & Permissions](rbac/roles.md).
 
 ## Boards inside groups
 
@@ -40,11 +39,25 @@ Group admins can create subgroups. Nesting is unlimited (traversal is capped at 
 
 ## Invite links
 
-Group admins can generate a shareable invite link from the group detail page. Anyone with the link joins as a `member`. Links can be deactivated at any time — existing members are not affected.
+Group admins can generate up to **5 active invite links** per group from the group detail page. Each link can be configured independently:
+
+| Setting | Options |
+|---|---|
+| **Name** | Optional label to identify the link's purpose |
+| **Role** | `admin`, `member`, `collaborator`, or `viewer` (the role granted on join) |
+| **Expiry** | 1 day, 7 days, 30 days, or Never |
+
+Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Each link can be revoked independently — existing members are not affected.
+
+After joining via an invite link, the user is redirected to the group page and shown a confirmation banner.
 
 !!! tip
-    Use invite links to onboard external collaborators without needing to know their username in advance.
+    Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one `member` link for the team and one `viewer` link for stakeholders).
+
+## Starring groups
+
+The star button (☆/★) in the group detail page header lets you mark frequently-visited groups as favorites. Starred groups appear in a **Favorite Groups** section at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.
 
 ## Dashboard
 
-The primary way to navigate between groups and boards is the persistent collapsible left sidebar (AppSidebar), which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions. The dashboard (`/`) is where you go to create new boards and groups.
+The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions. The dashboard (`/`) is where you go to create new boards and groups.

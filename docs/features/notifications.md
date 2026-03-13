@@ -1,12 +1,26 @@
 # Notifications
 
-Visiban surfaces in-app notifications for three events: card assignment, @mention in a comment, and card staleness.
+Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment, due date warning, card moved, and comment added. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
 
 ## Notification bell
 
 The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only **unread** notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.
 
 Click **Mark all read** to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.
+
+## Notification preferences
+
+Each user can enable or disable individual notification triggers in **Settings → Notifications**. Preferences are saved immediately on toggle. Available toggles:
+
+| Trigger | Default |
+|---|---|
+| Card assigned to me | On |
+| I am @mentioned | On |
+| Due date warning | On |
+| Card moved | On |
+| Comment added | On |
+
+Staleness notifications (from the `notify_stale_cards` command) are always delivered and are not user-configurable.
 
 ## Assignment notifications
 
@@ -25,6 +39,20 @@ Typing `@username` in a card comment notifies the mentioned user:
 - Mentions are rendered as **bold blue** text in saved comments
 - The comment author is never notified for their own mention
 - Only users who are members of the board (directly, via group inheritance, or site admins) can be mentioned
+
+## Due date notifications
+
+When a card's due date is approaching (within 24 hours by default), the assignee is notified:
+
+> ""{card title}" is due soon"
+
+## Card moved notifications
+
+When a card is moved to a different column by another user, the card's assignee is notified.
+
+## Comment added notifications
+
+When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).
 
 ## Staleness notifications
 
