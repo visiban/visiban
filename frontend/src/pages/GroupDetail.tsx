@@ -448,7 +448,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                           options={[
                             { value: "admin", label: "Admin" },
                             { value: "member", label: "Member" },
-                            { value: "viewer", label: "Viewer", separatorBefore: true },
+                            { value: "viewer", label: "Viewer" },
                           ]}
                           size="xs"
                         />
