@@ -31,6 +31,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Subgroup member inheritance** (#138): members of a parent group are now surfaced as inherited members in all descendant subgroups; the members list endpoint returns both direct and inherited entries, each tagged with `is_inherited` and `inherited_from`; inherited members are shown with a muted row and an ancestor badge in the UI and cannot be removed or edited at the subgroup level; an ancestor admin can now perform admin actions (manage members, invite links, boards) on any descendant subgroup without a redundant direct membership
+
 - **Sidebar Home link** (#153): sidebar now shows a Home row at the top that navigates to `/` and highlights when the current path is `/`; renders as a house icon in collapsed mode
 
 - **Board starring / favorites** (#154): users can star any board they have access to; starred boards appear in a Favorites section at the top of the sidebar for quick access; the star button (☆/★) sits in the board toolbar and updates optimistically with rollback on failure; the `?starred=true` query parameter on `/api/boards/` filters to starred boards only; backed by a new `BoardFavorite` model (unique per user+board)
