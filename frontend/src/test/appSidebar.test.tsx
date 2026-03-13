@@ -127,6 +127,44 @@ describe('AppSidebar', () => {
     expect(link?.className).toMatch(/blue/)
   })
 
+  it('renders Home link', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    expect(screen.getByText('Home')).toBeInTheDocument()
+    const homeLink = screen.getByText('Home').closest('a')
+    expect(homeLink?.getAttribute('href')).toBe('/')
+  })
+
+  it('highlights Home link when at root path', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/' })
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    const homeLink = screen.getByText('Home').closest('a')
+    expect(homeLink?.className).toMatch(/blue/)
+  })
+
+  it('shows Home icon in collapsed mode', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    expect(screen.getByTitle('Home')).toBeInTheDocument()
+  })
+
+  it('shows starred boards as star icons in collapsed mode', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.getByTitle('Starred One')).toBeInTheDocument())
+    const link = screen.getByTitle('Starred One').closest('a')
+    expect(link?.getAttribute('href')).toBe('/boards/77')
+  })
+
   it('persists group expanded state in localStorage', async () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getByText('Alpha'))

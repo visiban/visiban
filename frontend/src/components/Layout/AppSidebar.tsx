@@ -124,10 +124,54 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
           </div>
         )}
 
+        {/* Home — always visible, above the loading spinner */}
+        {collapsed ? (
+          <Link
+            to="/"
+            className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition ${
+              location.pathname === "/" ? "text-blue-400 bg-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800"
+            }`}
+            title="Home"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v6a1 1 0 001 1h4v-4h2v4h4a1 1 0 001-1v-6h1a1 1 0 00.707-1.707l-7-7z" />
+            </svg>
+          </Link>
+        ) : (
+          <Link
+            to="/"
+            onClick={collapse}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm transition ${
+              location.pathname === "/" ? "text-blue-400 bg-blue-600/20 font-medium" : "text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v6a1 1 0 001 1h4v-4h2v4h4a1 1 0 001-1v-6h1a1 1 0 00.707-1.707l-7-7z" />
+            </svg>
+            <span>Home</span>
+          </Link>
+        )}
+
         {!loading && (
           <>
             {/* Favorites */}
-            {!collapsed && (
+            {collapsed ? (
+              starredBoards.map((board) => (
+                <Link
+                  key={board.id}
+                  to={`/boards/${board.id}`}
+                  onClick={collapse}
+                  className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition ${
+                    board.id === activeBoardId
+                      ? "text-yellow-400 bg-blue-600/20"
+                      : "text-yellow-500 hover:text-yellow-300 hover:bg-slate-800"
+                  }`}
+                  title={board.name}
+                >
+                  <span className="text-sm leading-none">★</span>
+                </Link>
+              ))
+            ) : (
               <div>
                 <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Favorites
