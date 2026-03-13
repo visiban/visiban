@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Joining a group via invite link now redirects to the group page and shows a dismissible confirmation banner: _"You've joined [Group Name]. Welcome!"_ (#104)
+
 ### Fixed
 
 - Navigating to a group the user cannot access (404/403) now redirects silently to the dashboard instead of showing a "Failed to load group" error; genuine network errors still surface with a "Return to dashboard" link

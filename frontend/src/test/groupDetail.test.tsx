@@ -54,9 +54,12 @@ const fakeGroup: Group = {
   default_board_member_role: 'member', allowed_priorities: [], shared_labels: [],
 }
 
-function renderGroupDetail() {
+function renderGroupDetail(locationState?: Record<string, unknown>) {
+  const initialEntries = locationState
+    ? [{ pathname: '/groups/1', state: locationState }]
+    : ['/groups/1']
   return render(
-    <MemoryRouter initialEntries={['/groups/1']}>
+    <MemoryRouter initialEntries={initialEntries}>
       <Routes>
         <Route path="/groups/:id" element={<GroupDetail user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />} />
       </Routes>
@@ -244,5 +247,39 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     expect(await screen.findByText('Subgroups let you organize boards and members into nested workspaces.')).toBeInTheDocument()
+  })
+
+  it('shows join confirmation banner when arriving from invite flow', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail({ joinedGroup: 'Engineering' })
+
+    expect(await screen.findByText(/You've joined/)).toBeInTheDocument()
+    expect(screen.getByText(/You've joined/).closest('span')).toHaveTextContent("You've joined Engineering. Welcome!")
+  })
+
+  it('does not show join banner when navigating directly to group page', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    await screen.findByRole('heading', { name: 'Engineering' }) // wait for load
+    expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
+  })
+
+  it('dismisses join banner when × is clicked', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail({ joinedGroup: 'Engineering' })
+
+    expect(await screen.findByText(/You've joined/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '×' }))
+    expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
   })
 })
