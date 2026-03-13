@@ -113,7 +113,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     setMembers((prev) => prev.filter((m) => m.user.id !== userId));
   };
 
-  const handleRoleChange = async (userId: number, role: "admin" | "member" | "viewer") => {
+  const handleRoleChange = async (userId: number, role: "admin" | "member" | "collaborator" | "viewer") => {
     const updated = await updateGroupMemberRole(groupId, userId, role);
     setMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, role: updated.role } : m));
   };
@@ -454,10 +454,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                       <div className="flex items-center gap-2 shrink-0">
                         <SelectDropdown
                           value={m.role}
-                          onChange={(v) => handleRoleChange(m.user.id, v as "admin" | "member" | "viewer")}
+                          onChange={(v) => handleRoleChange(m.user.id, v as "admin" | "member" | "collaborator" | "viewer")}
                           options={[
                             { value: "admin", label: "Admin" },
                             { value: "member", label: "Member" },
+                            { value: "collaborator", label: "Collaborator" },
                             { value: "viewer", label: "Viewer" },
                           ]}
                           size="xs"

@@ -107,6 +107,62 @@ class GroupMembersTests(TestCase):
         r = self.client.get(f"/api/groups/{self.group.id}/members/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
+    def test_all_valid_roles_are_accepted(self):
+        """Every valid GroupMembership role can be set via PATCH members/<id>/."""
+        valid_roles = [r.value for r in GroupMembership.Role]
+        for role in valid_roles:
+            r = self.client.patch(
+                f"/api/groups/{self.group.id}/members/{self.member.id}/",
+                {"role": role},
+            )
+            self.assertEqual(r.status_code, status.HTTP_200_OK, f"role={role!r} was rejected")
+            self.assertEqual(r.json()["role"], role)
+
+    def test_site_admin_role_is_not_a_valid_membership_role(self):
+        """'site_admin' must never be a valid GroupMembership role."""
+        r = self.client.patch(
+            f"/api/groups/{self.group.id}/members/{self.member.id}/",
+            {"role": "site_admin"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class GroupRoleCoverageTests(TestCase):
+    """Enumerate every valid role for both GroupMembership and GroupInviteLink."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="admin", password="pass")
+        self.group = _make_group(self.admin)
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_group_membership_roles_match_expected_set(self):
+        expected = {"admin", "member", "collaborator", "viewer"}
+        actual = set(GroupMembership.Role.values)
+        self.assertEqual(actual, expected, "GroupMembership.Role set changed — update tests and UI dropdowns")
+
+    def test_invite_link_roles_match_expected_set(self):
+        expected = {"admin", "member", "collaborator", "viewer"}
+        actual = set(GroupInviteLink.Role.values)
+        self.assertEqual(actual, expected, "GroupInviteLink.Role set changed — update tests and UI dropdowns")
+
+    def test_all_invite_link_roles_can_be_created(self):
+        """Every valid GroupInviteLink role can be used when creating an invite link."""
+        for role in GroupInviteLink.Role.values:
+            r = self.client.post(
+                f"/api/groups/{self.group.id}/invite-links/",
+                {"name": f"test-{role}", "role": role},
+            )
+            self.assertEqual(r.status_code, status.HTTP_201_CREATED, f"role={role!r} was rejected")
+            self.assertEqual(r.json()["role"], role)
+
+    def test_invalid_invite_link_role_returns_400(self):
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/invite-links/",
+            {"name": "bad", "role": "site_admin"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class GroupSubgroupsTests(TestCase):
     def setUp(self):

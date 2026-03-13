@@ -22,7 +22,7 @@ export const getGroupMembers = (id: number) =>
 export const removeGroupMember = (groupId: number, userId: number) =>
   client.delete(`/api/groups/${groupId}/members/${userId}/`);
 
-export const updateGroupMemberRole = (groupId: number, userId: number, role: "admin" | "member" | "viewer") =>
+export const updateGroupMemberRole = (groupId: number, userId: number, role: "admin" | "member" | "collaborator" | "viewer") =>
   client.patch<GroupMembership>(`/api/groups/${groupId}/members/${userId}/`, { role }).then((r) => r.data);
 
 export const getSubgroups = (id: number) =>
@@ -39,7 +39,7 @@ export const listInviteLinks = (groupId: number) =>
 
 export const createInviteLink = (
   groupId: number,
-  data: { name?: string; role?: "admin" | "member" | "viewer"; expiry_days?: number | null },
+  data: { name?: string; role?: "admin" | "member" | "collaborator" | "viewer"; expiry_days?: number | null },
 ) =>
   client
     .post<GroupInviteLink>(`/api/groups/${groupId}/invite-links/`, data)
