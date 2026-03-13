@@ -87,22 +87,22 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
   return (
     <>
-      <header className="h-12 bg-slate-900 flex items-center px-4 gap-2 shrink-0">
-        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition">
-          <img src="/brand/visiban_lockup_light.png" alt="Visiban" className="h-6" />
+      <header className="h-16 bg-slate-900 border-b border-slate-700 flex items-center px-4 gap-3 shrink-0">
+        <Link to="/" className="flex items-center hover:opacity-80 transition">
+          <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>
         {version && (
-          <span className="text-slate-500 text-[9px] font-mono select-none bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5">{version}</span>
+          <span className="text-slate-400 text-[11px] font-mono select-none bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5">{version}</span>
         )}
         {breadcrumb?.map((item, i) => (
           <span key={i} className="flex items-center gap-2">
-            <span className="text-slate-600">/</span>
+            <span className="text-slate-500">/</span>
             {item.href ? (
-              <Link to={item.href} className="text-slate-300 text-sm font-medium hover:text-white transition">
+              <Link to={item.href} className="text-slate-200 text-sm font-medium hover:text-white transition">
                 {item.label}
               </Link>
             ) : (
-              <span className="text-slate-300 text-sm font-medium">{item.label}</span>
+              <span className="text-slate-200 text-sm font-medium">{item.label}</span>
             )}
           </span>
         ))}
@@ -111,7 +111,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           <div ref={bellRef} className="relative">
             <button
               onClick={openBell}
-              className="relative text-slate-400 hover:text-white transition p-1"
+              className="relative text-slate-300 hover:text-white transition p-1"
               title="Notifications"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -155,7 +155,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
           <button
             onClick={() => navigate("/settings")}
-            className="text-slate-400 text-sm hover:text-white transition"
+            className="text-slate-200 text-sm hover:text-white transition"
           >
             {userDisplayName(user)}
           </button>
