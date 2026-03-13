@@ -74,7 +74,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
       setSubgroups(sg);
       setBoards(b);
       setMembers(m);
-    }).catch(() => setError("Failed to load group"))
+    }).catch((err: unknown) => {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 404 || status === 403) {
+          navigate("/", { replace: true });
+        } else {
+          setError("Failed to load group");
+        }
+      })
       .finally(() => setLoading(false));
   }, [groupId]);
 
@@ -210,8 +217,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
   if (error || !group) {
     return (
-      <div className="h-full bg-gray-900 flex items-center justify-center">
-        <span className="text-red-400">{error ?? "Group not found"}</span>
+      <div className="h-full bg-gray-900 flex flex-col items-center justify-center gap-3">
+        <span className="text-slate-400">{error ?? "Group not found"}</span>
+        <button onClick={() => navigate("/")} className="text-sm text-blue-400 hover:underline">
+          Return to dashboard
+        </button>
       </div>
     );
   }
