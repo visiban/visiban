@@ -34,12 +34,13 @@ When asked to create a release, run the release script. Ask for the version stri
 ## General conventions
 
 - **Never commit or push directly to `main`** — all changes go through a feature branch and MR, no exceptions (including docs, chores, and hotfixes)
+- **Never merge an MR with a failing pipeline** — the GitLab project enforces this (`only_allow_merge_if_pipeline_succeeds = true`), but do not attempt to work around it. If a pipeline fails, fix the root cause on the branch and let the pipeline re-run before merging.
 - Branch naming: `feat/`, `fix/`, `docs/`, `chore/`
 - Workflow for every change:
   1. `git checkout main && git pull origin main`
   2. `git checkout -b <prefix>/<short-description>`
   3. Make changes, commit, push branch
-  4. Open MR targeting `main`, merge when ready
+  4. Open MR targeting `main`, wait for a **green pipeline**, then merge
 - Release commits also go through branches and MRs — `scripts/release.sh` handles this automatically
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
