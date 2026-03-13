@@ -4,13 +4,17 @@ The application sidebar provides persistent, at-a-glance access to your full gro
 
 ## What the sidebar shows
 
-The sidebar is divided into two sections, rendered in this order:
+The sidebar renders sections in this order, omitting any empty section entirely:
 
-**Groups and their boards** — all top-level groups (groups with no parent) are listed first. Each group can be expanded to reveal the boards that belong to it. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.
+1. **Home** — always present; navigates to `/` and highlights when the current path is `/`.
+2. **Favorite Boards** — boards the current user has starred, in the order they were starred. Only shown when at least one board is starred.
+3. **Favorite Groups** — groups the current user has starred. Only shown when at least one group is starred.
+4. **Groups and their boards** — all top-level groups (groups with no parent). Each group can be expanded to reveal the boards that belong to it. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.
+5. **Personal** — boards that do not belong to any group, collected under a "Personal" heading. Only shown when at least one such board exists.
 
-**Personal boards** — boards that do not belong to any group are collected at the bottom of the tree under a "Personal" heading. The section is only shown when at least one such board exists.
+A 3D engraved separator (`h-px bg-slate-900` / `h-px bg-slate-600/50`) appears between each pair of visible sections.
 
-Both sections are populated from a single API call on mount (`GET /api/groups/` and `GET /api/boards/`) and are not automatically refreshed while the sidebar is open.
+Groups and personal boards are populated from a single API call on mount (`GET /api/groups/` and `GET /api/boards/`). Favorite boards and groups are fetched from `GET /api/boards/?starred=true` and `GET /api/groups/?starred=true` and are re-fetched whenever the star version counter increments (i.e. any time a board or group is starred or unstarred).
 
 ## Collapse and expand
 
@@ -18,10 +22,20 @@ A toggle button sits in the header of the sidebar. Clicking it switches between 
 
 | State | Width | Content |
 |---|---|---|
-| Expanded (default) | 220 px | Group names, expand/collapse chevrons, board names, footer shortcuts |
-| Collapsed (icon rail) | 48 px | First letter of each group name as an avatar; "P" marker for personal boards; no footer shortcuts |
+| Expanded (default) | 220 px | Section headings, group names with expand/collapse chevrons, board names, footer shortcuts |
+| Collapsed (icon rail) | 48 px | Icon for each item; no text labels; no footer shortcuts |
 
-In the collapsed state, each group avatar still responds to clicks and toggles that group's expanded/collapsed state. The change is persisted immediately so the correct state is restored when the sidebar is next expanded.
+In the collapsed state, each item is represented by an icon:
+
+| Section | Collapsed icon |
+|---|---|
+| Home | House icon |
+| Favorite Boards | Filled star ★ (yellow) |
+| Favorite Groups | Filled star ★ (yellow) |
+| Groups | Folder icon |
+| Personal boards | Person (user silhouette) icon |
+
+Every icon in the collapsed rail shows an immediate tooltip on hover with the item's name. The collapsed state persists across sessions via `localStorage`.
 
 ## localStorage persistence
 
@@ -34,11 +48,11 @@ Two keys are written to `localStorage` to survive page reloads and navigation:
 
 `sidebar-collapsed` is written on every toggle. `sidebar-groups-expanded` is written on every group expand or collapse. Both are read synchronously during component initialization, so there is no flash of the default state on load.
 
-If `sidebar-groups-expanded` cannot be parsed as valid JSON (for example, if the stored value was corrupted), the error is silently caught and the set of expanded groups starts empty.
+If `sidebar-groups-expanded` cannot be parsed as valid JSON, the error is silently caught and the set of expanded groups starts empty.
 
 ## Active board highlight
 
-The sidebar reads the current URL via React Router's `useLocation` hook and extracts a board ID from paths that match `/boards/<id>`. The matching board item is rendered with a blue highlight (`bg-blue-600/20 text-blue-400 font-medium`) to indicate the active board. All other board items use muted slate text. The active ID is derived from the route on every render, so navigating away immediately clears the highlight without any additional state management.
+The sidebar reads the current URL via React Router's `useLocation` hook and extracts a board ID from paths that match `/boards/<id>`. The matching board item is rendered with a blue highlight (`bg-blue-600/20 text-blue-400 font-medium`) to indicate the active board. All other board items use muted slate text. The active ID is derived from the route on every render, so navigating away immediately clears the highlight without additional state management.
 
 ## Mobile behavior
 

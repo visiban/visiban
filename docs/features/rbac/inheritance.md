@@ -1,6 +1,6 @@
 # Group Inheritance
 
-Group roles are inherited through the group ancestry chain. A user with an `admin` or `member` role in a parent group automatically has that same role on all sub-groups and boards within it. Boards additionally support two roles that groups do not — `collaborator` and `viewer` — which can only be assigned explicitly via a `BoardMembership` record and are never inherited.
+Group roles are inherited through the group ancestry chain. A user with a role in a parent group automatically has that same role on all sub-groups and boards within it. All four non-admin roles — `admin`, `member`, `collaborator`, and `viewer` — are valid at both the group and board level. An explicit `BoardMembership` record can override the inherited role for a specific board.
 
 ## How it works
 
@@ -30,4 +30,4 @@ An explicit `BoardMembership` always takes precedence over inherited group membe
 
 ## Collaborator and viewer
 
-The `collaborator` and `viewer` roles only exist at the board level and are not part of group membership. They can only be assigned via `BoardMembership`.
+`collaborator` and `viewer` are valid at both the group and board level. When assigned as a group membership role they are inherited by all boards within the group exactly like `admin` and `member`. An explicit `BoardMembership` always overrides the inherited value for that specific board.

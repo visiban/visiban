@@ -112,11 +112,32 @@ Four board roles let you grant exactly the right level of access: **admin**, **m
 
 ## Navigation
 
-The application sidebar gives you persistent access to your full group and board hierarchy from any page. It collapses to a 48 px icon rail to save space, expands back to 220 px, and remembers both states across reloads via `localStorage`. The active board is highlighted automatically based on the current route.
+The application sidebar gives you persistent access to your full group and board hierarchy from any page. Starred boards and groups appear at the top of the sidebar in dedicated **Favorite Boards** and **Favorite Groups** sections. The sidebar collapses to a 48 px icon rail (with hover tooltips), expands back to 220 px, and remembers both states across reloads via `localStorage`.
 
 The sidebar is visible only on desktop (1024 px and wider). On mobile, use the top navigation bar instead.
 
 → [Navigation](navigation.md)
+
+---
+
+## User settings
+
+Settings are accessed from the avatar menu in the top-right navbar.
+
+**Profile** — display name, email, username, and locale preferences:
+
+| Setting | Options |
+|---|---|
+| Date format | MM/DD/YYYY · DD/MM/YYYY · YYYY-MM-DD |
+| Time format | 12-hour · 24-hour |
+| Number format | US (1,234.56) · European (1.234,56) · French (1 234,56) · Indian (1,23,456) |
+| Timezone | Any IANA timezone; defaults to browser-detected on first save |
+
+**Appearance** — theme switcher: System (follows OS preference), Dark, or Light. Applied immediately and persisted in `localStorage`.
+
+**Notifications** — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added).
+
+**Security** — change password.
 
 ---
 

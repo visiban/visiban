@@ -74,6 +74,7 @@ GitLab CI runs a build verification pipeline on every push. The pipeline validat
 │  lint                                                       │
 │  │  backend-lint   (Ruff + CodeClimate report)              │
 │  │  frontend-lint  (ESLint + tsc --noEmit)                  │
+│  │  changelog-check (CHANGELOG.md [Unreleased] must update) │
 │                                                             │
 │  test                                                       │
 │  │  backend-test          (Django tests, 90% coverage)      │
@@ -105,6 +106,7 @@ The SPA is a single `App.tsx` with React Router v6 routes:
 - `/` — Dashboard (boards + group tree)
 - `/groups/:id` — Group detail (members, boards, subgroups)
 - `/boards/:id` — Board view (DnD kanban grid)
+- `/settings` — User settings (profile, locale, appearance, notifications, security)
 - `/join/:token` — Invite link landing page
 
 State is local React state with optimistic updates on drag-and-drop. No global state library.

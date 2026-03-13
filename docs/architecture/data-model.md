@@ -5,18 +5,24 @@
 ```
 User
  ├── is_site_admin (bool)
- └── must_change_password (bool)
+ ├── must_change_password (bool)
+ ├── timezone (str)
+ ├── date_format (str)
+ ├── time_format (str)
+ └── number_locale (str)
 
 Group
  ├── owner → User
  ├── parent → Group (nullable — null = top-level)
- ├── GroupMembership → User  (role: admin | member)
- └── GroupInviteLink
+ ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
+ ├── GroupInviteLink  (name, token, role, expires_at)
+ └── GroupFavorite → User  (unique per user+group)
 
 Board
  ├── owner → User
  ├── group → Group (nullable — null = personal board)
  ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
+ ├── BoardFavorite → User  (unique per user+board)
  ├── Column  (position, color, wip_limit, weight_limit, allow_card_creation)
  ├── Swimlane  (position, color, is_collapsed)
  └── Label  (name, color)
