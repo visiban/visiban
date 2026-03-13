@@ -378,7 +378,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="h-full bg-gray-900 flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
@@ -387,7 +387,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
         </button>
       </div>
 
-      <main className="flex-1 p-8 max-w-4xl mx-auto w-full">
+      <main className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
         <h1 className="text-white text-2xl font-bold mb-8">Settings</h1>
 
         <div className="flex gap-8">

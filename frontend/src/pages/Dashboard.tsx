@@ -73,10 +73,10 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="h-full bg-gray-900 flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
-      <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+      <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
 
         {isEmpty && (
           <OnboardingEmptyState

@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Page content now scrolls correctly on Dashboard, Settings, and GroupDetail: outer wrappers changed from `min-h-screen` to `h-full` to stay within the app's `h-screen` shell, and `overflow-y-auto` moved to the `<main>` content area; the board page already scrolled correctly (#147)
 - Site admin (`ensure_site_admin`) now also sets `is_staff` and `is_superuser` so the bootstrapped admin account has full Django admin panel access in addition to Visiban site-admin privileges
 - `GroupDetail` page now correctly treats site admins as group admins: `is_site_admin` users see the "New board", "Create subgroup", and settings controls without needing an explicit group membership
 - `GroupDetail` Settings tab (and any other long-form content) is now scrollable; the `<main>` flex child was missing `overflow-y-auto`, causing content to be clipped by the `h-screen overflow-hidden` root layout

@@ -201,7 +201,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="h-full bg-gray-900 flex items-center justify-center">
         <span className="text-gray-400">Loading…</span>
       </div>
     );
@@ -209,14 +209,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
 
   if (error || !group) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="h-full bg-gray-900 flex items-center justify-center">
         <span className="text-red-400">{error ?? "Group not found"}</span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col overflow-y-auto">
+    <div className="h-full bg-gray-900 flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
 
       {joinToast && (
@@ -232,7 +232,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
         </button>
       </div>
 
-      <main className="flex-1 p-8 max-w-5xl mx-auto w-full overflow-y-auto">
+      <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
