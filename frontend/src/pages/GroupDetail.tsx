@@ -21,9 +21,10 @@ interface Props {
   user: User;
   onLogout: () => void;
   onUserUpdated: (user: User) => void;
+  onStarToggled?: () => void;
 }
 
-export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
+export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
   const navigate = useNavigate();
@@ -110,6 +111,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
       } else {
         await starGroup(groupId);
       }
+      onStarToggled?.();
     } catch {
       setIsStarred(prev);
     } finally {

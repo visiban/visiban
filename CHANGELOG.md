@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - Registration no longer fails with "This field is required." on a fresh install; `ACCOUNT_USERNAME_REQUIRED = False` added to settings so allauth skips username validation and auto-generates one from the email address (#171)
+- Starring or unstarring a group from the group detail page now immediately refreshes the sidebar's Favorite Groups section; previously the sidebar only updated on board-star actions, so group stars appeared to have no effect (#170)
 
 ### Added
 
