@@ -305,7 +305,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         setLocalCard((c) => ({ ...c, due_date: v }));
                         save({ due_date: v });
                       }}
-                      className="text-sm bg-slate-900 border border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400 w-full text-slate-200"
+                      className="text-sm bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400 w-full text-slate-200 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                     />
                     {localCard.due_date && (
                       <button
