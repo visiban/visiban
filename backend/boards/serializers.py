@@ -144,10 +144,11 @@ class BoardSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
+    is_starred = serializers.SerializerMethodField()
 
     class Meta:
         model = Board
-        fields = ["id", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "close_editor_on_enter", "allowed_priorities", "created_at", "updated_at"]
+        fields = ["id", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "close_editor_on_enter", "allowed_priorities", "created_at", "updated_at", "is_starred"]
         read_only_fields = ["created_at", "updated_at"]
 
     def get_member_count(self, obj):
@@ -155,6 +156,12 @@ class BoardSerializer(serializers.ModelSerializer):
 
     def get_card_count(self, obj):
         return obj.cards.count()
+
+    def get_is_starred(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.favorites.filter(user=request.user).exists()
 
 
 class BoardFullSerializer(serializers.ModelSerializer):
@@ -165,13 +172,14 @@ class BoardFullSerializer(serializers.ModelSerializer):
     members = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
     current_user_role = serializers.SerializerMethodField()
+    is_starred = serializers.SerializerMethodField()
 
     class Meta:
         model = Board
         fields = [
             "id", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "close_editor_on_enter",
-            "allowed_priorities", "created_at", "updated_at", "current_user_role",
+            "allowed_priorities", "created_at", "updated_at", "current_user_role", "is_starred",
         ]
 
     def get_members(self, obj):
@@ -226,3 +234,9 @@ class BoardFullSerializer(serializers.ModelSerializer):
             return None
         from .permissions import get_board_role
         return get_board_role(request.user, obj)
+
+    def get_is_starred(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.favorites.filter(user=request.user).exists()

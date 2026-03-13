@@ -18,12 +18,12 @@ const fakeGroup: Group = {
 
 const fakeBoard: Board = {
   id: 42, name: 'Sprint Board', description: '', owner: fakeUser,
-  group: 10, group_name: 'Alpha', member_count: 1, card_count: 0, created_at: '', updated_at: '',
+  group: 10, group_name: 'Alpha', member_count: 1, card_count: 0, is_starred: false, created_at: '', updated_at: '',
 }
 
 const personalBoard: Board = {
   id: 99, name: 'My Board', description: '', owner: fakeUser,
-  group: null, group_name: null, member_count: 1, card_count: 0, created_at: '', updated_at: '',
+  group: null, group_name: null, member_count: 1, card_count: 0, is_starred: false, created_at: '', updated_at: '',
 }
 
 const mockUseLocation = vi.fn(() => ({ pathname: '/' }))
@@ -41,12 +41,13 @@ vi.mock('../api/groups', () => ({
 }))
 vi.mock('../api/boards', () => ({
   listBoards: vi.fn(),
+  listStarredBoards: vi.fn(),
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
 }))
 
 import { listGroups } from '../api/groups'
-import { listBoards } from '../api/boards'
+import { listBoards, listStarredBoards } from '../api/boards'
 
 describe('AppSidebar', () => {
   beforeEach(() => {
@@ -55,6 +56,7 @@ describe('AppSidebar', () => {
     localStorage.clear()
     vi.mocked(listGroups).mockResolvedValue([fakeGroup])
     vi.mocked(listBoards).mockResolvedValue([fakeBoard, personalBoard])
+    vi.mocked(listStarredBoards).mockResolvedValue([])
   })
 
   it('renders the collapse toggle button', async () => {
