@@ -39,6 +39,7 @@ vi.mock('react-router-dom', () => ({
 
 vi.mock('../api/groups', () => ({
   listGroups: vi.fn(),
+  listStarredGroups: vi.fn(),
 }))
 vi.mock('../api/boards', () => ({
   listBoards: vi.fn(),
@@ -47,7 +48,7 @@ vi.mock('../api/boards', () => ({
   exportBoardJson: vi.fn(),
 }))
 
-import { listGroups } from '../api/groups'
+import { listGroups, listStarredGroups } from '../api/groups'
 import { listBoards, listStarredBoards } from '../api/boards'
 
 describe('AppSidebar', () => {
@@ -56,6 +57,7 @@ describe('AppSidebar', () => {
     mockNavigate.mockReset()
     localStorage.clear()
     vi.mocked(listGroups).mockResolvedValue([fakeGroup])
+    vi.mocked(listStarredGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([fakeBoard, personalBoard])
     vi.mocked(listStarredBoards).mockResolvedValue([])
   })
