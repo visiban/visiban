@@ -75,18 +75,45 @@ export function todayInTimezone(tz: string): string {
   }
 }
 
+/** Formats a YYYY-MM-DD date string according to the user's date format preference. */
+export function formatDateStr(date: string, dateFormat = "MM/DD/YYYY"): string {
+  const [y, m, d] = date.split("-");
+  if (!y || !m || !d) return date;
+  switch (dateFormat) {
+    case "DD/MM/YYYY": return `${d}/${m}/${y}`;
+    case "YYYY-MM-DD": return `${y}-${m}-${d}`;
+    default: return `${m}/${d}/${y}`;
+  }
+}
+
+/** Formats an ISO datetime string using the user's date and time format preferences. */
+export function formatDateTime(isoStr: string, dateFormat = "MM/DD/YYYY", timeFormat = "12h"): string {
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return isoStr;
+  const datePart = formatDateStr(d.toISOString().slice(0, 10), dateFormat);
+  let hours = d.getHours();
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  if (timeFormat === "24h") {
+    return `${datePart} ${String(hours).padStart(2, "0")}:${mins}`;
+  }
+  const period = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${datePart} ${hours}:${mins} ${period}`;
+}
+
 /** Returns a display label and overdue flag for a due date string (YYYY-MM-DD). */
 export function formatDueDate(
   date: string,
   tz: string,
+  dateFormat = "MM/DD/YYYY",
 ): { label: string; overdue: boolean } {
   const today = todayInTimezone(tz);
-  if (date < today) return { label: `Due ${date}`, overdue: true };
+  if (date < today) return { label: `Due ${formatDateStr(date, dateFormat)}`, overdue: true };
   if (date === today) return { label: "Due today", overdue: false };
   // Show relative label for next 6 days, otherwise absolute date
   const msUntil = new Date(date + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime();
   const daysUntil = Math.round(msUntil / 86_400_000);
   if (daysUntil === 1) return { label: "Due tomorrow", overdue: false };
   if (daysUntil <= 6) return { label: `Due in ${daysUntil} days`, overdue: false };
-  return { label: `Due ${date}`, overdue: false };
+  return { label: `Due ${formatDateStr(date, dateFormat)}`, overdue: false };
 }

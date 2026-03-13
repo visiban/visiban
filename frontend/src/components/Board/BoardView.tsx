@@ -51,6 +51,8 @@ interface Props {
   onBoardDeleted?: () => void;
   onStarToggled?: () => void;
   userTimezone?: string;
+  userDateFormat?: string;
+  userTimeFormat?: string;
 }
 
 function ColumnTrashZone() {
@@ -102,7 +104,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, onStarToggled, userTimezone = "" }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, onStarToggled, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -581,6 +583,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               hideAssignee={viewPrefs.hideAssignee}
               hidePriority={viewPrefs.hidePriority}
               userTimezone={userTimezone}
+              userDateFormat={userDateFormat}
             />
               ))}
             </SortableContext>
@@ -604,7 +607,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         </div>
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} />}
+          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} />}
           {activeColumn && (
             <div className="flex-1 min-w-[180px] px-3 py-3 border border-blue-400 bg-blue-50 rounded shadow-xl opacity-90">
               <div className="flex items-center gap-2">
@@ -640,6 +643,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
           onUpdated={onCardUpdated}
           onLabelAdded={onLabelAdded}
+          userDateFormat={userDateFormat}
+          userTimeFormat={userTimeFormat}
         />
       )}
 

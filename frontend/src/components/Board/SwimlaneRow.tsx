@@ -30,9 +30,10 @@ interface Props {
   hideAssignee?: boolean;
   hidePriority?: boolean;
   userTimezone?: string;
+  userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -180,6 +181,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               hideAssignee={hideAssignee}
               hidePriority={hidePriority}
               userTimezone={userTimezone}
+              userDateFormat={userDateFormat}
             />
           );
         })}

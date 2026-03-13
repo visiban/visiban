@@ -27,6 +27,9 @@ export interface User {
   has_usable_password?: boolean;
   notification_prefs?: NotificationPrefs;
   timezone?: string;
+  date_format?: string;
+  time_format?: string;
+  number_locale?: string;
   notif_card_assigned?: boolean;
   notif_mentioned?: boolean;
   notif_due_soon?: boolean;
