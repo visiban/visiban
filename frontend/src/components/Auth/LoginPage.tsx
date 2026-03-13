@@ -64,7 +64,7 @@ export default function LoginPage({ onLogin }: Props) {
           <input
             type="text"
             required
-            placeholder={mode === "login" ? "Username or email" : "Username"}
+            placeholder={mode === "login" ? "Username or email" : "Email address"}
             value={loginField}
             onChange={(e) => setLoginField(e.target.value)}
             className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
