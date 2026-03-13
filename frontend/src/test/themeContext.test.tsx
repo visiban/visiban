@@ -77,6 +77,11 @@ describe('ThemeProvider — initial preference', () => {
     expect(result.current.preference).toBe('system')
   })
 
+  it('writes "system" to localStorage when no stored value exists', () => {
+    renderHook(() => useTheme(), { wrapper })
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('system')
+  })
+
   it('reads initial preference from localStorage', () => {
     setStoredPreference('dark')
     const { result } = renderHook(() => useTheme(), { wrapper })
