@@ -232,7 +232,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
         </button>
       </div>
 
-      <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+      <main className="flex-1 p-8 max-w-5xl mx-auto w-full overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
