@@ -29,8 +29,12 @@ function applyTheme(preference: ThemePreference) {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return (stored as ThemePreference) ?? "system";
+    const stored = localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
+    if (!stored) {
+      localStorage.setItem(STORAGE_KEY, "system");
+      return "system";
+    }
+    return stored;
   });
 
   useEffect(() => {
