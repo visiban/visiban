@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SettingsPage from '../pages/SettingsPage'
@@ -134,6 +134,10 @@ describe('ProfileTab', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('filling and submitting form calls updateCurrentUser', async () => {
     const updatedUser = { ...fakeUser, display_name: 'Updated Name' }
     mockUpdateCurrentUser.mockResolvedValueOnce(updatedUser)
@@ -161,6 +165,26 @@ describe('ProfileTab', () => {
     renderSettings()
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(screen.getByText('Changes saved.')).toBeInTheDocument())
+  })
+
+  it('navigates to "/" after the saved flash', async () => {
+    vi.useFakeTimers()
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    renderSettings()
+    // Use fireEvent (synchronous) so we don't depend on userEvent's internal timers
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      // Flush the resolved promise from mockUpdateCurrentUser
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByText('Changes saved.')).toBeInTheDocument()
+    // The 1500ms navigate timer is still pending — confirm navigate not yet called
+    expect(mockNavigate).not.toHaveBeenCalled()
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 
   it('shows error message on save failure', async () => {
@@ -384,6 +408,7 @@ describe('NotificationsTab', () => {
     renderSettings()
     await user.click(screen.getByText('Notifications'))
     const switches = screen.getAllByRole('switch')
+    // notif_due_soon is the 3rd switch (index 2), default false → clicking turns it on
     await user.click(switches[2])
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ notif_due_soon: true })
   })
