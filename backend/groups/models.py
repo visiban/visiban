@@ -99,13 +99,14 @@ class GroupMembership(models.Model):
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
+        COLLABORATOR = "collaborator"
         VIEWER = "viewer"
 
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="memberships")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="group_memberships"
     )
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.MEMBER)
+    role = models.CharField(max_length=16, choices=Role.choices, default=Role.MEMBER)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -117,6 +118,7 @@ class GroupInviteLink(models.Model):
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
+        COLLABORATOR = "collaborator"
         VIEWER = "viewer"
 
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="invite_links")
@@ -128,7 +130,7 @@ class GroupInviteLink(models.Model):
     is_active = models.BooleanField(default=True)
     name = models.CharField(max_length=100, blank=True, default="")
     role = models.CharField(
-        max_length=10, choices=Role.choices, default=Role.MEMBER
+        max_length=16, choices=Role.choices, default=Role.MEMBER
     )
     expires_at = models.DateTimeField(null=True, blank=True)
 

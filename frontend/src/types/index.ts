@@ -230,7 +230,7 @@ export interface Group {
 export interface GroupMembership {
   id: number | null;
   user: User;
-  role: "admin" | "member" | "viewer";
+  role: "admin" | "member" | "collaborator" | "viewer";
   joined_at: string;
   is_inherited: boolean;
   inherited_from: string | null;
@@ -240,7 +240,7 @@ export interface GroupInviteLink {
   id: number;
   token: string;
   name: string;
-  role: "admin" | "member" | "viewer";
+  role: "admin" | "member" | "collaborator" | "viewer";
   expires_at: string | null;
   is_active: boolean;
   is_expired: boolean;

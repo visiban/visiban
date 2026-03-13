@@ -10,12 +10,14 @@ interface Props {
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   member: "Member",
+  collaborator: "Collaborator",
   viewer: "Viewer",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-purple-600 text-purple-100",
   member: "bg-blue-600 text-blue-100",
+  collaborator: "bg-teal-600 text-teal-100",
   viewer: "bg-slate-600 text-slate-200",
 };
 
@@ -43,7 +45,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
   // New link form state
   const [showForm, setShowForm] = useState(false);
   const [formName, setFormName] = useState("");
-  const [formRole, setFormRole] = useState<"admin" | "member" | "viewer">("member");
+  const [formRole, setFormRole] = useState<"admin" | "member" | "collaborator" | "viewer">("member");
   const [formExpiry, setFormExpiry] = useState<number | null>(7);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -197,10 +199,11 @@ export default function InviteLinkPanel({ groupId }: Props) {
               <label className="text-[11px] text-slate-400">Role</label>
               <SelectDropdown
                 value={formRole}
-                onChange={(v) => setFormRole(v as "admin" | "member" | "viewer")}
+                onChange={(v) => setFormRole(v as "admin" | "member" | "collaborator" | "viewer")}
                 options={[
                   { value: "admin", label: "Admin" },
                   { value: "member", label: "Member" },
+                  { value: "collaborator", label: "Collaborator" },
                   { value: "viewer", label: "Viewer" },
                 ]}
                 size="xs"
