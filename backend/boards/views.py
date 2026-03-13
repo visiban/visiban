@@ -41,6 +41,7 @@ from .templates import BOARD_TEMPLATES
 
 
 def get_board_for_user(board_id, user):
+    """Return (board, role) for board_id if user has access; raise 404 or 403 otherwise."""
     board = get_object_or_404(Board, pk=board_id)
     role = get_board_role(user, board)
     if role is None:
@@ -53,6 +54,8 @@ def get_board_for_user(board_id, user):
 # ---------------------------------------------------------------------------
 
 class BoardViewSet(viewsets.ModelViewSet):
+    """CRUD endpoints for boards, scoped to boards the requesting user has access to."""
+
     permission_classes = [IsAuthenticated]
     serializer_class = BoardSerializer
 
@@ -96,6 +99,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post", "delete"], url_path="star")
     def star(self, request, pk=None):
+        """Star or unstar a board for the requesting user."""
         board = self.get_object()
         if request.method == "POST":
             BoardFavorite.objects.get_or_create(user=request.user, board=board)
@@ -105,6 +109,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="move-group")
     def move_group(self, request, pk=None):
+        """Move a board into a group (or back to personal) that the requesting user belongs to."""
         board, role = get_board_for_user(pk, request.user)
         if board.owner != request.user and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
@@ -439,6 +444,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
+        """Return the full board state: columns, swimlanes, cards, labels, and members."""
         board, _ = get_board_for_user(pk, request.user)
         return Response(BoardFullSerializer(board, context={"request": request}).data)
 
@@ -714,6 +720,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def members(self, request, pk=None):
+        """Add or update a member's role on the board (admin only)."""
         board, role = get_board_for_user(pk, request.user)
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
@@ -733,6 +740,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
     def remove_member(self, request, pk=None, user_id=None):
+        """Remove a member from the board (admin only)."""
         board, role = get_board_for_user(pk, request.user)
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
@@ -748,6 +756,8 @@ class BoardViewSet(viewsets.ModelViewSet):
 # ---------------------------------------------------------------------------
 
 class ColumnViewSet(viewsets.ModelViewSet):
+    """CRUD endpoints for columns on a board; write operations require admin role."""
+
     permission_classes = [IsAuthenticated]
     serializer_class = ColumnSerializer
 
@@ -786,6 +796,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
+        """Reorder columns by accepting a list of column IDs in the desired order (admin only)."""
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
@@ -807,6 +818,8 @@ class ColumnViewSet(viewsets.ModelViewSet):
 # ---------------------------------------------------------------------------
 
 class SwimlaneViewSet(viewsets.ModelViewSet):
+    """CRUD endpoints for swimlanes on a board; write operations require admin role."""
+
     permission_classes = [IsAuthenticated]
     serializer_class = SwimlaneSerializer
 
@@ -845,6 +858,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
+        """Reorder swimlanes by accepting a list of swimlane IDs in the desired order (admin only)."""
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
@@ -860,6 +874,8 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
 # ---------------------------------------------------------------------------
 
 class LabelViewSet(viewsets.ModelViewSet):
+    """CRUD endpoints for labels on a board; write operations require admin role."""
+
     permission_classes = [IsAuthenticated]
     serializer_class = LabelSerializer
 
@@ -896,6 +912,8 @@ class LabelViewSet(viewsets.ModelViewSet):
 # ---------------------------------------------------------------------------
 
 class CardFilter(django_filters.FilterSet):
+    """django-filters FilterSet for cards; supports priority, assignee, column, swimlane, and due-date filters."""
+
     priority = django_filters.CharFilter(field_name="priority", lookup_expr="exact")
     assignee = django_filters.NumberFilter(field_name="assignee__id")
     unassigned = django_filters.BooleanFilter(field_name="assignee", lookup_expr="isnull")
@@ -917,6 +935,8 @@ class CardFilter(django_filters.FilterSet):
 
 
 class CardViewSet(viewsets.ModelViewSet):
+    """CRUD endpoints for cards on a board; viewers cannot create/edit/delete."""
+
     permission_classes = [IsAuthenticated]
     serializer_class = CardSerializer
     filterset_class = CardFilter
@@ -1052,6 +1072,7 @@ class CardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     @transaction.atomic
     def move(self, request, board_pk=None, pk=None):
+        """Move a card to a new column/swimlane/position, creating a CardMovement record."""
         board, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
             raise PermissionDenied
@@ -1119,6 +1140,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def movements(self, request, board_pk=None, pk=None):
+        """Return the full movement history for a card."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         movements = card.movements.select_related(
@@ -1128,6 +1150,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def activities(self, request, board_pk=None, pk=None):
+        """Return the field-change activity log for a card."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         serializer = CardActivitySerializer(card.activities.select_related("actor"), many=True)
@@ -1135,6 +1158,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post", "get"])
     def comments(self, request, board_pk=None, pk=None):
+        """List or add comments on a card; POST also handles @mention notifications."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         if request.method == "GET":
@@ -1177,6 +1201,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "post"], url_path="attachments")
     def attachments(self, request, board_pk=None, pk=None):
+        """List attachments on a card or upload a new one (max 10 MB)."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
 
@@ -1209,6 +1234,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["delete"], url_path="attachments/(?P<attachment_pk>[^/.]+)")
     def delete_attachment(self, request, board_pk=None, pk=None, attachment_pk=None):
+        """Delete an attachment and its underlying file from storage."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
@@ -1218,6 +1244,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "post"], url_path="checklist")
     def checklist(self, request, board_pk=None, pk=None):
+        """List checklist items on a card or add a new one."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         if request.method == "GET":
@@ -1235,6 +1262,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
     def checklist_item(self, request, board_pk=None, pk=None, item_pk=None):
+        """Update (PATCH) or delete a single checklist item."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         item = get_object_or_404(CardChecklist, pk=item_pk, card=card)

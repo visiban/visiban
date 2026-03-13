@@ -54,6 +54,8 @@ def _require_group_member(user, group):
 
 
 class GroupViewSet(viewsets.ModelViewSet):
+    """CRUD endpoints for groups, scoped to groups the requesting user is a member of."""
+
     permission_classes = [IsAuthenticated]
     serializer_class = GroupSerializer
 
@@ -395,8 +397,10 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 class JoinGroupView(APIView):
     """
-    GET  /api/groups/join/<token>/  — public: resolve token to group name
-    POST /api/groups/join/<token>/  — authenticated: join the group
+    Invite-link join flow.
+
+    GET  /api/groups/join/<token>/ — public; resolve token to group name and role.
+    POST /api/groups/join/<token>/ — authenticated; add the requesting user to the group.
     """
 
     def get_permissions(self):
