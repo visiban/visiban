@@ -44,10 +44,7 @@ export default function SelectDropdown<T extends string>({
   const selected = options.find((o) => o.value === value);
   const label = selected?.label ?? placeholder ?? value;
 
-  const triggerBase =
-    size === "xs"
-      ? "text-xs px-2 py-1"
-      : "text-sm px-2.5 py-1.5";
+  const triggerPadding = size === "xs" ? "px-2 py-1 text-xs" : "px-2.5 py-1.5 text-sm";
 
   return (
     <div ref={containerRef} className={`relative inline-block ${className}`}>
@@ -55,11 +52,16 @@ export default function SelectDropdown<T extends string>({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className={`${triggerBase} bg-slate-800 border border-slate-600 rounded-lg text-slate-200 outline-none flex items-center gap-1.5 transition hover:border-slate-400 focus:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed ${open ? "border-blue-400" : ""}`}
+        className={`${triggerPadding} w-full bg-white dark:bg-slate-800 border rounded-lg outline-none flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed
+          text-gray-700 dark:text-slate-200
+          ${open
+            ? "border-blue-500 dark:border-blue-400"
+            : "border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-400"
+          }`}
       >
-        <span className="truncate">{label}</span>
+        <span className="truncate flex-1 text-left">{label}</span>
         <svg
-          className={`w-3 h-3 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-3 h-3 shrink-0 text-gray-400 dark:text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -72,11 +74,16 @@ export default function SelectDropdown<T extends string>({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-full max-h-60 overflow-y-auto">
+        <div className="absolute top-full mt-1 left-0 z-50 min-w-full max-h-60 overflow-y-auto rounded-lg shadow-lg py-1
+          bg-white dark:bg-slate-800
+          border border-gray-200 dark:border-slate-600">
           {options.map((opt) => (
             <div key={opt.value}>
               {opt.separatorBefore && (
-                <hr className="my-1 border-slate-700" />
+                <div
+                  role="separator"
+                  className="my-1.5 mx-3 h-px bg-gray-200 dark:bg-slate-600/60"
+                />
               )}
               <button
                 type="button"
@@ -84,9 +91,12 @@ export default function SelectDropdown<T extends string>({
                   onChange(opt.value);
                   setOpen(false);
                 }}
-                className={`w-full text-left px-3 py-1.5 text-sm transition hover:bg-slate-700 ${
-                  opt.value === value ? "text-blue-400" : "text-slate-200"
-                }`}
+                className={`w-full text-left px-3 py-1.5 text-sm transition
+                  hover:bg-gray-100 dark:hover:bg-slate-700
+                  ${opt.value === value
+                    ? "text-blue-600 dark:text-blue-400 font-medium"
+                    : "text-gray-700 dark:text-slate-200"
+                  }`}
               >
                 {opt.label}
               </button>
