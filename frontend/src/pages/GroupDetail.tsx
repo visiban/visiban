@@ -438,13 +438,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
               <p className="text-gray-500 text-sm mb-4">Manage who has access to this group and their roles.</p>
               <div className="flex flex-col gap-2">
                 {members.map((m) => (
-                  <div key={m.user.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
+                  <div key={m.user.id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${m.is_inherited ? "bg-gray-800/50" : "bg-gray-800"}`}>
+                    <div className="flex items-center gap-2 min-w-0">
                       <Avatar user={m.user} size="sm" />
-                      <p className="text-white text-sm">{m.user.display_name || m.user.username}</p>
+                      <p className={`text-sm truncate ${m.is_inherited ? "text-gray-400" : "text-white"}`}>{m.user.display_name || m.user.username}</p>
                     </div>
-                    {isAdmin && m.user.id !== user.id && !m.user.is_site_admin ? (
-                      <div className="flex items-center gap-2">
+                    {m.is_inherited ? (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-gray-500 capitalize">{m.role}</span>
+                        <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded whitespace-nowrap">
+                          ↑ {m.inherited_from}
+                        </span>
+                      </div>
+                    ) : isAdmin && m.user.id !== user.id && !m.user.is_site_admin ? (
+                      <div className="flex items-center gap-2 shrink-0">
                         <SelectDropdown
                           value={m.role}
                           onChange={(v) => handleRoleChange(m.user.id, v as "admin" | "member" | "viewer")}
@@ -463,7 +470,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <p className="text-gray-500 text-xs capitalize">{m.role}</p>
                         {m.user.is_site_admin && (
                           <span className="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">site admin</span>

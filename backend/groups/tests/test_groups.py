@@ -286,3 +286,63 @@ class JoinGroupViewTests(TestCase):
         self.link.save()
         r = self.client.get(f"/api/groups/join/{self.link.token}/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class SubgroupMemberInheritanceTests(TestCase):
+    """Members endpoint returns inherited memberships from ancestor groups."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.parent = _make_group(self.owner, "Parent")
+        # Child group — owner has admin membership via _make_group
+        self.child = _make_group(self.owner, "Child", parent=self.parent)
+        # A user who is only a member of the parent
+        self.parent_member = User.objects.create_user(username="pmember", password="pass")
+        GroupMembership.objects.create(
+            group=self.parent, user=self.parent_member, role=GroupMembership.Role.MEMBER
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def test_inherited_member_appears_in_child_members_list(self):
+        r = self.client.get(f"/api/groups/{self.child.id}/members/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        user_ids = [m["user"]["id"] for m in data]
+        self.assertIn(self.parent_member.id, user_ids)
+
+    def test_inherited_member_has_is_inherited_true(self):
+        r = self.client.get(f"/api/groups/{self.child.id}/members/")
+        entry = next(m for m in r.json() if m["user"]["id"] == self.parent_member.id)
+        self.assertTrue(entry["is_inherited"])
+        self.assertEqual(entry["inherited_from"], "Parent")
+
+    def test_direct_membership_takes_precedence_over_inherited(self):
+        # Give parent_member a direct child membership with a different role
+        GroupMembership.objects.create(
+            group=self.child, user=self.parent_member, role=GroupMembership.Role.ADMIN
+        )
+        r = self.client.get(f"/api/groups/{self.child.id}/members/")
+        entries = [m for m in r.json() if m["user"]["id"] == self.parent_member.id]
+        # Should appear exactly once
+        self.assertEqual(len(entries), 1)
+        self.assertFalse(entries[0]["is_inherited"])
+        self.assertEqual(entries[0]["role"], GroupMembership.Role.ADMIN)
+
+    def test_inherited_admin_can_manage_subgroup(self):
+        """A user who is admin in the parent can call admin-only endpoints on the child."""
+        parent_admin = User.objects.create_user(username="padmin", password="pass")
+        GroupMembership.objects.create(
+            group=self.parent, user=parent_admin, role=GroupMembership.Role.ADMIN
+        )
+        # parent_admin has no direct child membership — inherited admin should suffice
+        self.client.force_authenticate(parent_admin)
+        # Listing invite links is an admin-only action
+        r = self.client.get(f"/api/groups/{self.child.id}/invite-links/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_inherited_member_cannot_perform_admin_actions(self):
+        """A user who is only a member (not admin) in an ancestor cannot admin the child."""
+        self.client.force_authenticate(self.parent_member)
+        r = self.client.get(f"/api/groups/{self.child.id}/invite-links/")
+        self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])

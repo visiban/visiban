@@ -11,18 +11,28 @@ from .serializers import GroupSerializer, GroupLabelSerializer, GroupMembershipS
 
 
 def _require_group_admin(user, group):
-    """Raise PermissionDenied if user is not an admin of this group."""
+    """Raise PermissionDenied if user is not an admin of this group or any ancestor."""
     from rest_framework.exceptions import PermissionDenied
     if getattr(user, "is_site_admin", False):
         return
-    if group.owner_id == user.id:
-        return
-    try:
-        membership = group.memberships.get(user=user)
-        if membership.role != GroupMembership.Role.ADMIN:
-            raise PermissionDenied
-    except GroupMembership.DoesNotExist:
-        raise PermissionDenied
+    # Walk from the group up through its ancestors — direct membership with admin
+    # role at any level grants admin on all descendants.
+    node = group
+    depth = 0
+    while node and depth < 7:
+        if node.owner_id == user.id:
+            return
+        try:
+            m = node.memberships.get(user=user)
+            if m.role == GroupMembership.Role.ADMIN:
+                return
+            # Direct non-admin membership on the target group is NOT sufficient;
+            # a non-admin direct member of an ancestor also cannot admin descendants.
+        except GroupMembership.DoesNotExist:
+            pass
+        node = node.parent
+        depth += 1
+    raise PermissionDenied
 
 
 def _require_group_member(user, group):
@@ -78,8 +88,41 @@ class GroupViewSet(viewsets.ModelViewSet):
     def members(self, request, pk=None):
         group = self.get_object()
         _require_group_member(request.user, group)
-        memberships = group.memberships.select_related("user")
-        return Response(GroupMembershipSerializer(memberships, many=True).data)
+
+        from accounts.serializers import UserSerializer
+
+        # Direct memberships
+        direct = list(group.memberships.select_related("user"))
+        seen_user_ids = {m.user_id for m in direct}
+
+        result = [
+            {
+                "id": m.id,
+                "user": UserSerializer(m.user).data,
+                "role": m.role,
+                "joined_at": m.joined_at,
+                "is_inherited": False,
+                "inherited_from": None,
+            }
+            for m in direct
+        ]
+
+        # Inherited memberships from ancestor groups (nearest ancestor wins,
+        # ancestors() returns nearest-first).
+        for ancestor in group.ancestors():
+            for m in ancestor.memberships.select_related("user"):
+                if m.user_id not in seen_user_ids:
+                    result.append({
+                        "id": None,
+                        "user": UserSerializer(m.user).data,
+                        "role": m.role,
+                        "joined_at": m.joined_at,
+                        "is_inherited": True,
+                        "inherited_from": ancestor.name,
+                    })
+                    seen_user_ids.add(m.user_id)
+
+        return Response(result)
 
     @action(detail=True, methods=["patch", "delete"], url_path=r"members/(?P<user_id>[^/.]+)")
     def update_member(self, request, pk=None, user_id=None):

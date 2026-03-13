@@ -228,10 +228,12 @@ export interface Group {
 }
 
 export interface GroupMembership {
-  id: number;
+  id: number | null;
   user: User;
   role: "admin" | "member" | "viewer";
   joined_at: string;
+  is_inherited: boolean;
+  inherited_from: string | null;
 }
 
 export interface GroupInviteLink {
