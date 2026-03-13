@@ -113,11 +113,6 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           { label: board?.name ?? "…" },
         ]}
       />
-      <div className="flex items-center gap-2 px-4 py-2 bg-slate-800 border-b border-slate-700">
-        <button onClick={handleBack} className="text-slate-400 hover:text-white text-sm transition">
-          ← {board?.group ? (board.group_name ?? "Group") : "Dashboard"}
-        </button>
-      </div>
       <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
         {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading board…</div>}
         {error && <div className="flex items-center justify-center h-full text-red-400">{error}</div>}

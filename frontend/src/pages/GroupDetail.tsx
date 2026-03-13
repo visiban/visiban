@@ -262,12 +262,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         </div>
       )}
 
-      <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
-        <button onClick={() => navigate(group.parent ? `/groups/${group.parent}` : "/")} className="text-gray-400 hover:text-white text-sm transition">
-          ← {group.parent ? (group.parent_name ?? "Group") : "Dashboard"}
-        </button>
-      </div>
-
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
