@@ -13,6 +13,12 @@ export function useAuth() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const handleSessionExpired = () => setUser(null);
+    window.addEventListener("auth:sessionExpired", handleSessionExpired);
+    return () => window.removeEventListener("auth:sessionExpired", handleSessionExpired);
+  }, []);
+
   const logout = async () => {
     await apiLogout();
     setUser(null);
