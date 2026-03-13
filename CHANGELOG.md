@@ -44,6 +44,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Session expiry now redirects to the login page automatically; previously, if the backend session expired while the app was open, all API calls would silently fail with 403 and the UI would remain stuck in a "logged in" state with cryptic error messages
+- "Failed to create group" modal now surfaces the actual server-side error message instead of a generic fallback
+
 - Duplicate Timezone dropdown in Settings → Profile removed; only the #96 version (with "Detect automatically" option and helper text) remains
 - Notification preference toggles in Settings → Notifications now save correctly; the `notif_*` fields were missing from the `updateCurrentUser` API type so the PATCH body was silently dropping them
 - Profile settings: flash "Changes saved." message then redirect to dashboard after save

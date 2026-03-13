@@ -16,4 +16,19 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// When the backend signals that credentials are no longer valid, emit an event
+// so that useAuth can clear the user and redirect to the login page.
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.detail === "Authentication credentials were not provided."
+    ) {
+      window.dispatchEvent(new Event("auth:sessionExpired"));
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default client;
