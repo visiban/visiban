@@ -132,9 +132,11 @@ describe('SettingsPage', () => {
 describe('ProfileTab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.clearAllTimers()
   })
 
   afterEach(() => {
+    vi.clearAllTimers()
     vi.useRealTimers()
   })
 
