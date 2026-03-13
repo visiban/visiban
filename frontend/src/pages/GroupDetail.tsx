@@ -188,7 +188,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     (m) => m.role === "admin" && m.user.id !== user.id
   );
 
-  const isAdmin = group?.owner.id === user.id ||
+  const isAdmin = user.is_site_admin ||
+    group?.owner.id === user.id ||
     members.find((m) => m.user.id === user.id)?.role === "admin";
 
   const activeTab = isAdmin && searchParams.get("tab") === "settings" ? "settings" : "boards";
