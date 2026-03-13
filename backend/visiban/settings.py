@@ -180,6 +180,7 @@ SESSION_COOKIE_SAMESITE = "Lax"
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_USERNAME_REQUIRED = False
 LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
 ACCOUNT_LOGOUT_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
