@@ -16,6 +16,7 @@ export default function JoinPage({ user }: Props) {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [invalid, setInvalid] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -28,9 +29,12 @@ export default function JoinPage({ user }: Props) {
   const handleJoin = async () => {
     if (!token) return;
     setJoining(true);
+    setJoinError(null);
     try {
       await joinGroup(token);
       navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } });
+    } catch {
+      setJoinError("Failed to join group. The invite may have expired.");
     } finally {
       setJoining(false);
     }
@@ -74,13 +78,16 @@ export default function JoinPage({ user }: Props) {
         </p>
 
         {user ? (
-          <button
-            onClick={handleJoin}
-            disabled={joining}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
-          >
-            {joining ? "Joining…" : `Join ${groupName}`}
-          </button>
+          <>
+            <button
+              onClick={handleJoin}
+              disabled={joining}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+            >
+              {joining ? "Joining…" : `Join ${groupName}`}
+            </button>
+            {joinError && <p className="text-red-400 text-sm mt-3">{joinError}</p>}
+          </>
         ) : (
           <div className="flex flex-col gap-3">
             <button

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import JoinPage from '../pages/JoinPage'
 import type { User } from '../types'
@@ -9,9 +9,10 @@ vi.mock('../api/groups', () => ({
   joinGroup: vi.fn(),
 }))
 
-import { resolveJoinToken } from '../api/groups'
+import { resolveJoinToken, joinGroup } from '../api/groups'
 
 const mockResolveJoinToken = resolveJoinToken as ReturnType<typeof vi.fn>
+const mockJoinGroup = joinGroup as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -75,5 +76,30 @@ describe('JoinPage', () => {
     mockResolveJoinToken.mockRejectedValue(new Error('Not found'))
     renderJoinPage(fakeUser)
     expect(await screen.findByText('Go to dashboard')).toBeInTheDocument()
+  })
+
+  it('navigates to group page with joinedGroup state on successful join', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 42, group_name: 'Engineering' })
+    mockJoinGroup.mockResolvedValue({})
+    const navigated: { to: string; state: unknown }[] = []
+    render(
+      <MemoryRouter initialEntries={['/join/abc123']}>
+        <Routes>
+          <Route path="/join/:token" element={<JoinPage user={fakeUser} onLogin={vi.fn()} />} />
+          <Route path="/groups/:id" element={<div data-testid="group-page" />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    fireEvent.click(await screen.findByText('Join Engineering'))
+    await waitFor(() => expect(screen.getByTestId('group-page')).toBeInTheDocument())
+    expect(mockJoinGroup).toHaveBeenCalledWith('abc123')
+  })
+
+  it('shows error message when join fails', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockJoinGroup.mockRejectedValue(new Error('Gone'))
+    renderJoinPage(fakeUser)
+    fireEvent.click(await screen.findByText('Join Engineering'))
+    expect(await screen.findByText('Failed to join group. The invite may have expired.')).toBeInTheDocument()
   })
 })
