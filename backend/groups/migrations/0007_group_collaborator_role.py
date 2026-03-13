@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('groups', '0005_groupinvitelink_extras_grouplabel_id'),
+        ('groups', '0006_alter_groupinvitelink_role'),
     ]
 
     operations = [
