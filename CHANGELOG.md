@@ -21,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Sidebar Home link** (#153): sidebar now shows a Home row at the top that navigates to `/` and highlights when the current path is `/`; renders as a house icon in collapsed mode
+
 - **Board starring / favorites** (#154): users can star any board they have access to; starred boards appear in a Favorites section at the top of the sidebar for quick access; the star button (☆/★) sits in the board toolbar and updates optimistically with rollback on failure; the `?starred=true` query parameter on `/api/boards/` filters to starred boards only; backed by a new `BoardFavorite` model (unique per user+board)
 
 - **Board delete confirmation** (#140): deleting a board that has cards now requires typing the board name exactly before the delete button activates; boards with no cards can still be deleted with a single click confirm; `card_count` is now included in the board list API response
