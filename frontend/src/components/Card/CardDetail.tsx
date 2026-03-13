@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority } from "../../types";
 import { userDisplayName } from "../../types";
+import SelectDropdown from "../Common/SelectDropdown";
 import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
@@ -276,21 +277,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Assignee</p>
-                  <select
-                    value={localCard.assignee?.id ?? ""}
-                    onChange={(e) => {
-                      const id = e.target.value ? Number(e.target.value) : null;
+                  <SelectDropdown
+                    value={String(localCard.assignee?.id ?? "")}
+                    onChange={(v) => {
+                      const id = v ? Number(v) : null;
                       save({ assignee_id: id });
                     }}
-                    className="text-sm bg-slate-900 border border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400 w-full text-slate-200"
-                  >
-                    <option value="">Unassigned</option>
-                    {board.members.map((m) => (
-                      <option key={m.user.id} value={m.user.id}>
-                        {userDisplayName(m.user)}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: "", label: "Unassigned" },
+                      ...board.members.map((m, i) => ({
+                        value: String(m.user.id),
+                        label: userDisplayName(m.user),
+                        separatorBefore: i === 0,
+                      })),
+                    ]}
+                    className="w-full"
+                  />
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Due date</p>

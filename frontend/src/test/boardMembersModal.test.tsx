@@ -41,7 +41,8 @@ describe('BoardMembersModal', () => {
 
   it('renders role dropdowns', () => {
     render(<BoardMembersModal board={fakeBoard} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
-    const selects = screen.getAllByRole('combobox')
-    expect(selects.length).toBeGreaterThanOrEqual(2)
+    // Custom dropdown triggers show the current role label
+    expect(screen.getByRole('button', { name: 'Admin' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Member' })).toBeInTheDocument()
   })
 })

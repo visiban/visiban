@@ -140,9 +140,12 @@ describe('CardDetail', () => {
     })
   })
 
-  it('renders assignee select with board members', () => {
+  it('renders assignee select with board members', async () => {
     render(<CardDetail {...defaultProps()} />)
-    expect(screen.getByText('Unassigned')).toBeInTheDocument()
+    // Trigger shows 'Unassigned' when no assignee is set
+    expect(screen.getByRole('button', { name: /Unassigned/ })).toBeInTheDocument()
+    // Open the dropdown to see member options
+    await userEvent.setup().click(screen.getByRole('button', { name: /Unassigned/ }))
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
   })
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import SelectDropdown from "../Common/SelectDropdown";
 import type { BoardFull, BoardMembership, User } from "../../types";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard } from "../../api/boards";
@@ -13,6 +14,12 @@ const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "collaborator", label: "Collaborator",  description: "Comment on cards but cannot edit them" },
   { value: "viewer",       label: "Viewer",        description: "Read-only access — view cards and history only" },
 ];
+
+const ROLE_OPTIONS = ROLES.map((r, i) => ({
+  value: r.value,
+  label: r.label,
+  separatorBefore: i === 3,
+}));
 
 interface Props {
   board: BoardFull;
@@ -303,17 +310,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                       <div className="flex items-center gap-2 shrink-0">
                         {isAdmin ? (
-                          <select
+                          <SelectDropdown
                             value={m.role}
                             disabled={isDisabled}
-                            onChange={(e) => handleRoleChange(m.user.id, e.target.value as BoardRole)}
-                            title={ROLES.find((r) => r.value === m.role)?.description}
-                            className="text-xs bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-blue-400 disabled:opacity-50"
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r.value} value={r.value}>{r.label}</option>
-                            ))}
-                          </select>
+                            onChange={(v) => handleRoleChange(m.user.id, v)}
+                            options={ROLE_OPTIONS}
+                            size="xs"
+                          />
                         ) : (
                           <span
                             className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded-lg"
@@ -417,20 +420,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           <p className="text-sm text-white truncate">{userDisplayName(s.user)}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <select
+                          <SelectDropdown
                             value={s.role}
-                            onChange={(e) =>
+                            onChange={(v) =>
                               setStaged((prev) =>
-                                prev.map((x) => x.user.id === s.user.id ? { ...x, role: e.target.value as BoardRole } : x)
+                                prev.map((x) => x.user.id === s.user.id ? { ...x, role: v } : x)
                               )
                             }
-                            title={ROLES.find((r) => r.value === s.role)?.description}
-                            className="text-xs bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-2 py-1 outline-none focus:border-blue-400"
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r.value} value={r.value}>{r.label}</option>
-                            ))}
-                          </select>
+                            options={ROLE_OPTIONS}
+                            size="xs"
+                          />
                           <button
                             onClick={() => setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id))}
                             className="text-xs text-slate-500 hover:text-red-400 transition w-5 text-center"

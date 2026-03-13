@@ -3,6 +3,7 @@ import type { BoardFull, BoardMembership } from "../../types";
 import { userDisplayName } from "../../types";
 import { setBoardMember, removeBoardMember } from "../../api/boards";
 import type { BoardRole } from "../../api/boards";
+import SelectDropdown from "../Common/SelectDropdown";
 
 interface Props {
   board: BoardFull;
@@ -16,6 +17,12 @@ const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "collaborator", label: "Collaborator",  description: "Comment on cards only" },
   { value: "viewer",       label: "Viewer",        description: "Read-only access" },
 ];
+
+const ROLE_OPTIONS = ROLES.map((r, i) => ({
+  value: r.value,
+  label: r.label,
+  separatorBefore: i === 3, // separator before Viewer (read-only tier)
+}));
 
 export default function BoardMembersModal({ board, onClose, onMembersChanged }: Props) {
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
@@ -87,16 +94,13 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
                     <p className="text-xs text-slate-500 truncate">{m.user.email}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <select
+                    <SelectDropdown
                       value={m.role}
                       disabled={isDisabled}
-                      onChange={(e) => handleRoleChange(m.user.id, e.target.value as BoardRole)}
-                      className="text-xs bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-blue-400 disabled:opacity-50"
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => handleRoleChange(m.user.id, v)}
+                      options={ROLE_OPTIONS}
+                      size="xs"
+                    />
                     {!isSelf && m.id !== null && (
                       <button
                         onClick={() => handleRemove(m.user.id)}
