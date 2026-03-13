@@ -129,15 +129,15 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('shows role selects for each member when isAdmin=true', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    const selects = screen.getAllByRole('combobox')
-    // At least 2 selects (one per member) on the members tab
-    expect(selects.length).toBeGreaterThanOrEqual(2)
+    // Custom dropdown triggers show the current role label for each member
+    expect(screen.getByRole('button', { name: 'Admin' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Member' })).toBeInTheDocument()
   })
 
   it('shows role badges (not selects) when isAdmin=false', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    // No dropdown triggers when user is not admin — roles shown as text badges
     expect(screen.queryByRole('combobox')).toBeNull()
-    // Role values should appear as text badges
     expect(screen.getByText('admin')).toBeInTheDocument()
     expect(screen.getByText('member')).toBeInTheDocument()
   })
@@ -147,10 +147,9 @@ describe('BoardSettingsModal — Members tab', () => {
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
-    // Find Bob's role select (value starts as 'member')
-    const selects = screen.getAllByRole('combobox')
-    const bobSelect = selects.find((s) => (s as HTMLSelectElement).value === 'member') as HTMLSelectElement
-    await user.selectOptions(bobSelect, 'viewer')
+    // Open Bob's dropdown (currently showing 'Member') and select 'Viewer'
+    await user.click(screen.getByRole('button', { name: 'Member' }))
+    await user.click(screen.getByRole('button', { name: 'Viewer' }))
 
     expect(mockSetBoardMember).toHaveBeenCalledWith(1, 2, 'viewer')
   })
@@ -160,13 +159,12 @@ describe('BoardSettingsModal — Members tab', () => {
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
-    const selects = screen.getAllByRole('combobox')
-    const bobSelect = selects.find((s) => (s as HTMLSelectElement).value === 'member') as HTMLSelectElement
-    await user.selectOptions(bobSelect, 'viewer')
+    await user.click(screen.getByRole('button', { name: 'Member' }))
+    await user.click(screen.getByRole('button', { name: 'Viewer' }))
 
     await waitFor(() => {
-      // After the API resolves, the same select element should now show 'viewer'
-      expect((bobSelect as HTMLSelectElement).value).toBe('viewer')
+      // After the API resolves, Bob's dropdown trigger shows 'Viewer'
+      expect(screen.getByRole('button', { name: 'Viewer' })).toBeInTheDocument()
     })
   })
 
@@ -341,8 +339,8 @@ describe('BoardSettingsModal — Invite tab', () => {
     await stageAlice()
 
     expect(screen.getAllByText('Alice Wonder').length).toBeGreaterThanOrEqual(1)
-    const selects = screen.getAllByRole('combobox')
-    expect(selects.length).toBeGreaterThanOrEqual(1)
+    // Staged user defaults to 'member' role — dropdown trigger shows 'Member'
+    expect(screen.getByRole('button', { name: 'Member' })).toBeInTheDocument()
   })
 
   it('can change the staged user role', async () => {
@@ -350,15 +348,16 @@ describe('BoardSettingsModal — Invite tab', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
-    const selects = screen.getAllByRole('combobox')
-    const stagedSelect = selects[selects.length - 1] as HTMLSelectElement
-
+    // Open the staged user's role dropdown (shows 'Member' by default) and select 'Viewer'
     await act(async () => {
-      stagedSelect.value = 'viewer'
-      stagedSelect.dispatchEvent(new Event('change', { bubbles: true }))
+      screen.getByRole('button', { name: 'Member' }).click()
+    })
+    await act(async () => {
+      screen.getByRole('button', { name: 'Viewer' }).click()
     })
 
-    expect(stagedSelect.value).toBe('viewer')
+    // Dropdown now shows 'Viewer'
+    expect(screen.getByRole('button', { name: 'Viewer' })).toBeInTheDocument()
   })
 
   it('can remove a staged user via ✕ button', async () => {

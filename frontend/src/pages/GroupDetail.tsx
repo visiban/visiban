@@ -14,6 +14,7 @@ import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
 import { importBoard } from "../api/boards";
 import type { Board, Group, GroupLabel, GroupMembership, Priority, User } from "../types";
+import SelectDropdown from "../components/Common/SelectDropdown";
 
 interface Props {
   user: User;
@@ -434,15 +435,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                     </div>
                     {isAdmin && m.user.id !== user.id && !m.user.is_site_admin ? (
                       <div className="flex items-center gap-2">
-                        <select
+                        <SelectDropdown
                           value={m.role}
-                          onChange={(e) => handleRoleChange(m.user.id, e.target.value as "admin" | "member" | "viewer")}
-                          className="bg-gray-700 text-gray-300 text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none"
-                        >
-                          <option value="viewer">Viewer</option>
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
+                          onChange={(v) => handleRoleChange(m.user.id, v as "admin" | "member" | "viewer")}
+                          options={[
+                            { value: "admin", label: "Admin" },
+                            { value: "member", label: "Member" },
+                            { value: "viewer", label: "Viewer" },
+                          ]}
+                          size="xs"
+                        />
                         <button
                           onClick={() => handleRemoveMember(m.user.id)}
                           className="text-gray-600 hover:text-red-400 transition text-xs"
@@ -477,17 +479,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
               <div className="mb-5">
                 <label className="text-gray-400 text-sm block mb-2">Default member role for new boards</label>
                 <div className="flex items-center gap-3">
-                  <select
+                  <SelectDropdown
                     value={group.default_board_member_role ?? "member"}
-                    onChange={(e) => handleDefaultRoleChange(e.target.value as "admin" | "member" | "collaborator" | "viewer")}
+                    onChange={(v) => handleDefaultRoleChange(v as "admin" | "member" | "collaborator" | "viewer")}
                     disabled={savingDefaults}
-                    className="bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500 disabled:opacity-50"
-                  >
-                    <option value="viewer">Viewer</option>
-                    <option value="collaborator">Collaborator</option>
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                    options={[
+                      { value: "admin", label: "Admin" },
+                      { value: "member", label: "Member" },
+                      { value: "collaborator", label: "Collaborator" },
+                      { value: "viewer", label: "Viewer" },
+                    ]}
+                  />
                   {defaultsSaved && <span className="text-green-400 text-xs">Saved</span>}
                   {defaultsError && <span className="text-red-400 text-xs">{defaultsError}</span>}
                 </div>
@@ -653,18 +655,18 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                 {adminMembers.length === 0 ? (
                   <p className="text-gray-500 text-sm">No other admins found. Promote a member to admin first.</p>
                 ) : (
-                  <select
-                    value={transferNewOwnerId}
-                    onChange={(e) => setTransferNewOwnerId(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">Select an admin…</option>
-                    {adminMembers.map((m) => (
-                      <option key={m.user.id} value={m.user.id}>
-                        {m.user.display_name || m.user.username}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectDropdown
+                    value={String(transferNewOwnerId)}
+                    onChange={(v) => setTransferNewOwnerId(v === "" ? "" : Number(v))}
+                    options={[
+                      { value: "", label: "Select an admin…" },
+                      ...adminMembers.map((m) => ({
+                        value: String(m.user.id),
+                        label: m.user.display_name || m.user.username,
+                      })),
+                    ]}
+                    className="w-full"
+                  />
                 )}
               </div>
 

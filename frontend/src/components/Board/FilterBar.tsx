@@ -69,16 +69,23 @@ function SingleSelectDropdown<T extends string | number>({ label, options, selec
 
       {open && (
         <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => { onChange(selected === opt.value ? null : opt.value); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 hover:bg-slate-700 text-sm transition ${
-                selected === opt.value ? "text-blue-400" : "text-slate-300"
-              }`}
-            >
-              {opt.label}
-            </button>
+          {options.map((opt, i) => (
+            <div key={opt.value}>
+              {i > 0 && (
+                <div role="separator" className="mx-4">
+                  <div className="h-px bg-slate-900" />
+                  <div className="h-px bg-slate-600/50" />
+                </div>
+              )}
+              <button
+                onClick={() => { onChange(selected === opt.value ? null : opt.value); setOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 hover:bg-slate-700 text-sm transition ${
+                  selected === opt.value ? "text-blue-400" : "text-slate-300"
+                }`}
+              >
+                {opt.label}
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -132,22 +139,29 @@ function CheckboxDropdown<T extends string | number>({ label, options, selected,
 
       {open && (
         <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
-          {options.map((opt) => (
-            <label
-              key={opt.value}
-              className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-300"
-            >
-              <input
-                type="checkbox"
-                checked={selected.includes(opt.value)}
-                onChange={() => toggle(opt.value)}
-                className="rounded"
-              />
-              {opt.color && (
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
+          {options.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-slate-500 italic">No labels on this board</p>
+          ) : options.map((opt, i) => (
+            <div key={opt.value}>
+              {i > 0 && (
+                <div role="separator" className="mx-4">
+                  <div className="h-px bg-slate-900" />
+                  <div className="h-px bg-slate-600/50" />
+                </div>
               )}
-              {opt.label}
-            </label>
+              <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt.value)}
+                  onChange={() => toggle(opt.value)}
+                  className="rounded"
+                />
+                {opt.color && (
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
+                )}
+                {opt.label}
+              </label>
+            </div>
           ))}
         </div>
       )}

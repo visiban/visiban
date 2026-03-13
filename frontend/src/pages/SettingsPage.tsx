@@ -6,6 +6,7 @@ import type { User } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import type { ThemePreference } from "../context/ThemeContext";
 import { TIMEZONE_OPTIONS, browserTimezone } from "../utils/date";
+import SelectDropdown from "../components/Common/SelectDropdown";
 
 type Tab = "profile" | "security" | "notifications" | "appearance";
 
@@ -106,20 +107,19 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-gray-400">
+      <div className="flex flex-col gap-1 text-sm text-gray-400">
         Timezone
-        <select
+        <SelectDropdown
           value={form.timezone}
-          onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
-        >
-          <option value="">Detect automatically ({browserTimezone()})</option>
-          {TIMEZONE_OPTIONS.map(({ value, label }) => (
-            <option key={value} value={value}>{label} — {value}</option>
-          ))}
-        </select>
+          onChange={(v) => setForm((f) => ({ ...f, timezone: v }))}
+          options={[
+            { value: "", label: `Detect automatically (${browserTimezone()})` },
+            ...TIMEZONE_OPTIONS.map(({ value, label }) => ({ value, label: `${label} — ${value}` })),
+          ]}
+          className="w-full"
+        />
         <span className="text-xs text-gray-500">Used for due date labels and filters</span>
-      </label>
+      </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
       {saved && <p className="text-sm text-green-400">Changes saved.</p>}

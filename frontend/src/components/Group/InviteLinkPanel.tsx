@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { listInviteLinks, createInviteLink, revokeInviteLink } from "../../api/groups";
 import type { GroupInviteLink } from "../../types";
+import SelectDropdown from "../Common/SelectDropdown";
 
 interface Props {
   groupId: number;
@@ -194,31 +195,28 @@ export default function InviteLinkPanel({ groupId }: Props) {
           <div className="flex gap-3">
             <div className="flex flex-col gap-1 flex-1">
               <label className="text-[11px] text-slate-400">Role</label>
-              <select
+              <SelectDropdown
                 value={formRole}
-                onChange={(e) => setFormRole(e.target.value as "member" | "viewer")}
-                className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-200 outline-none"
-              >
-                <option value="member">Member</option>
-                <option value="viewer">Viewer</option>
-              </select>
+                onChange={(v) => setFormRole(v as "member" | "viewer")}
+                options={[
+                  { value: "member", label: "Member" },
+                  { value: "viewer", label: "Viewer" },
+                ]}
+                size="xs"
+              />
             </div>
 
             <div className="flex flex-col gap-1 flex-1">
               <label className="text-[11px] text-slate-400">Expires</label>
-              <select
+              <SelectDropdown
                 value={formExpiry === null ? "null" : String(formExpiry)}
-                onChange={(e) =>
-                  setFormExpiry(e.target.value === "null" ? null : Number(e.target.value))
-                }
-                className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-200 outline-none"
-              >
-                {EXPIRY_OPTIONS.map((opt) => (
-                  <option key={String(opt.value)} value={String(opt.value)}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setFormExpiry(v === "null" ? null : Number(v))}
+                options={EXPIRY_OPTIONS.map((opt) => ({
+                  value: String(opt.value),
+                  label: opt.label,
+                }))}
+                size="xs"
+              />
             </div>
           </div>
 

@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- All native `<select>` dropdowns replaced with a consistent custom `SelectDropdown` component matching the board filter bar style: dark `bg-slate-800` trigger with chevron, `bg-slate-800 border-slate-600 rounded-lg` menu panel, hover-highlighted items, and 3D engraved separators between every adjacent item; separators are automatic — no per-option config needed; board filter bar dropdowns (`SingleSelectDropdown`, `CheckboxDropdown`) updated to match; Label filter shows "No labels on this board" when the board has none; separator style and pattern documented in `CLAUDE.md` for future dropdowns; affects board member role selects, group member role selects, default board member role, invite link role/expiry, card assignee, and the timezone setting (#156)
+
 ### Fixed
 
 - Role `?` tooltip in Board Settings Members tab no longer clips outside the modal; rebuilt as a portal-rendered tooltip anchored via `getBoundingClientRect()` at `position: fixed` with `z-index: 9999`, right-aligned to the button so it always stays within the viewport (#150)
