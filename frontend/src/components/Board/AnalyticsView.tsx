@@ -70,8 +70,8 @@ export default function AnalyticsView({ boardId, currentUserRole }: Props) {
       .catch(() => { setError("Failed to load analytics."); setLoading(false); });
   }, [boardId, days]);
 
-  if (loading) return <div className="flex-1 flex items-center justify-center text-gray-400">Loading analytics…</div>;
-  if (error) return <div className="flex-1 flex items-center justify-center text-red-500">{error}</div>;
+  if (loading) return <div className="flex-1 flex items-center justify-center bg-slate-900 text-slate-400">Loading analytics…</div>;
+  if (error) return <div className="flex-1 flex items-center justify-center bg-slate-900 text-red-500">{error}</div>;
   if (!data) return null;
 
   const allStalled = data.swimlanes.flatMap((sw) =>
@@ -79,7 +79,7 @@ export default function AnalyticsView({ boardId, currentUserRole }: Props) {
   );
 
   return (
-    <div className="flex-1 overflow-auto p-4 flex flex-col gap-6">
+    <div className="flex-1 overflow-auto p-4 flex flex-col gap-6 bg-slate-900">
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <span className="text-sm text-slate-400 font-medium">Period:</span>
