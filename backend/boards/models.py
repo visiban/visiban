@@ -3,6 +3,8 @@ from django.conf import settings
 
 
 class Board(models.Model):
+    """A kanban board containing columns, swimlanes, cards, and members."""
+
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     owner = models.ForeignKey(
@@ -32,6 +34,8 @@ class Board(models.Model):
 
 
 class BoardMembership(models.Model):
+    """Junction table recording a user's role on a board (admin/member/collaborator/viewer)."""
+
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
@@ -51,6 +55,8 @@ class BoardMembership(models.Model):
 
 
 class BoardFavorite(models.Model):
+    """Records that a user has starred a board; unique per user-board pair."""
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="board_favorites"
     )
@@ -63,6 +69,8 @@ class BoardFavorite(models.Model):
 
 
 class Column(models.Model):
+    """A vertical stage column on a board (e.g. Backlog, In Progress, Done)."""
+
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="columns")
     name = models.CharField(max_length=255)
     position = models.IntegerField(default=0)
@@ -81,6 +89,8 @@ class Column(models.Model):
 
 
 class Swimlane(models.Model):
+    """A horizontal row grouping cards on a board, typically representing a customer or workstream."""
+
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="swimlanes")
     name = models.CharField(max_length=255)
     contact_email = models.EmailField(blank=True)
@@ -100,6 +110,8 @@ class Swimlane(models.Model):
 
 
 class Label(models.Model):
+    """A color-coded tag that can be applied to cards on a board."""
+
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="labels")
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=7, default="#EAB308")
@@ -113,7 +125,10 @@ class Label(models.Model):
 
 
 class Card(models.Model):
+    """A work item positioned in a column/swimlane cell on a board."""
+
     class Priority(models.TextChoices):
+        """Priority levels available for a card."""
         LOW = "low"
         MEDIUM = "medium"
         HIGH = "high"
@@ -183,6 +198,8 @@ class CardMovement(models.Model):
 
 
 class CardComment(models.Model):
+    """A text comment left by a user on a card."""
+
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
@@ -197,7 +214,10 @@ class CardComment(models.Model):
 
 
 class CardActivity(models.Model):
+    """Immutable audit log entry for a field change or action on a card."""
+
     class EventType(models.TextChoices):
+        """Types of field-change events that are logged as card activity."""
         PRIORITY_CHANGE = "priority_change", "Priority changed"
         WEIGHT_CHANGE = "weight_change", "Weight changed"
         ASSIGNEE_CHANGE = "assignee_change", "Assignee changed"
@@ -227,6 +247,8 @@ class CardActivity(models.Model):
 
 
 class CardChecklist(models.Model):
+    """A checklist item (to-do) attached to a card."""
+
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="checklist_items")
     text = models.CharField(max_length=500)
     is_checked = models.BooleanField(default=False)
@@ -241,6 +263,8 @@ class CardChecklist(models.Model):
 
 
 class CardAttachment(models.Model):
+    """A file uploaded and attached to a card."""
+
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="attachments")
     file = models.FileField(upload_to="attachments/%Y/%m/")
     filename = models.CharField(max_length=255)
@@ -256,6 +280,8 @@ class CardAttachment(models.Model):
 
 
 class Notification(models.Model):
+    """An in-app notification delivered to a user about a card or board event."""
+
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
     )

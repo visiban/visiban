@@ -34,6 +34,8 @@ def get_accessible_group_ids(user):
 
 
 class Group(models.Model):
+    """A workspace that groups boards and members; supports nested subgroups up to 6 levels deep."""
+
     class DefaultMemberRole(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
@@ -96,6 +98,8 @@ class GroupLabel(models.Model):
 
 
 class GroupMembership(models.Model):
+    """Junction table recording a user's role in a group (admin/member/collaborator/viewer)."""
+
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
@@ -115,6 +119,8 @@ class GroupMembership(models.Model):
 
 
 class GroupInviteLink(models.Model):
+    """A shareable invite link that grants the recipient a specified role in a group on use."""
+
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
@@ -143,6 +149,8 @@ class GroupInviteLink(models.Model):
 
 
 class GroupFavorite(models.Model):
+    """Records that a user has starred a group; unique per user-group pair."""
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="group_favorites"
     )
