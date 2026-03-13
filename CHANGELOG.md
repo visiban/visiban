@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Role `?` tooltip in Board Settings Members tab no longer clips outside the modal; rebuilt as a portal-rendered tooltip anchored via `getBoundingClientRect()` at `position: fixed` with `z-index: 9999`, right-aligned to the button so it always stays within the viewport (#150)
+
 - Changing a password via the forced-change modal no longer invalidates the session: `ChangePasswordView` now calls `update_session_auth_hash()` so the user stays logged in and subsequent API calls succeed (#148)
 - Session-expiry interceptor now correctly detects 401 (Unauthenticated) responses from DRF instead of checking for a 403 with a message DRF never produces; stale-session detection now fires reliably after a password rotation or server-side session expiry (#148)
 - Startup 401/403 responses from unauthenticated session-check requests no longer appear as `WARNING Forbidden:` in Django logs; a `django.request` logging filter suppresses expected auth noise while preserving WARNING logs for 4xx errors that warrant attention (#148)
