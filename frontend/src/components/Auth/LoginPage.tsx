@@ -13,6 +13,9 @@ export default function LoginPage({ onLogin }: Props) {
   const [loginField, setLoginField] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSuggestion, setUsernameSuggestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean } | null>(null);
@@ -35,13 +38,22 @@ export default function LoginPage({ onLogin }: Props) {
       if (mode === "login") {
         await apiLogin(loginField, password);
       } else {
-        await apiRegister(loginField, password, confirm);
+        await apiRegister(loginField, password, confirm, username.trim() || undefined);
       }
       const user = await getCurrentUser();
       onLogin(user);
     } catch (err: unknown) {
       const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
       if (data) {
+        if (mode === "register" && data.username) {
+          const msg = [data.username].flat()[0];
+          if (typeof msg === "string") {
+            const base = username.trim() || loginField.split("@")[0].replace(/[^a-z0-9_]/gi, "") || "user";
+            setUsernameError(msg);
+            setUsernameSuggestion(suggestUsername(base));
+            return;
+          }
+        }
         const first = Object.values(data).flat()[0];
         setError(typeof first === "string" ? first : "Something went wrong.");
       } else {
@@ -87,6 +99,33 @@ export default function LoginPage({ onLogin }: Props) {
               className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
           )}
+          {mode === "register" && (
+            <div className="flex flex-col gap-1">
+              <input
+                type="text"
+                placeholder="Username (optional)"
+                value={username}
+                onChange={(e) => { setUsername(e.target.value); setUsernameError(null); setUsernameSuggestion(null); }}
+                className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              {usernameError && (
+                <p className="text-red-400 text-xs">
+                  {usernameError}
+                  {usernameSuggestion && (
+                    <> — try{" "}
+                      <button
+                        type="button"
+                        className="underline hover:text-red-300 transition"
+                        onClick={() => { setUsername(usernameSuggestion); setUsernameError(null); setUsernameSuggestion(null); }}
+                      >
+                        {usernameSuggestion}
+                      </button>
+                    </>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <button
             type="submit"
@@ -99,7 +138,7 @@ export default function LoginPage({ onLogin }: Props) {
             {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               type="button"
-              onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
+              onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); setUsername(""); setUsernameError(null); setUsernameSuggestion(null); }}
               className="text-accent hover:text-accent/80 underline"
             >
               {mode === "login" ? "Create one" : "Sign in"}
@@ -149,6 +188,10 @@ export default function LoginPage({ onLogin }: Props) {
       </div>
     </div>
   );
+}
+
+function suggestUsername(base: string): string {
+  return `${base}${Math.floor(10 + Math.random() * 90)}`;
 }
 
 function GoogleIcon() {
