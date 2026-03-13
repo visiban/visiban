@@ -126,17 +126,17 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
           </div>
         )}
 
-        {/* Home — always visible, above the loading spinner */}
+        {/* Dashboard — always visible, above the loading spinner */}
         {collapsed ? (
           <Link
             to="/"
             className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition ${
               location.pathname === "/" ? "text-blue-400 bg-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800"
             }`}
-            title="Home"
+            title="Dashboard"
           >
             <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v6a1 1 0 001 1h4v-4h2v4h4a1 1 0 001-1v-6h1a1 1 0 00.707-1.707l-7-7z" />
+              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
           </Link>
         ) : (
@@ -148,9 +148,9 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
             }`}
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v6a1 1 0 001 1h4v-4h2v4h4a1 1 0 001-1v-6h1a1 1 0 00.707-1.707l-7-7z" />
+              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
-            <span>Home</span>
+            <span>Dashboard</span>
           </Link>
         )}
 
