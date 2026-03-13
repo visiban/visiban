@@ -55,7 +55,7 @@ describe('LoginPage', () => {
     render(<LoginPage onLogin={onLogin} />)
 
     await user.click(screen.getByText('Create one'))
-    await user.type(screen.getByPlaceholderText('Username or email'), 'test@test.com')
+    await user.type(screen.getByPlaceholderText('Email address'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('Password'), 'password123')
     await user.type(screen.getByPlaceholderText('Confirm password'), 'different')
     await user.click(screen.getByText('Create account'))
@@ -68,7 +68,7 @@ describe('LoginPage', () => {
     render(<LoginPage onLogin={onLogin} />)
 
     await user.click(screen.getByText('Create one'))
-    await user.type(screen.getByPlaceholderText('Username or email'), 'test@test.com')
+    await user.type(screen.getByPlaceholderText('Email address'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('Password'), 'short')
     await user.type(screen.getByPlaceholderText('Confirm password'), 'short')
     await user.click(screen.getByText('Create account'))
