@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
-- Due date input in card detail now uses `bg-slate-800` (matching other inputs) instead of `bg-slate-900`; calendar picker icon is inverted to white and dims to 60% opacity at rest, full opacity on hover, for clear legibility in dark mode (#160)
+- Due date input in card detail: lightened background to `bg-slate-700`, brightened border to `border-slate-500`, set text to `text-slate-100`, and added explicit webkit date-field pseudo-element styles so the `mm/dd/yyyy` placeholder segments are clearly legible against the dark UI; calendar icon opacity increased to 70% at rest (#160)
 
 ### Changed
 
