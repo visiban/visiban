@@ -441,7 +441,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                           options={[
                             { value: "admin", label: "Admin" },
                             { value: "member", label: "Member" },
-                            { value: "viewer", label: "Viewer", separatorBefore: true },
+                            { value: "viewer", label: "Viewer" },
                           ]}
                           size="xs"
                         />
@@ -487,7 +487,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                       { value: "admin", label: "Admin" },
                       { value: "member", label: "Member" },
                       { value: "collaborator", label: "Collaborator" },
-                      { value: "viewer", label: "Viewer", separatorBefore: true },
+                      { value: "viewer", label: "Viewer" },
                     ]}
                   />
                   {defaultsSaved && <span className="text-green-400 text-xs">Saved</span>}
@@ -660,10 +660,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
                     onChange={(v) => setTransferNewOwnerId(v === "" ? "" : Number(v))}
                     options={[
                       { value: "", label: "Select an admin…" },
-                      ...adminMembers.map((m, i) => ({
+                      ...adminMembers.map((m) => ({
                         value: String(m.user.id),
                         label: m.user.display_name || m.user.username,
-                        separatorBefore: i === 0,
                       })),
                     ]}
                     className="w-full"

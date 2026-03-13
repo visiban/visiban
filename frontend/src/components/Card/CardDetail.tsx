@@ -285,10 +285,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     }}
                     options={[
                       { value: "", label: "Unassigned" },
-                      ...board.members.map((m, i) => ({
+                      ...board.members.map((m) => ({
                         value: String(m.user.id),
                         label: userDisplayName(m.user),
-                        separatorBefore: i === 0,
                       })),
                     ]}
                     className="w-full"

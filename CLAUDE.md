@@ -110,6 +110,38 @@ Enterprise features are things like: SSO/SAML, audit logs, advanced analytics, a
 - The CLA grants Visiban the right to use contributions in both the OSS (Apache 2.0) and enterprise (ELv2) products — this is intentional and must not be weakened
 - Core team members (employees/contractors with a signed agreement) are exempt from the CLA checkbox
 
+## Frontend UI conventions
+
+### Dropdown menus
+
+All dropdown menus — whether using the shared `SelectDropdown` component (`frontend/src/components/Common/SelectDropdown.tsx`) or custom dropdown implementations (e.g. `FilterBar`) — must follow this style:
+
+**Trigger button**
+- `bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition`
+- Default state: `border-slate-600 text-slate-300 hover:border-slate-400`
+- Open / active-filter state: `border-blue-400 text-blue-400`
+
+**Menu panel**
+- `bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1`
+
+**Menu items**
+- `w-full text-left px-3 py-1.5 text-sm transition hover:bg-slate-700`
+- Default text: `text-slate-300`; selected/active: `text-blue-400`
+
+**Separators between every adjacent item pair** (3D engraved effect — applies to ALL dropdowns, including future ones):
+```tsx
+{i > 0 && (
+  <div role="separator" className="mx-4">
+    <div className="h-px bg-slate-900" />
+    <div className="h-px bg-slate-600/50" />
+  </div>
+)}
+```
+- Place this before each item where `i > 0` — no manual `separatorBefore` prop needed
+- For new `SelectDropdown` usages, this is automatic; for hand-rolled dropdowns (like FilterBar), add it manually to the item loop
+
+---
+
 ## Mirror and governance maintenance
 
 - OSS (`visiban/visiban`) push-mirrors to enterprise (`visiban/visiban-enterprise`) automatically on every push — all branches and tags

@@ -18,10 +18,9 @@ const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "viewer",       label: "Viewer",        description: "Read-only access" },
 ];
 
-const ROLE_OPTIONS = ROLES.map((r, i) => ({
+const ROLE_OPTIONS = ROLES.map((r) => ({
   value: r.value,
   label: r.label,
-  separatorBefore: i === 3, // separator before Viewer (read-only tier)
 }));
 
 export default function BoardMembersModal({ board, onClose, onMembersChanged }: Props) {

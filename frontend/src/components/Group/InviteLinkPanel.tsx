@@ -214,7 +214,6 @@ export default function InviteLinkPanel({ groupId }: Props) {
                 options={EXPIRY_OPTIONS.map((opt) => ({
                   value: String(opt.value),
                   label: opt.label,
-                  separatorBefore: opt.value === null,
                 }))}
                 size="xs"
               />
