@@ -170,41 +170,6 @@ describe('App', () => {
     expect(screen.getByTestId('board-view')).toBeInTheDocument()
   })
 
-  it('back button shows Dashboard label when board has no group', () => {
-    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    const fakeBoard = {
-      id: 1, name: 'Solo Board', description: '', group: null, group_name: null,
-      columns: [], swimlanes: [], cards: [], labels: [], members: [],
-      created_at: '', updated_at: '', current_user_role: 'admin' as const,
-    }
-    mockUseBoard.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
-    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByText('← Dashboard')).toBeInTheDocument()
-  })
-
-  it('back button shows group name label when board has a group', () => {
-    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    const fakeBoard = {
-      id: 1, name: 'Team Board', description: '', group: 7, group_name: 'Alpha Team',
-      columns: [], swimlanes: [], cards: [], labels: [], members: [],
-      created_at: '', updated_at: '', current_user_role: 'admin' as const,
-    }
-    mockUseBoard.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
-    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByText('← Alpha Team')).toBeInTheDocument()
-  })
-
-  it('back button uses "Group" fallback when board has group but no group_name', () => {
-    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    const fakeBoard = {
-      id: 1, name: 'Board', description: '', group: 7, group_name: null,
-      columns: [], swimlanes: [], cards: [], labels: [], members: [],
-      created_at: '', updated_at: '', current_user_role: 'admin' as const,
-    }
-    mockUseBoard.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
-    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByText('← Group')).toBeInTheDocument()
-  })
 
   it('shows board name in breadcrumb when board is loaded', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })

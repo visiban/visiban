@@ -121,12 +121,6 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Dark')).toBeInTheDocument()
   })
 
-  it('Back to Dashboard button navigates to "/"', async () => {
-    const user = userEvent.setup()
-    renderSettings()
-    await user.click(screen.getByText('← Dashboard'))
-    expect(mockNavigate).toHaveBeenCalledWith('/')
-  })
 })
 
 // ---------------------------------------------------------------------------

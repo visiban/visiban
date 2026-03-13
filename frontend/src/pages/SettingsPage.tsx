@@ -432,7 +432,6 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
-  const navigate = useNavigate();
 
   return (
     <div className="h-full bg-gray-900 flex flex-col">
