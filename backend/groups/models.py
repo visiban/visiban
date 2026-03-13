@@ -140,3 +140,15 @@ class GroupInviteLink(models.Model):
     @property
     def is_expired(self):
         return self.expires_at is not None and self.expires_at < timezone.now()
+
+
+class GroupFavorite(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="group_favorites"
+    )
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="favorites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "group_favorites"
+        unique_together = ["user", "group"]

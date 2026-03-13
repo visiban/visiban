@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User, Group, Board } from "../../types";
-import { listGroups } from "../../api/groups";
+import { listGroups, listStarredGroups } from "../../api/groups";
 import { listBoards, listStarredBoards } from "../../api/boards";
 
 interface Props {
@@ -30,6 +30,7 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [boards, setBoards] = useState<Board[]>([]);
   const [starredBoards, setStarredBoards] = useState<Board[]>([]);
+  const [starredGroups, setStarredGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
 
   useEffect(() => {
     listStarredBoards().then(setStarredBoards).catch(() => {});
+    listStarredGroups().then(setStarredGroups).catch(() => {});
   }, [starVersion]);
 
   useEffect(() => {
@@ -154,47 +156,113 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
 
         {!loading && (
           <>
-            {/* Favorites */}
-            {collapsed ? (
-              starredBoards.map((board) => (
-                <Link
-                  key={board.id}
-                  to={`/boards/${board.id}`}
-                  onClick={collapse}
-                  className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition ${
-                    board.id === activeBoardId
-                      ? "text-yellow-400 bg-blue-600/20"
-                      : "text-yellow-500 hover:text-yellow-300 hover:bg-slate-800"
-                  }`}
-                  title={board.name}
-                >
-                  <span className="text-sm leading-none">★</span>
-                </Link>
-              ))
-            ) : (
-              <div>
-                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Favorites
-                </div>
-                {starredBoards.length === 0 ? (
-                  <div className="px-3 py-1 text-xs text-slate-600">
-                    Star a board to pin it here
-                  </div>
+            {/* ── Favorite Boards ── */}
+            {starredBoards.length > 0 && (
+              <>
+                {collapsed ? (
+                  <>
+                    <div className="mx-1 my-0.5">
+                      <div className="flex items-center justify-center h-6">
+                        <span className="text-[10px] text-yellow-600 leading-none" title="Favorite Boards">☆</span>
+                      </div>
+                    </div>
+                    {starredBoards.map((board) => (
+                      <Link
+                        key={board.id}
+                        to={`/boards/${board.id}`}
+                        onClick={collapse}
+                        className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition ${
+                          board.id === activeBoardId
+                            ? "text-yellow-400 bg-blue-600/20"
+                            : "text-yellow-500 hover:text-yellow-300 hover:bg-slate-800"
+                        }`}
+                        title={board.name}
+                      >
+                        <span className="text-sm leading-none">★</span>
+                      </Link>
+                    ))}
+                  </>
                 ) : (
-                  starredBoards.map((board) => (
-                    <BoardItem
-                      key={board.id}
-                      board={board}
-                      active={board.id === activeBoardId}
-                      indent={1}
-                      onNavigate={collapse}
-                    />
-                  ))
+                  <div>
+                    <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Favorite Boards
+                    </div>
+                    {starredBoards.map((board) => (
+                      <BoardItem
+                        key={board.id}
+                        board={board}
+                        active={board.id === activeBoardId}
+                        indent={1}
+                        onNavigate={collapse}
+                      />
+                    ))}
+                  </div>
                 )}
+              </>
+            )}
+
+            {/* ── Separator ── */}
+            {(starredBoards.length > 0) && (starredGroups.length > 0 || topLevelGroups.length > 0 || personalBoards.length > 0) && (
+              <div className="mx-4 my-1">
+                <div className="h-px bg-slate-900" />
+                <div className="h-px bg-slate-600/50" />
               </div>
             )}
 
-            {/* Top-level groups */}
+            {/* ── Favorite Groups ── */}
+            {starredGroups.length > 0 && (
+              <>
+                {collapsed ? (
+                  <>
+                    <div className="mx-1 my-0.5">
+                      <div className="flex items-center justify-center h-6">
+                        <span className="text-[10px] text-yellow-600 leading-none" title="Favorite Groups">☆</span>
+                      </div>
+                    </div>
+                    {starredGroups.map((group) => (
+                      <Link
+                        key={group.id}
+                        to={`/groups/${group.id}`}
+                        className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-yellow-500 hover:text-yellow-300 hover:bg-slate-800 transition"
+                        title={group.name}
+                      >
+                        <span className="text-sm leading-none">★</span>
+                      </Link>
+                    ))}
+                  </>
+                ) : (
+                  <div>
+                    <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Favorite Groups
+                    </div>
+                    {starredGroups.map((group) => (
+                      <Link
+                        key={group.id}
+                        to={`/groups/${group.id}`}
+                        onClick={collapse}
+                        className="flex items-center gap-1.5 pl-5 pr-3 py-1.5 text-sm transition truncate text-slate-400 hover:text-white hover:bg-slate-800"
+                        title={group.name}
+                      >
+                        <svg className="w-3.5 h-3.5 shrink-0 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                        </svg>
+                        <span className="truncate">{group.name}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Separator ── */}
+            {(starredBoards.length > 0 || starredGroups.length > 0) && (topLevelGroups.length > 0 || personalBoards.length > 0) && (
+              <div className="mx-4 my-1">
+                <div className="h-px bg-slate-900" />
+                <div className="h-px bg-slate-600/50" />
+              </div>
+            )}
+
+            {/* ── Top-level groups ── */}
             {topLevelGroups.map((group) => {
               const groupBoards = boards.filter((b) => b.group === group.id);
               const isExpanded = expandedGroups.has(group.id);
@@ -252,7 +320,7 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
               );
             })}
 
-            {/* Personal boards (no group) */}
+            {/* ── Personal boards (no group) ── */}
             {personalBoards.length > 0 && (
               <div>
                 {collapsed ? (

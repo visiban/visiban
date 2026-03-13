@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Group, GroupLabel, GroupMembership, GroupInviteLink
+from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import GroupSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
 
 
@@ -60,9 +60,17 @@ class GroupViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         from .models import get_accessible_group_ids
         user = self.request.user
-        return Group.objects.filter(
+        qs = Group.objects.filter(
             id__in=get_accessible_group_ids(user)
         ).select_related("owner", "parent")
+        if self.request.query_params.get("starred") == "true":
+            qs = qs.filter(favorites__user=user)
+        return qs
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
 
     def perform_create(self, serializer):
         parent = serializer.validated_data.get("parent")
@@ -370,6 +378,19 @@ class GroupViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(GroupSerializer(group).data)
+
+    # ------------------------------------------------------------------
+    # Favorites (star / unstar)
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["post", "delete"], url_path="star")
+    def star(self, request, pk=None):
+        group = self.get_object()
+        if request.method == "DELETE":
+            GroupFavorite.objects.filter(user=request.user, group=group).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        _, created = GroupFavorite.objects.get_or_create(user=request.user, group=group)
+        return Response({"starred": True}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class JoinGroupView(APIView):

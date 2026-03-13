@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - Users can now set their preferred **date format** (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD), **time format** (12-hour or 24-hour), and **number format** (US, European, French, Indian) in Settings → Profile → Locale; preferences are persisted and applied to due-date labels on cards, card movement timestamps, attachment dates, and across the board (#161, #162, #163)
+- Groups can now be starred from the group detail page header; starred groups appear in a **Favorite Groups** section at the top of the sidebar, above other groups and Personal boards (#167)
+- Sidebar sections now appear in a consistent order — **Favorite Boards**, **Favorite Groups**, **Personal** — with empty sections omitted and 3D engraved separators between visible sections (#168)
+- Collapsed sidebar icons now show immediate tooltips on hover for every item (Home, Favorite Boards, Favorite Groups, groups, boards, Personal); the Favorites section headers are visually distinct (outlined star ☆ at smaller size) from individual starred items (filled star ★) (#166)
 - Joining a group via invite link now redirects to the group page and shows a dismissible confirmation banner: _"You've joined [Group Name]. Welcome!"_ (#104)
 - **Collaborator role for group memberships** (#169): `GroupMembership` and `GroupInviteLink` now support all four non-admin roles — Admin, Member, Collaborator, and Viewer — consistent with board membership roles; member role dropdowns in group settings and the invite link creation form updated accordingly; backend tests enumerate every valid role for both models to prevent future regressions
 
