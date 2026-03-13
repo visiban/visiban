@@ -133,6 +133,7 @@ function BoardPage({ user, onLogout, onUserUpdated }: {
             onSwimlanesReordered={reorderSwimlanes}
             onLabelAdded={addLabel}
             onBoardSettingsChanged={updateBoardSettings}
+            onBoardDeleted={handleBack}
           />
         )}
       </div>

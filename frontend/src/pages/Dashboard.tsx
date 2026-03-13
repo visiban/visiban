@@ -26,6 +26,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [movingBoard, setMovingBoard] = useState<Board | null>(null);
   const [importingBoard, setImportingBoard] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
@@ -48,6 +49,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const handleDeleteBoard = async (boardId: number) => {
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
     setConfirmDeleteId(null);
+    setDeleteConfirmInput("");
     try {
       await deleteBoard(boardId);
     } catch {
@@ -147,7 +149,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                     </button>
                     {b.owner.id === user.id && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); }}
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
                         className="text-gray-500 hover:text-red-400 p-1"
                         title="Delete board"
                       >
@@ -232,17 +234,47 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
 
       {confirmDeleteId !== null && (() => {
         const board = boards.find((b) => b.id === confirmDeleteId);
+        const hasCards = (board?.card_count ?? 0) > 0;
+        const nameMatches = deleteConfirmInput === board?.name;
+        const canDelete = !hasCards || nameMatches;
         return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
               <h3 className="text-white font-semibold text-lg mb-2">Delete board?</h3>
-              <p className="text-gray-400 text-sm mb-1">
+              <p className="text-slate-400 text-sm mb-1">
                 <span className="text-white font-medium">{board?.name}</span> and all its data will be permanently deleted.
               </p>
-              <p className="text-red-400 text-sm mb-5">This cannot be undone.</p>
+              <p className="text-red-400 text-sm mb-4">This cannot be undone.</p>
+              {hasCards && (
+                <div className="mb-4">
+                  <p className="text-slate-400 text-xs mb-2">
+                    This board has <span className="text-white font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
+                  </p>
+                  <input
+                    type="text"
+                    value={deleteConfirmInput}
+                    onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                    placeholder={`Type "${board?.name}" to confirm`}
+                    className="w-full bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-red-500 placeholder-slate-500"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Escape") { setConfirmDeleteId(null); setDeleteConfirmInput(""); } }}
+                  />
+                </div>
+              )}
               <div className="flex gap-3 justify-end">
-                <button onClick={() => setConfirmDeleteId(null)} className="text-gray-400 text-sm hover:text-white px-3 py-1.5">Cancel</button>
-                <button onClick={() => handleDeleteBoard(confirmDeleteId)} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg">Delete</button>
+                <button
+                  onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
+                  className="text-slate-400 text-sm hover:text-white px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteBoard(confirmDeleteId)}
+                  disabled={!canDelete}
+                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded-lg transition"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>

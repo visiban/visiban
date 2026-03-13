@@ -47,6 +47,7 @@ interface Props {
   onSwimlanesReordered: (orderedIds: number[]) => void;
   onLabelAdded: (label: Label) => void;
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
+  onBoardDeleted?: () => void;
   userTimezone?: string;
 }
 
@@ -99,7 +100,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, userTimezone = "" }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, userTimezone = "" }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -635,6 +636,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onSetCardFieldPref={setCardFieldPref}
           onBoardSettingsChanged={onBoardSettingsChanged}
+          onBoardDeleted={onBoardDeleted}
         />
       )}
 

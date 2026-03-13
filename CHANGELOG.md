@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- **Board delete confirmation** (#140): deleting a board that has cards now requires typing the board name exactly before the delete button activates; boards with no cards can still be deleted with a single click confirm; `card_count` is now included in the board list API response
 - **Onboarding empty state** (#103): new users with no boards or groups see a welcome screen with a Visiban board illustration, a short description, and two CTAs — "Create my first board" and "Join a group with an invite link"
 - **Notification deep-linking** (#105): clicking a notification navigates to the relevant board and, when the notification is tied to a card, automatically opens the card detail modal; board-only notifications (e.g. membership events) navigate to the board without opening a card; if the card cannot be found in the board data (archived or deleted) a transient "Card not found" banner is shown and dismissed after 4 seconds
 
