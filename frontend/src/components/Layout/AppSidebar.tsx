@@ -161,11 +161,6 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
               <>
                 {collapsed ? (
                   <>
-                    <div className="mx-1 my-0.5">
-                      <div className="flex items-center justify-center h-6">
-                        <span className="text-[10px] text-yellow-600 leading-none" title="Favorite Boards">☆</span>
-                      </div>
-                    </div>
                     {starredBoards.map((board) => (
                       <Link
                         key={board.id}
@@ -214,11 +209,6 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
               <>
                 {collapsed ? (
                   <>
-                    <div className="mx-1 my-0.5">
-                      <div className="flex items-center justify-center h-6">
-                        <span className="text-[10px] text-yellow-600 leading-none" title="Favorite Groups">☆</span>
-                      </div>
-                    </div>
                     {starredGroups.map((group) => (
                       <Link
                         key={group.id}
