@@ -12,75 +12,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [v1.0.0-rc.3] — 2026-03-13
 
-### Changed
-
-- Navbar header height increased from 48 px to 64 px; logo switched to `visiban_fullbleed_pulse_light.png` (white background, black **VISIBAN** lettering, original brand-color chart lines) at 48 px; breadcrumb and action button colors updated for the light header
-- Removed the `← Dashboard` / `← Group` back-navigation bar from board, group, and settings pages; the sidebar provides equivalent navigation (#137)
-- Added docstrings to all backend model classes (`Board`, `BoardMembership`, `BoardFavorite`, `Column`, `Swimlane`, `Label`, `Card`, `CardComment`, `CardActivity`, `CardChecklist`, `CardAttachment`, `Notification`, `Group`, `GroupMembership`, `GroupInviteLink`, `GroupFavorite`) for improved code navigability (#121)
-- Added docstrings to all backend view classes and action methods across `accounts`, `boards`, and `groups` for improved code navigability (#122)
-- Documentation updated to reflect recent features: collaborator role at group level (#169), group starring and sidebar Favorites sections (#166, #167, #168), per-trigger notification preferences (#95), invite link improvements (#99), locale preferences (#161, #162, #163), and Settings page; architecture and data-model docs updated to match current state
-- Added JSDoc to all exported frontend API client functions across `auth.ts`, `boards.ts`, `cards.ts`, `groups.ts`, and `notifications.ts`; non-obvious parameters and return values include `@param`/`@returns` annotations (#123)
-- Added JSDoc to exported frontend hooks (`useAuth`, `useBoard`, `useBoardSocket`, `useViewPrefs`) and non-trivial components (`Avatar`, `ErrorBoundary`, `CardItem`); non-obvious props on `CardItem` annotated inline (#124)
-
-### Fixed
-
-- Collapsed sidebar no longer shows a redundant ☆ section header above starred boards and groups; the filled ★ icon on each individual item (with its hover tooltip) is sufficient, and the outline header was causing one starred item to appear as two icons (#174, #178)
-- Registration no longer fails with "This field is required." on a fresh install; `ACCOUNT_USERNAME_REQUIRED = False` added to settings so allauth skips username validation and auto-generates one from the email address (#171)
-- Registration form now includes an optional **Username** field; leaving it blank auto-generates a username from the email address; entering a taken username shows an inline error with a clickable suggestion (e.g. _"try **kelly42**"_) that populates the field on click (#171)
-- Starring or unstarring a group from the group detail page now immediately refreshes the sidebar's Favorite Groups section; previously the sidebar only updated on board-star actions, so group stars appeared to have no effect (#170)
-
 ### Added
 
 - Users can now set their preferred **date format** (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD), **time format** (12-hour or 24-hour), and **number format** (US, European, French, Indian) in Settings → Profile → Locale; preferences are persisted and applied to due-date labels on cards, card movement timestamps, attachment dates, and across the board (#161, #162, #163)
 - Groups can now be starred from the group detail page header; starred groups appear in a **Favorite Groups** section at the top of the sidebar, above other groups and Personal boards (#167)
 - Sidebar sections now appear in a consistent order — **Favorite Boards**, **Favorite Groups**, **Personal** — with empty sections omitted and 3D engraved separators between visible sections (#168)
-- Collapsed sidebar icons now show immediate tooltips on hover for every item (Home, Favorite Boards, Favorite Groups, groups, boards, Personal); the Favorites section headers are visually distinct (outlined star ☆ at smaller size) from individual starred items (filled star ★) (#166)
-- Joining a group via invite link now redirects to the group page and shows a dismissible confirmation banner: _"You've joined [Group Name]. Welcome!"_ (#104)
+- Collapsed sidebar icons now show immediate tooltips on hover for every item (Dashboard, Favorite Boards, Favorite Groups, groups, boards, Personal); the Favorites section headers are visually distinct (outlined star ☆ at smaller size) from individual starred items (filled star ★) (#166)
+- Joining a group via invite link now redirects to the group page and shows a dismissible confirmation banner: _”You've joined [Group Name]. Welcome!”_ (#104)
 - **Collaborator role for group memberships** (#169): `GroupMembership` and `GroupInviteLink` now support all four non-admin roles — Admin, Member, Collaborator, and Viewer — consistent with board membership roles; member role dropdowns in group settings and the invite link creation form updated accordingly; backend tests enumerate every valid role for both models to prevent future regressions
-
-### Changed
-
-- GitLab project now requires a passing pipeline before any MR can be merged (`only_allow_merge_if_pipeline_succeeds`); documented in `CLAUDE.md`
-
-### Fixed
-
-- Collapsed sidebar now shows a person icon (user silhouette) for the Personal boards section instead of the same house icon used by the Home link, eliminating the duplicate icon confusion (#165)
-- Invite link role dropdown now includes **Admin** as a selectable role in addition to Member and Viewer (#164)
-
-- Navigating to a group the user cannot access (404/403) now redirects silently to the dashboard instead of showing a "Failed to load group" error; genuine network errors still surface with a "Return to dashboard" link
-- Registration now requires email (not username); `ACCOUNT_SIGNUP_FIELDS` updated to `["email*", "password1*", "password2*"]` — allauth auto-generates a username from the email; register form placeholder updated to "Email address"; login still accepts username or email
-- Due date input in card detail: lightened background to `bg-slate-700`, brightened border to `border-slate-500`, set text to `text-slate-100`, and added explicit webkit date-field pseudo-element styles so the `mm/dd/yyyy` placeholder segments are clearly legible against the dark UI; calendar icon opacity increased to 70% at rest (#160)
-
-### Changed
-
-- All native `<select>` dropdowns replaced with a consistent custom `SelectDropdown` component matching the board filter bar style: dark `bg-slate-800` trigger with chevron, `bg-slate-800 border-slate-600 rounded-lg` menu panel, hover-highlighted items, and 3D engraved separators between every adjacent item; separators are automatic — no per-option config needed; board filter bar dropdowns (`SingleSelectDropdown`, `CheckboxDropdown`) updated to match; Label filter shows "No labels on this board" when the board has none; separator style and pattern documented in `CLAUDE.md` for future dropdowns; affects board member role selects, group member role selects, default board member role, invite link role/expiry, card assignee, and the timezone setting (#156)
-
-### Fixed
-
-- Role `?` tooltip in Board Settings Members tab no longer clips outside the modal; rebuilt as a portal-rendered tooltip anchored via `getBoundingClientRect()` at `position: fixed` with `z-index: 9999`, right-aligned to the button so it always stays within the viewport (#150)
-
-- Changing a password via the forced-change modal no longer invalidates the session: `ChangePasswordView` now calls `update_session_auth_hash()` so the user stays logged in and subsequent API calls succeed (#148)
-- Session-expiry interceptor now correctly detects 401 (Unauthenticated) responses from DRF instead of checking for a 403 with a message DRF never produces; stale-session detection now fires reliably after a password rotation or server-side session expiry (#148)
-- Startup 401/403 responses from unauthenticated session-check requests no longer appear as `WARNING Forbidden:` in Django logs; a `django.request` logging filter suppresses expected auth noise while preserving WARNING logs for 4xx errors that warrant attention (#148)
-
-- Page content now scrolls correctly on Dashboard, Settings, and GroupDetail: outer wrappers changed from `min-h-screen` to `h-full` to stay within the app's `h-screen` shell, and `overflow-y-auto` moved to the `<main>` content area; the board page already scrolled correctly (#147)
-- Site admin (`ensure_site_admin`) now also sets `is_staff` and `is_superuser` so the bootstrapped admin account has full Django admin panel access in addition to Visiban site-admin privileges
-- `GroupDetail` page now correctly treats site admins as group admins: `is_site_admin` users see the "New board", "Create subgroup", and settings controls without needing an explicit group membership
-- `GroupDetail` Settings tab (and any other long-form content) is now scrollable; the `<main>` flex child was missing `overflow-y-auto`, causing content to be clipped by the `h-screen overflow-hidden` root layout
-
-### Added
-
 - **Subgroup member inheritance** (#138): members of a parent group are now surfaced as inherited members in all descendant subgroups; the members list endpoint returns both direct and inherited entries, each tagged with `is_inherited` and `inherited_from`; inherited members are shown with a muted row and an ancestor badge in the UI and cannot be removed or edited at the subgroup level; an ancestor admin can now perform admin actions (manage members, invite links, boards) on any descendant subgroup without a redundant direct membership
-- **Default appearance: System** (#157): new user accounts now have their appearance preference explicitly initialized to `"system"` (follows OS preference) on first visit rather than relying on an implicit fallback; existing users are unaffected
-
-- **Sidebar Home link** (#153): sidebar now shows a Home row at the top that navigates to `/` and highlights when the current path is `/`; renders as a house icon in collapsed mode
-
+- **Default appearance: System** (#157): new user accounts now have their appearance preference explicitly initialized to `”system”` (follows OS preference) on first visit rather than relying on an implicit fallback; existing users are unaffected
 - **Board starring / favorites** (#154): users can star any board they have access to; starred boards appear in a Favorites section at the top of the sidebar for quick access; the star button (☆/★) sits in the board toolbar and updates optimistically with rollback on failure; the `?starred=true` query parameter on `/api/boards/` filters to starred boards only; backed by a new `BoardFavorite` model (unique per user+board)
-
 - **Board delete confirmation** (#140): deleting a board that has cards now requires typing the board name exactly before the delete button activates; boards with no cards can still be deleted with a single click confirm; `card_count` is now included in the board list API response
-- **Onboarding empty state** (#103): new users with no boards or groups see a welcome screen with a Visiban board illustration, a short description, and two CTAs — "Create my first board" and "Join a group with an invite link"
-- **Notification deep-linking** (#105): clicking a notification navigates to the relevant board and, when the notification is tied to a card, automatically opens the card detail modal; board-only notifications (e.g. membership events) navigate to the board without opening a card; if the card cannot be found in the board data (archived or deleted) a transient "Card not found" banner is shown and dismissed after 4 seconds
-
+- **Onboarding empty state** (#103): new users with no boards or groups see a welcome screen with a Visiban board illustration, a short description, and two CTAs — “Create my first board” and “Join a group with an invite link”
+- **Notification deep-linking** (#105): clicking a notification navigates to the relevant board and, when the notification is tied to a card, automatically opens the card detail modal; board-only notifications (e.g. membership events) navigate to the board without opening a card; if the card cannot be found in the board data (archived or deleted) a transient “Card not found” banner is shown and dismissed after 4 seconds
 - **Invite link improvements** (#99): group invite links now support a customizable name, per-link role (member/viewer), and expiry (1/7/30 days or Never); groups can have up to 5 active links; expired links show a clear visual state and cannot be used to join; each link can be revoked independently
 - New card inline editor now submits on Enter (default on); Shift+Enter always inserts a newline; configurable per board via Board Settings → General → “Close editor on Enter” toggle; setting stored as `close_editor_on_enter` on the `Board` model (default `True`)
 - Per-trigger notification preferences in Settings → Notifications: toggle on/off card-assigned, @mention, due-date warning, card-moved, and comment-added events; preferences saved immediately on toggle and persisted per user (#95)
@@ -90,7 +35,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - JUnit XML test reports published as CI artifacts for both `backend-test` and `frontend-test` jobs; the Tests tab on every MR pipeline now shows per-test results, pass/fail counts, and timing
 - Frontend test coverage raised from 72% to 85%+: new test suites for `SettingsPage`, `ThemeContext`, `ErrorBoundary`, and `BoardSettingsModal`; expanded suites for `App`, `CardItem`, `Avatar`, `BulkActionToolbar`, `GroupTree`, and the boards API client
 - `GroupDetail` subgroup discoverability improvements: subgroups now appear in their own clearly labeled section with a dedicated “Create subgroup” button in the section header; an empty state message explains the purpose of subgroups (“Subgroups let you organize boards and members into nested workspaces.”) for both admins and non-admins; boards and subgroups are visually distinguished with different card styles (indigo tint for subgroups, gray for boards) and icons (#101)
-
 - **Theme switcher** in Settings → Appearance: choose System (follows OS preference), Dark, or Light; preference is persisted in `localStorage` and applied immediately without a page reload; a FOUC-prevention inline script in `index.html` applies the saved class before first paint
 - `GroupMembership` now supports a `viewer` role; group viewers get read-only access to all boards in the group — mapped directly to the existing `BoardMembership` viewer access model
 - Swimlanes can be reordered by dragging their label (⠿ handle, admin only); each swimlane sidebar shows `+` insert-above and insert-below buttons on hover for positional insertion without rearranging existing rows
@@ -100,16 +44,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `GroupDetail` now has **Boards** and **Settings** tabs; member management, invite link panel, and the danger zone (group deletion) are consolidated under Settings, which is hidden from non-admins
 - **Board Settings** modal extended with three tabs: **Members** (view members and manage roles; inline remove confirmation; role descriptions on hover — admin only for edits), **Invite** (typeahead user search, staged invite list with per-user role picker — admin only), and **Data** (existing CSV/JSON export); the separate Members button is replaced by a unified Settings button visible to all roles
 - `GET /api/users/?search=<query>` endpoint for authenticated user search (name/email/username), used by the Invite tab typeahead
-- **User timezone setting** (#96): users can select their timezone in Settings → Profile; defaults to browser-detected timezone on first save; due date display ("Today", "Overdue") respects the stored timezone preference
+
+### Changed
+
+- Navbar header height increased from 48 px to 64 px; logo switched to `visiban_fullbleed_pulse_light.png` (white background, black **VISIBAN** lettering, original brand-color chart lines) at 48 px; breadcrumb and action button colors updated for the light header
+- Removed the `← Dashboard` / `← Group` back-navigation bar from board, group, and settings pages; the sidebar provides equivalent navigation (#137)
+- Added docstrings to all backend model classes (`Board`, `BoardMembership`, `BoardFavorite`, `Column`, `Swimlane`, `Label`, `Card`, `CardComment`, `CardActivity`, `CardChecklist`, `CardAttachment`, `Notification`, `Group`, `GroupMembership`, `GroupInviteLink`, `GroupFavorite`) for improved code navigability (#121)
+- Added docstrings to all backend view classes and action methods across `accounts`, `boards`, and `groups` for improved code navigability (#122)
+- Documentation updated to reflect recent features: collaborator role at group level (#169), group starring and sidebar Favorites sections (#166, #167, #168), per-trigger notification preferences (#95), invite link improvements (#99), locale preferences (#161, #162, #163), and Settings page; architecture and data-model docs updated to match current state
+- Added JSDoc to all exported frontend API client functions across `auth.ts`, `boards.ts`, `cards.ts`, `groups.ts`, and `notifications.ts`; non-obvious parameters and return values include `@param`/`@returns` annotations (#123)
+- Added JSDoc to exported frontend hooks (`useAuth`, `useBoard`, `useBoardSocket`, `useViewPrefs`) and non-trivial components (`Avatar`, `ErrorBoundary`, `CardItem`); non-obvious props on `CardItem` annotated inline (#124)
+- GitLab project now requires a passing pipeline before any MR can be merged (`only_allow_merge_if_pipeline_succeeds`); documented in `CLAUDE.md`
+- All native `<select>` dropdowns replaced with a consistent custom `SelectDropdown` component matching the board filter bar style: dark `bg-slate-800` trigger with chevron, `bg-slate-800 border-slate-600 rounded-lg` menu panel, hover-highlighted items, and 3D engraved separators between every adjacent item; separators are automatic — no per-option config needed; board filter bar dropdowns (`SingleSelectDropdown`, `CheckboxDropdown`) updated to match; Label filter shows “No labels on this board” when the board has none; separator style and pattern documented in `CLAUDE.md` for future dropdowns; affects board member role selects, group member role selects, default board member role, invite link role/expiry, card assignee, and the timezone setting (#156)
 
 ### Fixed
 
-- Session expiry now redirects to the login page automatically; previously, if the backend session expired while the app was open, all API calls would silently fail with 403 and the UI would remain stuck in a "logged in" state with cryptic error messages
-- "Failed to create group" modal now surfaces the actual server-side error message instead of a generic fallback
-
-- Duplicate Timezone dropdown in Settings → Profile removed; only the #96 version (with "Detect automatically" option and helper text) remains
+- Collapsed sidebar no longer shows a redundant ☆ section header above starred boards and groups; the filled ★ icon on each individual item (with its hover tooltip) is sufficient, and the outline header was causing one starred item to appear as two icons (#174, #178)
+- Registration no longer fails with “This field is required.” on a fresh install; `ACCOUNT_USERNAME_REQUIRED = False` added to settings so allauth skips username validation and auto-generates one from the email address (#171)
+- Registration form now includes an optional **Username** field; leaving it blank auto-generates a username from the email address; entering a taken username shows an inline error with a clickable suggestion (e.g. _”try **kelly42**”_) that populates the field on click (#171)
+- Starring or unstarring a group from the group detail page now immediately refreshes the sidebar's Favorite Groups section; previously the sidebar only updated on board-star actions, so group stars appeared to have no effect (#170)
+- Collapsed sidebar now shows a person icon (user silhouette) for the Personal boards section instead of the same house icon used by the Dashboard link, eliminating the duplicate icon confusion (#165)
+- Invite link role dropdown now includes **Admin** as a selectable role in addition to Member and Viewer (#164)
+- Navigating to a group the user cannot access (404/403) now redirects silently to the dashboard instead of showing a “Failed to load group” error; genuine network errors still surface with a “Return to dashboard” link
+- Registration now requires email (not username); `ACCOUNT_SIGNUP_FIELDS` updated to `[“email*”, “password1*”, “password2*”]` — allauth auto-generates a username from the email; register form placeholder updated to “Email address”; login still accepts username or email
+- Due date input in card detail: lightened background to `bg-slate-700`, brightened border to `border-slate-500`, set text to `text-slate-100`, and added explicit webkit date-field pseudo-element styles so the `mm/dd/yyyy` placeholder segments are clearly legible against the dark UI; calendar icon opacity increased to 70% at rest (#160)
+- Role `?` tooltip in Board Settings Members tab no longer clips outside the modal; rebuilt as a portal-rendered tooltip anchored via `getBoundingClientRect()` at `position: fixed` with `z-index: 9999`, right-aligned to the button so it always stays within the viewport (#150)
+- Changing a password via the forced-change modal no longer invalidates the session: `ChangePasswordView` now calls `update_session_auth_hash()` so the user stays logged in and subsequent API calls succeed (#148)
+- Session-expiry interceptor now correctly detects 401 (Unauthenticated) responses from DRF instead of checking for a 403 with a message DRF never produces; stale-session detection now fires reliably after a password rotation or server-side session expiry (#148)
+- Startup 401/403 responses from unauthenticated session-check requests no longer appear as `WARNING Forbidden:` in Django logs; a `django.request` logging filter suppresses expected auth noise while preserving WARNING logs for 4xx errors that warrant attention (#148)
+- Page content now scrolls correctly on Dashboard, Settings, and GroupDetail: outer wrappers changed from `min-h-screen` to `h-full` to stay within the app's `h-screen` shell, and `overflow-y-auto` moved to the `<main>` content area; the board page already scrolled correctly (#147)
+- Site admin (`ensure_site_admin`) now also sets `is_staff` and `is_superuser` so the bootstrapped admin account has full Django admin panel access in addition to Visiban site-admin privileges
+- `GroupDetail` page now correctly treats site admins as group admins: `is_site_admin` users see the “New board”, “Create subgroup”, and settings controls without needing an explicit group membership
+- `GroupDetail` Settings tab (and any other long-form content) is now scrollable; the `<main>` flex child was missing `overflow-y-auto`, causing content to be clipped by the `h-screen overflow-hidden` root layout
+- Session expiry now redirects to the login page automatically; previously, if the backend session expired while the app was open, all API calls would silently fail with 403 and the UI would remain stuck in a “logged in” state with cryptic error messages
+- “Failed to create group” modal now surfaces the actual server-side error message instead of a generic fallback
+- Duplicate Timezone dropdown in Settings → Profile removed; only the #96 version (with “Detect automatically” option and helper text) remains
 - Notification preference toggles in Settings → Notifications now save correctly; the `notif_*` fields were missing from the `updateCurrentUser` API type so the PATCH body was silently dropping them
-- Profile settings: flash "Changes saved." message then redirect to dashboard after save
+- Profile settings: flash “Changes saved.” message then redirect to dashboard after save
 - Summary and Analytics board views now render with the correct dark background (`bg-slate-900`); previously they inherited a light background from the page root (#129)
 - Collapsed sidebar now shows a folder icon for groups and a home icon for the Personal section instead of single-letter initials; full names remain accessible via hover tooltip
 - Board settings controls (column edit, swimlane edit, Settings button) are now rendered but visually disabled (`opacity-50`, `cursor-not-allowed`) for non-admins instead of being hidden; hovering shows “You need admin access to change board settings”
@@ -117,7 +88,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Assignee and due date filters now use the same custom dropdown style as priority and label: consistent button appearance, blue active state when a filter is selected, and a styled dropdown panel instead of native `<select>` elements
 - Accepting a group invite via `/join/:token` now redirects to `/groups/:id` (the joined group's page) and shows a “You've joined [Group Name]” confirmation banner; unauthenticated users are redirected to login with the token preserved and the join completes automatically after authentication (#104)
 - Social-only accounts (OAuth/GitLab/GitHub/Google) can now set a password from the Security settings tab without supplying a current password — previously the request always failed with “Current password is incorrect” because Django sets an unusable password for social-only accounts
-- Security tab now adapts its UI for social accounts: the "Current password" field is hidden and the button label reflects first-time password creation
+- Security tab now adapts its UI for social accounts: the “Current password” field is hidden and the button label reflects first-time password creation
 - Password minimum length validation in the Security tab frontend aligned to 12 characters, matching the backend requirement
 - Column headers now use `min-w-[200px]` (matching board cells), fixing horizontal misalignment between headers and card columns
 - Column headers are taller with a two-row layout: name on the first row, labeled `WIP` and `Weight` stats on the second row; limits display `∞` when unset rather than hiding the stat
