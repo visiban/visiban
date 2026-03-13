@@ -15,6 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - Collapsed sidebar now shows a person icon (user silhouette) for the Personal boards section instead of the same house icon used by the Home link, eliminating the duplicate icon confusion (#165)
+- Invite link role dropdown now includes **Admin** as a selectable role in addition to Member and Viewer (#164)
 
 - Navigating to a group the user cannot access (404/403) now redirects silently to the dashboard instead of showing a "Failed to load group" error; genuine network errors still surface with a "Return to dashboard" link
 - Registration now requires email (not username); `ACCOUNT_SIGNUP_FIELDS` updated to `["email*", "password1*", "password2*"]` — allauth auto-generates a username from the email; register form placeholder updated to "Email address"; login still accepts username or email
