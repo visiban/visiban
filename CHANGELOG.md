@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [v0.1.0-rc.3] — 2026-03-13
+
 ### Changed
 
 - Navbar header height increased from 48 px to 64 px; logo switched to `visiban_fullbleed_pulse_light.png` (white background, black **VISIBAN** lettering, original brand-color chart lines) at 48 px; breadcrumb and action button colors updated for the light header
