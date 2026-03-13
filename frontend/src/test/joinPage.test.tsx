@@ -81,7 +81,6 @@ describe('JoinPage', () => {
   it('navigates to group page with joinedGroup state on successful join', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 42, group_name: 'Engineering' })
     mockJoinGroup.mockResolvedValue({})
-    const navigated: { to: string; state: unknown }[] = []
     render(
       <MemoryRouter initialEntries={['/join/abc123']}>
         <Routes>
