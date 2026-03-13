@@ -130,30 +130,30 @@ describe('AppSidebar', () => {
     expect(link?.className).toMatch(/blue/)
   })
 
-  it('renders Home link', async () => {
+  it('renders Dashboard link', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
-    expect(screen.getByText('Home')).toBeInTheDocument()
-    const homeLink = screen.getByText('Home').closest('a')
+    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    const homeLink = screen.getByText('Dashboard').closest('a')
     expect(homeLink?.getAttribute('href')).toBe('/')
   })
 
-  it('highlights Home link when at root path', async () => {
+  it('highlights Dashboard link when at root path', async () => {
     mockUseLocation.mockReturnValue({ pathname: '/' })
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
-    const homeLink = screen.getByText('Home').closest('a')
+    const homeLink = screen.getByText('Dashboard').closest('a')
     expect(homeLink?.className).toMatch(/blue/)
   })
 
-  it('shows Home icon in collapsed mode', async () => {
+  it('shows Dashboard icon in collapsed mode', async () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
-    expect(screen.getByTitle('Home')).toBeInTheDocument()
+    expect(screen.getByTitle('Dashboard')).toBeInTheDocument()
   })
 
   it('shows starred boards as star icons in collapsed mode', async () => {
