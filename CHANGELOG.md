@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Added docstrings to all backend view classes and action methods across `accounts`, `boards`, and `groups` for improved code navigability (#122)
 - Documentation updated to reflect recent features: collaborator role at group level (#169), group starring and sidebar Favorites sections (#166, #167, #168), per-trigger notification preferences (#95), invite link improvements (#99), locale preferences (#161, #162, #163), and Settings page; architecture and data-model docs updated to match current state
 - Added JSDoc to all exported frontend API client functions across `auth.ts`, `boards.ts`, `cards.ts`, `groups.ts`, and `notifications.ts`; non-obvious parameters and return values include `@param`/`@returns` annotations (#123)
+- Added JSDoc to exported frontend hooks (`useAuth`, `useBoard`, `useBoardSocket`, `useViewPrefs`) and non-trivial components (`Avatar`, `ErrorBoundary`, `CardItem`); non-obvious props on `CardItem` annotated inline (#124)
 
 ### Fixed
 
