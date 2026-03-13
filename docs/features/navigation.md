@@ -6,7 +6,7 @@ The application sidebar provides persistent, at-a-glance access to your full gro
 
 The sidebar renders sections in this order, omitting any empty section entirely:
 
-1. **Home** — always present; navigates to `/` and highlights when the current path is `/`.
+1. **Dashboard** — always present; navigates to `/` and highlights when the current path is `/`.
 2. **Favorite Boards** — boards the current user has starred, in the order they were starred. Only shown when at least one board is starred.
 3. **Favorite Groups** — groups the current user has starred. Only shown when at least one group is starred.
 4. **Groups and their boards** — all top-level groups (groups with no parent). Each group can be expanded to reveal the boards that belong to it. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.
@@ -29,7 +29,7 @@ In the collapsed state, each item is represented by an icon:
 
 | Section | Collapsed icon |
 |---|---|
-| Home | House icon |
+| Dashboard | Grid (four squares) icon |
 | Favorite Boards | Filled star ★ (yellow) |
 | Favorite Groups | Filled star ★ (yellow) |
 | Groups | Folder icon |
