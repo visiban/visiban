@@ -277,10 +277,13 @@ frontend-test:
 
 # ─── Changelog check (MR only) ────────────────────────────────────────────────
 #
-# Warns when CHANGELOG.md was not updated in the MR diff.
-# allow_failure: true — some MRs (like pure CI config changes) legitimately
-# do not need changelog entries.
-# No path-based filtering — this should always run on MRs.
+# Fails when CHANGELOG.md was not updated and the MR contains changes that
+# warrant a changelog entry. Auto-skips for MRs that only touch:
+#   - CI/CD config (.gitlab-ci.yml, .gitlab/)
+#   - Documentation (docs/, *.md other than CHANGELOG.md, README*)
+#   - Developer tooling (CLAUDE.md, .gitignore, scripts/, Makefile, *.sh)
+#   - Test files only (frontend/src/test/, backend/*/tests/)
+# To skip manually for a legitimate edge case, add the ~no-changelog label.
 
 changelog-check:
   extends: .on-mr
@@ -293,11 +296,41 @@ changelog-check:
     - BASE=$(git merge-base origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME HEAD || echo "")
     - |
       if [ -z "$BASE" ]; then
-        echo "WARNING — could not determine merge base; skipping changelog check."
+        echo "INFO — could not determine merge base; skipping changelog check."
         exit 0
       fi
-    - git diff --name-only $BASE HEAD | grep -q "CHANGELOG.md" || (echo "ERROR — CHANGELOG.md was not updated. Please add an entry under [Unreleased]." && exit 1)
-  allow_failure: true
+    - |
+      # Skip if the MR carries the no-changelog label
+      if echo "$CI_MERGE_REQUEST_LABELS" | tr ',' '\n' | grep -qx 'no-changelog'; then
+        echo "INFO — 'no-changelog' label present; skipping."
+        exit 0
+      fi
+    - CHANGED=$(git diff --name-only $BASE HEAD)
+    - |
+      # Strip files that never need a changelog entry
+      MEANINGFUL=$(echo "$CHANGED" | grep -Ev \
+        '^\.gitlab(-ci\.yml|/)' \
+        || true)
+      MEANINGFUL=$(echo "$MEANINGFUL" | grep -Ev \
+        '^(docs/|README|CLAUDE\.md|\.gitignore|Makefile|scripts/)' \
+        || true)
+      MEANINGFUL=$(echo "$MEANINGFUL" | grep -Ev \
+        '\.(md|sh)$' \
+        || true)
+      MEANINGFUL=$(echo "$MEANINGFUL" | grep -Ev \
+        '^(frontend/src/test/|backend/.*/tests/)' \
+        || true)
+      if [ -z "$MEANINGFUL" ]; then
+        echo "INFO — only non-product files changed; skipping changelog check."
+        exit 0
+      fi
+    - |
+      if echo "$CHANGED" | grep -q "CHANGELOG.md"; then
+        echo "OK — CHANGELOG.md updated."
+      else
+        echo "ERROR — CHANGELOG.md was not updated. Add an entry under [Unreleased], or apply the ~no-changelog label if this MR genuinely needs no entry."
+        exit 1
+      fi
 
 # ─── Security (MR only) ───────────────────────────────────────────────────────
 #

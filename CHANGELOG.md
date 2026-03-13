@@ -12,6 +12,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 - Joining a group via invite link now redirects to the group page and shows a dismissible confirmation banner: _"You've joined [Group Name]. Welcome!"_ (#104)
 
+### Changed
+
+- GitLab project now requires a passing pipeline before any MR can be merged (`only_allow_merge_if_pipeline_succeeds`); documented in `CLAUDE.md`
+
 ### Fixed
 
 - Collapsed sidebar now shows a person icon (user silhouette) for the Personal boards section instead of the same house icon used by the Home link, eliminating the duplicate icon confusion (#165)
