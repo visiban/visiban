@@ -18,12 +18,12 @@ const fakeGroup: Group = {
 
 const fakeBoard: Board = {
   id: 42, name: 'Sprint Board', description: '', owner: fakeUser,
-  group: 10, group_name: 'Alpha', member_count: 1, created_at: '', updated_at: '',
+  group: 10, group_name: 'Alpha', member_count: 1, card_count: 0, created_at: '', updated_at: '',
 }
 
 const personalBoard: Board = {
   id: 99, name: 'My Board', description: '', owner: fakeUser,
-  group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
+  group: null, group_name: null, member_count: 1, card_count: 0, created_at: '', updated_at: '',
 }
 
 const mockUseLocation = vi.fn(() => ({ pathname: '/' }))
