@@ -29,6 +29,7 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
     parent: null, parent_name: null,
     member_count: 3, board_count: 2, subgroup_count: 0, created_at: '',
     default_board_member_role: 'member', allowed_priorities: [], shared_labels: [],
+    is_starred: false,
     ...overrides,
   }
 }
