@@ -43,7 +43,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
   // New link form state
   const [showForm, setShowForm] = useState(false);
   const [formName, setFormName] = useState("");
-  const [formRole, setFormRole] = useState<"member" | "viewer">("member");
+  const [formRole, setFormRole] = useState<"admin" | "member" | "viewer">("member");
   const [formExpiry, setFormExpiry] = useState<number | null>(7);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -197,8 +197,9 @@ export default function InviteLinkPanel({ groupId }: Props) {
               <label className="text-[11px] text-slate-400">Role</label>
               <SelectDropdown
                 value={formRole}
-                onChange={(v) => setFormRole(v as "member" | "viewer")}
+                onChange={(v) => setFormRole(v as "admin" | "member" | "viewer")}
                 options={[
+                  { value: "admin", label: "Admin" },
                   { value: "member", label: "Member" },
                   { value: "viewer", label: "Viewer" },
                 ]}

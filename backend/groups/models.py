@@ -115,6 +115,7 @@ class GroupMembership(models.Model):
 
 class GroupInviteLink(models.Model):
     class Role(models.TextChoices):
+        ADMIN = "admin"
         MEMBER = "member"
         VIEWER = "viewer"
 

@@ -240,7 +240,7 @@ export interface GroupInviteLink {
   id: number;
   token: string;
   name: string;
-  role: "member" | "viewer";
+  role: "admin" | "member" | "viewer";
   expires_at: string | null;
   is_active: boolean;
   is_expired: boolean;
