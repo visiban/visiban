@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- Site admin (`ensure_site_admin`) now also sets `is_staff` and `is_superuser` so the bootstrapped admin account has full Django admin panel access in addition to Visiban site-admin privileges
+- `GroupDetail` page now correctly treats site admins as group admins: `is_site_admin` users see the "New board", "Create subgroup", and settings controls without needing an explicit group membership
+
 ### Added
 
 - **Onboarding empty state** (#103): new users with no boards or groups see a welcome screen with a Visiban board illustration, a short description, and two CTAs — "Create my first board" and "Join a group with an invite link"
