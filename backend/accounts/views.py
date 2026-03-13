@@ -11,6 +11,8 @@ User = get_user_model()
 
 
 class UserSearchView(APIView):
+    """Search users by display name, email, or username; requires at least 2 characters."""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -31,6 +33,8 @@ class UserSearchView(APIView):
 
 
 class AuthProvidersView(APIView):
+    """Return which OAuth providers (Google, GitHub, GitLab) are configured on this instance."""
+
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -43,6 +47,8 @@ class AuthProvidersView(APIView):
 
 
 class CurrentUserView(APIView):
+    """Retrieve or update the currently authenticated user's profile."""
+
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
@@ -55,6 +61,8 @@ class CurrentUserView(APIView):
 
 
 class ChangePasswordView(APIView):
+    """Change the authenticated user's password, keeping the session alive afterwards."""
+
     def post(self, request):
         current_password = request.data.get("current_password", "")
         new_password = request.data.get("new_password", "")

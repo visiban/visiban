@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 - Added docstrings to all backend model classes (`Board`, `BoardMembership`, `BoardFavorite`, `Column`, `Swimlane`, `Label`, `Card`, `CardComment`, `CardActivity`, `CardChecklist`, `CardAttachment`, `Notification`, `Group`, `GroupMembership`, `GroupInviteLink`, `GroupFavorite`) for improved code navigability (#121)
+- Added docstrings to all backend view classes and action methods across `accounts`, `boards`, and `groups` for improved code navigability (#122)
 
 ### Fixed
 
