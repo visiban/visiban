@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- Added docstrings to all backend model classes (`Board`, `BoardMembership`, `BoardFavorite`, `Column`, `Swimlane`, `Label`, `Card`, `CardComment`, `CardActivity`, `CardChecklist`, `CardAttachment`, `Notification`, `Group`, `GroupMembership`, `GroupInviteLink`, `GroupFavorite`) for improved code navigability (#121)
+
 ### Fixed
 
 - Collapsed sidebar no longer shows a redundant ☆ section header above starred boards and groups; the filled ★ icon on each individual item (with its hover tooltip) is sufficient, and the outline header was causing one starred item to appear as two icons (#174, #178)
