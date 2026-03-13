@@ -6,7 +6,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('groups', '0006_alter_groupinvitelink_role'),
+        ('groups', '0007_group_collaborator_role'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
