@@ -215,7 +215,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-gray-900 flex flex-col overflow-y-auto">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
 
       {joinToast && (
