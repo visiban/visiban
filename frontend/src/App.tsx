@@ -140,6 +140,9 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onBoardSettingsChanged={updateBoardSettings}
             onBoardDeleted={handleBack}
             onStarToggled={onStarToggled}
+            userTimezone={user.timezone ?? ""}
+            userDateFormat={user.date_format ?? "MM/DD/YYYY"}
+            userTimeFormat={user.time_format ?? "12h"}
           />
         )}
       </div>

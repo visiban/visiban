@@ -16,6 +16,24 @@ interface Props {
   onUserUpdated: (user: User) => void;
 }
 
+const DATE_FORMAT_OPTIONS = [
+  { value: "MM/DD/YYYY", label: "MM/DD/YYYY — US (12/31/2025)" },
+  { value: "DD/MM/YYYY", label: "DD/MM/YYYY — European (31/12/2025)" },
+  { value: "YYYY-MM-DD", label: "YYYY-MM-DD — ISO (2025-12-31)" },
+];
+
+const TIME_FORMAT_OPTIONS = [
+  { value: "12h", label: "12-hour (2:30 PM)" },
+  { value: "24h", label: "24-hour (14:30)" },
+];
+
+const NUMBER_LOCALE_OPTIONS = [
+  { value: "en-US", label: "1,234.56 — US / UK" },
+  { value: "de-DE", label: "1.234,56 — European" },
+  { value: "fr-FR", label: "1 234,56 — French" },
+  { value: "hi-IN", label: "1,23,456.78 — Indian" },
+];
+
 function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -25,6 +43,9 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
     email: user.email ?? "",
     username: user.username ?? "",
     timezone: user.timezone ?? "",
+    date_format: user.date_format ?? "MM/DD/YYYY",
+    time_format: user.time_format ?? "12h",
+    number_locale: user.number_locale ?? "en-US",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +63,9 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
       const updated = await updateCurrentUser({
         ...form,
         timezone: form.timezone || browserTimezone(),
+        date_format: form.date_format,
+        time_format: form.time_format,
+        number_locale: form.number_locale,
       });
       onUserUpdated(updated);
       setSaved(true);
@@ -119,6 +143,39 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
           className="w-full"
         />
         <span className="text-xs text-gray-500">Used for due date labels and filters</span>
+      </div>
+
+      <div className="border-t border-gray-700 pt-4">
+        <p className="text-sm text-gray-300 font-medium mb-4">Locale</p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1 text-sm text-gray-400">
+            Date format
+            <SelectDropdown
+              value={form.date_format}
+              onChange={(v) => setForm((f) => ({ ...f, date_format: v }))}
+              options={DATE_FORMAT_OPTIONS}
+              className="w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1 text-sm text-gray-400">
+            Time format
+            <SelectDropdown
+              value={form.time_format}
+              onChange={(v) => setForm((f) => ({ ...f, time_format: v }))}
+              options={TIME_FORMAT_OPTIONS}
+              className="w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1 text-sm text-gray-400">
+            Number format
+            <SelectDropdown
+              value={form.number_locale}
+              onChange={(v) => setForm((f) => ({ ...f, number_locale: v }))}
+              options={NUMBER_LOCALE_OPTIONS}
+              className="w-full"
+            />
+          </div>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}

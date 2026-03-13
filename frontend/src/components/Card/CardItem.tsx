@@ -18,9 +18,10 @@ interface Props {
   hideAssignee?: boolean;
   hidePriority?: boolean;
   userTimezone?: string;
+  userDateFormat?: string;
 }
 
-export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone = "" }: Props) {
+export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone = "", userDateFormat = "MM/DD/YYYY" }: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
   const [hovered, setHovered] = useState(false);
 
@@ -28,7 +29,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
     ? Date.now() - new Date(card.last_moved_at).getTime() < 86_400_000
     : false;
 
-  const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone) : null;
+  const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone, userDateFormat) : null;
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
 
   const hasMetadata =

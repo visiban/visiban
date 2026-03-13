@@ -14,6 +14,9 @@ class User(AbstractUser):
     notif_due_soon = models.BooleanField(default=False)
     notif_card_moved = models.BooleanField(default=False)
     notif_comment_added = models.BooleanField(default=False)
+    date_format = models.CharField(max_length=16, blank=True, default="MM/DD/YYYY")
+    time_format = models.CharField(max_length=4, blank=True, default="12h")
+    number_locale = models.CharField(max_length=16, blank=True, default="en-US")
 
     class Meta:
         db_table = "users"

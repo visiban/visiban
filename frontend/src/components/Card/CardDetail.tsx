@@ -7,6 +7,7 @@ import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import CardMovementTimeline from "./CardMovementTimeline";
+import { formatDateStr } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 
 interface Props {
@@ -16,6 +17,8 @@ interface Props {
   onDeleted: (id: number) => void;
   onUpdated: (card: Card) => void;
   onLabelAdded: (label: Label) => void;
+  userDateFormat?: string;
+  userTimeFormat?: string;
 }
 
 export function formatCommentTime(iso: string): string {
@@ -41,7 +44,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onLabelAdded }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [commentBody, setCommentBody] = useState("");
@@ -530,7 +533,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <a href={a.url} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:underline truncate block">
                             {a.filename}
                           </a>
-                          <p className="text-xs text-slate-500">{(a.size / 1024).toFixed(1)} KB · {new Date(a.uploaded_at).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-500">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
                         </div>
                         <button
                           onClick={() => handleDeleteAttachment(a.id)}
@@ -601,7 +604,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
             </div>
           ) : (
-            <CardMovementTimeline boardId={board.id} cardId={card.id} />
+            <CardMovementTimeline boardId={board.id} cardId={card.id} userDateFormat={userDateFormat} userTimeFormat={userTimeFormat} />
           )}
         </div>
 

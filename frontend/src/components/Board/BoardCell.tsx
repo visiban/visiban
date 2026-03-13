@@ -23,9 +23,10 @@ interface Props {
   hideAssignee?: boolean;
   hidePriority?: boolean;
   userTimezone?: string;
+  userDateFormat?: string;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone }: Props) {
+export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -63,6 +64,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
               hideAssignee={hideAssignee}
               hidePriority={hidePriority}
               userTimezone={userTimezone}
+              userDateFormat={userDateFormat}
             />
           ))}
         </div>

@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { getCardMovements, getCardActivities } from "../../api/cards";
 import type { CardActivity, CardMovement } from "../../types";
 import { userDisplayName } from "../../types";
+import { formatDateTime } from "../../utils/date";
 
 interface Props {
   boardId: number;
   cardId: number;
+  userDateFormat?: string;
+  userTimeFormat?: string;
 }
 
 type TimelineEntry =
@@ -54,7 +57,7 @@ function activityLabel(a: CardActivity): { line1: string; detail?: string } {
   }
 }
 
-export default function CardMovementTimeline({ boardId, cardId }: Props) {
+export default function CardMovementTimeline({ boardId, cardId, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -110,7 +113,7 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
                       <span className="text-sm font-medium text-slate-300">Created in {m.to_column_name}</span>
                       {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
                     </div>
-                    <time className="text-xs text-gray-400">{new Date(m.moved_at).toLocaleString()}</time>
+                    <time className="text-xs text-gray-400">{formatDateTime(m.moved_at, userDateFormat, userTimeFormat)}</time>
                   </div>
                 </li>
               );
@@ -137,7 +140,7 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
                     {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <time className="text-xs text-gray-400">{new Date(m.moved_at).toLocaleString()}</time>
+                    <time className="text-xs text-gray-400">{formatDateTime(m.moved_at, userDateFormat, userTimeFormat)}</time>
                     {duration && <span className="text-xs text-blue-500 ml-auto shrink-0">Spent {duration} here</span>}
                   </div>
                 </div>
@@ -157,7 +160,7 @@ export default function CardMovementTimeline({ boardId, cardId }: Props) {
                   <span className="text-sm text-slate-300">{line1}</span>
                   {actor && <span className="text-xs text-gray-400 ml-auto shrink-0">by {actor}</span>}
                 </div>
-                <time className="text-xs text-gray-400">{new Date(a.created_at).toLocaleString()}</time>
+                <time className="text-xs text-gray-400">{formatDateTime(a.created_at, userDateFormat, userTimeFormat)}</time>
               </div>
             </li>
           );
