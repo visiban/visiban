@@ -1,5 +1,5 @@
 """Tests for accounts views: CurrentUserView, ChangePasswordView, AuthProvidersView."""
-from django.test import TestCase
+from django.test import TestCase, Client as DjangoTestClient
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -71,6 +71,22 @@ class ChangePasswordViewTests(TestCase):
             "new_password": "",
         })
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_session_preserved_after_password_change(self):
+        """Session must stay alive after password change (update_session_auth_hash)."""
+        django_client = DjangoTestClient()
+        django_client.login(username="bob", password="oldpassword123")
+
+        r = django_client.post(
+            "/api/auth/change-password/",
+            data='{"current_password": "oldpassword123", "new_password": "newpassword456secure"}',
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        # Session must still be valid — authenticated endpoint returns 200, not 401/403.
+        r2 = django_client.get("/api/auth/me/")
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
 
 
 class AuthProvidersViewTests(TestCase):

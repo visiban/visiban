@@ -18,13 +18,12 @@ client.interceptors.request.use((config) => {
 
 // When the backend signals that credentials are no longer valid, emit an event
 // so that useAuth can clear the user and redirect to the login page.
+// DRF returns 401 (NotAuthenticated) when no authenticator succeeds; a stale
+// session after a password change is the most common real-world trigger.
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 403 &&
-      error.response?.data?.detail === "Authentication credentials were not provided."
-    ) {
+    if (error.response?.status === 401) {
       window.dispatchEvent(new Event("auth:sessionExpired"));
     }
     return Promise.reject(error);

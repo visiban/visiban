@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Changing a password via the forced-change modal no longer invalidates the session: `ChangePasswordView` now calls `update_session_auth_hash()` so the user stays logged in and subsequent API calls succeed (#148)
+- Session-expiry interceptor now correctly detects 401 (Unauthenticated) responses from DRF instead of checking for a 403 with a message DRF never produces; stale-session detection now fires reliably after a password rotation or server-side session expiry (#148)
+- Startup 401/403 responses from unauthenticated session-check requests no longer appear as `WARNING Forbidden:` in Django logs; a `django.request` logging filter suppresses expected auth noise while preserving WARNING logs for 4xx errors that warrant attention (#148)
+
 - Page content now scrolls correctly on Dashboard, Settings, and GroupDetail: outer wrappers changed from `min-h-screen` to `h-full` to stay within the app's `h-screen` shell, and `overflow-y-auto` moved to the `<main>` content area; the board page already scrolled correctly (#147)
 - Site admin (`ensure_site_admin`) now also sets `is_staff` and `is_superuser` so the bootstrapped admin account has full Django admin panel access in addition to Visiban site-admin privileges
 - `GroupDetail` page now correctly treats site admins as group admins: `is_site_admin` users see the "New board", "Create subgroup", and settings controls without needing an explicit group membership

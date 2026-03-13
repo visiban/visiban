@@ -1,11 +1,11 @@
 from django.conf import settings
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from .serializers import UserSerializer
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -77,4 +77,7 @@ class ChangePasswordView(APIView):
         request.user.set_password(new_password)
         request.user.must_change_password = False
         request.user.save(update_fields=["password", "must_change_password"])
+        # Keep the current session alive after the password rotation so the
+        # user does not get logged out and left with a broken session state.
+        update_session_auth_hash(request, request.user)
         return Response({"detail": "Password changed successfully."})
