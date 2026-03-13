@@ -4,6 +4,7 @@ import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
+import { starBoard, unstarBoard } from "../../api/boards";
 import {
   DndContext,
   DragOverlay,
@@ -48,6 +49,7 @@ interface Props {
   onLabelAdded: (label: Label) => void;
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
   onBoardDeleted?: () => void;
+  onStarToggled?: () => void;
   userTimezone?: string;
 }
 
@@ -100,9 +102,30 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, userTimezone = "" }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, onStarToggled, userTimezone = "" }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
+
+  const [isStarred, setIsStarred] = useState(board.is_starred);
+  const [starLoading, setStarLoading] = useState(false);
+  const handleStarToggle = useCallback(async () => {
+    if (starLoading) return;
+    const prev = isStarred;
+    setIsStarred(!prev);
+    setStarLoading(true);
+    try {
+      if (prev) {
+        await unstarBoard(board.id);
+      } else {
+        await starBoard(board.id);
+      }
+      onStarToggled?.();
+    } catch {
+      setIsStarred(prev);
+    } finally {
+      setStarLoading(false);
+    }
+  }, [starLoading, isStarred, board.id, onStarToggled]);
 
   const { prefs: viewPrefs, toggleHiddenColumn, toggleHiddenSwimlane, setCardFieldPref } = useViewPrefs(board.id);
   const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
@@ -406,6 +429,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
         {/* Inline filter controls — same row, wrap to next line on narrow viewports */}
         {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />}
+
+        <button
+          onClick={handleStarToggle}
+          disabled={starLoading}
+          className={`text-xs transition shrink-0 ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-slate-400 hover:text-yellow-400"}`}
+          title={isStarred ? "Unstar board" : "Star board"}
+          aria-label={isStarred ? "Unstar board" : "Star board"}
+        >
+          {isStarred ? "★" : "☆"}
+        </button>
 
         <span className="w-px h-4 bg-slate-600 ml-auto shrink-0" />
         <button

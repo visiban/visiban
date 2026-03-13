@@ -100,6 +100,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     staleness_threshold_days: 7,
     close_editor_on_enter: false,
     allowed_priorities: ['low', 'medium', 'high', 'critical'] as BoardFull['allowed_priorities'],
+    is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',
     ...overrides,

@@ -46,7 +46,7 @@ const fakeUser: User = {
 
 const fakeBoard: Board = {
   id: 1, name: 'Test Board', description: '', owner: fakeUser,
-  group: null, group_name: null, member_count: 1, card_count: 0, created_at: '', updated_at: '',
+  group: null, group_name: null, member_count: 1, card_count: 0, is_starred: false, created_at: '', updated_at: '',
 }
 
 const fakeColumn: Column = {

@@ -50,6 +50,18 @@ class BoardMembership(models.Model):
         unique_together = ["board", "user"]
 
 
+class BoardFavorite(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="board_favorites"
+    )
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="favorites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "board_favorites"
+        unique_together = ["user", "board"]
+
+
 class Column(models.Model):
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="columns")
     name = models.CharField(max_length=255)

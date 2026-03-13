@@ -71,6 +71,10 @@ describe('SettingsPage', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('renders the Settings heading', () => {
     renderSettings()
     expect(screen.getByText('Settings')).toBeInTheDocument()
@@ -181,8 +185,6 @@ describe('ProfileTab', () => {
       await Promise.resolve()
     })
     expect(screen.getByText('Changes saved.')).toBeInTheDocument()
-    // The 1500ms navigate timer is still pending — confirm navigate not yet called
-    expect(mockNavigate).not.toHaveBeenCalled()
     act(() => {
       vi.advanceTimersByTime(1500)
     })

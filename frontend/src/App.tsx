@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useBoard } from "./hooks/useBoard";
@@ -15,6 +16,8 @@ import type { User } from "./types";
 export default function App() {
   const { user, loading, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const [starVersion, setStarVersion] = useState(0);
+  const handleStarToggled = useCallback(() => setStarVersion((v) => v + 1), []);
 
   const handleLogin = (loggedInUser: User) => {
     updateUser(loggedInUser);
@@ -47,9 +50,9 @@ export default function App() {
         <>
           <Route path="/*" element={
             <div className="flex h-screen overflow-hidden">
-              <AppSidebar user={user} />
+              <AppSidebar user={user} starVersion={starVersion} />
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} />
+                <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
               </div>
             </div>
           } />
@@ -62,26 +65,28 @@ export default function App() {
   );
 }
 
-function AuthenticatedRoutes({ user, onLogout, onUserUpdated }: {
+function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
   user: User;
   onLogout: () => void;
   onUserUpdated: (user: User) => void;
+  onStarToggled: () => void;
 }) {
   return (
     <Routes>
       <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
       <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
-      <Route path="/boards/:id" element={<BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+      <Route path="/boards/:id" element={<BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
       <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
-function BoardPage({ user, onLogout, onUserUpdated }: {
+function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   user: User;
   onLogout: () => void;
   onUserUpdated: (user: User) => void;
+  onStarToggled: () => void;
 }) {
   const navigate = useNavigate();
   const { board, loading, error, moveCard, addCard, removeCard, addColumn, removeColumn,
@@ -134,6 +139,7 @@ function BoardPage({ user, onLogout, onUserUpdated }: {
             onLabelAdded={addLabel}
             onBoardSettingsChanged={updateBoardSettings}
             onBoardDeleted={handleBack}
+            onStarToggled={onStarToggled}
           />
         )}
       </div>

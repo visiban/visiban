@@ -181,6 +181,7 @@ export interface Board {
   group_name: string | null;
   member_count: number;
   card_count: number;
+  is_starred: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -199,6 +200,7 @@ export interface BoardFull {
   staleness_threshold_days: number;
   close_editor_on_enter: boolean;
   allowed_priorities: Priority[];
+  is_starred: boolean;
   created_at: string;
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;

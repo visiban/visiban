@@ -26,7 +26,7 @@ from groups.models import Group, GroupMembership, get_accessible_group_ids
 
 from .broadcast import broadcast_board_event
 from .models import (
-    Board, BoardMembership, Column, Swimlane, Label,
+    Board, BoardFavorite, BoardMembership, Column, Swimlane, Label,
     Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment,
     Notification,
 )
@@ -59,12 +59,16 @@ class BoardViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_site_admin:
-            return Board.objects.all()
-        return Board.objects.filter(
-            Q(owner=user) |
-            Q(memberships__user=user) |
-            Q(group__in=get_accessible_group_ids(user))
-        ).distinct()
+            qs = Board.objects.all()
+        else:
+            qs = Board.objects.filter(
+                Q(owner=user) |
+                Q(memberships__user=user) |
+                Q(group__in=get_accessible_group_ids(user))
+            ).distinct()
+        if self.request.query_params.get("starred") == "true":
+            qs = qs.filter(favorites__user=user)
+        return qs
 
     def perform_create(self, serializer):
         board = serializer.save(owner=self.request.user)
@@ -89,6 +93,15 @@ class BoardViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post", "delete"], url_path="star")
+    def star(self, request, pk=None):
+        board = self.get_object()
+        if request.method == "POST":
+            BoardFavorite.objects.get_or_create(user=request.user, board=board)
+        else:
+            BoardFavorite.objects.filter(user=request.user, board=board).delete()
+        return Response(self.get_serializer(board).data)
 
     @action(detail=True, methods=["post"], url_path="move-group")
     def move_group(self, request, pk=None):

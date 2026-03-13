@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User, Group, Board } from "../../types";
 import { listGroups } from "../../api/groups";
-import { listBoards } from "../../api/boards";
+import { listBoards, listStarredBoards } from "../../api/boards";
 
 interface Props {
   user: User;
+  starVersion?: number;
 }
 
-export default function AppSidebar({ user: _user }: Props) {
+export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -28,6 +29,7 @@ export default function AppSidebar({ user: _user }: Props) {
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [boards, setBoards] = useState<Board[]>([]);
+  const [starredBoards, setStarredBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +41,10 @@ export default function AppSidebar({ user: _user }: Props) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    listStarredBoards().then(setStarredBoards).catch(() => {});
+  }, [starVersion]);
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", String(collapsed));
@@ -120,6 +126,30 @@ export default function AppSidebar({ user: _user }: Props) {
 
         {!loading && (
           <>
+            {/* Favorites */}
+            {!collapsed && (
+              <div>
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Favorites
+                </div>
+                {starredBoards.length === 0 ? (
+                  <div className="px-3 py-1 text-xs text-slate-600">
+                    Star a board to pin it here
+                  </div>
+                ) : (
+                  starredBoards.map((board) => (
+                    <BoardItem
+                      key={board.id}
+                      board={board}
+                      active={board.id === activeBoardId}
+                      indent={1}
+                      onNavigate={collapse}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+
             {/* Top-level groups */}
             {topLevelGroups.map((group) => {
               const groupBoards = boards.filter((b) => b.group === group.id);
