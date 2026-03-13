@@ -47,10 +47,11 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border relative z-0 overflow-hidden
-        hover:-translate-y-0.5 hover:brightness-110 hover:z-20
-        ${isDragging && !overlay ? "opacity-25" : ""}
-        ${overlay ? "-translate-y-2 rotate-1 opacity-95" : ""}
+      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border relative z-0
+        shadow-[0_2px_0_rgba(0,0,0,0.5),_0_4px_8px_rgba(0,0,0,0.3)]
+        hover:-translate-y-0.5 hover:shadow-[0_4px_0_rgba(0,0,0,0.5),_0_8px_16px_rgba(0,0,0,0.4)] hover:z-20
+        ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
+        ${overlay ? "!shadow-[0_8px_0_rgba(0,0,0,0.5),_0_12px_24px_rgba(0,0,0,0.5)] rotate-1 opacity-95 !-translate-y-1" : ""}
         ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : card.is_stale ? "ring-1 ring-inset ring-amber-400" : ""}
       `}
       onMouseEnter={() => setHovered(true)}
