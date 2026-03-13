@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SettingsPage from '../pages/SettingsPage'
@@ -134,6 +134,10 @@ describe('ProfileTab', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('filling and submitting form calls updateCurrentUser', async () => {
     const updatedUser = { ...fakeUser, display_name: 'Updated Name' }
     mockUpdateCurrentUser.mockResolvedValueOnce(updatedUser)
@@ -164,19 +168,23 @@ describe('ProfileTab', () => {
   })
 
   it('navigates to "/" after the saved flash', async () => {
-    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+    vi.useFakeTimers()
     mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
-    const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
-    await waitFor(() => expect(screen.getByText('Changes saved.')).toBeInTheDocument())
-    // Find the navigate timeout (1500ms delay) and invoke it directly
-    const navigateCall = timeoutSpy.mock.calls.find(([, delay]) => delay === 1500)
-    expect(navigateCall).toBeDefined()
+    // Use fireEvent (synchronous) so we don't depend on userEvent's internal timers
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      // Flush the resolved promise from mockUpdateCurrentUser
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByText('Changes saved.')).toBeInTheDocument()
+    // The 1500ms navigate timer is still pending — confirm navigate not yet called
     expect(mockNavigate).not.toHaveBeenCalled()
-    ;(navigateCall![0] as () => void)()
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
     expect(mockNavigate).toHaveBeenCalledWith('/')
-    timeoutSpy.mockRestore()
   })
 
   it('shows error message on save failure', async () => {
