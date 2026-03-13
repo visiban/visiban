@@ -82,3 +82,16 @@ export const updateGroupBoardDefaults = (
   data: { default_board_member_role?: "admin" | "member" | "collaborator" | "viewer"; allowed_priorities?: Priority[] },
 ) =>
   client.patch<Group>(`/api/groups/${id}/board-defaults/`, data).then((r) => r.data);
+
+// ------------------------------------------------------------------
+// Group favorites (star / unstar)
+// ------------------------------------------------------------------
+
+export const starGroup = (id: number) =>
+  client.post(`/api/groups/${id}/star/`).then((r) => r.data);
+
+export const unstarGroup = (id: number) =>
+  client.delete(`/api/groups/${id}/star/`);
+
+export const listStarredGroups = () =>
+  client.get<{ results: Group[] }>("/api/groups/?starred=true").then((r) => r.data.results);

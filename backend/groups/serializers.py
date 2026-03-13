@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from accounts.serializers import UserSerializer
-from .models import Group, GroupLabel, GroupMembership, GroupInviteLink
+from .models import Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite
 
 
 class GroupLabelSerializer(serializers.ModelSerializer):
@@ -16,6 +16,7 @@ class GroupSerializer(serializers.ModelSerializer):
     board_count = serializers.SerializerMethodField()
     subgroup_count = serializers.SerializerMethodField()
     shared_labels = GroupLabelSerializer(source="labels", many=True, read_only=True)
+    is_starred = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
@@ -23,8 +24,9 @@ class GroupSerializer(serializers.ModelSerializer):
             "id", "name", "owner", "parent", "parent_name",
             "member_count", "board_count", "subgroup_count", "created_at",
             "default_board_member_role", "allowed_priorities", "shared_labels",
+            "is_starred",
         ]
-        read_only_fields = ["owner", "created_at", "shared_labels"]
+        read_only_fields = ["owner", "created_at", "shared_labels", "is_starred"]
 
     def get_member_count(self, obj):
         return obj.memberships.count()
@@ -34,6 +36,12 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def get_subgroup_count(self, obj):
         return obj.subgroups.count()
+
+    def get_is_starred(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return GroupFavorite.objects.filter(user=request.user, group=obj).exists()
 
     def validate_allowed_priorities(self, value):
         valid = {"low", "medium", "high", "urgent"}

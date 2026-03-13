@@ -228,6 +228,7 @@ export interface Group {
   default_board_member_role: "admin" | "member" | "collaborator" | "viewer";
   allowed_priorities: Priority[];
   shared_labels: GroupLabel[];
+  is_starred: boolean;
 }
 
 export interface GroupMembership {

@@ -5,6 +5,7 @@ import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
   transferGroupOwnership, createGroupLabel, deleteGroupLabel, updateGroupBoardDefaults,
+  starGroup, unstarGroup,
 } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
@@ -53,6 +54,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
 
+  const [isStarred, setIsStarred] = useState(false);
+  const [starLoading, setStarLoading] = useState(false);
+
   // Board defaults state
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#EAB308");
@@ -71,6 +75,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
       getGroupMembers(groupId),
     ]).then(([g, sg, b, m]) => {
       setGroup(g);
+      setIsStarred(g.is_starred);
       setSubgroups(sg);
       setBoards(b);
       setMembers(m);
@@ -93,6 +98,24 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
     ).then((results) => setSubgroupBoards(results.flat()))
       .finally(() => setLoadingSubgroupBoards(false));
   }, [showSubgroupBoards, subgroups]);
+
+  const handleStarToggle = async () => {
+    if (starLoading) return;
+    const prev = isStarred;
+    setIsStarred(!prev);
+    setStarLoading(true);
+    try {
+      if (prev) {
+        await unstarGroup(groupId);
+      } else {
+        await starGroup(groupId);
+      }
+    } catch {
+      setIsStarred(prev);
+    } finally {
+      setStarLoading(false);
+    }
+  };
 
   const handleCreateBoard = async (name: string, template: string) => {
     const board = await createGroupBoard(groupId, { name, template });
@@ -255,14 +278,25 @@ export default function GroupDetail({ user, onLogout, onUserUpdated }: Props) {
               {group.subgroup_count > 0 && ` · ${group.subgroup_count} subgroup${group.subgroup_count !== 1 ? "s" : ""}`}
             </p>
           </div>
-          {isAdmin && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setSearchParams({ tab: "settings" })}
-              className="text-sm text-gray-400 hover:text-white transition"
+              onClick={handleStarToggle}
+              disabled={starLoading}
+              className={`text-lg transition ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-slate-500 hover:text-yellow-400"}`}
+              title={isStarred ? "Unstar group" : "Star group"}
+              aria-label={isStarred ? "Unstar group" : "Star group"}
             >
-              Settings
+              {isStarred ? "★" : "☆"}
             </button>
-          )}
+            {isAdmin && (
+              <button
+                onClick={() => setSearchParams({ tab: "settings" })}
+                className="text-sm text-gray-400 hover:text-white transition"
+              >
+                Settings
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tab bar */}
