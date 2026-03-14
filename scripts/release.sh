@@ -129,6 +129,7 @@ if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   echo "docs.visiban.com updated — $TAG published as 'latest'"
 else
   mike deploy --push --update-aliases "$TAG" next
+  mike set-default --push next
   echo "docs.visiban.com updated — $TAG published as 'next'"
 fi
 
