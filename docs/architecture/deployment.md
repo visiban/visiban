@@ -36,6 +36,15 @@ docker build -f frontend/Dockerfile -t registry.gitlab.com/visiban/visiban/front
 
 A Helm chart is included under `helm/visiban/`. Images are pulled from the GitLab container registry — see [Production Docker images](#production-docker-images) above.
 
+The Helm chart bundles the following dependencies via Bitnami subcharts:
+
+| Component | Version | Chart |
+|---|---|---|
+| PostgreSQL | 17 | bitnami/postgresql 16.x |
+| Redis | 8 | bitnami/redis 25.x |
+
+> **Note:** The Kubernetes deployment runs **PostgreSQL 17**, while the Docker Compose stack runs Postgres 16. If you are migrating an existing deployment from an older Helm chart release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
+
 ### Install
 
 ```bash
@@ -80,8 +89,8 @@ helm install visiban helm/visiban \
 | `postgresql.auth.password` | `visiban` | Database password |
 | `backend.image.tag` | `latest` | Backend image tag |
 | `frontend.image.tag` | `latest` | Frontend image tag |
-| `postgresql.enabled` | `true` | Use bundled PostgreSQL; set `false` to use `externalDatabase` |
-| `redis.enabled` | `true` | Use bundled Redis; set `false` to use `externalRedis.url` |
+| `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
+| `redis.enabled` | `true` | Use bundled Redis 8; set `false` to use `externalRedis.url` |
 | `externalRedis.url` | `redis://redis:6379/0` | External Redis DSN (used when `redis.enabled: false`) |
 
 ### Upgrade
@@ -89,3 +98,35 @@ helm install visiban helm/visiban \
 ```bash
 helm upgrade visiban helm/visiban --reuse-values
 ```
+
+### Upgrading PostgreSQL major versions
+
+The bundled PostgreSQL subchart does not perform in-place major version upgrades. If you have an existing deployment on PostgreSQL 16 and are upgrading to a chart version that bundles PostgreSQL 17, you must migrate your data manually:
+
+1. **Export data from the running PostgreSQL 16 pod:**
+   ```bash
+   kubectl exec -n visiban visiban-postgresql-0 -- \
+     pg_dump -U visiban visiban > visiban_backup.sql
+   ```
+
+2. **Delete the existing PersistentVolumeClaim** (this removes the old data volume):
+   ```bash
+   kubectl delete pvc -n visiban data-visiban-postgresql-0
+   ```
+
+3. **Upgrade the Helm release** — this provisions a fresh PostgreSQL 17 pod:
+   ```bash
+   helm upgrade visiban helm/visiban --reuse-values
+   ```
+
+4. **Wait for PostgreSQL to become ready**, then restore:
+   ```bash
+   kubectl wait pod -n visiban visiban-postgresql-0 --for=condition=Ready --timeout=120s
+   kubectl exec -i -n visiban visiban-postgresql-0 -- \
+     psql -U visiban visiban < visiban_backup.sql
+   ```
+
+5. **Restart the backend** to re-run migrations:
+   ```bash
+   kubectl rollout restart deployment -n visiban visiban-backend
+   ```

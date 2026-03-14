@@ -11,17 +11,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 - Docker push CI jobs now run on every merge to `main` unconditionally (previously path-scoped to `backend/` and `frontend/` changes, which prevented the initial image push)
+- Helm chart dependencies bumped: PostgreSQL `15.x` → `16.x` (PostgreSQL 17) and Redis `19.x` → `25.x` (Redis 8); removes broken `oci.bitnami.com` image registry override (Docker Hub images for old chart versions were removed upstream)
+- Docs site (docs.visiban.com) now publishes a versioned snapshot per release tag using `mike`; stable releases are aliased as `latest`, pre-releases as `next`; a version picker in the docs header lets users switch between releases; `CHANGELOG.md` is included in the docs site and frozen per release
 
 ### Added
 
 - CI pipeline now builds and pushes backend and frontend Docker images to the GitLab container registry on every merge to `main` (path-scoped — only triggers when `backend/` or `frontend/` files change); images are tagged `latest` and the short commit SHA for rollback; kaniko is used for all builds (no Docker-in-Docker)
-- Helm chart `values.yaml` now pins PostgreSQL and Redis to major-version image tags (`16`, `7.2`) via the Bitnami OCI registry to avoid pulled/missing patch tags on Docker Hub
+- `helm-lint` CI job added to the lint stage: runs `helm lint` and `helm template` against `values.yaml` on every change to `helm/` and on every `main` pipeline
 - Removed `*.tgz` from `.helmignore` so Helm dependency tarballs in `charts/` are correctly included during install
 - Deployment docs updated: Kubernetes/Helm install command now includes required `allowedHosts` and `corsAllowedOrigins` values; TLS/cert-manager install example added; pre-built image registry paths documented
-
-### Changed
-
-- Docs site (docs.visiban.com) now publishes a versioned snapshot per release tag using `mike`; stable releases are aliased as `latest`, pre-releases as `next`; a version picker in the docs header lets users switch between releases; `CHANGELOG.md` is included in the docs site and frozen per release
 
 ---
 
