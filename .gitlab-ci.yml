@@ -242,7 +242,9 @@ migration-check:
 
 helm-lint:
   stage: lint
-  image: alpine/helm:3.16.4
+  image:
+    name: alpine/helm:3.16.4
+    entrypoint: [""]
   rules:
     - changes:
         - helm/**/*
