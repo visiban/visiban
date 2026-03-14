@@ -551,6 +551,11 @@ frontend-docker-push:
 #   - stable tags  (e.g. 1.2.3)        → versioned entry + "latest" alias
 #   - pre-releases (e.g. 1.2.3-rc.1)   → versioned entry + "next" alias
 #
+# It can also be triggered manually from main (e.g. to redeploy a version whose
+# tag pipeline predated this job). Set the DOCS_VERSION variable to the version
+# label to publish (e.g. "v1.0.0-rc.3"). The docs content used is whatever is
+# on main at the time of the manual trigger.
+#
 # After mike pushes to gh-pages, GitLab triggers a new pipeline on that branch.
 # The "pages" job (which must be named exactly "pages") runs there, copies the
 # branch content to public/, and GitLab Pages serves it at docs.visiban.com.
@@ -567,6 +572,8 @@ docs-deploy:
   stage: deploy
   image: python:3.12-slim
   needs: []
+  variables:
+    DOCS_VERSION: ""
   before_script:
     - apt-get update -qq && apt-get install -y -qq git
     - pip install --quiet -r docs/requirements.txt
@@ -578,14 +585,21 @@ docs-deploy:
     - git fetch origin gh-pages --depth=1 && git branch gh-pages origin/gh-pages || true
   script:
     - |
-      if echo "$CI_COMMIT_TAG" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
-        mike deploy --push --update-aliases "$CI_COMMIT_TAG" latest
+      VERSION="${DOCS_VERSION:-$CI_COMMIT_TAG}"
+      if [ -z "$VERSION" ]; then
+        echo "ERROR: no version to deploy. Either run from a version tag or set the DOCS_VERSION variable."
+        exit 1
+      fi
+      if echo "$VERSION" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
+        mike deploy --push --update-aliases "$VERSION" latest
         mike set-default --push latest
       else
-        mike deploy --push --update-aliases "$CI_COMMIT_TAG" next
+        mike deploy --push --update-aliases "$VERSION" next
       fi
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+/'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
 
 # Runs on the gh-pages branch after docs-deploy pushes to it.
 # Copies the branch content to public/ for GitLab Pages to serve.
