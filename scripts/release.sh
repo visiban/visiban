@@ -119,5 +119,41 @@ fi
 
 glab release create "$TAG" --name "$TAG" --notes "$RELEASE_NOTES"
 
+# Wait for the docs-deploy job to complete on the tag pipeline
+echo "Waiting for docs-deploy CI job..."
+TAG_PIPELINE_ID=""
+for i in $(seq 1 12); do
+  TAG_PIPELINE_ID=$(glab api "projects/${CI_PROJECT_ID:-$(glab api projects/visiban%2Fvisiban | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')}/pipelines?ref=${TAG}&order_by=id&sort=desc&per_page=1" 2>/dev/null \
+    | python3 -c 'import sys,json; p=json.load(sys.stdin); print(p[0]["id"]) if p else print("")' 2>/dev/null || true)
+  if [[ -n "$TAG_PIPELINE_ID" ]]; then
+    break
+  fi
+  sleep 5
+done
+
+DOCS_STATUS="unknown"
+if [[ -n "$TAG_PIPELINE_ID" ]]; then
+  for i in $(seq 1 40); do
+    DOCS_STATUS=$(glab api "projects/visiban%2Fvisiban/pipelines/${TAG_PIPELINE_ID}/jobs" 2>/dev/null \
+      | python3 -c 'import sys,json; jobs=[j for j in json.load(sys.stdin) if j["name"]=="docs-deploy"]; print(jobs[0]["status"] if jobs else "not_found")' 2>/dev/null || echo "unknown")
+    if [[ "$DOCS_STATUS" == "success" ]]; then
+      echo "docs-deploy: success — docs.visiban.com will update in ~1 min"
+      break
+    elif [[ "$DOCS_STATUS" == "failed" || "$DOCS_STATUS" == "canceled" ]]; then
+      echo "Warning: docs-deploy job $DOCS_STATUS on pipeline $TAG_PIPELINE_ID" >&2
+      echo "To redeploy manually: CI/CD → Run pipeline on main, set DOCS_VERSION=${TAG}" >&2
+      break
+    fi
+    sleep 15
+  done
+  if [[ "$DOCS_STATUS" != "success" && "$DOCS_STATUS" != "failed" && "$DOCS_STATUS" != "canceled" ]]; then
+    echo "Note: docs-deploy still running or not found (pipeline $TAG_PIPELINE_ID). Check CI for status." >&2
+    echo "To redeploy manually if needed: CI/CD → Run pipeline on main, set DOCS_VERSION=${TAG}" >&2
+  fi
+else
+  echo "Note: could not find tag pipeline — docs-deploy may still be queued. Check CI." >&2
+  echo "To redeploy manually if needed: CI/CD → Run pipeline on main, set DOCS_VERSION=${TAG}" >&2
+fi
+
 echo ""
 echo "Done. Release $TAG is live."
