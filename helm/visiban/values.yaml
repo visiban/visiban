@@ -82,6 +82,10 @@ secret:
 # Set enabled: false and supply externalDatabase to use an existing DB.
 postgresql:
   enabled: true
+  image:
+    registry: oci.bitnami.com
+    repository: bitnami/postgresql
+    tag: "16"
   auth:
     database: visiban
     username: visiban
@@ -104,6 +108,10 @@ externalDatabase:
 # Set enabled: false and supply externalRedis.url to use an existing instance.
 redis:
   enabled: true
+  image:
+    registry: oci.bitnami.com
+    repository: bitnami/redis
+    tag: "7.2"
   architecture: standalone
   auth:
     enabled: false
