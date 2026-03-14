@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [v1.0.0-rc.4] — 2026-03-14
+
 ### Fixed
 
 - Registration form no longer shows a username field; the backend auto-generates a username from the email address (`ACCOUNT_SIGNUP_FIELDS` and `ACCOUNT_USERNAME_REQUIRED = False` were already set, but the frontend form still sent a username and showed a conflict error UI) (#179)
