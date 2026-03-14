@@ -1,0 +1,13 @@
+# This file must exist on the gh-pages branch for GitLab to run the pages job.
+# mike manages the versioned docs directories; this file is left untouched by mike.
+
+pages:
+  stage: deploy
+  image: alpine:3.19
+  script:
+    - cp -r . public
+  artifacts:
+    paths:
+      - public/
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "gh-pages"'
