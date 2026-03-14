@@ -20,6 +20,16 @@ theme:
     - toc.integrate
     - content.code.copy
 
+plugins:
+  - search
+  - include-markdown
+  - mike
+
+extra:
+  version:
+    provider: mike
+    default: latest
+
 markdown_extensions:
   - admonition
   - pymdownx.highlight:
@@ -67,3 +77,4 @@ nav:
     - administration/index.md
     - Site Admins: administration/site-admins.md
     - Django Admin: administration/django-admin.md
+  - Changelog: changelog.md
