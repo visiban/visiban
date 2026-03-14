@@ -26,14 +26,9 @@ When asked to create a release, run the release script. Ask for the version stri
    ```bash
    ./scripts/release.sh {version}
    ```
-   The script will: create a release branch, update `.env.example`, rotate `CHANGELOG.md`, commit, push the branch, create an MR, wait for the pipeline, merge, tag, create the GitLab release, and wait for the `docs-deploy` CI job on the tag pipeline.
+   The script will: create a release branch, update `.env.example`, rotate `CHANGELOG.md`, commit, push the branch, create an MR, wait for the pipeline, merge, tag, create the GitLab release, and deploy docs to docs.visiban.com via `mike deploy`.
 4. Confirm `APP_VERSION` in the running stack matches the new version
-5. Confirm docs.visiban.com shows the new version (the `docs-deploy` CI job runs automatically on the tag push and updates the `next` alias for pre-releases or `latest` for stable releases)
-
-**If docs-deploy fails or was skipped** (e.g. the tag pipeline predated the job), redeploy manually:
-- Go to **CI/CD → Pipelines → Run pipeline** on `main`
-- Add variable: `DOCS_VERSION` = `{version tag}` (e.g. `v1.0.0-rc.3`)
-- Click **Run pipeline**, then click the play button on the `docs-deploy` job
+5. Confirm docs.visiban.com shows the new version — pre-releases publish under the `next` alias, stable releases under `latest`
 
 ---
 
