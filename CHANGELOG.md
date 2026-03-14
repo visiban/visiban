@@ -11,6 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - `LivenessView` and `ReadinessView` now set `throttle_classes = []` to exempt Kubernetes health probes from rate limiting; previously the global throttle caused probes to return 429, which caused Kubernetes to kill and restart the backend pod in a CrashLoopBackOff
+- `nginx/app.conf.template` (production Docker Compose) was missing the `/_allauth/` proxy block; OAuth login and logout callbacks would return 404 in production; the block is now present and matches the Helm nginx configmap
+- `docker-compose.prod.yml` was missing `REDIS_CACHE_URL`; Django defaulted to `redis://localhost:6379/1` which is unreachable inside the container, causing the health check to fail with a 500 on startup
 
 ### Changed
 
@@ -19,6 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Helm chart now deploys PostgreSQL via a built-in StatefulSet using the official `postgres:17` image (bitnami subchart disabled by default — Bitnami no longer publishes versioned tags to Docker Hub); `postgresql.subchartEnabled: true` restores the previous bitnami subchart behavior
 - `frontend/Dockerfile` restructured: production nginx stage is now the last (default) stage; dev Vite stage is an explicit `target: dev` used by `docker-compose.yml`; previously the dev stage was last so kaniko pushed the node image instead of nginx
 - Helm backend liveness and readiness probes corrected to use `/api/health/liveness/` and `/api/health/readiness/` (previously used `/api/auth/user/` which returns 401 and caused gunicorn to be killed by Kubernetes)
+- Helm chart `imagePullPolicy` changed from `IfNotPresent` to `Always` for both backend and frontend; required because both images use the `:latest` tag — `IfNotPresent` caused pods to run stale cached images after a new push
 - Docs site (docs.visiban.com) now publishes a versioned snapshot per release tag using `mike`; stable releases are aliased as `latest`, pre-releases as `next`; a version picker in the docs header lets users switch between releases; `CHANGELOG.md` is included in the docs site and frozen per release
 
 ### Added

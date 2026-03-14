@@ -9,7 +9,7 @@ frontendReplicaCount: 1
 backend:
   image:
     repository: registry.gitlab.com/visiban/visiban/backend
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     tag: "latest"
 
   service:
@@ -48,7 +48,7 @@ backend:
 frontend:
   image:
     repository: registry.gitlab.com/visiban/visiban/frontend
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     tag: "latest"
 
   service:

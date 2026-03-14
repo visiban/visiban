@@ -2,6 +2,8 @@
 
 ## Docker Compose (recommended for self-hosting)
 
+> **Tested:** The Docker Compose development stack has been verified end-to-end.
+
 ```bash
 cp .env.example .env
 # Fill in DJANGO_SECRET_KEY and DATABASE_URL (or leave default for bundled Postgres)
@@ -34,6 +36,8 @@ docker build -f frontend/Dockerfile -t registry.gitlab.com/visiban/visiban/front
 
 ## Kubernetes / Helm
 
+> **Tested:** The Helm chart has been deployed and verified on a live Kubernetes cluster.
+
 A Helm chart is included under `helm/visiban/`. Images are pulled from the GitLab container registry — see [Production Docker images](#production-docker-images) above.
 
 The Helm chart bundles the following dependencies via Bitnami subcharts:
@@ -53,11 +57,20 @@ helm repo update
 helm dependency update helm/visiban
 
 helm install visiban helm/visiban \
+  --namespace visiban --create-namespace \
   --set ingress.host=boards.example.com \
   --set backend.settings.allowedHosts=boards.example.com \
   --set backend.settings.corsAllowedOrigins=https://boards.example.com \
   --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
   --set postgresql.auth.password=<strong-password>
+```
+
+After the install, retrieve the one-time admin password:
+
+```bash
+kubectl exec -it -n visiban \
+  $(kubectl get pods -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') \
+  -- python manage.py ensure_site_admin
 ```
 
 ### TLS with cert-manager
@@ -66,6 +79,7 @@ If cert-manager and a `letsencrypt-prod` ClusterIssuer are installed, enable TLS
 
 ```bash
 helm install visiban helm/visiban \
+  --namespace visiban --create-namespace \
   --set ingress.host=boards.example.com \
   --set ingress.tls.enabled=true \
   --set ingress.tls.secretName=boards-example-tls \
