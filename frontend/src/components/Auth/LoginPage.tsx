@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { login as apiLogin, register as apiRegister, getCurrentUser, getAuthProviders } from "../../api/auth";
 import type { User } from "../../types";
 
@@ -9,7 +10,10 @@ interface Props {
 }
 
 export default function LoginPage({ onLogin }: Props) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const location = useLocation();
+  const [mode, setMode] = useState<"login" | "register">(
+    (location.state as { authMode?: string } | null)?.authMode === "register" ? "register" : "login"
+  );
   const [loginField, setLoginField] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
