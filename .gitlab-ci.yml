@@ -471,9 +471,9 @@ frontend-docker-build:
 
 # ─── Docker push (main only) ──────────────────────────────────────────────────
 #
-# Pushes backend and frontend images to the GitLab container registry after a
-# merge to main. Only runs when relevant files change — a docs-only merge does
-# not trigger a rebuild.
+# Pushes backend and frontend images to the GitLab container registry after
+# every merge to main. Runs unconditionally on main so images are always
+# up to date regardless of which files changed.
 #
 # Tags: latest (for Helm chart) + short SHA (for rollback).
 # Pruning: configure a cleanup policy in Settings → Packages & Registries →
@@ -490,9 +490,6 @@ backend-docker-push:
     entrypoint: [""]
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - backend/**/*
-        - backend/Dockerfile
   before_script:
     - mkdir -p /kaniko/.docker
     - >-
@@ -514,9 +511,6 @@ frontend-docker-push:
     entrypoint: [""]
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - frontend/**/*
-        - frontend/Dockerfile
   before_script:
     - mkdir -p /kaniko/.docker
     - >-
