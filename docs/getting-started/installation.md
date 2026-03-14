@@ -7,6 +7,8 @@
 
 ## Docker (recommended)
 
+> **Tested:** The Docker Compose development setup has been verified end-to-end. If something doesn't work, open an issue.
+
 ```bash
 git clone https://gitlab.com/visiban/visiban.git
 cd visiban
@@ -74,15 +76,19 @@ OAuth variables are documented in [OAuth Setup](oauth.md).
 
 ## Kubernetes / Helm
 
+> **Tested:** The Helm chart has been deployed and verified on a live Kubernetes cluster.
+
 A Helm chart is included for Kubernetes deployments. See [Deployment — Kubernetes / Helm](../architecture/deployment.md#kubernetes--helm) for install instructions, configuration values, and upgrade steps.
 
 ## Production with HTTPS
+
+> **Note:** The production Docker Compose stack has not been tested in a live environment yet. The configuration is complete and follows standard practices, but treat it as best-effort until it has been end-to-end validated. If you find issues, please open an issue.
 
 The production stack (`docker-compose.prod.yml`) replaces the Vite dev server with:
 
 | Component | Role |
 |---|---|
-| **Nginx** | Serves the compiled React app; proxies `/api/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend |
+| **Nginx** | Serves the compiled React app; proxies `/api/`, `/_allauth/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend |
 | **Frontend build** | `npm run build` runs once at startup and outputs static files to a shared volume |
 | **Certbot** | Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours |
 

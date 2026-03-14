@@ -40,6 +40,7 @@ services:
     environment:
       DATABASE_URL: postgres://visiban:${DB_PASSWORD:-visiban}@db:5432/visiban
       REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
       DEBUG: "false"
     depends_on:
       db:
