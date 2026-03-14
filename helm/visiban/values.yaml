@@ -119,3 +119,4 @@ redis:
 # External Redis — used only when redis.enabled is false
 externalRedis:
   url: "redis://redis:6379/0"
+  cacheUrl: "redis://redis:6379/1"

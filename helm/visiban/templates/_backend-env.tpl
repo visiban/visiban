@@ -20,6 +20,8 @@ Backend environment variables — shared by the init container and main containe
   value: {{ .Values.backend.settings.corsAllowedOrigins | quote }}
 - name: REDIS_URL
   value: {{ if .Values.redis.enabled }}{{ printf "redis://%s-redis-master:6379/0" (include "visiban.fullname" .) | quote }}{{ else }}{{ .Values.externalRedis.url | quote }}{{ end }}
+- name: REDIS_CACHE_URL
+  value: {{ if .Values.redis.enabled }}{{ printf "redis://%s-redis-master:6379/1" (include "visiban.fullname" .) | quote }}{{ else }}{{ .Values.externalRedis.cacheUrl | quote }}{{ end }}
 - name: GOOGLE_CLIENT_ID
   valueFrom:
     secretKeyRef:
