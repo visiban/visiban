@@ -40,7 +40,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByText('Create one'))
     expect(screen.getByText('Create account')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Confirm password')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Username (optional)')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Username (optional)')).not.toBeInTheDocument()
   })
 
   it('switches back to login mode', async () => {
@@ -116,7 +116,7 @@ describe('LoginPage', () => {
     expect(await screen.findByText('Invalid credentials')).toBeInTheDocument()
   })
 
-  it('registers without username when username field is left blank', async () => {
+  it('calls register API with email and passwords (no username)', async () => {
     const fakeUser = { id: 1, username: 'kelly42' }
     mockRegister.mockResolvedValue({})
     mockGetCurrentUser.mockResolvedValue(fakeUser)
@@ -130,60 +130,6 @@ describe('LoginPage', () => {
     await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
     await user.click(screen.getByText('Create account'))
 
-    expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123', undefined)
-  })
-
-  it('passes username to register when provided', async () => {
-    const fakeUser = { id: 1, username: 'kelly' }
-    mockRegister.mockResolvedValue({})
-    mockGetCurrentUser.mockResolvedValue(fakeUser)
-
-    const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
-
-    await user.click(screen.getByText('Create one'))
-    await user.type(screen.getByPlaceholderText('Email address'), 'kelly@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Username (optional)'), 'kelly')
-    await user.click(screen.getByText('Create account'))
-
-    expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123', 'kelly')
-  })
-
-  it('shows username conflict error with a suggestion', async () => {
-    mockRegister.mockRejectedValue({ response: { data: { username: ['A user with that username already exists.'] } } })
-
-    const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
-
-    await user.click(screen.getByText('Create one'))
-    await user.type(screen.getByPlaceholderText('Email address'), 'kelly@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Username (optional)'), 'kelly')
-    await user.click(screen.getByText('Create account'))
-
-    expect(await screen.findByText(/A user with that username already exists/)).toBeInTheDocument()
-    expect(screen.getByText(/try/)).toBeInTheDocument()
-  })
-
-  it('populates username field when suggestion is clicked', async () => {
-    mockRegister.mockRejectedValue({ response: { data: { username: ['A user with that username already exists.'] } } })
-
-    const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
-
-    await user.click(screen.getByText('Create one'))
-    await user.type(screen.getByPlaceholderText('Email address'), 'kelly@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Username (optional)'), 'kelly')
-    await user.click(screen.getByText('Create account'))
-
-    const suggestionBtn = await screen.findByRole('button', { name: /kelly\d+/ })
-    await user.click(suggestionBtn)
-
-    expect((screen.getByPlaceholderText('Username (optional)') as HTMLInputElement).value).toMatch(/^kelly\d+$/)
+    expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123')
   })
 })
