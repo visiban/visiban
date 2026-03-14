@@ -40,18 +40,21 @@ docker build -f frontend/Dockerfile -t registry.gitlab.com/visiban/visiban/front
 
 A Helm chart is included under `helm/visiban/`. Images are pulled from the GitLab container registry — see [Production Docker images](#production-docker-images) above.
 
-The Helm chart bundles the following dependencies via Bitnami subcharts:
+The Helm chart bundles the following database and cache dependencies:
 
-| Component | Version | Chart |
+| Component | Version | How deployed |
 |---|---|---|
-| PostgreSQL | 17 | bitnami/postgresql 16.x |
-| Redis | 8 | bitnami/redis 25.x |
+| PostgreSQL | 17 | Built-in StatefulSet using the official `postgres:17` image (default) |
+| Redis | 8 | Bitnami `redis` subchart 25.x |
+
+> **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is disabled by default (`postgresql.subchartEnabled: false`) because Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart deploys PostgreSQL via its own StatefulSet instead. Set `postgresql.subchartEnabled: true` to revert to the Bitnami subchart if needed.
 
 > **Note:** The Kubernetes deployment runs **PostgreSQL 17**, while the Docker Compose stack runs Postgres 16. If you are migrating an existing deployment from an older Helm chart release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
 
 ### Install
 
 ```bash
+# Redis still uses the Bitnami subchart — add the repo and fetch dependencies
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 helm dependency update helm/visiban
@@ -104,6 +107,7 @@ helm install visiban helm/visiban \
 | `backend.image.tag` | `latest` | Backend image tag |
 | `frontend.image.tag` | `latest` | Frontend image tag |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
+| `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
 | `redis.enabled` | `true` | Use bundled Redis 8; set `false` to use `externalRedis.url` |
 | `externalRedis.url` | `redis://redis:6379/0` | External Redis DSN (used when `redis.enabled: false`) |
 
