@@ -49,7 +49,9 @@ Group admins can generate up to **5 active invite links** per group from the gro
 
 Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Each link can be revoked independently — existing members are not affected.
 
-After joining via an invite link, the user is redirected to the group page and shown a confirmation banner.
+Unauthenticated visitors who open an invite link are shown a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) if those providers are configured. After authenticating, the invite is accepted automatically and the user is redirected to the group page with a confirmation banner.
+
+Authenticated users who open an invite link see a single **Join &lt;group name&gt;** button and are redirected to the group page immediately after joining.
 
 !!! tip
     Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one `member` link for the team and one `viewer` link for stakeholders).

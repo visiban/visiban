@@ -65,15 +65,15 @@
 
 ## CI/CD pipeline
 
-GitLab CI runs a build verification pipeline on every push. The pipeline validates code quality, runs tests, and scans for vulnerabilities — it does not deploy anything.
+GitLab CI runs on every push, MR, and version tag. The pipeline validates code quality, runs tests, scans for vulnerabilities, and — on merges to `main` and version tags — deploys Docker images and the docs site.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     GitLab CI Pipeline                      │
 │                                                             │
 │  lint                                                       │
-│  │  backend-lint   (Ruff + CodeClimate report)              │
-│  │  frontend-lint  (ESLint + tsc --noEmit)                  │
+│  │  backend-lint    (Ruff + CodeClimate report)             │
+│  │  frontend-lint   (ESLint + tsc --noEmit)                 │
 │  │  changelog-check (CHANGELOG.md [Unreleased] must update) │
 │                                                             │
 │  test                                                       │
@@ -88,20 +88,27 @@ GitLab CI runs a build verification pipeline on every push. The pipeline validat
 │  │  frontend-dep-scan  (npm audit)                          │
 │  │  secret-detection   (detect-secrets)                     │
 │  │  semgrep-sast       (GitLab SAST component)              │
+│                                                             │
+│  deploy                                                     │
+│  │  docker-push-backend   (main branch — pushes :latest     │
+│  │  docker-push-frontend   and :<sha> to registry)          │
+│  │  docs-deploy           (version tags only — mike deploy  │
+│  │                         to gh-pages; stable → "latest",  │
+│  │                         pre-release → "next" alias)      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 Key design decisions:
 
-- **Build verification only** — the pipeline validates that the project builds and passes tests. It does not deploy to any environment.
 - **Test and build stages run in parallel** — Docker image builds (kaniko) don't depend on test results, so they share the `test` stage to avoid sequential waiting.
 - **Security jobs are non-blocking** — `allow_failure: true` so they surface warnings without gating merges.
 - **Kaniko for Docker builds** — no Docker-in-Docker or privileged mode needed, runs natively on Kubernetes runners.
 - **Auto-retry on infrastructure failures** — runner system failures and stuck pods are retried up to 2 times automatically.
+- **Docs versioned with mike** — each release tag publishes a frozen snapshot to docs.visiban.com; stable releases update the `latest` alias, pre-releases update `next`.
 
 ## Frontend architecture
 
-The SPA is a single `App.tsx` with React Router v6 routes:
+The SPA is a single `App.tsx` with React Router v7 routes:
 
 - `/` — Dashboard (boards + group tree)
 - `/groups/:id` — Group detail (members, boards, subgroups)
