@@ -15,7 +15,7 @@ Backend environment variables — shared by the init container and main containe
 - name: DEBUG
   value: {{ .Values.backend.settings.debug | quote }}
 - name: ALLOWED_HOSTS
-  value: {{ printf "%s,127.0.0.1" .Values.backend.settings.allowedHosts | quote }}
+  value: {{ printf "%s,127.0.0.1,localhost" .Values.backend.settings.allowedHosts | quote }}
 - name: CORS_ALLOWED_ORIGINS
   value: {{ .Values.backend.settings.corsAllowedOrigins | quote }}
 - name: REDIS_URL
