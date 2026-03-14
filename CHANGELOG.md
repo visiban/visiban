@@ -20,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - CI pipeline now builds and pushes backend and frontend Docker images to the GitLab container registry on every merge to `main` (path-scoped — only triggers when `backend/` or `frontend/` files change); images are tagged `latest` and the short commit SHA for rollback; kaniko is used for all builds (no Docker-in-Docker)
+- First Boot docs now cover Kubernetes/Helm: how to run `ensure_site_admin` after the first deploy and how to reset the admin password with `changepassword` if the pod restarted before the password was retrieved
 - `helm-lint` CI job added to the lint stage: runs `helm lint` and `helm template` against `values.yaml` on every change to `helm/` and on every `main` pipeline
 - Removed `*.tgz` from `.helmignore` so Helm dependency tarballs in `charts/` are correctly included during install
 - Deployment docs updated: Kubernetes/Helm install command now includes required `allowedHosts` and `corsAllowedOrigins` values; TLS/cert-manager install example added; pre-built image registry paths documented
