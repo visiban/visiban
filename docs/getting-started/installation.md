@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Docker and Docker Compose **or** Python 3.12+ and Node.js 18+
-- Redis 7+ (included automatically in Docker Compose and Helm; required for WebSocket real-time updates)
+- Redis 7+ (included automatically in Docker Compose and Helm; required for WebSocket real-time updates — Docker Compose bundles Redis 7, Kubernetes/Helm bundles Redis 8)
 
 ## Docker (recommended)
 
