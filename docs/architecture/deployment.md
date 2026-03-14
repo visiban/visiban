@@ -119,7 +119,7 @@ The Helm init container only runs `migrate` — `ensure_site_admin` is not calle
 kubectl exec -it -n visiban $(kubectl get pod -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') -- python manage.py ensure_site_admin
 ```
 
-See [First Boot](../getting-started/first-boot.md#kubernetes--helm) for details and password reset instructions.
+See [First Boot](../getting-started/first-boot.md#kubernetes-helm) for details and password reset instructions.
 
 ### Upgrade
 

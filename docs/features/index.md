@@ -50,7 +50,7 @@ Select multiple cards at once and apply bulk actions — move to a column, assig
 
 Export your board as CSV or JSON for backup or analysis, or import a previously exported board to recreate it with all its structure and cards.
 
-→ [Board & Cards](board.md#bulk-card-operations) · [Export & Import](board.md#export--import)
+→ [Board & Cards](board.md#bulk-card-operations) · [Export & Import](board.md#export-import)
 
 ---
 
