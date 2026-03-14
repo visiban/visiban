@@ -35,15 +35,22 @@ spec:
             {{- include "visiban.backendEnv" . | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /api/auth/user/
+              path: /api/health/liveness/
               port: http
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
             httpGet:
-              path: /api/auth/user/
+              path: /api/health/readiness/
               port: http
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 5
             periodSeconds: 10
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}

@@ -82,6 +82,11 @@ secret:
 # Set enabled: false and supply externalDatabase to use an existing DB.
 postgresql:
   enabled: true
+  # subchartEnabled: true deploys the bitnami/postgresql subchart.
+  # Disabled by default — Bitnami no longer publishes versioned tags to Docker Hub.
+  # The chart instead deploys a StatefulSet using the official postgres image.
+  subchartEnabled: false
+  image: "postgres:17"
   auth:
     database: visiban
     username: visiban
@@ -114,3 +119,4 @@ redis:
 # External Redis — used only when redis.enabled is false
 externalRedis:
   url: "redis://redis:6379/0"
+  cacheUrl: "redis://redis:6379/1"
