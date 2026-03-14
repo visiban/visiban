@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Helm chart dependencies bumped: PostgreSQL `15.x` → `16.x` (PostgreSQL 17) and Redis `19.x` → `25.x` (Redis 8); removes broken `oci.bitnami.com` image registry override (Docker Hub images for old chart versions were removed upstream)
 - Helm chart now deploys PostgreSQL via a built-in StatefulSet using the official `postgres:17` image (bitnami subchart disabled by default — Bitnami no longer publishes versioned tags to Docker Hub); `postgresql.subchartEnabled: true` restores the previous bitnami subchart behavior
 - `frontend/Dockerfile` restructured: production nginx stage is now the default (used by CI and Kubernetes); dev Vite stage moved to explicit `target: dev`, used by `docker-compose.yml`
+- Helm backend liveness and readiness probes corrected to use `/api/health/liveness/` and `/api/health/readiness/` (previously used `/api/auth/user/` which returns 401 and caused gunicorn to be killed by Kubernetes)
 - Docs site (docs.visiban.com) now publishes a versioned snapshot per release tag using `mike`; stable releases are aliased as `latest`, pre-releases as `next`; a version picker in the docs header lets users switch between releases; `CHANGELOG.md` is included in the docs site and frozen per release
 
 ### Added
