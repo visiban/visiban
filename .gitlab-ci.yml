@@ -233,6 +233,24 @@ migration-check:
     - cd backend
     - python manage.py makemigrations --check --dry-run --verbosity=1
 
+# ─── Helm — lint ─────────────────────────────────────────────────────────────
+#
+# Validates the Helm chart renders without errors against the default values.
+# Dependency tarballs are committed under helm/visiban/charts/ so no network
+# access is required. Runs on any change to the chart or values, and always
+# on main so a bad chart never reaches the deploy stage undetected.
+
+helm-lint:
+  stage: lint
+  image: alpine/helm:3.16.4
+  rules:
+    - changes:
+        - helm/**/*
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - helm lint helm/visiban -f helm/visiban/values.yaml
+    - helm template visiban helm/visiban -f helm/visiban/values.yaml > /dev/null
+
 # ─── Frontend — lint ──────────────────────────────────────────────────────────
 
 # ESLint + TypeScript type checking in a single job — both need npm ci so
