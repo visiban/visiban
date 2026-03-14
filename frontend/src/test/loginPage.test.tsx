@@ -27,8 +27,6 @@ function renderLoginPage(locationState?: Record<string, unknown>) {
 }
 
 describe('LoginPage', () => {
-  const onLogin = vi.fn()
-
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false })
