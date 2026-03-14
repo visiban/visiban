@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Registration form no longer shows a username field; the backend auto-generates a username from the email address (`ACCOUNT_SIGNUP_FIELDS` and `ACCOUNT_USERNAME_REQUIRED = False` were already set, but the frontend form still sent a username and showed a conflict error UI) (#179)
 - `LivenessView` and `ReadinessView` now set `throttle_classes = []` to exempt Kubernetes health probes from rate limiting; previously the global throttle caused probes to return 429, which caused Kubernetes to kill and restart the backend pod in a CrashLoopBackOff
 - `nginx/app.conf.template` (production Docker Compose) was missing the `/_allauth/` proxy block; OAuth login and logout callbacks would return 404 in production; the block is now present and matches the Helm nginx configmap
 - `docker-compose.prod.yml` was missing `REDIS_CACHE_URL`; Django defaulted to `redis://localhost:6379/1` which is unreachable inside the container, causing the health check to fail with a 500 on startup
