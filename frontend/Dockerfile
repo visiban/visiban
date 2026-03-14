@@ -14,17 +14,7 @@ ENV VITE_API_URL=$VITE_API_URL
 COPY . .
 RUN npm run build
 
-# ── Stage 2: Production (default) ────────────────────────────────────────────
-# Serves the compiled SPA with nginx. This is the image pushed to the registry
-# and used by the Helm chart. nginx base image CMD keeps the process in the
-# foreground: nginx -g "daemon off;"
-FROM nginx:alpine
-
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-EXPOSE 80
-
-# ── Stage 3: Development ──────────────────────────────────────────────────────
+# ── Stage 2: Development ──────────────────────────────────────────────────────
 # Used by docker-compose.yml (build.target: dev). Runs the Vite dev server
 # with hot reload. Source is mounted as a volume so no COPY needed here.
 FROM node:20-alpine AS dev
@@ -37,3 +27,15 @@ RUN npm install
 COPY . .
 
 EXPOSE 5173
+
+# ── Stage 3: Production (default) ────────────────────────────────────────────
+# Serves the compiled SPA with nginx. This is the image pushed to the registry
+# and used by the Helm chart — it must be the final stage so Docker and kaniko
+# build it by default when no --target is specified.
+# nginx base image CMD keeps the process in the foreground:
+#   nginx -g "daemon off;"
+FROM nginx:alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
