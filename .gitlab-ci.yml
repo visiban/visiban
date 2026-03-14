@@ -547,14 +547,12 @@ frontend-docker-push:
 # ─── Docs — versioned with mike ───────────────────────────────────────────────
 #
 # mike manages a versioned MkDocs site on the gh-pages branch.
-# docs-deploy runs on every version tag and pushes a new versioned snapshot:
-#   - stable tags  (e.g. 1.2.3)        → versioned entry + "latest" alias
-#   - pre-releases (e.g. 1.2.3-rc.1)   → versioned entry + "next" alias
+# Docs are deployed by scripts/release.sh as part of the release process.
 #
-# It can also be triggered manually from main (e.g. to redeploy a version whose
-# tag pipeline predated this job). Set the DOCS_VERSION variable to the version
-# label to publish (e.g. "v1.0.0-rc.3"). The docs content used is whatever is
-# on main at the time of the manual trigger.
+# This CI job exists only as a manual recovery tool — e.g. if a release script
+# run was interrupted after tagging but before mike deployed. To redeploy:
+# CI/CD → Run pipeline on main → set DOCS_VERSION=<version tag> → play job.
+# The docs content used is whatever is on main at the time of the manual trigger.
 #
 # After mike pushes to gh-pages, GitLab triggers a new pipeline on that branch.
 # The "pages" job (which must be named exactly "pages") runs there, copies the
@@ -597,7 +595,6 @@ docs-deploy:
         mike deploy --push --update-aliases "$VERSION" next
       fi
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: manual
 
