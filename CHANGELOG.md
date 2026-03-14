@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- `release.sh` now calls `mike set-default --push next` for pre-releases so docs.visiban.com has a root redirect and doesn't 404
+
 ### Changed
 
 - `docs-deploy` CI job no longer fires automatically on version tag pushes — docs are deployed by `scripts/release.sh` directly via `mike deploy`; the CI job is retained as a manual recovery tool only
