@@ -30,7 +30,7 @@ docker build -f backend/Dockerfile -t registry.gitlab.com/visiban/visiban/backen
 docker build -f frontend/Dockerfile -t registry.gitlab.com/visiban/visiban/frontend:latest frontend/
 ```
 
-> **Important:** The Helm chart's backend deployment uses **daphne** (ASGI) for WebSocket support. If you run the image directly outside the Helm chart, use: `daphne -b 0.0.0.0 -p 8000 visiban.asgi:application`. Running gunicorn directly will disable real-time board updates.
+> **Note:** The Helm chart runs the backend with **gunicorn** (WSGI). If you need WebSocket support (real-time board updates) in Kubernetes, override the command to use daphne: `daphne -b 0.0.0.0 -p 8000 visiban.asgi:application`.
 
 ## Kubernetes / Helm
 
@@ -92,6 +92,16 @@ helm install visiban helm/visiban \
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
 | `redis.enabled` | `true` | Use bundled Redis 8; set `false` to use `externalRedis.url` |
 | `externalRedis.url` | `redis://redis:6379/0` | External Redis DSN (used when `redis.enabled: false`) |
+
+### Post-install: create the admin account
+
+The Helm init container only runs `migrate` — `ensure_site_admin` is not called automatically. After the first install, run it manually:
+
+```bash
+kubectl exec -it -n visiban $(kubectl get pod -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') -- python manage.py ensure_site_admin
+```
+
+See [First Boot](../getting-started/first-boot.md#kubernetes--helm) for details and password reset instructions.
 
 ### Upgrade
 
