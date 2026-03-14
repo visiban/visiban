@@ -16,9 +16,9 @@ Each user can enable or disable individual notification triggers in **Settings â
 |---|---|
 | Card assigned to me | On |
 | I am @mentioned | On |
-| Due date warning | On |
-| Card moved | On |
-| Comment added | On |
+| Due date warning | Off |
+| Card moved | Off |
+| Comment added | Off |
 
 Staleness notifications (from the `notify_stale_cards` command) are always delivered and are not user-configurable.
 
