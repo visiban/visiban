@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Helm backend liveness and readiness probes corrected to use `/api/health/liveness/` and `/api/health/readiness/` (previously used `/api/auth/user/` which returns 401 and caused gunicorn to be killed by Kubernetes)
 - Helm chart `imagePullPolicy` changed from `IfNotPresent` to `Always` for both backend and frontend; required because both images use the `:latest` tag — `IfNotPresent` caused pods to run stale cached images after a new push
 - Docs site (docs.visiban.com) now publishes a versioned snapshot per release tag using `mike`; stable releases are aliased as `latest`, pre-releases as `next`; a version picker in the docs header lets users switch between releases; `CHANGELOG.md` is included in the docs site and frozen per release
+- Documentation updated to reflect recent features: collaborator role at group level (#169), group starring and sidebar Favorites sections (#166, #167, #168), per-trigger notification preferences (#95), invite link improvements (#99), locale preferences (#161, #162, #163), and Settings page; architecture and data-model docs updated to match current state
+- Added docstrings to all backend model classes for improved code navigability (#121)
 
 ### Added
 
