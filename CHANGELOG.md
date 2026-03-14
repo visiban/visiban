@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- `LivenessView` and `ReadinessView` now set `throttle_classes = []` to exempt Kubernetes health probes from rate limiting; previously the global throttle caused probes to return 429, which caused Kubernetes to kill and restart the backend pod in a CrashLoopBackOff
+
 ### Changed
 
 - Docker push CI jobs now run on every merge to `main` unconditionally (previously path-scoped to `backend/` and `frontend/` changes, which prevented the initial image push)

@@ -1355,6 +1355,7 @@ class LivenessView(APIView):
     """GET /api/health/liveness/ — K8s liveness probe. Returns 200 if the process is alive."""
     permission_classes = []
     authentication_classes = []
+    throttle_classes = []
 
     def get(self, request):
         return Response({"status": "ok"})
@@ -1364,6 +1365,7 @@ class ReadinessView(APIView):
     """GET /api/health/readiness/ — K8s readiness probe. Checks DB and Redis."""
     permission_classes = []
     authentication_classes = []
+    throttle_classes = []
 
     def get(self, request):
         errors = {}
