@@ -50,6 +50,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
     command: sh -c "rm -rf /app/node_modules/.vite && npm run dev -- --host 0.0.0.0"
     volumes:
       - ./frontend:/app

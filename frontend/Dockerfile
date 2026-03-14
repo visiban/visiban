@@ -1,7 +1,5 @@
-# ── Stage 1: Production build ────────────────────────────────────────────────
-# Used by docker-compose.prod.yml (target: builder).
-# Outputs compiled static files to /app/dist which is mounted as a named volume
-# for nginx to serve.
+# ── Stage 1: Builder ─────────────────────────────────────────────────────────
+# Installs all deps and compiles the React SPA to /app/dist.
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -14,10 +12,22 @@ ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
 
 COPY . .
+RUN npm run build
 
-# ── Stage 2: Development (default) ───────────────────────────────────────────
-# Used by docker-compose.yml. Runs the Vite dev server with hot reload.
-FROM node:20-alpine
+# ── Stage 2: Production (default) ────────────────────────────────────────────
+# Serves the compiled SPA with nginx. This is the image pushed to the registry
+# and used by the Helm chart. nginx base image CMD keeps the process in the
+# foreground: nginx -g "daemon off;"
+FROM nginx:alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+# ── Stage 3: Development ──────────────────────────────────────────────────────
+# Used by docker-compose.yml (build.target: dev). Runs the Vite dev server
+# with hot reload. Source is mounted as a volume so no COPY needed here.
+FROM node:20-alpine AS dev
 
 WORKDIR /app
 
