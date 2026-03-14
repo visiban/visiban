@@ -9,10 +9,16 @@ vi.mock('../api/groups', () => ({
   joinGroup: vi.fn(),
 }))
 
+vi.mock('../api/auth', () => ({
+  getAuthProviders: vi.fn(),
+}))
+
 import { resolveJoinToken, joinGroup } from '../api/groups'
+import { getAuthProviders } from '../api/auth'
 
 const mockResolveJoinToken = resolveJoinToken as ReturnType<typeof vi.fn>
 const mockJoinGroup = joinGroup as ReturnType<typeof vi.fn>
+const mockGetAuthProviders = getAuthProviders as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -39,6 +45,7 @@ function renderJoinPage(user: User | null = fakeUser, token = 'abc123') {
 describe('JoinPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false })
   })
 
   it('shows loading state initially', () => {
@@ -65,11 +72,59 @@ describe('JoinPage', () => {
     expect(await screen.findByText('Engineering')).toBeInTheDocument()
   })
 
-  it('shows auth buttons for unauthenticated user', async () => {
+  it('shows auth buttons and explanation for unauthenticated user', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null)
-    expect(await screen.findByText('Create account to join')).toBeInTheDocument()
-    expect(screen.getByText('Sign in to join')).toBeInTheDocument()
+    expect(await screen.findByText('Create an account')).toBeInTheDocument()
+    expect(screen.getByText('Sign in')).toBeInTheDocument()
+    expect(screen.getByText(/To accept this invitation you need a Visiban account/)).toBeInTheDocument()
+  })
+
+  it('does not show social login buttons when no providers are configured', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false })
+    renderJoinPage(null)
+    await screen.findByText('Create an account')
+    expect(screen.queryByText('Continue with Google')).not.toBeInTheDocument()
+    expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
+    expect(screen.queryByText('Continue with GitLab')).not.toBeInTheDocument()
+  })
+
+  it('shows Google button when Google provider is configured', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false })
+    renderJoinPage(null)
+    expect(await screen.findByText('Continue with Google')).toBeInTheDocument()
+    expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
+  })
+
+  it('shows GitHub and GitLab buttons when those providers are configured', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: true, gitlab: true })
+    renderJoinPage(null)
+    expect(await screen.findByText('Continue with GitHub')).toBeInTheDocument()
+    expect(screen.getByText('Continue with GitLab')).toBeInTheDocument()
+  })
+
+  it('does not fetch providers when user is authenticated', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    renderJoinPage(fakeUser)
+    await screen.findByText('Join Engineering')
+    expect(mockGetAuthProviders).not.toHaveBeenCalled()
+  })
+
+  it('sets returnTo in sessionStorage when redirecting to register', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    renderJoinPage(null)
+    fireEvent.click(await screen.findByText('Create an account'))
+    expect(sessionStorage.getItem('returnTo')).toBe('/join/abc123')
+  })
+
+  it('sets returnTo in sessionStorage when redirecting to sign in', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    renderJoinPage(null)
+    fireEvent.click(await screen.findByText('Sign in'))
+    expect(sessionStorage.getItem('returnTo')).toBe('/join/abc123')
   })
 
   it('shows dashboard link on invalid invite for authenticated user', async () => {

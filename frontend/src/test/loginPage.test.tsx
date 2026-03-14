@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import LoginPage from '../components/Auth/LoginPage'
 
 vi.mock('../api/auth', () => ({
@@ -17,6 +18,14 @@ const mockRegister = register as ReturnType<typeof vi.fn>
 const mockGetCurrentUser = getCurrentUser as ReturnType<typeof vi.fn>
 const mockGetAuthProviders = getAuthProviders as ReturnType<typeof vi.fn>
 
+function renderLoginPage(locationState?: Record<string, unknown>) {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: '/', state: locationState ?? {} }]}>
+      <LoginPage onLogin={vi.fn()} />
+    </MemoryRouter>
+  )
+}
+
 describe('LoginPage', () => {
   const onLogin = vi.fn()
 
@@ -26,16 +35,28 @@ describe('LoginPage', () => {
   })
 
   it('renders login form by default', () => {
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
     expect(screen.getByAltText('Visiban')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Username or email')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
     expect(screen.getByText('Sign in')).toBeInTheDocument()
   })
 
+  it('starts in register mode when authMode is "register" in location state', () => {
+    renderLoginPage({ authMode: 'register' })
+    expect(screen.getByText('Create account')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Confirm password')).toBeInTheDocument()
+  })
+
+  it('starts in login mode when authMode is absent', () => {
+    renderLoginPage()
+    expect(screen.getByText('Sign in')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Confirm password')).not.toBeInTheDocument()
+  })
+
   it('switches to register mode', async () => {
     const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
     expect(screen.getByText('Create account')).toBeInTheDocument()
@@ -45,7 +66,7 @@ describe('LoginPage', () => {
 
   it('switches back to login mode', async () => {
     const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
     await user.click(screen.getByText('Sign in', { selector: 'button[type="button"]' }))
@@ -54,7 +75,7 @@ describe('LoginPage', () => {
 
   it('shows password mismatch error in register mode', async () => {
     const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
     await user.type(screen.getByPlaceholderText('Email address'), 'test@test.com')
@@ -67,7 +88,7 @@ describe('LoginPage', () => {
 
   it('shows short password error in register mode', async () => {
     const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
     await user.type(screen.getByPlaceholderText('Email address'), 'test@test.com')
@@ -84,7 +105,7 @@ describe('LoginPage', () => {
     mockGetCurrentUser.mockResolvedValue(fakeUser)
 
     const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
     await user.type(screen.getByPlaceholderText('Username or email'), 'test')
     await user.type(screen.getByPlaceholderText('Password'), 'password123')
@@ -95,9 +116,8 @@ describe('LoginPage', () => {
 
   it('shows OAuth buttons when providers are available', async () => {
     mockGetAuthProviders.mockResolvedValue({ google: true, github: true, gitlab: false })
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
-    // Wait for providers to load
     expect(await screen.findByText('Continue with Google')).toBeInTheDocument()
     expect(screen.getByText('Continue with GitHub')).toBeInTheDocument()
     expect(screen.queryByText('Continue with GitLab')).not.toBeInTheDocument()
@@ -107,7 +127,7 @@ describe('LoginPage', () => {
     mockLogin.mockRejectedValue({ response: { data: { non_field_errors: ['Invalid credentials'] } } })
 
     const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
     await user.type(screen.getByPlaceholderText('Username or email'), 'test')
     await user.type(screen.getByPlaceholderText('Password'), 'wrong')
@@ -122,7 +142,7 @@ describe('LoginPage', () => {
     mockGetCurrentUser.mockResolvedValue(fakeUser)
 
     const user = userEvent.setup()
-    render(<LoginPage onLogin={onLogin} />)
+    renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
     await user.type(screen.getByPlaceholderText('Email address'), 'kelly@example.com')

@@ -29,6 +29,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Invite link landing page now guides unauthenticated visitors: shows the group name and a clear explanation that a Visiban account is required; presents "Create an account" and "Sign in" paths with a visual separator, plus social login buttons (Google / GitHub / GitLab) when those providers are configured; sets `sessionStorage.returnTo` before any redirect so the invite is accepted automatically after authentication (#182)
+- `LoginPage` now reads `location.state.authMode` on mount and opens in register mode when the join page redirects with `{ authMode: 'register' }`, so the user lands directly on the registration form without an extra click (#182)
 - CI pipeline now builds and pushes backend and frontend Docker images to the GitLab container registry on every merge to `main` (path-scoped — only triggers when `backend/` or `frontend/` files change); images are tagged `latest` and the short commit SHA for rollback; kaniko is used for all builds (no Docker-in-Docker)
 - First Boot docs now cover Kubernetes/Helm: how to run `ensure_site_admin` after the first deploy and how to reset the admin password with `changepassword` if the pod restarted before the password was retrieved
 - `helm-lint` CI job added to the lint stage: runs `helm lint` and `helm template` against `values.yaml` on every change to `helm/` and on every `main` pipeline
