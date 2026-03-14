@@ -469,6 +469,67 @@ frontend-docker-build:
   script:
     - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push
 
+# ─── Docker push (main only) ──────────────────────────────────────────────────
+#
+# Pushes backend and frontend images to the GitLab container registry after a
+# merge to main. Only runs when relevant files change — a docs-only merge does
+# not trigger a rebuild.
+#
+# Tags: latest (for Helm chart) + short SHA (for rollback).
+# Pruning: configure a cleanup policy in Settings → Packages & Registries →
+#   Cleanup policies to keep the last N tags — this costs zero runner minutes.
+#
+# Requires no extra CI variables — GitLab injects CI_REGISTRY,
+# CI_REGISTRY_USER, and CI_REGISTRY_PASSWORD automatically.
+
+backend-docker-push:
+  stage: deploy
+  needs: [backend-test]
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - backend/**/*
+        - backend/Dockerfile
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - >-
+      echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64 | tr -d '\n')\"}}}"
+      > /kaniko/.docker/config.json
+  script:
+    - >-
+      /kaniko/executor
+      --context=backend
+      --dockerfile=backend/Dockerfile
+      --destination=${CI_REGISTRY_IMAGE}/backend:latest
+      --destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}
+
+frontend-docker-push:
+  stage: deploy
+  needs: [frontend-test]
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - frontend/**/*
+        - frontend/Dockerfile
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - >-
+      echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64 | tr -d '\n')\"}}}"
+      > /kaniko/.docker/config.json
+  script:
+    - >-
+      /kaniko/executor
+      --context=frontend
+      --dockerfile=frontend/Dockerfile
+      --destination=${CI_REGISTRY_IMAGE}/frontend:latest
+      --destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}
+
 # ─── Docs — versioned with mike ───────────────────────────────────────────────
 #
 # mike manages a versioned MkDocs site on the gh-pages branch.

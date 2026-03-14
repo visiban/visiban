@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- CI pipeline now builds and pushes backend and frontend Docker images to the GitLab container registry on every merge to `main` (path-scoped — only triggers when `backend/` or `frontend/` files change); images are tagged `latest` and the short commit SHA for rollback; kaniko is used for all builds (no Docker-in-Docker)
+- Helm chart `values.yaml` now pins PostgreSQL and Redis to major-version image tags (`16`, `7.2`) via the Bitnami OCI registry to avoid pulled/missing patch tags on Docker Hub
+- Removed `*.tgz` from `.helmignore` so Helm dependency tarballs in `charts/` are correctly included during install
+
 ### Changed
 
 - Docs site (docs.visiban.com) now publishes a versioned snapshot per release tag using `mike`; stable releases are aliased as `latest`, pre-releases as `next`; a version picker in the docs header lets users switch between releases; `CHANGELOG.md` is included in the docs site and frozen per release
