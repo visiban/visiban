@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CI pipeline now builds and pushes backend and frontend Docker images to the GitLab container registry on every merge to `main` (path-scoped — only triggers when `backend/` or `frontend/` files change); images are tagged `latest` and the short commit SHA for rollback; kaniko is used for all builds (no Docker-in-Docker)
 - Helm chart `values.yaml` now pins PostgreSQL and Redis to major-version image tags (`16`, `7.2`) via the Bitnami OCI registry to avoid pulled/missing patch tags on Docker Hub
 - Removed `*.tgz` from `.helmignore` so Helm dependency tarballs in `charts/` are correctly included during install
+- Deployment docs updated: Kubernetes/Helm install command now includes required `allowedHosts` and `corsAllowedOrigins` values; TLS/cert-manager install example added; pre-built image registry paths documented
 
 ### Changed
 
