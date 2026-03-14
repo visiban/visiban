@@ -10,6 +10,9 @@ Visiban supports two authentication methods: **token** (recommended for scripts 
 
 Log in to get your API token. The token is permanent until you log out or it is revoked.
 
+!!! note
+    The `username` field accepts either a username or an email address. Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username.
+
 === "curl"
     ```bash
     curl -s -X POST http://localhost:8000/api/auth/login/ \

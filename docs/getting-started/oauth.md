@@ -45,3 +45,6 @@ Scopes required: `read_user`, `openid`, `email`
 ## Production URLs
 
 Replace `http://localhost:8000` with your public domain in all callback URLs.
+
+!!! note
+    OAuth callbacks are routed through `/_allauth/` paths handled by the backend. Ensure your production nginx config proxies `/_allauth/` to the backend — the provided `nginx/app.conf.template` already includes this block.
