@@ -10,7 +10,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The `docker-compose.yml` starts four services: `db` (Postgres 16), `redis` (Redis 7), `backend` (daphne ASGI), and `frontend` (Vite dev server). The backend runs `migrate` and `ensure_site_admin` automatically on startup.
+The `docker-compose.yml` starts four services: `db` (Postgres 17), `redis` (Redis 7), `backend` (daphne ASGI), and `frontend` (Vite dev server). The backend runs `migrate` and `ensure_site_admin` automatically on startup.
 
 > **Note:** The backend uses **daphne** (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.
 
@@ -49,7 +49,7 @@ The Helm chart bundles the following database and cache dependencies:
 
 > **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is disabled by default (`postgresql.subchartEnabled: false`) because Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart deploys PostgreSQL via its own StatefulSet instead. Set `postgresql.subchartEnabled: true` to revert to the Bitnami subchart if needed.
 
-> **Note:** The Kubernetes deployment runs **PostgreSQL 17**, while the Docker Compose stack runs Postgres 16. If you are migrating an existing deployment from an older Helm chart release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
+> **Note:** Both the Docker Compose and Kubernetes/Helm stacks run **PostgreSQL 17**. If you are migrating an existing deployment from an older release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
 
 ### Install
 
