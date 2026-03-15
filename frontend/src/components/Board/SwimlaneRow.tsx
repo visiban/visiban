@@ -25,6 +25,7 @@ interface Props {
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
   onSwimlaneDeleted: (swimlaneId: number) => void;
   sidebarWidth?: number;
+  setSidebarWidth?: (w: number) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
   colWidths?: Map<number, number>;
   setColumnWidth?: (colId: number, width: number) => void;
@@ -42,7 +43,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -179,17 +180,29 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const cellWidth = colWidths?.get(col.id) ?? 220;
           const sepHighlighted = hoveredSepIndex === colIdx;
 
-          // Interactive cell separator — drag resizes the column to the left; click inserts a column
-          const handleSepMouseDown = (setColumnWidth || onInsertColumn)
+          // The sep sits to the LEFT of col[colIdx], so it resizes the column to its left:
+          //   colIdx === 0  → resize the swimlane sidebar
+          //   colIdx  >  0  → resize columns[colIdx - 1]
+          // This mirrors the header where ColumnSeparator after col[i] resizes col[i].
+          const prevCol = colIdx > 0 ? columns[colIdx - 1] : null;
+          const sepStartWidth = prevCol
+            ? (colWidths?.get(prevCol.id) ?? 220)
+            : (sidebarWidth ?? 220);
+          const canResizeSep = prevCol ? !!setColumnWidth : !!setSidebarWidth;
+
+          const handleSepMouseDown = (canResizeSep || onInsertColumn)
             ? (e: React.MouseEvent) => {
                 e.preventDefault();
                 const startX = e.clientX;
-                const startWidth = cellWidth;
+                const startWidth = sepStartWidth;
                 let didDrag = false;
                 const onMove = (ev: MouseEvent) => {
                   const delta = ev.clientX - startX;
                   if (!didDrag && Math.abs(delta) > 4) didDrag = true;
-                  if (didDrag && setColumnWidth) setColumnWidth(col.id, startWidth + delta);
+                  if (didDrag) {
+                    if (prevCol && setColumnWidth) setColumnWidth(prevCol.id, startWidth + delta);
+                    else if (!prevCol && setSidebarWidth) setSidebarWidth(startWidth + delta);
+                  }
                 };
                 const onUp = () => {
                   if (!didDrag && isAdmin && onInsertColumn) onInsertColumn(col.id);
@@ -204,7 +217,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const sep = (
             <div
               key={`sep-${col.id}`}
-              className={`relative shrink-0 flex items-stretch select-none ${setColumnWidth || onInsertColumn ? "cursor-col-resize" : ""}`}
+              className={`relative shrink-0 flex items-stretch select-none ${canResizeSep || onInsertColumn ? "cursor-col-resize" : ""}`}
               style={{ width: 16 }}
               onMouseEnter={() => onSepHoverChange?.(colIdx)}
               onMouseLeave={() => onSepHoverChange?.(null)}

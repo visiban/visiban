@@ -657,6 +657,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     <SwimlaneRow
                       swimlane={swimlane}
                       sidebarWidth={swimlaneColWidth}
+                      setSidebarWidth={setSwimlaneColumnWidth}
                       onResizeStart={handleResizeStart}
                       colWidths={colWidths}
                       setColumnWidth={setColumnWidth}
