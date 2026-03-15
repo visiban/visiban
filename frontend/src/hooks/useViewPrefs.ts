@@ -3,6 +3,8 @@ import { useState, useCallback } from "react";
 export interface ViewPrefs {
   hiddenColumnIds: number[];
   hiddenSwimlaneIds: number[];
+  // Columns the user has explicitly expanded. All others are collapsed (compact by default).
+  expandedColumnIds: number[];
   hideLabels: boolean;
   hideDueDate: boolean;
   hideAssignee: boolean;
@@ -12,6 +14,7 @@ export interface ViewPrefs {
 const DEFAULT_PREFS: ViewPrefs = {
   hiddenColumnIds: [],
   hiddenSwimlaneIds: [],
+  expandedColumnIds: [],
   hideLabels: false,
   hideDueDate: false,
   hideAssignee: false,
@@ -30,6 +33,7 @@ function load(boardId: number): ViewPrefs {
     return {
       hiddenColumnIds: Array.isArray(parsed.hiddenColumnIds) ? parsed.hiddenColumnIds : [],
       hiddenSwimlaneIds: Array.isArray(parsed.hiddenSwimlaneIds) ? parsed.hiddenSwimlaneIds : [],
+      expandedColumnIds: Array.isArray(parsed.expandedColumnIds) ? parsed.expandedColumnIds : [],
       hideLabels: typeof parsed.hideLabels === "boolean" ? parsed.hideLabels : false,
       hideDueDate: typeof parsed.hideDueDate === "boolean" ? parsed.hideDueDate : false,
       hideAssignee: typeof parsed.hideAssignee === "boolean" ? parsed.hideAssignee : false,
@@ -74,6 +78,28 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
+  const toggleExpandedColumn = useCallback(
+    (columnId: number) => {
+      setPrefs((prev) => {
+        const expanded = prev.expandedColumnIds.includes(columnId)
+          ? prev.expandedColumnIds.filter((id) => id !== columnId)
+          : [...prev.expandedColumnIds, columnId];
+        return { ...prev, expandedColumnIds: expanded };
+      });
+    },
+    [setPrefs],
+  );
+
+  const expandAllColumns = useCallback(
+    (columnIds: number[]) => setPrefs((prev) => ({ ...prev, expandedColumnIds: columnIds })),
+    [setPrefs],
+  );
+
+  const collapseAllColumns = useCallback(
+    () => setPrefs((prev) => ({ ...prev, expandedColumnIds: [] })),
+    [setPrefs],
+  );
+
   const toggleHiddenSwimlane = useCallback(
     (swimlaneId: number) => {
       setPrefs((prev) => {
@@ -93,5 +119,5 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
-  return { prefs, toggleHiddenColumn, toggleHiddenSwimlane, setCardFieldPref };
+  return { prefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setCardFieldPref };
 }

@@ -14,7 +14,7 @@ import {
   useSensors,
   useDroppable,
 } from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../../types";
 import { userDisplayName } from "../../types";
@@ -129,9 +129,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [starLoading, isStarred, board.id, onStarToggled]);
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleHiddenSwimlane, setCardFieldPref } = useViewPrefs(board.id);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setCardFieldPref } = useViewPrefs(board.id);
   const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
   const hiddenSwimlaneIds = new Set(viewPrefs.hiddenSwimlaneIds);
+  // Collapsed = not in expandedColumnIds (compact by default; user expands explicitly)
+  const expandedColumnIds = new Set(viewPrefs.expandedColumnIds);
+  const allColumnsExpanded = board.columns.every((c) => expandedColumnIds.has(c.id));
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     if (event.type === "card.created") {
@@ -188,7 +191,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -307,13 +309,44 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [board.swimlanes, insertSwimlanePosition, onSwimlaneAdded, onSwimlanesReordered]);
 
-  const toggleColumn = (id: number) => setCollapsedColumns((prev) => {
-    const next = new Set(prev);
-    if (next.has(id)) { next.delete(id); } else { next.add(id); }
-    return next;
-  });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Unique 3-char abbreviations for collapsed column headers.
+  // Algorithm: strip spaces, take first 3 chars uppercased; if two columns share
+  // the same base, suffix the later ones with a digit (e.g. "DON", "DO2").
+  const columnAbbreviations = useCallback((): Map<number, string> => {
+    const result = new Map<number, string>();
+    const seen = new Map<string, number>();
+    for (const col of board.columns) {
+      const base = col.name.replace(/\s+/g, "").slice(0, 3).toUpperCase() || "COL";
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      result.set(col.id, n === 1 ? base : `${base.slice(0, 2)}${n}`);
+    }
+    return result;
+  }, [board.columns])();
+
+  // Custom collision detection: restrict candidates by the type of item being dragged
+  // so that cell droppables don't steal hits from col: or swim: sortable targets.
+  const collisionDetection = useCallback<CollisionDetection>((args) => {
+    const activeId = String(args.active.id);
+    if (activeId.startsWith("swim:")) {
+      return closestCenter({
+        ...args,
+        droppableContainers: args.droppableContainers.filter((c) => String(c.id).startsWith("swim:")),
+      });
+    }
+    if (activeId.startsWith("col:")) {
+      return closestCenter({
+        ...args,
+        droppableContainers: args.droppableContainers.filter(
+          (c) => String(c.id).startsWith("col:") || String(c.id).startsWith("cell:") || c.id === "trash:column"
+        ),
+      });
+    }
+    return closestCenter(args);
+  }, []);
 
   const handleDragStart = (e: DragStartEvent) => {
     clearSelection();
@@ -426,6 +459,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         <ViewToggle view={view} onChange={setView} />
         <span className="w-px h-4 bg-slate-600 shrink-0" />
         <button
+          onClick={() => allColumnsExpanded ? collapseAllColumns() : expandAllColumns(board.columns.map(c => c.id))}
+          className="text-xs text-slate-300 hover:text-white transition shrink-0"
+          title={allColumnsExpanded ? "Collapse all columns" : "Expand all columns"}
+        >
+          {allColumnsExpanded ? "Collapse" : "Expand"}
+        </button>
+        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <button
           onClick={() => setShowFilters((v) => !v)}
           className="text-xs text-slate-300 hover:text-white transition shrink-0"
         >
@@ -481,7 +522,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           Card not found — it may have been archived or deleted.
         </div>
       )}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/*
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
@@ -519,9 +560,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                   isAdmin={isAdmin}
                   onColumnUpdated={onColumnUpdated}
                   onColumnDeleted={onColumnDeleted}
-                  collapsed={collapsedColumns.has(col.id)}
+                  collapsed={!expandedColumnIds.has(col.id)}
                   hidden={hiddenColumnIds.has(col.id)}
-                  onToggleCollapse={() => toggleColumn(col.id)}
+                  abbreviation={columnAbbreviations.get(col.id)}
+                  onToggleCollapse={() => toggleExpandedColumn(col.id)}
                   onInsertLeft={() => { setInsertPosition(idx); setShowAddColumn(true); }}
                   onInsertRight={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
                 />
@@ -574,7 +616,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               isAdmin={isAdmin}
               canEdit={canEdit}
               closeEditorOnEnter={board.close_editor_on_enter}
-              collapsedColumnIds={collapsedColumns}
+              collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
               hiddenColumnIds={hiddenColumnIds}
               filteredCardIds={filteredCardIds}
               selectedCardIds={selectedCardIds}

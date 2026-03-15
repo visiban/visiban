@@ -13,12 +13,13 @@ interface Props {
   onColumnDeleted: (columnId: number) => void;
   collapsed: boolean;
   hidden?: boolean;
+  abbreviation?: string;
   onToggleCollapse: () => void;
   onInsertLeft?: () => void;
   onInsertRight?: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, hidden, onToggleCollapse, onInsertLeft, onInsertRight }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, hidden, abbreviation, onToggleCollapse, onInsertLeft, onInsertRight }: Props) {
   const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}`, disabled: !isAdmin });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
@@ -61,10 +62,11 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           {cardCount}
         </span>
         <span
-          className="text-xs font-semibold text-slate-400 flex-1 flex items-center"
+          className="text-[11px] font-bold text-slate-400 tracking-widest flex-1 flex items-center"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+          title={column.name}
         >
-          {column.name}
+          {abbreviation ?? column.name.slice(0, 3).toUpperCase()}
         </span>
         <span className="text-slate-500 text-xs">▶</span>
       </div>
