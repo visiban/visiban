@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User, Group, Board } from "../../types";
-import { listGroups, listStarredGroups, createGroup } from "../../api/groups";
+import { listGroups, listStarredGroups } from "../../api/groups";
 import { listBoards, listStarredBoards, createBoard } from "../../api/boards";
 import CreateBoardModal from "../Board/CreateBoardModal";
 import CreateGroupModal from "../Group/CreateGroupModal";
