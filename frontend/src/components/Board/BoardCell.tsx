@@ -30,6 +30,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
+  const isDraggingCard = active != null && !String(active.id).startsWith("swim:") && !String(active.id).startsWith("col:");
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
 
@@ -46,7 +47,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
       ref={setNodeRef}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
       className={`flex-1 min-w-[200px] min-h-[80px] p-2 border-r border-slate-700/50 transition-colors ${
-        isOver ? "bg-blue-900/20" : ""
+        isOver && isDraggingCard ? "bg-blue-900/20" : ""
       }`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>

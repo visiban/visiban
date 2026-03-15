@@ -362,8 +362,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       setActiveSwimlane(null);
       if (!over) return;
       const overId = String(over.id);
-      if (!overId.startsWith("swim:")) return;
-      if (activeId === overId) return;
+
+      // Cells cover a larger area than swimlane sidebars, so closestCenter may
+      // resolve to "cell:{colId}:{swimlaneId}" — map back to the swimlane id.
+      let mappedOverId = overId;
+      if (mappedOverId.startsWith("cell:")) {
+        mappedOverId = `swim:${mappedOverId.split(":")[2]}`;
+      }
+
+      if (!mappedOverId.startsWith("swim:")) return;
+      if (activeId === mappedOverId) return;
       const oldIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === activeId);
       const newIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === overId);
       if (oldIndex === -1 || newIndex === -1) return;
