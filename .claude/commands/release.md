@@ -28,6 +28,17 @@ Before running the script:
 - [ ] Confirm `CHANGELOG.md [Unreleased]` is up to date — if not, stop and update it first
 - [ ] Confirm the working tree is clean (`git status`) and on `main` with latest pulled
 
+## Step 1b — Documentation audit
+
+For every entry in `CHANGELOG.md [Unreleased]`, verify documentation is in sync:
+
+- **New features (`### Added`)** — each must have a corresponding page or section in `docs/features/` (or `docs/getting-started/` / `docs/administration/` where appropriate), with the correct version callout (`> **Added in X.Y**`) and enterprise callout if applicable — run `/docs` if anything is missing
+- **API surface changes** — any new or modified endpoint must be reflected in `docs/api/` — run `/api-docs` if anything is missing
+- **Changed behaviour (`### Changed`)** — existing doc pages must reflect the new behaviour; stale screenshots or descriptions must be updated
+- **Breaking changes** — if any exist, ensure a migration or upgrade note is present in `docs/getting-started/` or a dedicated upgrade guide
+
+Do not proceed to Step 2 until the docs audit is complete. A release with stale documentation is worse than no documentation — users will follow the wrong instructions.
+
 ## Step 2 — Run the release script
 
 ```bash
