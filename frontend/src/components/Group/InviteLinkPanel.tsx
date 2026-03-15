@@ -148,11 +148,12 @@ export default function InviteLinkPanel({ groupId }: Props) {
                 </span>
               </div>
               <div className="flex gap-2">
-                <input
-                  readOnly
-                  value={`${window.location.origin}/join/${link.token}`}
-                  className="flex-1 text-[11px] bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-400 outline-none"
-                />
+                <div
+                  className="flex-1 text-[11px] bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-400 truncate"
+                  title={`${window.location.origin}/join/${link.token}`}
+                >
+                  {`${window.location.origin}/join/${link.token}`}
+                </div>
                 <button
                   onClick={() => handleCopy(link)}
                   disabled={link.is_expired}

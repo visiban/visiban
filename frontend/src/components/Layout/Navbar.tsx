@@ -91,7 +91,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
         <Link to="/" className="flex items-center hover:opacity-80 transition">
           <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>
-        {version && (
+        {version && (version === "dev" || version.includes("-")) && (
           <span className="text-slate-400 text-[11px] font-mono select-none bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5">{version}</span>
         )}
         {breadcrumb?.map((item, i) => (

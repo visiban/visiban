@@ -75,7 +75,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   };
 
   return (
-    <div className="h-full bg-gray-900 flex flex-col">
+    <div className="h-full bg-slate-900 flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
@@ -99,11 +99,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             </button>
           </div>
           {loadingGroups ? (
-            <p className="text-gray-500 text-sm">Loading…</p>
+            <p className="text-slate-500 text-sm">Loading…</p>
           ) : groups.length === 0 ? (
-            <p className="text-gray-600 text-sm">No groups yet. Create one to collaborate with others.</p>
+            <p className="text-slate-600 text-sm">No groups yet. Create one to collaborate with others.</p>
           ) : (
-            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 px-2 py-1">
+            <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 px-2 py-1">
               <GroupTree
                 nodes={buildGroupTree(groups)}
                 onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
@@ -124,17 +124,17 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             </button>
           </div>
           {loadingBoards ? (
-            <p className="text-gray-500 text-sm">Loading…</p>
+            <p className="text-slate-500 text-sm">Loading…</p>
           ) : (
             <div className="flex flex-col gap-2">
               {personalBoards.map((b) => (
                 <div key={b.id} className="group relative">
                   <button
                     onClick={() => navigate(`/boards/${b.id}`)}
-                    className="w-full bg-gray-800 hover:bg-gray-700 text-white text-left px-4 py-3 rounded-xl transition"
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded-xl transition"
                   >
                     <p className="font-medium">{b.name}</p>
-                    {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
+                    {b.description && <p className="text-sm text-slate-400 mt-0.5">{b.description}</p>}
                   </button>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                     <button
@@ -162,11 +162,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                 </div>
               ))}
               {personalBoards.length === 0 && !creatingBoard && (
-                <p className="text-gray-600 text-sm">No personal boards yet.</p>
+                <p className="text-slate-600 text-sm">No personal boards yet.</p>
               )}
               <button
                 onClick={() => setCreatingBoard(true)}
-                className="w-full border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 py-3 rounded-xl text-sm transition"
+                className="w-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 py-3 rounded-xl text-sm transition"
               >
                 + New board
               </button>
@@ -212,20 +212,20 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
 
       {joiningGroup && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
             <h3 className="text-white font-semibold text-lg mb-1">Join a group</h3>
-            <p className="text-gray-400 text-sm mb-4">Paste the invite link or token you received.</p>
+            <p className="text-slate-400 text-sm mb-4">Paste the invite link or token you received.</p>
             <input
               type="text"
               value={joinToken}
               onChange={(e) => setJoinToken(e.target.value)}
               placeholder="https://…/join/abc123 or abc123"
-              className="w-full bg-gray-700 text-white text-sm rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:border-blue-500 mb-4"
+              className="w-full bg-slate-700 text-white text-sm rounded-lg px-3 py-2 border border-slate-600 focus:outline-none focus:border-blue-500 mb-4"
               autoFocus
               onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); if (e.key === "Escape") setJoiningGroup(false); }}
             />
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setJoiningGroup(false)} className="text-gray-400 text-sm hover:text-white px-3 py-1.5">Cancel</button>
+              <button onClick={() => setJoiningGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5">Cancel</button>
               <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 rounded-lg">Join</button>
             </div>
           </div>

@@ -54,7 +54,10 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         className="flex border-b border-slate-700 bg-slate-800"
       >
         {/* Swimlane label — sticky to the left */}
-        <div className="w-[220px] shrink-0 flex items-start gap-2 px-3 py-3 sticky left-0 z-10 bg-gray-800 border-r border-gray-700 group relative">
+        <div
+          className="w-[220px] shrink-0 flex items-start gap-2 pl-1 pr-3 py-3 sticky left-0 z-10 bg-slate-800 border-r border-slate-700 border-l-[3px] group relative"
+          style={{ borderLeftColor: swimlane.color || "transparent" }}
+        >
           {/* Insert above button */}
           {isAdmin && onInsertAbove && (
             <button
@@ -71,23 +74,21 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             <span
               {...attributes}
               {...listeners}
-              className="text-gray-600 hover:text-gray-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 mt-0.5"
+              className="text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 mt-0.5"
               title="Drag to reorder"
             >
               ⠿
             </span>
           )}
 
-          {/* Color stripe */}
-          <span className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: swimlane.color }} />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white truncate">{swimlane.name}</p>
-            <p className="text-xs text-gray-400 truncate">{swimlane.contact_email}</p>
+            <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => { if (isAdmin) setEditing(true); }}
-              className={`transition text-xs ${isAdmin ? "text-gray-500 hover:text-white opacity-0 group-hover:opacity-100" : "text-gray-600 opacity-50 cursor-not-allowed"}`}
+              className={`transition text-xs ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
               title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
               disabled={!isAdmin}
             >
@@ -95,10 +96,16 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </button>
             <button
               onClick={() => setCollapsed((c) => !c)}
-              className="text-gray-400 hover:text-white transition text-xs mt-0.5"
+              className="text-slate-400 hover:text-white transition shrink-0"
               title={collapsed ? "Expand" : "Collapse"}
             >
-              {collapsed ? "▶" : "▼"}
+              <svg
+                className={`w-3.5 h-3.5 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
             </button>
           </div>
 
