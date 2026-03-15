@@ -78,7 +78,7 @@ OAuth variables are documented in [OAuth Setup](oauth.md).
 
 > **Tested:** The Helm chart has been deployed and verified on a live Kubernetes cluster.
 
-A Helm chart is included for Kubernetes deployments. See [Deployment — Kubernetes / Helm](../architecture/deployment.md#kubernetes--helm) for install instructions, configuration values, and upgrade steps.
+A Helm chart is included for Kubernetes deployments. See [Deployment — Kubernetes / Helm](../architecture/deployment.md#kubernetes-helm) for install instructions, configuration values, and upgrade steps.
 
 ## Production with HTTPS
 
