@@ -509,20 +509,21 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   return (
     <>
-      <div className="flex items-center gap-2 px-3 py-1.5 mt-2 bg-slate-800 border-b border-slate-700 shrink-0 flex-wrap">
+      {/* Primary toolbar row */}
+      <div className="flex items-center h-10 px-3 mt-2 bg-slate-800 border-b border-slate-700 shrink-0 gap-2">
         <ViewToggle view={view} onChange={setView} />
-        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
           onClick={() => allColumnsExpanded ? collapseAllColumns() : expandAllColumns(board.columns.map(c => c.id))}
-          className="text-xs text-slate-300 hover:text-white transition shrink-0"
+          className="text-xs text-slate-300 hover:text-white hover:bg-slate-700/50 px-2 py-1 rounded transition shrink-0"
           title={allColumnsExpanded ? "Collapse all columns" : "Expand all columns"}
         >
           {allColumnsExpanded ? "Collapse" : "Expand"}
         </button>
-        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
           onClick={() => setShowFilters((v) => !v)}
-          className="text-xs text-slate-300 hover:text-white transition shrink-0"
+          className={`text-xs px-2 py-1 rounded transition shrink-0 ${showFilters ? "text-blue-400 bg-blue-500/10" : "text-slate-300 hover:text-white hover:bg-slate-700/50"}`}
         >
           {showFilters ? "Hide filters" : "Filters"}
           {!showFilters && activeCount > 0 && (
@@ -532,35 +533,39 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           )}
         </button>
 
-        {/* Inline filter controls — same row, wrap to next line on narrow viewports */}
-        {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />}
-
-        <span className="w-px h-4 bg-slate-600 ml-auto shrink-0" />
+        <div className="w-px h-4 bg-slate-700 self-center shrink-0 ml-auto" />
         <button
           onClick={() => setShowShortcuts((v) => !v)}
-          className="text-xs text-slate-500 hover:text-slate-300 transition font-mono shrink-0"
+          className="text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 px-2 py-1 rounded transition font-mono shrink-0"
           title="Keyboard shortcuts (?)"
         >
           ?
         </button>
-        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
           onClick={() => { if (isAdmin) setShowSettings(true); }}
-          className={`text-xs transition shrink-0 ${isAdmin ? "text-slate-400 hover:text-slate-200" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
+          className={`text-xs px-2 py-1 rounded transition shrink-0 ${isAdmin ? "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
           title={isAdmin ? undefined : "You need admin access to change board settings"}
           disabled={!isAdmin}
         >
           Settings
         </button>
-        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <span
-          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-500" : "text-gray-400"}`}
+          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-400" : "text-slate-500"}`}
           title={connected ? "Live — real-time updates active" : "Connecting…"}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-slate-500"}`} />
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${connected ? "bg-green-400 animate-pulse" : "bg-slate-500"}`} />
           {connected ? "Live" : "Connecting…"}
         </span>
       </div>
+
+      {/* Filter row — own row so it doesn't compress the toolbar */}
+      {showFilters && (
+        <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
+          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />
+        </div>
+      )}
       {cardNotFound && (
         <div className="mx-4 mt-2 px-4 py-2 bg-amber-900/50 border border-amber-700 rounded-lg text-amber-200 text-sm">
           Card not found — it may have been archived or deleted.

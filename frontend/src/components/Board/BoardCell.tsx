@@ -49,9 +49,9 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
       onDoubleClick={() => { if (column.allow_card_creation && canEdit) setAdding(true); }}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
       style={{ width: width ?? 220 }}
-      className={`shrink-0 min-h-[80px] p-2 border-r border-slate-700/50 transition-colors ${
+      className={`shrink-0 min-h-[80px] p-2 transition-colors ${
         isOver && isDraggingCard ? "bg-blue-900/20" : ""
-      }`}
+      } ${cards.length === 0 && !adding ? "border border-dashed border-slate-700/50" : "border-r border-slate-700/50"}`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
         <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
@@ -104,7 +104,11 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className="mt-1 w-full text-left text-[11px] text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 rounded-md px-1.5 py-1 transition"
+            className={`w-full text-left text-[11px] rounded-md px-1.5 py-1 transition group/add ${
+              cards.length === 0
+                ? "text-slate-500 hover:text-slate-200 hover:bg-slate-700/60"
+                : "mt-1 text-slate-600 hover:text-slate-300 hover:bg-slate-700/50"
+            }`}
           >
             + Add card
           </button>

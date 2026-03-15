@@ -44,6 +44,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Row separator now shows a "+" at each column's center X when hovered, mirroring how column separators show "+" at each swimlane row — the insert affordance is now symmetric in both axes
 - Collapsed swimlane rows are now compact: each cell renders as a narrow `w-10` box showing only the card count (no "N hidden" text), the label panel shrinks to a single line, and the stored row min-height is suppressed so the row collapses to its natural minimum
 
+- Board sub-nav toolbar restructured to a fixed `h-10` row so it no longer compresses when filters are open; FilterBar moved to its own collapsible row below the toolbar (#187, #199)
+- Live connection indicator dot now pulses (`animate-pulse`) when connected and uses `bg-green-400` (#199)
+- Column WIP and Weight stats are now shown conditionally: WIP row only appears when a WIP limit is set; Weight row only appears when total weight is non-zero (#187)
+- Empty board cells (no cards, not adding) now show a dashed border to visually communicate the drop zone; `+ Add card` button uses a lighter style in empty cells vs. non-empty cells (#200)
+
 ### Changed
 
 - Swimlane label panel now renders the swimlane color as a 3 px left border instead of a narrow interior stripe, making color identity visible at a glance (#190)

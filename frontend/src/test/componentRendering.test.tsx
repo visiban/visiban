@@ -305,7 +305,7 @@ describe('ColumnHeader', () => {
     const cards = [makeCard({ id: 1 }), makeCard({ id: 2 })]
     render(
       <ColumnHeader
-        column={makeColumn()}
+        column={makeColumn({ wip_limit: 5 })}
         cards={cards}
         boardId={1}
         isAdmin={false}
