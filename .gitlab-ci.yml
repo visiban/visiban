@@ -423,7 +423,7 @@ frontend-sast:
     - |
       cat > eslint-security.config.mjs <<'ESLINTEOF'
       import security from 'eslint-plugin-security';
-      export default [{ plugins: { security }, rules: { 'security/detect-object-injection': 'error', 'security/detect-non-literal-regexp': 'error', 'security/detect-non-literal-require': 'error', 'security/detect-possible-timing-attacks': 'warn', 'security/detect-eval-with-expression': 'error' } }];
+      export default [{ files: ['**/*.{js,mjs,ts,tsx,jsx}'], plugins: { security }, rules: { 'security/detect-object-injection': 'error', 'security/detect-non-literal-regexp': 'error', 'security/detect-non-literal-require': 'error', 'security/detect-possible-timing-attacks': 'warn', 'security/detect-eval-with-expression': 'error' } }];
       ESLINTEOF
       npx eslint --config eslint-security.config.mjs --max-warnings 0 src/
 
