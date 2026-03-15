@@ -46,7 +46,10 @@ When asked to create a release, run the release script. Ask for the version stri
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
 - **CHANGELOG entries must be appended to the existing `### Added` / `### Changed` / `### Fixed` section** within `[Unreleased]` — never create a second `### Added`, `### Changed`, or `### Fixed` heading in the same release block; duplicate headings cause the changelog to render incorrectly and entries to appear twice
-- When functionality changes, update the relevant documentation in `docs/` and `README.md` (if applicable) to reflect the new behavior
+- **Every new or modified feature must include test cases and documentation updates in the same MR** — do not ship a feature without both. This applies to frontend and backend changes equally:
+  - Frontend tests: `frontend/src/test/`
+  - Backend tests: `backend/boards/tests/` (or the relevant app's `tests/` directory)
+  - Documentation: `docs/` and `README.md` where applicable
 - Use **US English** in all code, comments, documentation, commit messages, MR descriptions, and UI copy — e.g. "color" not "colour", "center" not "centre", "canceled" not "cancelled", "authorization" not "authorisation"
 
 ---
@@ -54,6 +57,11 @@ When asked to create a release, run the release script. Ask for the version stri
 ## Documentation conventions
 
 - Docs live in the OSS repo alongside the code — never split into a separate repo
+- **New features must be tagged with the version they were introduced in**, using a `> **Added in ...** ` callout immediately after the section heading:
+  - Pre-1.0.0: include the full RC tag — e.g. `> **Added in 1.0.0-rc.5**`
+  - 1.0.0 and later: include only the minor version — e.g. `> **Added in 1.1**` (never `1.1.0`)
+  - Patch releases (e.g. 1.1.1) do not get version callouts — only minor releases and pre-releases
+  - Do not add version callouts to changed or fixed behaviour — only net-new features
 - When writing or updating documentation, mark any feature that requires the enterprise edition with a callout:
   ```markdown
   > **Visiban Enterprise** — This feature is available in [Visiban Enterprise](https://visiban.com/enterprise).

@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Double-clicking a column header now opens the Edit Column modal (admin only); double-clicking a swimlane label now opens the Edit Swimlane modal (admin only)
 - Card priority badge is now always visible for medium priority and above — styled as a colored pill matching the border color; low priority remains unmarked (#196)
 - Card labels now show truncated full names (up to 7 characters) instead of 2-character abbreviations, making them readable without hovering (#196)
 - Card count badge appears in the top-right corner of any cell containing 2 or more cards — faint and non-intrusive, helps spot dense columns at a glance (#198)
