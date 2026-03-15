@@ -23,6 +23,7 @@ vi.mock('../api/boards', () => ({
 
 vi.mock('../components/Board/BoardCell', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/EditSwimlaneModal', () => ({ default: () => <div data-testid="edit-modal" /> }))
+vi.mock('../components/Board/EditColumnModal', () => ({ default: () => <div data-testid="edit-column-modal" /> }))
 
 vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, transition: null, isDragging: false }),
@@ -406,6 +407,40 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('5/10')).toBeInTheDocument()
   })
 
+  it('double-clicking the header opens EditColumnModal for admin', async () => {
+    render(
+      <ColumnHeader
+        column={makeColumn()}
+        cards={[]}
+        boardId={1}
+        isAdmin={true}
+        onColumnUpdated={noop}
+        onColumnDeleted={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    await userEvent.setup().dblClick(screen.getByText('To Do').closest('div[class*="group/col"]')!)
+    expect(screen.getByTestId('edit-column-modal')).toBeInTheDocument()
+  })
+
+  it('double-clicking the header does nothing for non-admin', async () => {
+    render(
+      <ColumnHeader
+        column={makeColumn()}
+        cards={[]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onColumnDeleted={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    await userEvent.setup().dblClick(screen.getByText('To Do').closest('div[class*="group/col"]')!)
+    expect(screen.queryByTestId('edit-column-modal')).not.toBeInTheDocument()
+  })
+
   it('adds red bottom border to header when WIP limit is exceeded', () => {
     const cards = [makeCard({ id: 1 }), makeCard({ id: 2 }), makeCard({ id: 3 })]
     const { container } = render(
@@ -585,6 +620,20 @@ describe('SwimlaneRow', () => {
     expect(screen.getByText('1')).toBeInTheDocument()
     // no pulse when no matches
     expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
+
+  it('double-clicking the swimlane label opens EditSwimlaneModal for admin', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
+    const label = screen.getByText('Customer A').closest('.border-l-4')!
+    await userEvent.setup().dblClick(label)
+    expect(screen.getByTestId('edit-modal')).toBeInTheDocument()
+  })
+
+  it('double-clicking the swimlane label does nothing for non-admin', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
+    const label = screen.getByText('Customer A').closest('.border-l-4')!
+    await userEvent.setup().dblClick(label)
+    expect(screen.queryByTestId('edit-modal')).not.toBeInTheDocument()
   })
 
   it('swimlane label panel has border-l-4 (strong color accent)', () => {
