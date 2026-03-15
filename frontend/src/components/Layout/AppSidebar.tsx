@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User, Group, Board } from "../../types";
 import { listGroups, listStarredGroups } from "../../api/groups";
-import { listBoards, listStarredBoards } from "../../api/boards";
+import { listBoards, listStarredBoards, createBoard } from "../../api/boards";
+import CreateBoardModal from "../Board/CreateBoardModal";
+import CreateGroupModal from "../Group/CreateGroupModal";
 
 interface Props {
   user: User;
@@ -32,6 +34,8 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
   const [starredBoards, setStarredBoards] = useState<Board[]>([]);
   const [starredGroups, setStarredGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateBoard, setShowCreateBoard] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   useEffect(() => {
     Promise.all([listGroups(), listBoards()])
@@ -344,24 +348,45 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
         )}
       </nav>
 
-      {/* Footer: new board / new group links */}
+      {/* Footer: new board / new group */}
       {!collapsed && (
         <div className="shrink-0 border-t border-slate-700 px-3 py-2 flex flex-col gap-1">
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
+          <button
+            onClick={() => setShowCreateBoard(true)}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition text-left"
           >
             <span className="text-base leading-none">+</span>
             <span>New board</span>
-          </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
+          </button>
+          <button
+            onClick={() => setShowCreateGroup(true)}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition text-left"
           >
             <span className="text-base leading-none">+</span>
             <span>New group</span>
-          </Link>
+          </button>
         </div>
+      )}
+
+      {showCreateBoard && (
+        <CreateBoardModal
+          onConfirm={async (name, template) => {
+            const board = await createBoard({ name, template });
+            setShowCreateBoard(false);
+            navigate(`/boards/${board.id}`);
+          }}
+          onCancel={() => setShowCreateBoard(false)}
+        />
+      )}
+
+      {showCreateGroup && (
+        <CreateGroupModal
+          onCreated={(group) => {
+            setShowCreateGroup(false);
+            navigate(`/groups/${group.id}`);
+          }}
+          onClose={() => setShowCreateGroup(false)}
+        />
       )}
     </aside>
   );

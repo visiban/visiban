@@ -46,10 +46,29 @@ vi.mock('../api/boards', () => ({
   listStarredBoards: vi.fn(),
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
+  createBoard: vi.fn(),
+}))
+
+vi.mock('../components/Board/CreateBoardModal', () => ({
+  default: ({ onConfirm, onCancel }: { onConfirm: (n: string, t: string) => void; onCancel: () => void }) => (
+    <div data-testid="create-board-modal">
+      <button onClick={() => onConfirm('New Board', 'simple_kanban')}>Confirm create board</button>
+      <button onClick={onCancel}>Cancel create board</button>
+    </div>
+  ),
+}))
+
+vi.mock('../components/Group/CreateGroupModal', () => ({
+  default: ({ onCreated, onClose }: { onCreated: (g: Group) => void; onClose: () => void }) => (
+    <div data-testid="create-group-modal">
+      <button onClick={() => onCreated({ ...fakeGroup, id: 99, name: 'New Group' })}>Confirm create group</button>
+      <button onClick={onClose}>Cancel create group</button>
+    </div>
+  ),
 }))
 
 import { listGroups, listStarredGroups } from '../api/groups'
-import { listBoards, listStarredBoards } from '../api/boards'
+import { listBoards, listStarredBoards, createBoard } from '../api/boards'
 
 describe('AppSidebar', () => {
   beforeEach(() => {
@@ -174,5 +193,54 @@ describe('AppSidebar', () => {
     await userEvent.setup().click(screen.getByLabelText('Expand group'))
     const stored = JSON.parse(localStorage.getItem('sidebar-groups-expanded') || '[]')
     expect(stored).toContain(10)
+  })
+
+  it('clicking New board opens CreateBoardModal', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    await userEvent.setup().click(screen.getByText('New board'))
+    expect(screen.getByTestId('create-board-modal')).toBeInTheDocument()
+  })
+
+  it('New board modal cancel hides the modal', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    await userEvent.setup().click(screen.getByText('New board'))
+    await userEvent.setup().click(screen.getByText('Cancel create board'))
+    expect(screen.queryByTestId('create-board-modal')).not.toBeInTheDocument()
+  })
+
+  it('New board modal confirm calls createBoard and navigates', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(createBoard).mockResolvedValue({ ...fakeBoard, id: 55 })
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    await userEvent.setup().click(screen.getByText('New board'))
+    await userEvent.setup().click(screen.getByText('Confirm create board'))
+    expect(mockNavigate).toHaveBeenCalledWith('/boards/55')
+  })
+
+  it('clicking New group opens CreateGroupModal', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    await userEvent.setup().click(screen.getByText('New group'))
+    expect(screen.getByTestId('create-group-modal')).toBeInTheDocument()
+  })
+
+  it('New group modal confirm navigates to new group', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    await userEvent.setup().click(screen.getByText('New group'))
+    await userEvent.setup().click(screen.getByText('Confirm create group'))
+    expect(mockNavigate).toHaveBeenCalledWith('/groups/99')
   })
 })

@@ -127,10 +127,10 @@ describe('JoinPage', () => {
     expect(sessionStorage.getItem('returnTo')).toBe('/join/abc123')
   })
 
-  it('shows dashboard link on invalid invite for authenticated user', async () => {
+  it('shows countdown redirect on invalid invite', async () => {
     mockResolveJoinToken.mockRejectedValue(new Error('Not found'))
     renderJoinPage(fakeUser)
-    expect(await screen.findByText('Go to dashboard')).toBeInTheDocument()
+    expect(await screen.findByText(/Redirecting to dashboard in/)).toBeInTheDocument()
   })
 
   it('navigates to group page with joinedGroup state on successful join', async () => {

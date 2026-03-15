@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Sidebar "New board" and "New group" footer links now open their respective creation modals directly instead of navigating to the Dashboard (#185)
+- Invalid or expired invite link page now auto-redirects to the dashboard after a 5-second countdown instead of requiring a manual button click (#172)
+- Escape key to close the profile/user-settings dialog was already implemented — issue #144 closed as resolved
+
 - Replaced all `gray-*` Tailwind tokens with `slate-*` equivalents across Dashboard, Settings, BoardView, SwimlaneRow, BoardCell, and BulkActionToolbar to eliminate the warm/cool color mismatch on adjacent surfaces (#184, #158)
 - Filter active-count badge changed from light-mode `bg-blue-100 text-blue-700` to dark-theme `bg-blue-500/20 text-blue-400` (#184)
 - Filters toolbar button now uses `text-slate-300 hover:text-white` instead of `text-blue-600 hover:text-blue-800` (#184)

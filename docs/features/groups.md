@@ -51,7 +51,9 @@ Anyone with the link joins with the role assigned to that link. Expired links sh
 
 Unauthenticated visitors who open an invite link are shown a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) if those providers are configured. After authenticating, the invite is accepted automatically and the user is redirected to the group page with a confirmation banner.
 
-Authenticated users who open an invite link see a single **Join &lt;group name&gt;** button and are redirected to the group page immediately after joining.
+Authenticated users who open an invite link see a single **Join &lt;group name&gt;** button and are redirected to the group page immediately after joining. If the user is already a member they are silently redirected without re-joining.
+
+If the link is invalid or expired, a countdown timer is shown and the user is automatically redirected to the dashboard after 5 seconds — no manual action required.
 
 !!! tip
     Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one `member` link for the team and one `viewer` link for stakeholders).
@@ -62,4 +64,6 @@ The star button (☆/★) in the group detail page header lets you mark frequent
 
 ## Dashboard
 
-The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions. The dashboard (`/`) is where you go to create new boards and groups.
+The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions.
+
+The **+ New board** and **+ New group** buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required. After creating, you are taken directly to the new board or group.
