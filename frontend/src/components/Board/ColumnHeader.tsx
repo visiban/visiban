@@ -104,7 +104,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={{ ...style, width: width ?? 220 }}
-        className="relative shrink-0 px-3 py-2 bg-slate-800 group/col transition"
+        className="relative shrink-0 px-3 py-2 bg-slate-800 border-r border-slate-700 group/col transition"
       >
         {/* Insert-left button — visible on hover for admins */}
         <button
