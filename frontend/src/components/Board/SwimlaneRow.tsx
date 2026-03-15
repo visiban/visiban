@@ -23,8 +23,6 @@ interface Props {
   onCardAdded: (card: Card) => void;
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
   onSwimlaneDeleted: (swimlaneId: number) => void;
-  onInsertAbove?: () => void;
-  onInsertBelow?: () => void;
   sidebarWidth?: number;
   onResizeStart?: (e: React.MouseEvent) => void;
   colWidths?: Map<number, number>;
@@ -36,7 +34,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, sidebarWidth, onResizeStart, colWidths, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, onResizeStart, colWidths, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -58,20 +56,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className="shrink-0 flex items-start gap-2 pl-1 pr-3 py-3 sticky left-0 z-10 bg-slate-800 border-r border-slate-700 border-l-[3px] group relative"
+          className="shrink-0 flex items-start gap-2 pl-1 pr-3 py-3 sticky left-0 z-10 bg-slate-800 border-l-[3px] group relative"
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
         >
-          {/* Insert above button */}
-          {isAdmin && onInsertAbove && (
-            <button
-              onClick={onInsertAbove}
-              className="absolute top-0 left-0 right-0 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10 hover:bg-blue-600/20"
-              title="Insert swimlane above"
-            >
-              <span className="text-blue-400 text-xs leading-none">+</span>
-            </button>
-          )}
-
           {/* Drag handle */}
           {isAdmin && (
             <span
@@ -111,46 +98,33 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </svg>
             </button>
           </div>
-
-          {/* Insert below button */}
-          {isAdmin && onInsertBelow && (
-            <button
-              onClick={onInsertBelow}
-              className="absolute bottom-0 left-0 right-0 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10 hover:bg-blue-600/20"
-              title="Insert swimlane below"
-            >
-              <span className="text-blue-400 text-xs leading-none">+</span>
-            </button>
-          )}
-
-          {/* Resize handle — right edge of sidebar */}
-          {onResizeStart && (
-            <div
-              onMouseDown={onResizeStart}
-              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize flex items-center justify-center group/resize hover:bg-blue-500/20 active:bg-blue-500/30 transition-colors z-20"
-              title="Drag to resize"
-            >
-              <div className="w-0.5 h-6 rounded-full bg-slate-600/0 group-hover/resize:bg-blue-400 transition-colors" />
-            </div>
-          )}
         </div>
 
         {/* Cells — always iterate columns so collapsed-column stubs stay aligned */}
-        {columns.map((col) => {
+        {columns.map((col, colIdx) => {
           const cellCards = cards.filter((c) => c.column === col.id);
           const cellCount = cellCards.length;
           const cellWidth = colWidths?.get(col.id) ?? 220;
 
+          // Visual cell separator matching column separator in header (no interaction)
+          const sep = (
+            <div key={`sep-${col.id}`} className="shrink-0 flex items-stretch" style={{ width: 16 }}>
+              <div className="w-px self-stretch bg-slate-700" />
+              <div className="flex-1" />
+              <div className="w-px self-stretch bg-slate-700" />
+            </div>
+          );
+
           // Hidden by view prefs — show a narrow placeholder to preserve grid alignment
           if (hiddenColumnIds?.has(col.id)) {
             return (
-              <div
-                key={col.id}
-                className="w-10 shrink-0 border-r border-slate-700 flex items-center justify-center py-1"
-              >
-                {cellCount > 0 && (
-                  <span className="text-xs text-slate-600 font-medium">{cellCount}</span>
-                )}
+              <div key={col.id} className="contents">
+                {sep}
+                <div className="w-10 shrink-0 flex items-center justify-center py-1">
+                  {cellCount > 0 && (
+                    <span className="text-xs text-slate-600 font-medium">{cellCount}</span>
+                  )}
+                </div>
               </div>
             );
           }
@@ -158,13 +132,13 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           if (collapsedColumnIds.has(col.id)) {
             // Collapsed column: show per-swimlane card count
             return (
-              <div
-                key={col.id}
-                className="w-10 shrink-0 border-r border-slate-700 flex items-center justify-center py-1"
-              >
-                {cellCount > 0 && (
-                  <span className="text-xs text-slate-400 font-medium">{cellCount}</span>
-                )}
+              <div key={col.id} className="contents">
+                {sep}
+                <div className="w-10 shrink-0 flex items-center justify-center py-1">
+                  {cellCount > 0 && (
+                    <span className="text-xs text-slate-400 font-medium">{cellCount}</span>
+                  )}
+                </div>
               </div>
             );
           }
@@ -172,41 +146,45 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           if (collapsed) {
             // Swimlane collapsed, non-collapsed column: show hidden count placeholder
             return (
-              <div
-                key={col.id}
-                style={{ width: cellWidth }}
-                className="shrink-0 border-r border-slate-700 flex items-center justify-center"
-              >
-                {cellCount > 0 && (
-                  <span className="text-xs text-slate-400 italic">{cellCount} hidden</span>
-                )}
+              <div key={col.id} className="contents">
+                {sep}
+                <div
+                  style={{ width: cellWidth }}
+                  className="shrink-0 flex items-center justify-center"
+                >
+                  {cellCount > 0 && (
+                    <span className="text-xs text-slate-400 italic">{cellCount} hidden</span>
+                  )}
+                </div>
               </div>
             );
           }
 
           return (
-            <BoardCell
-              key={col.id}
-              column={col}
-              swimlane={swimlane}
-              cards={cellCards.sort((a, b) => a.position - b.position)}
-              boardId={boardId}
-              canEdit={canEdit}
-              closeEditorOnEnter={closeEditorOnEnter}
-              filteredCardIds={filteredCardIds}
-              selectedCardIds={selectedCardIds}
-              highlightedCardId={highlightedCardId}
-              onToggleCardSelection={onToggleCardSelection}
-              onCardClick={onCardClick}
-              onCardAdded={onCardAdded}
-              hideLabels={hideLabels}
-              hideDueDate={hideDueDate}
-              hideAssignee={hideAssignee}
-              hidePriority={hidePriority}
-              userTimezone={userTimezone}
-              userDateFormat={userDateFormat}
-              width={cellWidth}
-            />
+            <div key={col.id} className="contents">
+              {sep}
+              <BoardCell
+                column={col}
+                swimlane={swimlane}
+                cards={cellCards.sort((a, b) => a.position - b.position)}
+                boardId={boardId}
+                canEdit={canEdit}
+                closeEditorOnEnter={closeEditorOnEnter}
+                filteredCardIds={filteredCardIds}
+                selectedCardIds={selectedCardIds}
+                highlightedCardId={highlightedCardId}
+                onToggleCardSelection={onToggleCardSelection}
+                onCardClick={onCardClick}
+                onCardAdded={onCardAdded}
+                hideLabels={hideLabels}
+                hideDueDate={hideDueDate}
+                hideAssignee={hideAssignee}
+                hidePriority={hidePriority}
+                userTimezone={userTimezone}
+                userDateFormat={userDateFormat}
+                width={cellWidth}
+              />
+            </div>
           );
         })}
         {/* Spacer matching the fixed-width "+ Col" button in the header */}

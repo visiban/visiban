@@ -16,13 +16,10 @@ interface Props {
   hidden?: boolean;
   abbreviation?: string;
   width?: number;
-  onResizeStart?: (e: React.MouseEvent) => void;
   onToggleCollapse: () => void;
-  onInsertLeft?: () => void;
-  onInsertRight?: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, hidden, abbreviation, width, onResizeStart, onToggleCollapse, onInsertLeft, onInsertRight }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, hidden, abbreviation, width, onToggleCollapse }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -106,36 +103,8 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         style={{ ...style, width: width ?? 220 }}
         className="relative shrink-0 px-3 py-2 bg-slate-800 border-r border-slate-700 group/col transition"
       >
-        {/* Insert-left button — visible on hover for admins */}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (isAdmin) onInsertLeft?.(); }}
-          className={`absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center bg-blue-900/40 text-blue-400 text-sm font-bold transition z-10 rounded-l border-r border-blue-800/50 ${isAdmin ? "opacity-0 group-hover/col:opacity-100 hover:bg-blue-800/60 hover:text-blue-300" : "opacity-50 cursor-not-allowed"}`}
-          title={isAdmin ? "Insert column to the left" : nonAdminTitle}
-          disabled={!isAdmin}
-        >
-          +
-        </button>
-        {/* Insert-right button — inset 8px from right so it doesn't conflict with the resize handle */}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (isAdmin) onInsertRight?.(); }}
-          className={`absolute right-2 top-0 bottom-0 w-4 flex items-center justify-center bg-blue-900/40 text-blue-400 text-sm font-bold transition z-10 border-l border-blue-800/50 ${isAdmin ? "opacity-0 group-hover/col:opacity-100 hover:bg-blue-800/60 hover:text-blue-300" : "opacity-50 cursor-not-allowed"}`}
-          title={isAdmin ? "Insert column to the right" : nonAdminTitle}
-          disabled={!isAdmin}
-        >
-          +
-        </button>
-
-        {/* Resize handle — right 8px of the column header, acts as the column separator */}
-        <div
-          onMouseDown={onResizeStart}
-          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize flex items-center justify-center group/sep hover:bg-blue-500/10 active:bg-blue-500/20 transition-colors z-20"
-          title="Drag to resize column"
-        >
-          <div className="w-px h-full bg-slate-700 group-hover/sep:bg-blue-400/70 transition-colors" />
-        </div>
-
         {/* Row 1: collapse toggle, color dot, name, edit icon */}
-        <div className="flex items-center gap-2 pr-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
             className="text-slate-500 hover:text-slate-300 transition text-xs shrink-0"
@@ -184,7 +153,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         </div>
 
         {/* Rows 2–3: WIP and Weight stats, one per line */}
-        <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px] pr-2">
+        <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px]">
           <span
             className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
             title="Cards in column / WIP limit"

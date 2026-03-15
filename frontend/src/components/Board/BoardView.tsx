@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
@@ -19,6 +19,8 @@ import { SortableContext, horizontalListSortingStrategy, verticalListSortingStra
 import type { BoardFull, Card, Column, Swimlane, Label } from "../../types";
 import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
+import ColumnSeparator from "./ColumnSeparator";
+import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
 import CardDetail from "../Card/CardDetail";
@@ -340,24 +342,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
     return map;
   }, [board.columns, viewPrefs.columnWidths]);
-  const colResizeState = useRef<{ colId: number; startX: number; startWidth: number } | null>(null);
-
-  const handleColResizeStart = useCallback((colId: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    colResizeState.current = { colId, startX: e.clientX, startWidth: colWidths.get(colId) ?? DEFAULT_COL_WIDTH };
-    const onMove = (ev: MouseEvent) => {
-      if (!colResizeState.current) return;
-      const delta = ev.clientX - colResizeState.current.startX;
-      setColumnWidth(colResizeState.current.colId, colResizeState.current.startWidth + delta);
-    };
-    const onUp = () => {
-      colResizeState.current = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [colWidths, setColumnWidth]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -587,16 +571,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
-            {/* Corner — also sticky to the left */}
-            <div className="shrink-0 bg-slate-800 flex items-center justify-center sticky left-0 z-20 relative" style={{ width: swimlaneColWidth }}>
-              {/* Resize handle */}
-              <div
-                onMouseDown={handleResizeStart}
-                className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize flex items-center justify-center group/resize hover:bg-blue-500/20 active:bg-blue-500/30 transition-colors z-30"
-                title="Drag to resize"
-              >
-                <div className="w-0.5 h-6 rounded-full bg-slate-600 group-hover/resize:bg-blue-400 transition-colors" />
-              </div>
+            {/* Corner — sticky to the left */}
+            <div className="shrink-0 bg-slate-800 flex items-center justify-center sticky left-0 z-20" style={{ width: swimlaneColWidth }}>
               {isAdmin && (
                 <button
                   onClick={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
@@ -607,25 +583,41 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               )}
             </div>
 
+            {/* Far-left separator: drag resizes the swimlane sidebar; click inserts column at pos 0 */}
+            <ColumnSeparator
+              boardId={board.id}
+              insertPosition={0}
+              isAdmin={isAdmin}
+              onColumnAdded={onColumnAdded}
+              currentWidth={swimlaneColWidth}
+              setWidth={setSwimlaneColumnWidth}
+            />
+
             <SortableContext items={board.columns.map((c) => `col:${c.id}`)} strategy={horizontalListSortingStrategy}>
               {board.columns.map((col, idx) => (
-                <ColumnHeader
-                  key={col.id}
-                  column={col}
-                  cards={board.cards.filter((c) => c.column === col.id)}
-                  boardId={board.id}
-                  isAdmin={isAdmin}
-                  onColumnUpdated={onColumnUpdated}
-                  onColumnDeleted={onColumnDeleted}
-                  collapsed={!expandedColumnIds.has(col.id)}
-                  hidden={hiddenColumnIds.has(col.id)}
-                  abbreviation={columnAbbreviations.get(col.id)}
-                  width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
-                  onResizeStart={(e) => handleColResizeStart(col.id, e)}
-                  onToggleCollapse={() => toggleExpandedColumn(col.id)}
-                  onInsertLeft={() => { setInsertPosition(idx); setShowAddColumn(true); }}
-                  onInsertRight={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
-                />
+                <React.Fragment key={col.id}>
+                  <ColumnHeader
+                    column={col}
+                    cards={board.cards.filter((c) => c.column === col.id)}
+                    boardId={board.id}
+                    isAdmin={isAdmin}
+                    onColumnUpdated={onColumnUpdated}
+                    onColumnDeleted={onColumnDeleted}
+                    collapsed={!expandedColumnIds.has(col.id)}
+                    hidden={hiddenColumnIds.has(col.id)}
+                    abbreviation={columnAbbreviations.get(col.id)}
+                    width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
+                    onToggleCollapse={() => toggleExpandedColumn(col.id)}
+                  />
+                  <ColumnSeparator
+                    boardId={board.id}
+                    insertPosition={idx + 1}
+                    isAdmin={isAdmin}
+                    onColumnAdded={onColumnAdded}
+                    currentWidth={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
+                    setWidth={(w) => setColumnWidth(col.id, w)}
+                  />
+                </React.Fragment>
               ))}
             </SortableContext>
 
@@ -666,38 +658,46 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               {board.swimlanes
                 .filter((swimlane) => !hiddenSwimlaneIds.has(swimlane.id))
                 .map((swimlane, idx) => (
-            <SwimlaneRow
-              key={swimlane.id}
-              swimlane={swimlane}
-              sidebarWidth={swimlaneColWidth}
-              onResizeStart={handleResizeStart}
-              colWidths={colWidths}
-              columns={board.columns}
-              cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
-              boardId={board.id}
-              isAdmin={isAdmin}
-              canEdit={canEdit}
-              closeEditorOnEnter={board.close_editor_on_enter}
-              collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
-              hiddenColumnIds={hiddenColumnIds}
-              filteredCardIds={filteredCardIds}
-              selectedCardIds={selectedCardIds}
-              highlightedCardId={highlightedCardId}
-              onToggleCardSelection={toggleCardSelection}
-              onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
-              onCardAdded={onCardAdded}
-              onSwimlaneUpdated={onSwimlaneUpdated}
-              onSwimlaneDeleted={onSwimlaneDeleted}
-              onInsertAbove={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
-              onInsertBelow={() => { setInsertSwimlanePosition(idx + 1); setShowAddSwimlane(true); }}
-              hideLabels={viewPrefs.hideLabels}
-              hideDueDate={viewPrefs.hideDueDate}
-              hideAssignee={viewPrefs.hideAssignee}
-              hidePriority={viewPrefs.hidePriority}
-              userTimezone={userTimezone}
-              userDateFormat={userDateFormat}
-            />
+            <React.Fragment key={swimlane.id}>
+              <RowSeparator
+                isAdmin={isAdmin}
+                onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
+              />
+              <SwimlaneRow
+                swimlane={swimlane}
+                sidebarWidth={swimlaneColWidth}
+                onResizeStart={handleResizeStart}
+                colWidths={colWidths}
+                columns={board.columns}
+                cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
+                boardId={board.id}
+                isAdmin={isAdmin}
+                canEdit={canEdit}
+                closeEditorOnEnter={board.close_editor_on_enter}
+                collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
+                hiddenColumnIds={hiddenColumnIds}
+                filteredCardIds={filteredCardIds}
+                selectedCardIds={selectedCardIds}
+                highlightedCardId={highlightedCardId}
+                onToggleCardSelection={toggleCardSelection}
+                onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
+                onCardAdded={onCardAdded}
+                onSwimlaneUpdated={onSwimlaneUpdated}
+                onSwimlaneDeleted={onSwimlaneDeleted}
+                hideLabels={viewPrefs.hideLabels}
+                hideDueDate={viewPrefs.hideDueDate}
+                hideAssignee={viewPrefs.hideAssignee}
+                hidePriority={viewPrefs.hidePriority}
+                userTimezone={userTimezone}
+                userDateFormat={userDateFormat}
+              />
+            </React.Fragment>
               ))}
+              {/* Bottom row separator — append at end */}
+              <RowSeparator
+                isAdmin={isAdmin}
+                onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
+              />
             </SortableContext>
           )}
 
