@@ -40,7 +40,8 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
     card.assignee ||
     card.weight > 1 ||
     card.is_stale ||
-    isRecent;
+    isRecent ||
+    (!hidePriority && card.priority !== "low");
 
   return (
     <div
@@ -48,12 +49,11 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`group bg-gray-800 rounded-md cursor-pointer select-none transition-all border relative z-0
-        shadow-[0_2px_0_rgba(0,0,0,0.5),_0_4px_8px_rgba(0,0,0,0.3)]
-        hover:-translate-y-0.5 hover:shadow-[0_4px_0_rgba(0,0,0,0.5),_0_8px_16px_rgba(0,0,0,0.4)] hover:z-20
+      className={`group bg-slate-800 rounded-md cursor-pointer select-none transition-all border relative z-0
+        hover:-translate-y-0.5 hover:z-20
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
-        ${overlay ? "!shadow-[0_8px_0_rgba(0,0,0,0.5),_0_12px_24px_rgba(0,0,0,0.5)] rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : card.is_stale ? "ring-1 ring-inset ring-amber-400" : ""}
+        ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
+        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : card.is_stale ? "ring-1 ring-inset ring-amber-400" : ""}
       `}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -71,7 +71,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       {onSelect && (
         <div
           className={`absolute top-1 right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
-            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-gray-600 bg-gray-700 opacity-0 group-hover:opacity-100"}
+            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-slate-600 bg-slate-700 opacity-0 group-hover:opacity-100"}
           `}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(); }}
           onPointerDown={(e) => e.stopPropagation()}
@@ -84,12 +84,12 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
         </div>
       )}
       <div className="px-2.5 py-2">
-        <p className="text-xs font-medium text-gray-100 leading-snug line-clamp-2">{card.title}</p>
+        <p className="text-xs font-medium text-slate-200 leading-snug line-clamp-2">{card.title}</p>
 
         {/* Description — revealed on hover */}
         {card.description && (
           <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-150 ease-out">
-            <p className="text-[10px] text-gray-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-gray-700 pt-1.5">
+            <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-slate-700 pt-1.5">
               {card.description}
             </p>
           </div>
@@ -97,9 +97,9 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
 
         {hasMetadata && (
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
-            {/* Label pills */}
+            {/* Label pills — truncated full name, up to 3 then overflow */}
             {!hideLabels && card.labels.slice(0, 3).map((label) => {
-              const display = label.name.length > 4 ? label.name.slice(0, 2).toUpperCase() : label.name;
+              const display = label.name.length > 8 ? label.name.slice(0, 7) + "…" : label.name;
               return (
                 <span
                   key={label.id}
@@ -112,14 +112,14 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
               );
             })}
             {!hideLabels && card.labels.length > 3 && (
-              <span className="text-[9px] text-gray-400 shrink-0">+{card.labels.length - 3}</span>
+              <span className="text-[9px] text-slate-400 shrink-0">+{card.labels.length - 3}</span>
             )}
 
             {/* Checklist */}
             {card.checklist_total > 0 && (
               <span
                 className={`text-[10px] font-medium shrink-0 ${
-                  card.checklist_done === card.checklist_total ? "text-green-500" : "text-gray-400"
+                  card.checklist_done === card.checklist_total ? "text-green-500" : "text-slate-400"
                 }`}
                 title={`${card.checklist_done}/${card.checklist_total} checklist items`}
               >
@@ -129,7 +129,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
 
             {/* Attachments */}
             {card.attachment_count > 0 && (
-              <span className="text-[10px] text-gray-400 shrink-0" title={`${card.attachment_count} attachment(s)`}>
+              <span className="text-[10px] text-slate-400 shrink-0" title={`${card.attachment_count} attachment(s)`}>
                 📎{card.attachment_count}
               </span>
             )}
@@ -137,7 +137,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
             {/* Due date */}
             {!hideDueDate && dueInfo && (
               <span
-                className={`text-[10px] font-medium shrink-0 ${dueInfo.overdue ? "text-red-500" : "text-gray-400"}`}
+                className={`text-[10px] font-medium shrink-0 ${dueInfo.overdue ? "text-red-400" : "text-slate-400"}`}
                 title={`Due ${card.due_date}`}
               >
                 {dueInfo.label}
@@ -146,7 +146,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
 
             {/* Weight (only shown when > 1) */}
             {card.weight > 1 && (
-              <span className="text-[10px] text-gray-300 font-medium shrink-0" title={`Weight: ${card.weight}`}>
+              <span className="text-[10px] text-slate-300 font-medium shrink-0" title={`Weight: ${card.weight}`}>
                 {card.weight}
               </span>
             )}
@@ -161,11 +161,12 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" title="Recently moved" />
             )}
 
-            {/* Priority label — visible on hover */}
-            {!hidePriority && (
+            {/* Priority badge — always visible for medium and above */}
+            {!hidePriority && card.priority !== "low" && (
               <span
-                className="text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0 capitalize"
-                style={{ color: priorityColor }}
+                className="text-[9px] font-semibold shrink-0 capitalize px-1 py-0.5 rounded leading-none"
+                style={{ backgroundColor: priorityColor + "22", color: priorityColor, border: `1px solid ${priorityColor}44` }}
+                title={`Priority: ${card.priority}`}
               >
                 {card.priority}
               </span>

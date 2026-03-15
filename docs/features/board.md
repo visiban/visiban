@@ -31,7 +31,7 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded it turns red (visual warning only — the API does not block cards). No WIP row is shown for columns with no limit.
+- **WIP limit** — maximum number of cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red and a red accent border appears on the column header (visual warning only — the API does not block cards). No WIP row is shown for columns with no limit.
 - **Weight limit** — maximum total card weight allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
@@ -52,7 +52,7 @@ When dragging a column, a red **Delete** drop target appears at the right edge o
 
 ## Cards
 
-Cards are displayed as compact horizontal rows with a colored left border indicating priority. Hovering over a card expands it inline to show additional metadata without opening the detail panel.
+Cards are displayed as compact tiles with a full colored border indicating priority. Hovering over a card expands it inline to show additional metadata without opening the detail panel. Cards communicate their full status at a glance — priority badge (medium and above), assignee avatar, label pills, checklist progress, and due date are visible directly on the card face.
 
 Each card belongs to exactly one column and one swimlane. Cards have:
 

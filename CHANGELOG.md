@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Card priority badge is now always visible for medium priority and above — styled as a colored pill matching the border color; low priority remains unmarked (#196)
+- Card labels now show truncated full names (up to 7 characters) instead of 2-character abbreviations, making them readable without hovering (#196)
+- Card count badge appears in the top-right corner of any cell containing 2 or more cards — faint and non-intrusive, helps spot dense columns at a glance (#198)
+- Overdue card due dates now render in `text-red-400` to match the design token convention (#198)
+
 ### Fixed
 
 - Sidebar "New board" and "New group" footer links now open their respective creation modals directly instead of navigating to the Dashboard (#185)
@@ -50,6 +57,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Empty board cells (no cards, not adding) now show a dashed border to visually communicate the drop zone; `+ Add card` button uses a lighter style in empty cells vs. non-empty cells (#200)
 
 ### Changed
+
+- All card color tokens migrated from `gray-*` to `slate-*` for consistency with the rest of the dark theme (#196)
+- Column header shows a red bottom border accent (`border-b-2 border-b-red-500/50`) when the WIP limit is exceeded, making violations visible without reading the stats row (#198)
+- Swimlane label panel left border increased from 3 px to 4 px (`border-l-4`) for a stronger color identity signal (#197)
+- Swimlane name font weight increased from `font-semibold` to `font-bold` so lanes read as navigation landmarks (#197)
+- Swimlane collapse chevron increased from 3.5 to 4 px icon to improve interactivity affordance (#197)
+- Swimlane drag handle is now hidden at rest and visible on row hover (`opacity-0 → opacity-100`) — reduces visual noise without hiding the reorder affordance (#197)
 
 - Swimlane label panel now renders the swimlane color as a 3 px left border instead of a narrow interior stripe, making color identity visible at a glance (#190)
 - Swimlane collapse/expand control replaced text arrows (`▶`/`▼`) with an SVG chevron that rotates on state change (#190)
