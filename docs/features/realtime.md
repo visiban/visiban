@@ -13,8 +13,8 @@ Visiban uses WebSockets (Django Channels + Redis) to push board changes to all c
 
 The top-right corner of the board toolbar shows the connection state:
 
-- 🟢 **Live** — WebSocket connected, real-time updates active
-- ⚪ **Connecting…** — attempting to connect or reconnecting
+- 🟢 **Live** — WebSocket connected; the dot pulses with a green animation to indicate an active connection
+- ⚪ **Connecting…** — attempting to connect or reconnecting; dot is static and grey
 
 The client reconnects automatically after 3 seconds if the connection drops.
 
