@@ -5,7 +5,7 @@ import { userDisplayName } from "../../types";
 
 export interface FilterState {
   search: string;
-  assigneeId: number | null; // -1 = unassigned
+  assigneeIds: number[]; // -1 = unassigned
   labelIds: number[];
   priorities: Priority[];
   dueDate: "overdue" | "today" | "this_week" | "none" | null;
@@ -13,7 +13,7 @@ export interface FilterState {
 
 export const EMPTY_FILTER: FilterState = {
   search: "",
-  assigneeId: null,
+  assigneeIds: [],
   labelIds: [],
   priorities: [],
   dueDate: null,
@@ -22,7 +22,7 @@ export const EMPTY_FILTER: FilterState = {
 export function countActiveFilters(f: FilterState): number {
   return [
     f.search !== "",
-    f.assigneeId !== null,
+    f.assigneeIds.length > 0,
     f.labelIds.length > 0,
     f.priorities.length > 0,
     f.dueDate !== null,
@@ -206,14 +206,14 @@ export default function FilterBar({ board, filters, onChange, searchRef }: Props
         className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 placeholder-slate-500 w-36 outline-none focus:border-blue-400 shrink-0"
       />
 
-      <SingleSelectDropdown
+      <CheckboxDropdown
         label="Assignee"
         options={[
           { value: -1, label: "Unassigned" },
           ...board.members.map((m) => ({ value: m.user.id, label: userDisplayName(m.user) })),
         ]}
-        selected={filters.assigneeId}
-        onChange={(assigneeId) => onChange({ ...filters, assigneeId })}
+        selected={filters.assigneeIds}
+        onChange={(assigneeIds) => onChange({ ...filters, assigneeIds })}
       />
 
       <CheckboxDropdown

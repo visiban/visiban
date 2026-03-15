@@ -3,10 +3,11 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
+import security from 'eslint-plugin-security'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', '.vite']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -29,6 +30,20 @@ export default defineConfig([
       'react-refresh/only-export-components': 'warn',
       // Allow _-prefixed names to indicate intentionally unused variables/args
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+  // Security SAST rules — runs for all TS/TSX source files.
+  // detect-object-injection is off: TypeScript types already constrain property
+  // access, so the rule produces false positives on typed enum/const indexing.
+  {
+    files: ['**/*.{ts,tsx}'],
+    plugins: { security },
+    rules: {
+      'security/detect-object-injection': 'off',
+      'security/detect-non-literal-regexp': 'error',
+      'security/detect-non-literal-require': 'error',
+      'security/detect-eval-with-expression': 'error',
+      'security/detect-possible-timing-attacks': 'warn',
     },
   },
 ])

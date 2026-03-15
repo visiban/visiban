@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 - WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)
 - Navigating to a board URL that no longer exists (e.g. after a database reset or after losing board access) now redirects to the dashboard instead of showing a blank "Failed to load board" error
+- Inserting a swimlane at a specific position no longer produces a duplicate entry when the real-time event arrives before the API response; a failed reorder API call no longer silently drops a newly-created swimlane from the board (#223)
 
 ---
 
