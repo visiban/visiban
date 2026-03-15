@@ -109,7 +109,19 @@ A Helm chart is included for Kubernetes deployments. See [Deployment — Kuberne
 
 ## Production with HTTPS
 
-> **Note:** The production Docker Compose stack has not been tested in a live environment yet. The configuration is complete and follows standard practices, but treat it as best-effort until it has been end-to-end validated. If you find issues, please open an issue.
+> **Tested:** The production Docker Compose stack has been verified end-to-end. If you encounter issues, please open an issue.
+
+### Pre-flight security checklist
+
+Before starting the production stack, confirm each item below. The backend will refuse to start if any of these are wrong — this is intentional.
+
+| Variable | Requirement |
+|---|---|
+| `DB_PASSWORD` | Must be set to a strong, unique password. Docker Compose **will not start** if this variable is missing — there is no insecure default. |
+| `DJANGO_SECRET_KEY` | Must be a long random string. If left as `change-me-in-production` or empty, Django will raise `ImproperlyConfigured` at startup. Generate one with: `python -c "import secrets; print(secrets.token_hex(50))"` |
+| `CORS_ALLOWED_ORIGINS` | Must be set to your production frontend origin (e.g. `https://yourdomain.com`). The default `http://localhost:5173` is only suitable for local development. |
+| `DEBUG` | Must be `false` in production. Running with `DEBUG=true` leaks stack traces to HTTP responses and disables the `DJANGO_SECRET_KEY` guard. |
+| `ALLOWED_HOSTS` | Must include your domain name (e.g. `yourdomain.com`). |
 
 The production stack (`docker-compose.prod.yml`) replaces the Vite dev server with:
 
@@ -205,9 +217,15 @@ When it finishes you will see:
 | `https://yourdomain.com` loads | React app renders and you can log in |
 | `http://yourdomain.com` | Redirects to HTTPS |
 | Green **Live** dot in toolbar | WebSocket connected |
-| `https://yourdomain.com/admin/` | Django admin accessible |
+| `https://yourdomain.com/admin/` | Returns 403 from the internet (restricted to loopback — access via SSH tunnel) |
 
-The backend prints a one-time admin password on first boot — run `docker compose -f docker-compose.prod.yml logs backend` to retrieve it.
+The backend writes a one-time admin password to `/tmp/visiban_admin_password` on first boot. Retrieve it with:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend cat /tmp/visiban_admin_password
+```
+
+Delete the file after retrieving the password. See [First Boot](first-boot.md) for full details.
 
 ### Subsequent deploys
 

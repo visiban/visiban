@@ -1,5 +1,6 @@
 import environ
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -12,6 +13,16 @@ if _env_file.exists():
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
+
+# Reject placeholder secret keys in production. This guard fires at startup so a
+# misconfigured deploy fails immediately rather than running silently with a known
+# weak key that could allow session forgery or cookie tampering.
+_INSECURE_SECRET_KEYS = {"change-me-in-production", ""}
+if not DEBUG and SECRET_KEY in _INSECURE_SECRET_KEYS:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY must be set to a secure random value. "
+        'Generate one with: python -c "import secrets; print(secrets.token_hex(50))"'
+    )
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 INSTALLED_APPS = [
@@ -47,6 +58,9 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    # Restrict /admin/ to loopback (or DJANGO_ADMIN_ALLOWED_IPS) in production.
+    # Placed early so the check runs before session/auth processing.
+    "visiban.middleware.AdminIPRestrictionMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

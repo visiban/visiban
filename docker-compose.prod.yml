@@ -14,7 +14,7 @@ services:
     environment:
       POSTGRES_DB: visiban
       POSTGRES_USER: visiban
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-visiban}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -38,7 +38,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://visiban:${DB_PASSWORD:-visiban}@db:5432/visiban
+      DATABASE_URL: postgres://visiban:${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}@db:5432/visiban
       REDIS_URL: redis://redis:6379/0
       REDIS_CACHE_URL: redis://redis:6379/1
       DEBUG: "false"

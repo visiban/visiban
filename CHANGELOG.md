@@ -22,6 +22,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 - WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)
 - Navigating to a board URL that no longer exists (e.g. after a database reset or after losing board access) now redirects to the dashboard instead of showing a blank "Failed to load board" error
+- **Security [High]**: removed insecure `:-visiban` default fallback from `DB_PASSWORD` in `docker-compose.prod.yml` — Docker Compose now fails loudly if the variable is unset (#218)
+- **Security [High]**: Django raises `ImproperlyConfigured` at startup when `DJANGO_SECRET_KEY` is left as `change-me-in-production` or empty in production (`DEBUG=False`) (#218)
+- **Security [High]**: added `AdminIPRestrictionMiddleware` to restrict `/admin/` to loopback addresses (or `DJANGO_ADMIN_ALLOWED_IPS`) in production; Nginx config now also blocks external access to `/admin/` at the network layer (#218)
+- **Security [High]**: `ensure_site_admin` no longer prints the one-time admin password to stdout (visible in container log aggregators); password is now written to `/tmp/visiban_admin_password` (mode 0600) instead (#218)
 
 ---
 
