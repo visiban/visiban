@@ -11,7 +11,12 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 ## Swimlanes
 
-Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane can be collapsed to save vertical space.
+Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane can be collapsed to save vertical space. When collapsed:
+
+- The row shrinks to its minimum height — the stored row min-height is ignored
+- Each column cell renders as a narrow compact box showing only the card count (empty cells show nothing)
+- The label panel shows only the swimlane name and collapse toggle; the contact email and edit button are hidden
+- Click the chevron again to expand and restore full card visibility
 
 ## Collapsed columns
 
@@ -31,7 +36,16 @@ Columns represent pipeline stages. Each column has:
 - **Weight limit** — maximum total card weight allowed. When exceeded the header turns orange
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
-Columns can be reordered by dragging the column header left or right. Hover any column header to reveal **+** buttons at its left and right edges — click either one to insert a new column immediately beside it without needing to drag-reorder afterward. Admins can also edit or delete a column by clicking its header.
+Columns can be reordered by dragging the column header left or right. Admins can also edit or delete a column by clicking its header.
+
+### Adding columns and swimlanes
+
+The 16 px separators between columns and between swimlane rows are interactive insertion handles:
+
+- **Column separators** (vertical, between columns): hover to see a centered **+**; click to insert a new column to the right; drag left/right to resize the column to the left
+- **Row separators** (horizontal, between swimlane rows): hover to see a **+** at each column's center; click to insert a new swimlane below; drag up/down to resize the swimlane above
+
+Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator — column highlight extends through every row separator, and row highlight extends across the full board width.
 
 ### Column trash zone
 

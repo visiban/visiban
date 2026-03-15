@@ -95,6 +95,27 @@ describe('SwimlaneRow', () => {
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 
+  it('collapsing swimlane hides contact email', async () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    expect(screen.getByText('a@test.com')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByTitle('Collapse'))
+    expect(screen.queryByText('a@test.com')).not.toBeInTheDocument()
+  })
+
+  it('collapsing swimlane hides edit button', async () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByTitle('Collapse'))
+    expect(screen.queryByTitle('Edit swimlane')).not.toBeInTheDocument()
+  })
+
+  it('collapsed swimlane shows nothing for empty cells', async () => {
+    const props = defaultProps()
+    props.cards = []
+    render(<SwimlaneRow {...props} />)
+    await userEvent.setup().click(screen.getByTitle('Collapse'))
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
   it('shows edit button for admin', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     expect(screen.getByTitle('Edit swimlane')).toBeInTheDocument()
