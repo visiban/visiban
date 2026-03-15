@@ -172,6 +172,12 @@ class CardMovement(models.Model):
     """
     Automatic audit log entry created whenever a card is moved between
     columns and/or swimlanes. Full pipeline movement history with timestamps.
+
+    The FK fields (from_column, to_column, from_swimlane, to_swimlane) use
+    SET_NULL so that deleting a column or swimlane does not cascade-delete the
+    movement history. The corresponding *_name fields are denormalized copies of
+    the names at write time, ensuring the human-readable history is preserved
+    even after the referenced column/swimlane is deleted.
     """
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="movements")
     from_column = models.ForeignKey(
