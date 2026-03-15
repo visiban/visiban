@@ -1,9 +1,9 @@
 """Security hardening tests: admin IP restriction middleware and SECRET_KEY guard."""
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from django.test import TestCase, RequestFactory, override_settings
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse
 from django.core.exceptions import ImproperlyConfigured
 
 from visiban.middleware import AdminIPRestrictionMiddleware
