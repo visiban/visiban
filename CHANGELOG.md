@@ -25,6 +25,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Board columns are now individually resizable by dragging the right edge separator; width is persisted per-column per-board in localStorage; cards reflow automatically as column width changes and row height adjusts to the tallest cell
 - Swimlane rows can now be reordered by dragging; `closestCenter` was resolving to cell droppables (which cover more area than the swimlane sidebar) and the drop was silently discarded — the cell ID is now mapped back to its swimlane before the sort index lookup, matching the existing fix for column reordering (#195)
 - Cell drop-target highlight no longer activates when dragging a swimlane or column (#195)
+- Newly created columns are now automatically expanded (no longer start collapsed); boards with no stored view preferences (e.g. freshly created boards) also start with all columns expanded
+- Header row z-index raised so swimlane rows scroll behind it correctly when the board is scrolled vertically
+- Swimlane names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full swimlane settings modal
+- Swimlane row height is now resizable: drag the bottom edge of any swimlane row to set a minimum height; height is persisted per-swimlane per-board in localStorage
+- Column and row separators redesigned to single hairline (from double-line): barely visible at rest, highlights blue on hover — cleaner in dense kanban layouts
+- Clicking a column separator now opens the Add Column modal (same flow as swimlane separators) rather than an inline input; drag still resizes the column to the left
 
 ### Changed
 

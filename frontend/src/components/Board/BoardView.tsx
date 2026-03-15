@@ -131,7 +131,17 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [starLoading, isStarred, board.id, onStarToggled]);
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setCardFieldPref } = useViewPrefs(board.id);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id);
+
+  // For boards with no stored view prefs (e.g. freshly created), expand all columns by default.
+  useEffect(() => {
+    const key = `board:${board.id}:view-prefs`;
+    if (!localStorage.getItem(key) && board.columns.length > 0) {
+      expandAllColumns(board.columns.map((c) => c.id));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.id]);
+
   const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
   const hiddenSwimlaneIds = new Set(viewPrefs.hiddenSwimlaneIds);
   // Collapsed = not in expandedColumnIds (compact by default; user expands explicitly)
@@ -287,6 +297,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const handleColumnAdded = useCallback((col: Column) => {
     onColumnAdded(col);
+    toggleExpandedColumn(col.id);
     if (insertPosition !== null) {
       const currentIds = board.columns.map((c) => c.id);
       const newOrder = [
@@ -296,7 +307,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       ];
       onColumnsReordered(newOrder);
     }
-  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
+  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered, toggleExpandedColumn]);
 
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
     onSwimlaneAdded(swimlane);
@@ -570,9 +581,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           */}
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
+          <div className="flex sticky top-0 z-20 border-b border-slate-700 bg-slate-800">
             {/* Corner — sticky to the left; shows board density at a glance */}
-            <div className="shrink-0 bg-slate-800 flex flex-col items-center justify-center gap-0.5 sticky left-0 z-20 px-2" style={{ width: swimlaneColWidth }}>
+            <div className="shrink-0 bg-slate-800 flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2" style={{ width: swimlaneColWidth }}>
               <span className="text-[10px] text-slate-500 font-medium tabular-nums">
                 {board.columns.length} col{board.columns.length !== 1 ? "s" : ""}
               </span>
@@ -586,13 +597,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
             {/* Far-left separator: drag resizes the swimlane sidebar; click inserts column at pos 0 */}
             <ColumnSeparator
-              boardId={board.id}
-              insertPosition={0}
               isAdmin={isAdmin}
-              onColumnAdded={(col) => {
-                onColumnAdded(col);
-                onColumnsReordered([col.id, ...board.columns.map((c) => c.id)]);
-              }}
+              onOpenAdd={() => { setInsertPosition(0); setShowAddColumn(true); }}
               currentWidth={swimlaneColWidth}
               setWidth={setSwimlaneColumnWidth}
             />
@@ -614,14 +620,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     onToggleCollapse={() => toggleExpandedColumn(col.id)}
                   />
                   <ColumnSeparator
-                    boardId={board.id}
-                    insertPosition={idx + 1}
                     isAdmin={isAdmin}
-                    onColumnAdded={(newCol) => {
-                      onColumnAdded(newCol);
-                      const ids = board.columns.map((c) => c.id);
-                      onColumnsReordered([...ids.slice(0, idx + 1), newCol.id, ...ids.slice(idx + 1)]);
-                    }}
+                    onOpenAdd={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
                     currentWidth={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
                     setWidth={(w) => setColumnWidth(col.id, w)}
                   />
@@ -629,16 +629,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               ))}
             </SortableContext>
 
-            {activeColumn ? (
-              <ColumnTrashZone />
-            ) : (
-              /* Terminal double-line end-cap — visual bookend matching the separator style */
-              <div className="w-3 shrink-0 flex items-stretch bg-slate-800">
-                <div className="w-px self-stretch bg-slate-700" />
-                <div className="flex-1" />
-                <div className="w-px self-stretch bg-slate-700" />
-              </div>
-            )}
+            {activeColumn && <ColumnTrashZone />}
           </div>
 
           {/* Empty state: no columns */}
@@ -659,49 +650,63 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {/* Swimlane rows */}
           {board.columns.length > 0 && (
             <SortableContext items={board.swimlanes.map((s) => `swim:${s.id}`)} strategy={verticalListSortingStrategy}>
-              {board.swimlanes
-                .filter((swimlane) => !hiddenSwimlaneIds.has(swimlane.id))
-                .map((swimlane, idx) => (
-            <React.Fragment key={swimlane.id}>
-              <RowSeparator
-                isAdmin={isAdmin}
-                onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
-              />
-              <SwimlaneRow
-                swimlane={swimlane}
-                sidebarWidth={swimlaneColWidth}
-                onResizeStart={handleResizeStart}
-                colWidths={colWidths}
-                columns={board.columns}
-                cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
-                boardId={board.id}
-                isAdmin={isAdmin}
-                canEdit={canEdit}
-                closeEditorOnEnter={board.close_editor_on_enter}
-                collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
-                hiddenColumnIds={hiddenColumnIds}
-                filteredCardIds={filteredCardIds}
-                selectedCardIds={selectedCardIds}
-                highlightedCardId={highlightedCardId}
-                onToggleCardSelection={toggleCardSelection}
-                onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
-                onCardAdded={onCardAdded}
-                onSwimlaneUpdated={onSwimlaneUpdated}
-                onSwimlaneDeleted={onSwimlaneDeleted}
-                hideLabels={viewPrefs.hideLabels}
-                hideDueDate={viewPrefs.hideDueDate}
-                hideAssignee={viewPrefs.hideAssignee}
-                hidePriority={viewPrefs.hidePriority}
-                userTimezone={userTimezone}
-                userDateFormat={userDateFormat}
-              />
-            </React.Fragment>
-              ))}
-              {/* Bottom row separator — append at end */}
-              <RowSeparator
-                isAdmin={isAdmin}
-                onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
-              />
+              {(() => {
+                const visible = board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id));
+                return visible.map((swimlane, idx) => (
+                  <React.Fragment key={swimlane.id}>
+                    <RowSeparator
+                      isAdmin={isAdmin}
+                      onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
+                      currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
+                      setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
+                    />
+                    <SwimlaneRow
+                      swimlane={swimlane}
+                      sidebarWidth={swimlaneColWidth}
+                      onResizeStart={handleResizeStart}
+                      colWidths={colWidths}
+                      setColumnWidth={setColumnWidth}
+                      minHeight={viewPrefs.swimlaneHeights[swimlane.id]}
+                      setSwimlaneHeight={(h) => setSwimlaneHeight(swimlane.id, h)}
+                      columns={board.columns}
+                      cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
+                      boardId={board.id}
+                      isAdmin={isAdmin}
+                      canEdit={canEdit}
+                      closeEditorOnEnter={board.close_editor_on_enter}
+                      collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
+                      hiddenColumnIds={hiddenColumnIds}
+                      filteredCardIds={filteredCardIds}
+                      selectedCardIds={selectedCardIds}
+                      highlightedCardId={highlightedCardId}
+                      onToggleCardSelection={toggleCardSelection}
+                      onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
+                      onCardAdded={onCardAdded}
+                      onSwimlaneUpdated={onSwimlaneUpdated}
+                      onSwimlaneDeleted={onSwimlaneDeleted}
+                      hideLabels={viewPrefs.hideLabels}
+                      hideDueDate={viewPrefs.hideDueDate}
+                      hideAssignee={viewPrefs.hideAssignee}
+                      hidePriority={viewPrefs.hidePriority}
+                      userTimezone={userTimezone}
+                      userDateFormat={userDateFormat}
+                    />
+                  </React.Fragment>
+                ));
+              })()}
+              {/* Bottom separator — resizes the last swimlane */}
+              {(() => {
+                const visible = board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id));
+                const last = visible[visible.length - 1];
+                return (
+                  <RowSeparator
+                    isAdmin={isAdmin}
+                    onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
+                    currentHeight={last ? (viewPrefs.swimlaneHeights[last.id] ?? undefined) : undefined}
+                    setHeight={last ? (h) => setSwimlaneHeight(last.id, h) : undefined}
+                  />
+                );
+              })()}
             </SortableContext>
           )}
 

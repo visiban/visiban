@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import Avatar from '../components/Common/Avatar'
 
 // ---------------------------------------------------------------------------
@@ -11,6 +12,17 @@ vi.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
 }))
+
+vi.mock('../api/boards', () => ({
+  updateColumn: vi.fn(),
+  updateSwimlane: vi.fn().mockResolvedValue({
+    id: 20, name: 'Renamed', contact_email: '', notes: '', position: 0,
+    color: '#6B7280', is_collapsed: false, created_at: '',
+  }),
+}))
+
+vi.mock('../components/Board/BoardCell', () => ({ default: () => <div /> }))
+vi.mock('../components/Board/EditSwimlaneModal', () => ({ default: () => <div data-testid="edit-modal" /> }))
 
 vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, transition: null, isDragging: false }),
@@ -338,5 +350,73 @@ describe('ColumnHeader', () => {
     )
     expect(screen.getByText('DON')).toBeInTheDocument()
     expect(screen.getByTitle('Expand "Done"')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SwimlaneRow — inline rename
+// ---------------------------------------------------------------------------
+
+import SwimlaneRow from '../components/Board/SwimlaneRow'
+import type { Swimlane } from '../types'
+
+function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
+  return {
+    id: 20, name: 'Customer A', contact_email: 'a@example.com', notes: '',
+    position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01',
+    ...overrides,
+  }
+}
+
+const swimlaneRowBaseProps = {
+  columns: [],
+  cards: [],
+  boardId: 1,
+  canEdit: true,
+  closeEditorOnEnter: false,
+  collapsedColumnIds: new Set<number>(),
+  filteredCardIds: null,
+  selectedCardIds: new Set<number>(),
+  onToggleCardSelection: () => {},
+  onCardClick: () => {},
+  onCardAdded: () => {},
+  onSwimlaneUpdated: () => {},
+  onSwimlaneDeleted: () => {},
+}
+
+describe('SwimlaneRow', () => {
+  it('renders the swimlane name', () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+
+  it('clicking the swimlane name shows a rename input when isAdmin', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
+    await userEvent.setup().click(screen.getByText('Customer A'))
+    const input = screen.getByRole('textbox')
+    expect(input).toBeInTheDocument()
+    expect((input as HTMLInputElement).value).toBe('Customer A')
+  })
+
+  it('does not enter rename mode when isAdmin is false', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
+    await userEvent.setup().click(screen.getByText('Customer A'))
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('pressing Escape cancels the rename', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Customer A'))
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+
+  it('edit button (✎) opens the EditSwimlaneModal when isAdmin', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
+    await userEvent.setup().click(screen.getByTitle('Edit swimlane'))
+    expect(screen.getByTestId('edit-modal')).toBeInTheDocument()
   })
 })

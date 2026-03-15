@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column, Swimlane } from "../../types";
+import { updateSwimlane } from "../../api/boards";
 import BoardCell from "./BoardCell";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 
@@ -26,6 +27,9 @@ interface Props {
   sidebarWidth?: number;
   onResizeStart?: (e: React.MouseEvent) => void;
   colWidths?: Map<number, number>;
+  setColumnWidth?: (colId: number, width: number) => void;
+  minHeight?: number;
+  setSwimlaneHeight?: (h: number) => void;
   hideLabels?: boolean;
   hideDueDate?: boolean;
   hideAssignee?: boolean;
@@ -34,9 +38,51 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, onResizeStart, colWidths, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, onResizeStart, colWidths, setColumnWidth, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const heightResizeState = useRef<{ startY: number; startHeight: number } | null>(null);
+
+  const startRenaming = () => {
+    setDraft(swimlane.name);
+    setRenaming(true);
+  };
+
+  const commitRename = async () => {
+    const trimmed = draft.trim();
+    setRenaming(false);
+    if (!trimmed || trimmed === swimlane.name) return;
+    const updated = await updateSwimlane(boardId, swimlane.id, { name: trimmed, color: swimlane.color });
+    onSwimlaneUpdated(updated);
+  };
+
+  const cancelRename = () => {
+    setRenaming(false);
+    setDraft("");
+  };
+
+  const handleHeightResizeStart = (e: React.MouseEvent) => {
+    if (!setSwimlaneHeight) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startHeight = rowRef.current ? rowRef.current.getBoundingClientRect().height : (minHeight ?? 80);
+    heightResizeState.current = { startY: e.clientY, startHeight };
+    const onMove = (ev: MouseEvent) => {
+      if (!heightResizeState.current) return;
+      setSwimlaneHeight(heightResizeState.current.startHeight + (ev.clientY - heightResizeState.current.startY));
+    };
+    const onUp = () => {
+      heightResizeState.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
 
   const {
     setNodeRef,
@@ -50,9 +96,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
   return (
     <>
       <div
-        ref={setNodeRef}
-        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
-        className="flex border-b border-slate-700 bg-slate-800"
+        ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
+        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: minHeight ?? undefined }}
+        className="relative flex border-b border-slate-700 bg-slate-800"
       >
         {/* Swimlane label — sticky to the left */}
         <div
@@ -72,7 +118,29 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           )}
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{swimlane.name}</p>
+            {renaming ? (
+              <input
+                ref={inputRef}
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); commitRename(); }
+                  if (e.key === "Escape") { e.preventDefault(); cancelRename(); }
+                }}
+                onBlur={commitRename}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full text-sm font-semibold bg-slate-900 text-white border border-blue-500 rounded px-1 py-0 outline-none"
+              />
+            ) : (
+              <p
+                className={`text-sm font-semibold text-white truncate ${isAdmin ? "cursor-text hover:text-blue-200" : ""}`}
+                title={isAdmin ? "Click to rename" : swimlane.name}
+                onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
+              >
+                {swimlane.name}
+              </p>
+            )}
             <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -106,12 +174,37 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const cellCount = cellCards.length;
           const cellWidth = colWidths?.get(col.id) ?? 220;
 
-          // Visual cell separator matching column separator in header (no interaction)
+          // Interactive cell separator — drag resizes the column to the left
+          const handleSepMouseDown = setColumnWidth
+            ? (e: React.MouseEvent) => {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startWidth = cellWidth;
+                let dragging = false;
+                const onMove = (ev: MouseEvent) => {
+                  const delta = ev.clientX - startX;
+                  if (!dragging && Math.abs(delta) > 4) dragging = true;
+                  if (dragging) setColumnWidth(col.id, startWidth + delta);
+                };
+                const onUp = () => {
+                  window.removeEventListener("mousemove", onMove);
+                  window.removeEventListener("mouseup", onUp);
+                };
+                window.addEventListener("mousemove", onMove);
+                window.addEventListener("mouseup", onUp);
+              }
+            : undefined;
+
           const sep = (
-            <div key={`sep-${col.id}`} className="shrink-0 flex items-stretch" style={{ width: 16 }}>
-              <div className="w-px self-stretch bg-slate-700" />
-              <div className="flex-1" />
-              <div className="w-px self-stretch bg-slate-700" />
+            <div
+              key={`sep-${col.id}`}
+              className={`shrink-0 flex items-stretch select-none ${setColumnWidth ? "cursor-col-resize" : ""}`}
+              style={{ width: 16 }}
+              onMouseDown={handleSepMouseDown}
+            >
+              <div className="w-px self-stretch bg-slate-600/70" />
+              <div className="flex-1 bg-slate-900/70" />
+              <div className="w-px self-stretch bg-slate-600/70" />
             </div>
           );
 
@@ -187,12 +280,13 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </div>
           );
         })}
-        {/* Terminal end-cap matching the header's double-line bookend */}
-        {!collapsed && (
-          <div className="w-3 shrink-0 flex items-stretch">
-            <div className="w-px self-stretch bg-slate-700" />
-            <div className="flex-1" />
-            <div className="w-px self-stretch bg-slate-700" />
+        {/* Bottom resize handle — drag to set row min-height */}
+        {setSwimlaneHeight && (
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-blue-400/20 transition-colors group/resize"
+            onMouseDown={handleHeightResizeStart}
+          >
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-blue-400/0 group-hover/resize:bg-blue-400/40 transition-colors" />
           </div>
         )}
       </div>
