@@ -730,10 +730,10 @@ seed-demo-data:
   script:
     - cd backend
     - python manage.py seed_demo_data --wipe --force
-  allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SEED_SCHEDULE == "true"'
     - when: manual
+      allow_failure: true
 
 # ─── Seed export drift check ──────────────────────────────────────────────────
 #
