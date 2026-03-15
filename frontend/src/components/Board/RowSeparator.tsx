@@ -9,11 +9,9 @@ interface Props {
   currentHeight?: number;
   /** Called continuously while dragging to resize the swimlane above. */
   setHeight?: (h: number) => void;
-  /** Called when the separator gains or loses hover — lets the parent highlight the adjacent row. */
-  onHoverChange?: (hovered: boolean) => void;
 }
 
-export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight, onHoverChange }: Props) {
+export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight }: Props) {
   const [hovered, setHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startY: number; startHeight: number; dragging: boolean } | null>(null);
@@ -58,27 +56,24 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center select-none"
-      style={{ height: 8 }}
-      onMouseEnter={() => { setHovered(true); onHoverChange?.(true); }}
-      onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
+      className={`relative flex flex-col select-none w-full ${canResize ? "cursor-row-resize" : isAdmin ? "cursor-pointer" : ""}`}
+      style={{ height: 16 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onMouseDown={handleMouseDown}
     >
-      {/* Single hairline */}
-      <div className={`w-full h-px transition-colors ${hovered && isAdmin ? "bg-blue-400/50" : "bg-slate-700/50"}`} />
+      {/* Top line */}
+      <div className={`w-full h-px transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+      {/* Dark gap middle — mirrors ColumnSeparator */}
+      <div className={`flex-1 w-full transition-colors ${hovered ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
+      {/* Bottom line */}
+      <div className={`w-full h-px transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
 
-      {/* Multiple "+" signs spread horizontally — makes click intent obvious */}
+      {/* Single "+" centered — mirrors ColumnSeparator */}
       {isAdmin && hovered && (
-        <div className="absolute inset-0 flex items-center justify-around px-8 pointer-events-none">
-          {[0, 1, 2].map((i) => (
-            <span key={i} className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-1 rounded-sm">+</span>
-          ))}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
         </div>
-      )}
-
-      {/* Cursor */}
-      {isAdmin && (
-        <div className={`absolute inset-0 ${canResize ? "cursor-row-resize" : "cursor-pointer"}`} />
       )}
     </div>
   );

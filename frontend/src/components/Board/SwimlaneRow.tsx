@@ -32,8 +32,6 @@ interface Props {
   /** Which column separator index (0-based from left) is currently hovered — for full-height highlight. */
   hoveredSepIndex?: number | null;
   onSepHoverChange?: (idx: number | null) => void;
-  /** When true the whole row gets a subtle highlight (row separator hover). */
-  rowHighlighted?: boolean;
   minHeight?: number;
   setSwimlaneHeight?: (h: number) => void;
   hideLabels?: boolean;
@@ -44,7 +42,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, rowHighlighted, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -104,7 +102,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       <div
         ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
         style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: minHeight ?? undefined }}
-        className={`relative flex border-b border-slate-700 transition-colors ${rowHighlighted ? "bg-slate-700" : "bg-slate-800"}`}
+        className="relative flex border-b border-slate-700 bg-slate-800"
       >
         {/* Swimlane label — sticky to the left */}
         <div
