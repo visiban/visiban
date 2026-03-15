@@ -571,16 +571,17 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
-            {/* Corner — sticky to the left */}
-            <div className="shrink-0 bg-slate-800 flex items-center justify-center sticky left-0 z-20" style={{ width: swimlaneColWidth }}>
-              {isAdmin && (
-                <button
-                  onClick={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
-                  className="text-xs text-slate-400 hover:text-white transition px-2 py-1 rounded"
-                >
-                  + Swimlane
-                </button>
-              )}
+            {/* Corner — sticky to the left; shows board density at a glance */}
+            <div className="shrink-0 bg-slate-800 flex flex-col items-center justify-center gap-0.5 sticky left-0 z-20 px-2" style={{ width: swimlaneColWidth }}>
+              <span className="text-[10px] text-slate-500 font-medium tabular-nums">
+                {board.columns.length} col{board.columns.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium tabular-nums">
+                {board.swimlanes.length} lane{board.swimlanes.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-[10px] text-slate-600 tabular-nums">
+                {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
+              </span>
             </div>
 
             {/* Far-left separator: drag resizes the swimlane sidebar; click inserts column at pos 0 */}
@@ -631,15 +632,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             {activeColumn ? (
               <ColumnTrashZone />
             ) : (
-              <div className="w-20 shrink-0 flex items-center px-2 bg-slate-800 border-l border-slate-700">
-                {isAdmin && (
-                  <button
-                    onClick={() => setShowAddColumn(true)}
-                    className="text-xs text-slate-400 hover:text-slate-200 whitespace-nowrap px-2 py-1 rounded hover:bg-slate-700 transition"
-                  >
-                    + Col
-                  </button>
-                )}
+              /* Terminal double-line end-cap — visual bookend matching the separator style */
+              <div className="w-3 shrink-0 flex items-stretch bg-slate-800">
+                <div className="w-px self-stretch bg-slate-700" />
+                <div className="flex-1" />
+                <div className="w-px self-stretch bg-slate-700" />
               </div>
             )}
           </div>

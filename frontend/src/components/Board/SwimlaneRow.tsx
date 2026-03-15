@@ -187,8 +187,14 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </div>
           );
         })}
-        {/* Spacer matching the fixed-width "+ Col" button in the header */}
-        {!collapsed && <div className="w-20 shrink-0" />}
+        {/* Terminal end-cap matching the header's double-line bookend */}
+        {!collapsed && (
+          <div className="w-3 shrink-0 flex items-stretch">
+            <div className="w-px self-stretch bg-slate-700" />
+            <div className="flex-1" />
+            <div className="w-px self-stretch bg-slate-700" />
+          </div>
+        )}
       </div>
 
       {isAdmin && editing && (

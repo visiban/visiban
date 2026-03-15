@@ -222,22 +222,10 @@ describe('BoardView', () => {
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
   })
 
-  it('renders + Col button for admin', () => {
+  it('renders board density stats in the corner cell', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('+ Col')).toBeInTheDocument()
-  })
-
-  it('renders + Swimlane button for admin', () => {
-    render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('+ Swimlane')).toBeInTheDocument()
-  })
-
-  it('hides + Col and + Swimlane for viewer', () => {
-    const props = defaultProps()
-    props.board = makeBoard({ current_user_role: 'viewer' })
-    render(<BoardView {...props} />)
-    expect(screen.queryByText('+ Col')).not.toBeInTheDocument()
-    expect(screen.queryByText('+ Swimlane')).not.toBeInTheDocument()
+    expect(screen.getByText(/col/)).toBeInTheDocument()
+    expect(screen.getByText(/lane/)).toBeInTheDocument()
   })
 
   it('renders ? keyboard shortcuts button', () => {
