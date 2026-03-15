@@ -137,7 +137,6 @@ export function useBoard() {
 
   const reorderSwimlanes = useCallback(async (orderedIds: number[]) => {
     if (!board) return;
-    const prev = board.swimlanes;
     setBoard((b) => {
       if (!b) return b;
       const map = new Map(b.swimlanes.map((s) => [s.id, s]));
@@ -147,9 +146,12 @@ export function useBoard() {
       const updated = await apiReorderSwimlanes(boardId, orderedIds);
       setBoard((b) => b ? { ...b, swimlanes: updated } : b);
     } catch {
-      setBoard((b) => b ? { ...b, swimlanes: prev } : b);
+      // Re-fetch on failure rather than rolling back to a stale snapshot.
+      // A stale snapshot (captured before addSwimlane ran) would drop any
+      // swimlane added in the same batch, even though it was persisted.
+      load();
     }
-  }, [board, boardId]);
+  }, [board, boardId, load]);
 
   const updateSwimlane = useCallback((swimlane: Swimlane) => {
     setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.map((s) => s.id === swimlane.id ? swimlane : s) } : b);

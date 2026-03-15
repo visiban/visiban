@@ -290,7 +290,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
     onSwimlaneAdded(swimlane);
     if (insertSwimlanePosition !== null) {
-      const currentIds = board.swimlanes.map((s) => s.id);
+      // Filter the new swimlane's ID out of currentIds before splicing it in.
+      // If the WS `swimlane.created` event fires before the API response,
+      // board.swimlanes may already contain the new swimlane, which would
+      // produce a duplicate in newOrder and corrupt the board state.
+      const currentIds = board.swimlanes.filter((s) => s.id !== swimlane.id).map((s) => s.id);
       const newOrder = [
         ...currentIds.slice(0, insertSwimlanePosition),
         swimlane.id,
