@@ -129,7 +129,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [starLoading, isStarred, board.id, onStarToggled]);
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setCardFieldPref } = useViewPrefs(board.id);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setCardFieldPref } = useViewPrefs(board.id);
   const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
   const hiddenSwimlaneIds = new Set(viewPrefs.hiddenSwimlaneIds);
   // Collapsed = not in expandedColumnIds (compact by default; user expands explicitly)
@@ -326,6 +326,27 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
     return result;
   }, [board.columns])();
+
+  // Resizable swimlane name column
+  const swimlaneColWidth = viewPrefs.swimlaneColumnWidth;
+  const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeState.current = { startX: e.clientX, startWidth: swimlaneColWidth };
+    const onMove = (ev: MouseEvent) => {
+      if (!resizeState.current) return;
+      const delta = ev.clientX - resizeState.current.startX;
+      setSwimlaneColumnWidth(resizeState.current.startWidth + delta);
+    };
+    const onUp = () => {
+      resizeState.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [swimlaneColWidth, setSwimlaneColumnWidth]);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
   // so that cell droppables don't steal hits from col: or swim: sortable targets.
@@ -539,7 +560,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
             {/* Corner — also sticky to the left */}
-            <div className="w-[220px] shrink-0 bg-slate-800 flex items-center justify-center sticky left-0 z-20">
+            <div className="shrink-0 bg-slate-800 flex items-center justify-center sticky left-0 z-20 relative" style={{ width: swimlaneColWidth }}>
+              {/* Resize handle */}
+              <div
+                onMouseDown={handleResizeStart}
+                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors z-30"
+                title="Drag to resize swimlane column"
+              />
               {isAdmin && (
                 <button
                   onClick={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
@@ -610,6 +637,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             <SwimlaneRow
               key={swimlane.id}
               swimlane={swimlane}
+              sidebarWidth={swimlaneColWidth}
               columns={board.columns}
               cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
               boardId={board.id}
@@ -667,7 +695,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             </div>
           )}
           {activeSwimlane && (
-            <div className="w-[220px] px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90 flex items-center gap-2">
+            <div className="px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90 flex items-center gap-2" style={{ width: swimlaneColWidth }}>
               <span className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: activeSwimlane.color }} />
               <span className="font-semibold text-white text-sm truncate">{activeSwimlane.name}</span>
             </div>

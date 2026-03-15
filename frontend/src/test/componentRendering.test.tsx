@@ -336,7 +336,7 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(screen.getByText('Done')).toBeInTheDocument()
+    expect(screen.getByText('DON')).toBeInTheDocument()
     expect(screen.getByTitle('Expand "Done"')).toBeInTheDocument()
   })
 })

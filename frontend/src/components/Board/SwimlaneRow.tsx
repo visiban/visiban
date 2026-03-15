@@ -25,6 +25,7 @@ interface Props {
   onSwimlaneDeleted: (swimlaneId: number) => void;
   onInsertAbove?: () => void;
   onInsertBelow?: () => void;
+  sidebarWidth?: number;
   hideLabels?: boolean;
   hideDueDate?: boolean;
   hideAssignee?: boolean;
@@ -33,7 +34,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, sidebarWidth, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -55,8 +56,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className="w-[220px] shrink-0 flex items-start gap-2 pl-1 pr-3 py-3 sticky left-0 z-10 bg-slate-800 border-r border-slate-700 border-l-[3px] group relative"
-          style={{ borderLeftColor: swimlane.color || "transparent" }}
+          className="shrink-0 flex items-start gap-2 pl-1 pr-3 py-3 sticky left-0 z-10 bg-slate-800 border-r border-slate-700 border-l-[3px] group relative"
+          style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
         >
           {/* Insert above button */}
           {isAdmin && onInsertAbove && (

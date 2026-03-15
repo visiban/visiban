@@ -5,6 +5,7 @@ export interface ViewPrefs {
   hiddenSwimlaneIds: number[];
   // Columns the user has explicitly expanded. All others are collapsed (compact by default).
   expandedColumnIds: number[];
+  swimlaneColumnWidth: number;
   hideLabels: boolean;
   hideDueDate: boolean;
   hideAssignee: boolean;
@@ -15,6 +16,7 @@ const DEFAULT_PREFS: ViewPrefs = {
   hiddenColumnIds: [],
   hiddenSwimlaneIds: [],
   expandedColumnIds: [],
+  swimlaneColumnWidth: 220,
   hideLabels: false,
   hideDueDate: false,
   hideAssignee: false,
@@ -34,6 +36,7 @@ function load(boardId: number): ViewPrefs {
       hiddenColumnIds: Array.isArray(parsed.hiddenColumnIds) ? parsed.hiddenColumnIds : [],
       hiddenSwimlaneIds: Array.isArray(parsed.hiddenSwimlaneIds) ? parsed.hiddenSwimlaneIds : [],
       expandedColumnIds: Array.isArray(parsed.expandedColumnIds) ? parsed.expandedColumnIds : [],
+      swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" ? parsed.swimlaneColumnWidth : 220,
       hideLabels: typeof parsed.hideLabels === "boolean" ? parsed.hideLabels : false,
       hideDueDate: typeof parsed.hideDueDate === "boolean" ? parsed.hideDueDate : false,
       hideAssignee: typeof parsed.hideAssignee === "boolean" ? parsed.hideAssignee : false,
@@ -90,6 +93,11 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
+  const setSwimlaneColumnWidth = useCallback(
+    (width: number) => setPrefs((prev) => ({ ...prev, swimlaneColumnWidth: Math.max(56, Math.min(400, width)) })),
+    [setPrefs],
+  );
+
   const expandAllColumns = useCallback(
     (columnIds: number[]) => setPrefs((prev) => ({ ...prev, expandedColumnIds: columnIds })),
     [setPrefs],
@@ -119,5 +127,5 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
-  return { prefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setCardFieldPref };
+  return { prefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setCardFieldPref };
 }
