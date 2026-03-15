@@ -10,12 +10,20 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 
 ## Swimlanes
 
-Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane can be collapsed to save vertical space. When collapsed:
+Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane's label panel has a 4 px color stripe on its left edge (matching the swimlane's assigned color), making it easy to identify swimlanes at a glance even when the board is dense.
+
+The swimlane label sidebar is resizable: drag its right edge to set the width (minimum ~56 px, maximum 400 px). Width is persisted per-board in localStorage.
+
+Each swimlane row height is resizable: drag the bottom edge of any swimlane row to set a minimum height. Height is persisted per-swimlane per-board in localStorage.
+
+Each swimlane can be collapsed to save vertical space. Click the chevron on the label panel to toggle. When collapsed:
 
 - The row shrinks to its minimum height — the stored row min-height is ignored
 - Each column cell renders as a narrow compact box showing only the card count (empty cells show nothing)
 - The label panel shows only the swimlane name and collapse toggle; the contact email and edit button are hidden
 - Click the chevron again to expand and restore full card visibility
+
+Admins can double-click the swimlane label to open the Edit Swimlane modal.
 
 ## Collapsed columns
 
@@ -35,7 +43,7 @@ Columns represent pipeline stages. Each column has:
 - **Weight limit** — maximum total card weight allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
-Columns can be reordered by dragging the column header left or right. Admins can also edit or delete a column by clicking its header.
+Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone.
 
 ### Adding columns and swimlanes
 
@@ -46,13 +54,17 @@ The 16 px separators between columns and between swimlane rows are interactive i
 
 Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator — column highlight extends through every row separator, and row highlight extends across the full board width.
 
+The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the swimlane label sidebar on drag.
+
 ### Column trash zone
 
 When dragging a column, a red **Delete** drop target appears at the right edge of the board. Drop the column on it to delete it. A confirmation dialog shows the number of cards that will be lost before proceeding.
 
 ## Cards
 
-Cards are displayed as compact tiles with a full colored border indicating priority. Hovering over a card expands it inline to show additional metadata without opening the detail panel. Cards communicate their full status at a glance — priority badge (medium and above), assignee avatar, label pills, checklist progress, and due date are visible directly on the card face.
+Cards are displayed as compact tiles with a full colored border indicating priority. Cards communicate their full status at a glance — a filled priority badge (medium and above) in a color matching the border, assignee avatar, label pills showing truncated names (up to 7 characters), checklist progress, and due date are visible directly on the card face. Overdue due dates are shown in red. If a cell contains 2 or more cards, a faint card count badge appears in its top-right corner.
+
+Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.
 
 Click a card to open its **detail panel** on the right side. The panel contains all editable fields plus two tabs:
 
@@ -65,10 +77,10 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 |---|---|
 | Title | Required |
 | Description | Markdown-friendly text |
-| Priority | `low` / `medium` / `high` / `urgent` — shown as a colored left border |
+| Priority | `low` / `medium` / `high` / `urgent` — shown as a full colored border and a filled badge on the card face (low is unmarked) |
 | Assignee | Any board member |
-| Labels | Board-scoped, multi-select |
-| Due date | Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late") |
+| Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
+| Due date | Optional date; past dates are disabled in the picker; shown as relative text on the card ("Today", "Tomorrow", "3d", "2d late"); overdue dates appear in red |
 | Weight | Numeric effort estimate (default 1) |
 | Checklist | Sub-tasks with checked/unchecked state |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE`) |
