@@ -26,6 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Security [High]**: Django raises `ImproperlyConfigured` at startup when `DJANGO_SECRET_KEY` is left as `change-me-in-production` or empty in production (`DEBUG=False`) (#218)
 - **Security [High]**: added `AdminIPRestrictionMiddleware` to restrict `/admin/` to loopback addresses (or `DJANGO_ADMIN_ALLOWED_IPS`) in production; Nginx config now also blocks external access to `/admin/` at the network layer (#218)
 - **Security [High]**: `ensure_site_admin` no longer prints the one-time admin password to stdout (visible in container log aggregators); password is now written to `/tmp/visiban_admin_password` (mode 0600) instead (#218)
+- Inserting a swimlane at a specific position no longer produces a duplicate entry when the real-time event arrives before the API response; a failed reorder API call no longer silently drops a newly-created swimlane from the board (#223)
 
 ---
 

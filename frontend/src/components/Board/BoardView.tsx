@@ -250,9 +250,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           card.labels.some((l) => l.name.toLowerCase().includes(q));
         if (!matches) return false;
       }
-      if (filters.assigneeId !== null) {
-        if (filters.assigneeId === -1 && card.assignee !== null) return false;
-        if (filters.assigneeId !== -1 && card.assignee?.id !== filters.assigneeId) return false;
+      if (filters.assigneeIds.length > 0) {
+        const matches = filters.assigneeIds.some((id) =>
+          id === -1 ? card.assignee === null : card.assignee?.id === id
+        );
+        if (!matches) return false;
       }
       if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
       if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;
@@ -290,7 +292,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
     onSwimlaneAdded(swimlane);
     if (insertSwimlanePosition !== null) {
-      const currentIds = board.swimlanes.map((s) => s.id);
+      // Filter the new swimlane's ID out of currentIds before splicing it in.
+      // If the WS `swimlane.created` event fires before the API response,
+      // board.swimlanes may already contain the new swimlane, which would
+      // produce a duplicate in newOrder and corrupt the board state.
+      const currentIds = board.swimlanes.filter((s) => s.id !== swimlane.id).map((s) => s.id);
       const newOrder = [
         ...currentIds.slice(0, insertSwimlanePosition),
         swimlane.id,
