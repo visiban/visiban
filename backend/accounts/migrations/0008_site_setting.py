@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='SiteSetting',
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('require_invite_for_registration', models.BooleanField(
                     default=False,
                     help_text=(

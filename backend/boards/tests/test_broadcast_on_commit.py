@@ -26,7 +26,7 @@ class CardCreatedBroadcastOnCommitTests(TestCase):
         self.user = User.objects.create_user(username="tester", password="pass")
         self.client.force_authenticate(self.user)
         self.board = make_board(self.user)
-        self.col = Column.objects.create(board=self.board, name="Backlog", position=0)
+        self.col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
         self.swim = Swimlane.objects.create(board=self.board, name="Acme", position=0)
 
     def test_card_created_broadcast_fires_after_commit(self):
