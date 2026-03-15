@@ -20,6 +20,7 @@ export default function JoinPage({ user }: Props) {
   const [joining, setJoining] = useState(false);
   const [invalid, setInvalid] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(5);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean } | null>(null);
 
   useEffect(() => {
@@ -29,6 +30,13 @@ export default function JoinPage({ user }: Props) {
       .catch(() => setInvalid(true))
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!invalid) return;
+    if (countdown <= 0) { navigate("/"); return; }
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [invalid, countdown, navigate]);
 
   useEffect(() => {
     if (!user) {
@@ -76,11 +84,9 @@ export default function JoinPage({ user }: Props) {
         <div className="text-center">
           <p className="text-red-400 text-lg font-medium mb-2">Invalid or expired invite link</p>
           <p className="text-slate-500 text-sm">This link may have been revoked or has expired.</p>
-          {user && (
-            <button onClick={() => navigate("/")} className="mt-4 text-blue-400 hover:text-blue-300 text-sm">
-              Go to dashboard
-            </button>
-          )}
+          <p className="text-slate-600 text-xs mt-3">
+            Redirecting to dashboard in {countdown}s…
+          </p>
         </div>
       </div>
     );
