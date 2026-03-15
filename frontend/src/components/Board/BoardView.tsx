@@ -320,6 +320,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   // Resizable swimlane name column
   const swimlaneColWidth = viewPrefs.swimlaneColumnWidth;
+
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
 
   // Resizable board columns
@@ -331,6 +332,24 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
     return map;
   }, [board.columns, viewPrefs.columnWidths]);
+
+  // X position of the currently-hovered column separator within the scrollable area.
+  // Layout: sidebar(W) | sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
+  // sep[i] left = W + i*16 + sum(colWidth[j] for j in 0..i-1)
+  const hoveredSepX = useMemo(() => {
+    if (hoveredSepIndex === null) return null;
+    let x = swimlaneColWidth;
+    for (let i = 0; i < hoveredSepIndex; i++) {
+      x += 16; // separator width
+      if (i < board.columns.length) {
+        const col = board.columns[i];
+        x += (hiddenColumnIds.has(col.id) || !expandedColumnIds.has(col.id))
+          ? 40
+          : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
+      }
+    }
+    return x;
+  }, [hoveredSepIndex, swimlaneColWidth, board.columns, hiddenColumnIds, expandedColumnIds, colWidths]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -633,6 +652,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
                       currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
                       setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
+                      hoveredSepX={hoveredSepX}
                     />
                     <SwimlaneRow
                       swimlane={swimlane}
@@ -684,6 +704,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
                     currentHeight={last ? (viewPrefs.swimlaneHeights[last.id] ?? undefined) : undefined}
                     setHeight={last ? (h) => setSwimlaneHeight(last.id, h) : undefined}
+                    hoveredSepX={hoveredSepX}
                   />
                 );
               })()}

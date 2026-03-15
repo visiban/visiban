@@ -9,9 +9,11 @@ interface Props {
   currentHeight?: number;
   /** Called continuously while dragging to resize the swimlane above. */
   setHeight?: (h: number) => void;
+  /** X offset (px) of the currently-hovered column separator — renders the column strip through this row. */
+  hoveredSepX?: number | null;
 }
 
-export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight }: Props) {
+export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight, hoveredSepX }: Props) {
   const [hovered, setHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startY: number; startHeight: number; dragging: boolean } | null>(null);
@@ -73,6 +75,15 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
       {isAdmin && hovered && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
+        </div>
+      )}
+
+      {/* Column separator continuation — keeps the highlighted column strip unbroken through this row */}
+      {hoveredSepX != null && (
+        <div className="absolute inset-y-0 flex pointer-events-none" style={{ left: hoveredSepX, width: 16 }}>
+          <div className="w-px self-stretch bg-blue-400/50" />
+          <div className="flex-1 bg-blue-400/5" />
+          <div className="w-px self-stretch bg-blue-400/50" />
         </div>
       )}
     </div>
