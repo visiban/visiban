@@ -40,10 +40,6 @@ class LabelSerializer(serializers.ModelSerializer):
 
 class CardMovementSerializer(serializers.ModelSerializer):
     moved_by = UserSerializer(read_only=True)
-    from_column_name = serializers.CharField(source="from_column.name", default=None)
-    to_column_name = serializers.CharField(source="to_column.name", default=None)
-    from_swimlane_name = serializers.CharField(source="from_swimlane.name", default=None)
-    to_swimlane_name = serializers.CharField(source="to_swimlane.name", default=None)
 
     class Meta:
         model = CardMovement

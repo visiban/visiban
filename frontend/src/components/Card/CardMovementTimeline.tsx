@@ -61,7 +61,11 @@ function activityLabel(a: CardActivity): { line1: string; detail?: string } {
 function ColumnName({ id, name, columnIds }: { id: number | null; name: string | null; columnIds?: Set<number> }) {
   if (!name) return <></>;
 
-  const isDeleted = id !== null && columnIds !== undefined && !columnIds.has(id);
+  // Deleted if FK was nulled out (id=null) but name was preserved,
+  // or FK still set but column no longer in the live board.
+  const isDeleted =
+    (id === null && name !== "") ||
+    (id !== null && columnIds !== undefined && !columnIds.has(id));
   if (isDeleted) {
     return <span className="italic text-red-400" title="This column has been deleted">Deleted — {name}</span>;
   }

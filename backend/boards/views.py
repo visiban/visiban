@@ -971,9 +971,13 @@ class CardViewSet(viewsets.ModelViewSet):
             CardMovement.objects.create(
                 card=card,
                 from_column=None,
+                from_column_name="",
                 from_swimlane=None,
+                from_swimlane_name="",
                 to_column=column,
+                to_column_name=column.name,
                 to_swimlane=swimlane,
+                to_swimlane_name=swimlane.name,
                 moved_by=self.request.user,
                 notes="Card created",
             )
@@ -1093,9 +1097,13 @@ class CardViewSet(viewsets.ModelViewSet):
             movement = CardMovement.objects.create(
                 card=card,
                 from_column=card.column,
+                from_column_name=card.column.name,
                 to_column=target_column,
+                to_column_name=target_column.name,
                 from_swimlane=card.swimlane,
+                from_swimlane_name=card.swimlane.name,
                 to_swimlane=target_swimlane,
+                to_swimlane_name=target_swimlane.name,
                 moved_by=request.user,
             )
 

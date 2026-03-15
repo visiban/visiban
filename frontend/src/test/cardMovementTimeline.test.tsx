@@ -119,6 +119,20 @@ describe('CardMovementTimeline', () => {
     })
   })
 
+  it('shows deleted column name in italic red when column id is null but name is preserved (FK nulled by backend)', async () => {
+    // This covers the real-world case: column deleted → FK set to null by DB,
+    // but to_column_name is preserved as a model field.
+    mockGetMovements.mockResolvedValue([
+      { id: 1, from_column: 10, from_column_name: 'To Do', to_column: null, to_column_name: 'Deleted Col', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
+    ])
+    mockGetActivities.mockResolvedValue([])
+    render(<CardMovementTimeline boardId={1} cardId={1} columnIds={new Set([10])} />)
+    await waitFor(() => {
+      const deleted = screen.getByTitle('This column has been deleted')
+      expect(deleted.textContent).toBe('Deleted — Deleted Col')
+    })
+  })
+
   it('shows column name normally when column still exists', async () => {
     mockGetMovements.mockResolvedValue([
       { id: 1, from_column: 10, from_column_name: 'To Do', to_column: 11, to_column_name: 'In Progress', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },

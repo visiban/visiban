@@ -186,6 +186,10 @@ class CardMovement(models.Model):
     to_swimlane = models.ForeignKey(
         Swimlane, on_delete=models.SET_NULL, null=True, related_name="+"
     )
+    from_column_name = models.CharField(max_length=255, blank=True, default="")
+    to_column_name = models.CharField(max_length=255, blank=True, default="")
+    from_swimlane_name = models.CharField(max_length=255, blank=True, default="")
+    to_swimlane_name = models.CharField(max_length=255, blank=True, default="")
     moved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )

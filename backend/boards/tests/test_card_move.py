@@ -166,3 +166,35 @@ class CardMoveTests(TestCase):
         data = resp.json()
         self.assertIn("card", data)
         self.assertNotIn("movement", data)
+
+    def test_movement_stores_denormalized_column_names(self):
+        resp = self.client.post(self._move_url(), {
+            "column_id": self.col_b.pk,
+            "swimlane_id": self.swim_x.pk,
+            "position": 0,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        movement = CardMovement.objects.get(card=self.card)
+        self.assertEqual(movement.from_column_name, self.col_a.name)
+        self.assertEqual(movement.to_column_name, self.col_b.name)
+        self.assertEqual(movement.from_swimlane_name, self.swim_x.name)
+        self.assertEqual(movement.to_swimlane_name, self.swim_x.name)
+
+    def test_movement_api_returns_names_after_column_deleted(self):
+        """Names must survive column deletion — the key regression being fixed."""
+        col_b_name = self.col_b.name
+        self.client.post(self._move_url(), {
+            "column_id": self.col_b.pk,
+            "swimlane_id": self.swim_x.pk,
+            "position": 0,
+        })
+        # Delete the destination column (simulates the bug scenario)
+        self.col_b.delete()
+
+        resp = self.client.get(
+            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/movements/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        movements = resp.json()
+        move = next(m for m in movements if m["to_column"] is None)
+        self.assertEqual(move["to_column_name"], col_b_name)
