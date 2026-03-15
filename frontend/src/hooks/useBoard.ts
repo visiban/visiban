@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, updateBoard as apiUpdateBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
@@ -7,6 +7,7 @@ import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
 export function useBoard() {
   const { id } = useParams<{ id: string }>();
   const boardId = Number(id);
+  const navigate = useNavigate();
   const [board, setBoard] = useState<BoardFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,9 +16,16 @@ export function useBoard() {
     setLoading(true);
     getBoardFull(boardId)
       .then(setBoard)
-      .catch(() => setError("Failed to load board"))
+      .catch((err) => {
+        if (err?.response?.status === 404 || err?.response?.status === 403) {
+          // Board doesn't exist or user lost access — go back to dashboard.
+          navigate("/", { replace: true });
+        } else {
+          setError("Failed to load board");
+        }
+      })
       .finally(() => setLoading(false));
-  }, [boardId]);
+  }, [boardId, navigate]);
 
   useEffect(() => { load(); }, [load]);
 
