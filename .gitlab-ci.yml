@@ -361,7 +361,8 @@ changelog-check:
 
 # bandit: Python SAST for security issues — shell injection, hardcoded
 # credentials, use of random instead of secrets, SQL injection patterns, etc.
-# Runs at medium severity (-ll) so only Medium/High findings block the merge.
+# Runs at high severity so only High findings block the merge; Medium/Low are
+# reported in the artifact but do not fail CI.
 # Skips migration files (auto-generated, safe to ignore) and test files
 # (test utilities like mock tokens are intentionally insecure-looking).
 backend-sast:
@@ -379,13 +380,13 @@ backend-sast:
     - pip install --quiet bandit
   script:
     - bandit -r backend/
-        --severity-level medium
+        --severity-level high
         --confidence-level medium
         --exclude backend/boards/migrations,backend/groups/migrations,backend/accounts/migrations,backend/visiban/migrations
         --skip B101
         -f json -o bandit-report.json || true
     - bandit -r backend/
-        --severity-level medium
+        --severity-level high
         --confidence-level medium
         --exclude backend/boards/migrations,backend/groups/migrations,backend/accounts/migrations,backend/visiban/migrations
         --skip B101

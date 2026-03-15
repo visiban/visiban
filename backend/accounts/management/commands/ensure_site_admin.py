@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 # The password file path can be overridden via env var for environments where
 # /tmp is not appropriate (e.g. read-only container filesystems).
-_PASSWORD_FILE = os.environ.get("VISIBAN_ADMIN_PASSWORD_FILE", "/tmp/visiban_admin_password")
+_PASSWORD_FILE = os.environ.get("VISIBAN_ADMIN_PASSWORD_FILE", "/tmp/visiban_admin_password")  # nosec B108 — /tmp default is intentional for dev; production must set VISIBAN_ADMIN_PASSWORD_FILE
 
 
 class Command(BaseCommand):
