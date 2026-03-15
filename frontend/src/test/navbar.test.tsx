@@ -17,8 +17,10 @@ vi.mock('../api/auth', () => ({
 }))
 
 import { getUnreadCount } from '../api/notifications'
+import { getVersion } from '../api/auth'
 
 const mockGetUnreadCount = getUnreadCount as ReturnType<typeof vi.fn>
+const mockGetVersion = getVersion as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -96,8 +98,14 @@ describe('Navbar', () => {
     expect(await screen.findByText('9+')).toBeInTheDocument()
   })
 
-  it('shows version number', async () => {
+  it('shows version badge for dev builds only', async () => {
+    mockGetVersion.mockResolvedValue('dev')
     renderNavbar()
-    expect(await screen.findByText('0.3.0')).toBeInTheDocument()
+    expect(await screen.findByText('dev')).toBeInTheDocument()
+  })
+
+  it('hides version badge for versioned builds', async () => {
+    renderNavbar()
+    expect(screen.queryByText('0.3.0')).not.toBeInTheDocument()
   })
 })

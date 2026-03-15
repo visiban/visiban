@@ -10,6 +10,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Replaced all `gray-*` Tailwind tokens with `slate-*` equivalents across Dashboard, Settings, BoardView, SwimlaneRow, BoardCell, and BulkActionToolbar to eliminate the warm/cool color mismatch on adjacent surfaces (#184, #158)
+- Filter active-count badge changed from light-mode `bg-blue-100 text-blue-700` to dark-theme `bg-blue-500/20 text-blue-400` (#184)
+- Filters toolbar button now uses `text-slate-300 hover:text-white` instead of `text-blue-600 hover:text-blue-800` (#184)
+- Version badge in Navbar is now hidden for all versioned builds (stable and pre-release); only shown when `APP_VERSION` is `dev` (#192)
+- Invite link URLs in Group Settings are now truncated in the display field with the full URL available on hover; copy behaviour is unchanged (#193)
+- Swimlane rows can now be reordered by dragging; `closestCenter` was resolving to cell droppables (which cover more area than the swimlane sidebar) and the drop was silently discarded — the cell ID is now mapped back to its swimlane before the sort index lookup, matching the existing fix for column reordering (#195)
+- Cell drop-target highlight no longer activates when dragging a swimlane or column (#195)
+
+### Changed
+
+- Swimlane label panel now renders the swimlane color as a 3 px left border instead of a narrow interior stripe, making color identity visible at a glance (#190)
+- Swimlane collapse/expand control replaced text arrows (`▶`/`▼`) with an SVG chevron that rotates on state change (#190)
+- Swimlane edit button (✎) is now dimly visible at rest (`opacity-30`) and fully visible on row hover, instead of fully hidden until hover (#190)
+
 - `release.sh` now calls `mike set-default --push next` for pre-releases so docs.visiban.com has a root redirect and doesn't 404
 - Broken doc anchor links corrected: `board.md#export--import` → `#export-import`, `deployment.md#kubernetes--helm` → `#kubernetes-helm`, `first-boot.md#kubernetes--helm` → `#kubernetes-helm`
 

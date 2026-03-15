@@ -81,57 +81,57 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
       <h2 className="text-white text-lg font-semibold">Profile</h2>
 
-      <label className="flex flex-col gap-1 text-sm text-gray-400">
+      <label className="flex flex-col gap-1 text-sm text-slate-400">
         Display name
         <input
           value={form.display_name}
           onChange={set("display_name")}
           placeholder="How you appear on the board"
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
       </label>
 
       <div className="flex gap-3">
-        <label className="flex flex-col gap-1 flex-1 text-sm text-gray-400">
+        <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
           First name
           <input
             value={form.first_name}
             onChange={set("first_name")}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
           />
         </label>
-        <label className="flex flex-col gap-1 flex-1 text-sm text-gray-400">
+        <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
           Last name
           <input
             value={form.last_name}
             onChange={set("last_name")}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
           />
         </label>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm text-gray-400">
+      <label className="flex flex-col gap-1 text-sm text-slate-400">
         Username
         <input
           value={form.username}
           onChange={set("username")}
           required
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-gray-400">
+      <label className="flex flex-col gap-1 text-sm text-slate-400">
         Email address
         <input
           type="email"
           value={form.email}
           onChange={set("email")}
           required
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
       </label>
 
-      <div className="flex flex-col gap-1 text-sm text-gray-400">
+      <div className="flex flex-col gap-1 text-sm text-slate-400">
         Timezone
         <SelectDropdown
           value={form.timezone}
@@ -142,13 +142,13 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
           ]}
           className="w-full"
         />
-        <span className="text-xs text-gray-500">Used for due date labels and filters</span>
+        <span className="text-xs text-slate-500">Used for due date labels and filters</span>
       </div>
 
-      <div className="border-t border-gray-700 pt-4">
-        <p className="text-sm text-gray-300 font-medium mb-4">Locale</p>
+      <div className="border-t border-slate-700 pt-4">
+        <p className="text-sm text-slate-300 font-medium mb-4">Locale</p>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1 text-sm text-gray-400">
+          <div className="flex flex-col gap-1 text-sm text-slate-400">
             Date format
             <SelectDropdown
               value={form.date_format}
@@ -157,7 +157,7 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
               className="w-full"
             />
           </div>
-          <div className="flex flex-col gap-1 text-sm text-gray-400">
+          <div className="flex flex-col gap-1 text-sm text-slate-400">
             Time format
             <SelectDropdown
               value={form.time_format}
@@ -166,7 +166,7 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
               className="w-full"
             />
           </div>
-          <div className="flex flex-col gap-1 text-sm text-gray-400">
+          <div className="flex flex-col gap-1 text-sm text-slate-400">
             Number format
             <SelectDropdown
               value={form.number_locale}
@@ -239,14 +239,14 @@ function SecurityTab({ user }: { user: User }) {
       <h2 className="text-white text-lg font-semibold">Security</h2>
 
       {!hasPw && (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-slate-400">
           You signed in with a social account. Set a password below to also enable
           username/password login.
         </p>
       )}
 
       {hasPw && (
-        <label className="flex flex-col gap-1 text-sm text-gray-400">
+        <label className="flex flex-col gap-1 text-sm text-slate-400">
           Current password
           <input
             type="password"
@@ -254,12 +254,12 @@ function SecurityTab({ user }: { user: User }) {
             onChange={set("current_password")}
             required
             autoComplete="current-password"
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
           />
         </label>
       )}
 
-      <label className="flex flex-col gap-1 text-sm text-gray-400">
+      <label className="flex flex-col gap-1 text-sm text-slate-400">
         New password
         <input
           type="password"
@@ -268,11 +268,11 @@ function SecurityTab({ user }: { user: User }) {
           required
           autoComplete="new-password"
           minLength={12}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-gray-400">
+      <label className="flex flex-col gap-1 text-sm text-slate-400">
         Confirm new password
         <input
           type="password"
@@ -280,7 +280,7 @@ function SecurityTab({ user }: { user: User }) {
           onChange={set("confirm")}
           required
           autoComplete="new-password"
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
         />
       </label>
 
@@ -341,13 +341,13 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
       <h2 className="text-white text-lg font-semibold">Notifications</h2>
-      <p className="text-sm text-gray-400">Choose which events send you a notification.</p>
+      <p className="text-sm text-slate-400">Choose which events send you a notification.</p>
       <div className="flex flex-col gap-3">
         {rows.map(({ key, label, description }) => (
           <label key={key} className="flex items-center justify-between gap-4 cursor-pointer">
             <span>
               <span className="block text-sm text-white">{label}</span>
-              <span className="block text-xs text-gray-500">{description}</span>
+              <span className="block text-xs text-slate-500">{description}</span>
             </span>
             <button
               role="switch"
@@ -355,7 +355,7 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
               disabled={saving === key}
               onClick={() => toggle(key)}
               className={`relative w-10 h-6 rounded-full transition shrink-0 ${
-                prefs[key] ? "bg-blue-600" : "bg-gray-700"
+                prefs[key] ? "bg-blue-600" : "bg-slate-700"
               } disabled:opacity-50`}
             >
               <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
@@ -383,7 +383,7 @@ function AppearanceTab() {
       <h2 className="text-white text-lg font-semibold">Appearance</h2>
 
       <div>
-        <p className="text-sm text-gray-400 mb-3">Theme</p>
+        <p className="text-sm text-slate-400 mb-3">Theme</p>
         <div className="flex flex-col gap-2">
           {THEME_OPTIONS.map(({ value, label, description }) => (
             <button
@@ -392,11 +392,11 @@ function AppearanceTab() {
               className={`flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border transition ${
                 preference === value
                   ? "border-blue-500 bg-blue-600/10 text-white"
-                  : "border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-500"
+                  : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
               }`}
             >
               <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                preference === value ? "border-blue-500" : "border-gray-500"
+                preference === value ? "border-blue-500" : "border-slate-500"
               }`}>
                 {preference === value && (
                   <span className="w-2 h-2 rounded-full bg-blue-500" />
@@ -404,17 +404,17 @@ function AppearanceTab() {
               </span>
               <span>
                 <span className="block text-sm font-medium">{label}</span>
-                <span className="block text-xs text-gray-500">{description}</span>
+                <span className="block text-xs text-slate-500">{description}</span>
               </span>
             </button>
           ))}
 
           {/* Light mode placeholder — shown once light-mode styles are implemented */}
-          <div className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border border-gray-700 bg-gray-800/50 opacity-50 cursor-not-allowed">
-            <span className="w-4 h-4 rounded-full border-2 border-gray-600 shrink-0" />
+          <div className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border border-slate-700 bg-slate-800/50 opacity-50 cursor-not-allowed">
+            <span className="w-4 h-4 rounded-full border-2 border-slate-600 shrink-0" />
             <span>
-              <span className="block text-sm font-medium text-gray-400">Light</span>
-              <span className="block text-xs text-gray-600">Coming soon</span>
+              <span className="block text-sm font-medium text-slate-400">Light</span>
+              <span className="block text-xs text-slate-600">Coming soon</span>
             </span>
           </div>
         </div>
@@ -434,7 +434,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   return (
-    <div className="h-full bg-gray-900 flex flex-col">
+    <div className="h-full bg-slate-900 flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
@@ -451,7 +451,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
                       activeTab === tab.id
                         ? "bg-blue-600 text-white font-medium"
-                        : "text-gray-400 hover:text-white hover:bg-gray-800"
+                        : "text-slate-400 hover:text-white hover:bg-slate-800"
                     }`}
                   >
                     {tab.label}

@@ -44,7 +44,7 @@ describe('InviteLinkPanel', () => {
 
     await userEvent.setup().click(await screen.findByRole('button', { name: 'New link' }))
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Create link' }))
-    expect(await screen.findByDisplayValue(/\/join\/abc123/)).toBeInTheDocument()
+    expect(await screen.findByText(/\/join\/abc123/)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Copy' })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Revoke' })).toBeInTheDocument()
   })
@@ -57,7 +57,7 @@ describe('InviteLinkPanel', () => {
   it('renders existing links', async () => {
     mockListInviteLinks.mockResolvedValue([fakeLink])
     render(<InviteLinkPanel groupId={1} />)
-    expect(await screen.findByDisplayValue(/\/join\/abc123/)).toBeInTheDocument()
+    expect(await screen.findByText(/\/join\/abc123/)).toBeInTheDocument()
     expect(await screen.findByText('Test link')).toBeInTheDocument()
   })
 })

@@ -362,8 +362,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       setActiveSwimlane(null);
       if (!over) return;
       const overId = String(over.id);
-      if (!overId.startsWith("swim:")) return;
-      if (activeId === overId) return;
+
+      // Cells cover a larger area than swimlane sidebars, so closestCenter may
+      // resolve to "cell:{colId}:{swimlaneId}" — map back to the swimlane id.
+      let mappedOverId = overId;
+      if (mappedOverId.startsWith("cell:")) {
+        mappedOverId = `swim:${mappedOverId.split(":")[2]}`;
+      }
+
+      if (!mappedOverId.startsWith("swim:")) return;
+      if (activeId === mappedOverId) return;
       const oldIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === activeId);
       const newIndex = board.swimlanes.findIndex((s) => `swim:${s.id}` === overId);
       if (oldIndex === -1 || newIndex === -1) return;
@@ -419,11 +427,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         <span className="w-px h-4 bg-slate-600 shrink-0" />
         <button
           onClick={() => setShowFilters((v) => !v)}
-          className="text-xs text-blue-600 hover:text-blue-800 transition shrink-0"
+          className="text-xs text-slate-300 hover:text-white transition shrink-0"
         >
           {showFilters ? "Hide filters" : "Filters"}
           {!showFilters && activeCount > 0 && (
-            <span className="ml-1.5 bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5 font-medium">
+            <span className="ml-1.5 bg-blue-500/20 text-blue-400 rounded-full px-1.5 py-0.5 font-medium">
               {activeCount}
             </span>
           )}
@@ -490,11 +498,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {/* Header row — sticky to the top of the scroll container */}
           <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
             {/* Corner — also sticky to the left */}
-            <div className="w-[220px] shrink-0 bg-gray-800 flex items-center justify-center sticky left-0 z-20">
+            <div className="w-[220px] shrink-0 bg-slate-800 flex items-center justify-center sticky left-0 z-20">
               {isAdmin && (
                 <button
                   onClick={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
-                  className="text-xs text-gray-400 hover:text-white transition px-2 py-1 rounded"
+                  className="text-xs text-slate-400 hover:text-white transition px-2 py-1 rounded"
                 >
                   + Swimlane
                 </button>
@@ -538,7 +546,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
           {/* Empty state: no columns */}
           {board.columns.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-400">
               <p className="text-sm">No columns — add one to continue.</p>
               {isAdmin && (
                 <button
@@ -591,7 +599,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
           {/* Empty state: has columns but no swimlanes */}
           {board.columns.length > 0 && board.swimlanes.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-400">
               <p className="text-sm">No swimlanes — add one to continue.</p>
               {isAdmin && (
                 <button
@@ -684,9 +692,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         const cardCount = board.cards.filter((c) => c.column === confirmDeleteColumn.id).length;
         return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
               <h3 className="text-white font-semibold text-lg mb-2">Delete column?</h3>
-              <p className="text-gray-400 text-sm mb-1">
+              <p className="text-slate-400 text-sm mb-1">
                 <span className="text-white font-medium">{confirmDeleteColumn.name}</span> will be permanently deleted.
               </p>
               {cardCount > 0 && (
@@ -694,11 +702,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                   {cardCount} card{cardCount !== 1 ? "s" : ""} in this column will also be deleted.
                 </p>
               )}
-              <p className="text-gray-500 text-sm mb-5">This cannot be undone.</p>
+              <p className="text-slate-500 text-sm mb-5">This cannot be undone.</p>
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setConfirmDeleteColumn(null)}
-                  className="text-gray-400 text-sm hover:text-white px-3 py-1.5"
+                  className="text-slate-400 text-sm hover:text-white px-3 py-1.5"
                 >
                   Cancel
                 </button>

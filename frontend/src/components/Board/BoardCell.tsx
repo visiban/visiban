@@ -30,6 +30,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
+  const isDraggingCard = active != null && !String(active.id).startsWith("swim:") && !String(active.id).startsWith("col:");
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
 
@@ -45,8 +46,8 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
     <div
       ref={setNodeRef}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
-      className={`flex-1 min-w-[200px] min-h-[80px] p-2 border-r border-gray-700/50 transition-colors ${
-        isOver ? "bg-blue-900/20" : ""
+      className={`flex-1 min-w-[200px] min-h-[80px] p-2 border-r border-slate-700/50 transition-colors ${
+        isOver && isDraggingCard ? "bg-blue-900/20" : ""
       }`}
     >
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
@@ -70,7 +71,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
         </div>
         {cards.length === 0 && active && (
           <div className={`h-10 rounded border-2 border-dashed transition-colors ${
-            isOver ? "border-blue-500 bg-blue-900/20" : "border-gray-700"
+            isOver ? "border-blue-500 bg-blue-900/20" : "border-slate-700"
           }`} />
         )}
       </SortableContext>
@@ -90,17 +91,17 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
                 if (e.key === "Escape") setAdding(false);
               }}
               placeholder="Card title…"
-              className="w-full text-xs border border-blue-500 rounded-md px-2 py-1.5 outline-none bg-gray-800 text-gray-100 placeholder-gray-500"
+              className="w-full text-xs border border-blue-500 rounded-md px-2 py-1.5 outline-none bg-slate-800 text-slate-100 placeholder-slate-500"
             />
             <div className="flex gap-1.5 mt-1.5">
               <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded-md hover:bg-blue-700 transition font-medium">Add</button>
-              <button onClick={() => setAdding(false)} className="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</button>
+              <button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-300 transition">Cancel</button>
             </div>
           </div>
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className="mt-1 w-full text-left text-[11px] text-gray-500 hover:text-gray-300 hover:bg-gray-700/50 rounded-md px-1.5 py-1 transition"
+            className="mt-1 w-full text-left text-[11px] text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 rounded-md px-1.5 py-1 transition"
           >
             + Add card
           </button>
