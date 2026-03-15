@@ -280,6 +280,12 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </div>
           );
         })}
+        {/* Trailing separator to match header's trailing ColumnSeparator */}
+        <div className="shrink-0 flex items-stretch" style={{ width: 16 }}>
+          <div className="w-px self-stretch bg-slate-600/70" />
+          <div className="flex-1 bg-slate-900/70" />
+          <div className="w-px self-stretch bg-slate-600/70" />
+        </div>
         {/* Bottom resize handle — drag to set row min-height */}
         {setSwimlaneHeight && (
           <div
