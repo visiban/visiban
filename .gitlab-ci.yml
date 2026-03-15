@@ -413,24 +413,12 @@ frontend-sast:
   before_script:
     - cd frontend
     - npm ci --prefer-offline
-    - npm install --save-dev eslint-plugin-security --prefer-offline 2>/dev/null || true
   script:
-    # ESLint v9 flat config: write a security-only config inside the frontend dir
-    # so bare-specifier imports resolve against local node_modules.
-    # --no-config-lookup: prevents eslint.config.js from being merged in.
-    # detect-object-injection → warn: fires on any bracket access in TS/React
-    # (many false positives); high-signal rules remain errors.
-    - |
-      cat > eslint-security.config.mjs <<'ESLINTEOF'
-      import security from 'eslint-plugin-security';
-      import tsParser from '@typescript-eslint/parser';
-      const rules = { 'security/detect-object-injection': 'warn', 'security/detect-non-literal-regexp': 'error', 'security/detect-non-literal-require': 'error', 'security/detect-possible-timing-attacks': 'warn', 'security/detect-eval-with-expression': 'error' };
-      export default [
-        { files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser }, plugins: { security }, rules },
-        { files: ['**/*.{js,mjs,jsx}'], plugins: { security }, rules },
-      ];
-      ESLINTEOF
-      npx eslint --no-config-lookup --config eslint-security.config.mjs src/
+    # eslint-plugin-security is in devDependencies and registered in eslint.config.js.
+    # --max-warnings 15: accommodates 12 pre-existing style warnings (react-hooks/
+    # exhaustive-deps, react-refresh/only-export-components) while ensuring any new
+    # security errors (non-literal-regexp, non-literal-require, eval) still block.
+    - npm run lint -- --max-warnings 15
 
 # pip-audit: checks Python packages against the OSV vulnerability database.
 backend-dep-scan:
