@@ -29,6 +29,33 @@ This setup is for **local development only** — the Vite dev server is not suit
 
 On first boot the backend will print a one-time admin password — see [First Boot](first-boot.md).
 
+### Troubleshooting
+
+**`db` container exits immediately / backend cannot connect**
+
+A common cause after pulling updates is a PostgreSQL major-version mismatch. The data volume was initialized by one major version (e.g. PG 16) and the image has been updated to a newer one (e.g. PG 17), which refuses to start:
+
+```
+db-1 | FATAL: database files are incompatible with server
+db-1 | DETAIL: The data directory was initialized by PostgreSQL version 16, which is not compatible with this version 17.x.
+```
+
+> **⚠ Destructive:** The steps below delete all local database data. Back up anything you need to keep first (`docker compose exec db pg_dump -U visiban visiban > backup.sql`).
+
+```bash
+docker compose down -v          # stop all containers and remove volumes
+docker compose up --build       # recreate from scratch
+```
+
+After the containers start, run migrations and recreate the site admin account:
+
+```bash
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py ensure_site_admin
+```
+
+---
+
 ## Local Development
 
 ### Backend
