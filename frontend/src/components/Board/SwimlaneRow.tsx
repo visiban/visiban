@@ -25,9 +25,14 @@ interface Props {
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
   onSwimlaneDeleted: (swimlaneId: number) => void;
   sidebarWidth?: number;
+  setSidebarWidth?: (w: number) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
   colWidths?: Map<number, number>;
   setColumnWidth?: (colId: number, width: number) => void;
+  onInsertColumn?: (colId: number) => void;
+  /** Which column separator index (0-based from left) is currently hovered — for full-height highlight. */
+  hoveredSepIndex?: number | null;
+  onSepHoverChange?: (idx: number | null) => void;
   minHeight?: number;
   setSwimlaneHeight?: (h: number) => void;
   hideLabels?: boolean;
@@ -38,7 +43,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -97,12 +102,12 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     <>
       <div
         ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
-        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: minHeight ?? undefined }}
+        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
         className="relative flex border-b border-slate-700 bg-slate-800"
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className="shrink-0 flex items-start gap-2 pl-1 pr-3 py-3 sticky left-0 z-10 bg-slate-800 border-l-[3px] group relative"
+          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-[3px] group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
         >
           {/* Drag handle */}
@@ -110,7 +115,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             <span
               {...attributes}
               {...listeners}
-              className="text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 mt-0.5"
+              className={`text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 ${collapsed ? "" : "mt-0.5"}`}
               title="Drag to reorder"
             >
               ⠿
@@ -141,17 +146,19 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 {swimlane.name}
               </p>
             )}
-            <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>
+            {!collapsed && <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => { if (isAdmin) setEditing(true); }}
-              className={`transition text-xs ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
-              title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
-              disabled={!isAdmin}
-            >
-              ✎
-            </button>
+            {!collapsed && (
+              <button
+                onClick={() => { if (isAdmin) setEditing(true); }}
+                className={`transition text-xs ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
+                title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
+                disabled={!isAdmin}
+              >
+                ✎
+              </button>
+            )}
             <button
               onClick={() => setCollapsed((c) => !c)}
               className="text-slate-400 hover:text-white transition shrink-0"
@@ -169,24 +176,38 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         </div>
 
         {/* Cells — always iterate columns so collapsed-column stubs stay aligned */}
-        {columns.map((col) => {
+        {columns.map((col, colIdx) => {
           const cellCards = cards.filter((c) => c.column === col.id);
           const cellCount = cellCards.length;
           const cellWidth = colWidths?.get(col.id) ?? 220;
+          const sepHighlighted = hoveredSepIndex === colIdx;
 
-          // Interactive cell separator — drag resizes the column to the left
-          const handleSepMouseDown = setColumnWidth
+          // The sep sits to the LEFT of col[colIdx], so it resizes the column to its left:
+          //   colIdx === 0  → resize the swimlane sidebar
+          //   colIdx  >  0  → resize columns[colIdx - 1]
+          // This mirrors the header where ColumnSeparator after col[i] resizes col[i].
+          const prevCol = colIdx > 0 ? columns[colIdx - 1] : null;
+          const sepStartWidth = prevCol
+            ? (colWidths?.get(prevCol.id) ?? 220)
+            : (sidebarWidth ?? 220);
+          const canResizeSep = prevCol ? !!setColumnWidth : !!setSidebarWidth;
+
+          const handleSepMouseDown = (canResizeSep || onInsertColumn)
             ? (e: React.MouseEvent) => {
                 e.preventDefault();
                 const startX = e.clientX;
-                const startWidth = cellWidth;
-                let dragging = false;
+                const startWidth = sepStartWidth;
+                let didDrag = false;
                 const onMove = (ev: MouseEvent) => {
                   const delta = ev.clientX - startX;
-                  if (!dragging && Math.abs(delta) > 4) dragging = true;
-                  if (dragging) setColumnWidth(col.id, startWidth + delta);
+                  if (!didDrag && Math.abs(delta) > 4) didDrag = true;
+                  if (didDrag) {
+                    if (prevCol && setColumnWidth) setColumnWidth(prevCol.id, startWidth + delta);
+                    else if (!prevCol && setSidebarWidth) setSidebarWidth(startWidth + delta);
+                  }
                 };
                 const onUp = () => {
+                  if (!didDrag && isAdmin && onInsertColumn) onInsertColumn(col.id);
                   window.removeEventListener("mousemove", onMove);
                   window.removeEventListener("mouseup", onUp);
                 };
@@ -198,13 +219,20 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const sep = (
             <div
               key={`sep-${col.id}`}
-              className={`shrink-0 flex items-stretch select-none ${setColumnWidth ? "cursor-col-resize" : ""}`}
+              className={`relative shrink-0 flex items-stretch select-none ${canResizeSep || onInsertColumn ? "cursor-col-resize" : ""}`}
               style={{ width: 16 }}
+              onMouseEnter={() => onSepHoverChange?.(colIdx)}
+              onMouseLeave={() => onSepHoverChange?.(null)}
               onMouseDown={handleSepMouseDown}
             >
-              <div className="w-px self-stretch bg-slate-600/70" />
-              <div className="flex-1 bg-slate-900/70" />
-              <div className="w-px self-stretch bg-slate-600/70" />
+              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+              <div className={`flex-1 transition-colors ${sepHighlighted ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
+              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+              {isAdmin && onInsertColumn && sepHighlighted && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
+                </div>
+              )}
             </div>
           );
 
@@ -243,16 +271,13 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           }
 
           if (collapsed) {
-            // Swimlane collapsed, non-collapsed column: show hidden count placeholder
+            // Swimlane collapsed — compact w-10 box matching collapsed-column cell style
             return (
               <div key={col.id} className="contents">
                 {sep}
-                <div
-                  style={{ width: cellWidth }}
-                  className="shrink-0 flex items-center justify-center"
-                >
+                <div className="w-10 shrink-0 flex items-center justify-center py-1">
                   {cellCount > 0 && (
-                    <span className="text-xs text-slate-400 italic">{cellCount} hidden</span>
+                    <span className="text-xs font-medium text-slate-400">{cellCount}</span>
                   )}
                 </div>
               </div>

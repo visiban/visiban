@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useRef } from "react";
 
 const DRAG_THRESHOLD = 4; // px — movement beyond this is a resize, not a click
 
@@ -10,10 +10,15 @@ interface Props {
   currentWidth: number;
   /** Called continuously while dragging to update that element's width. */
   setWidth: (w: number) => void;
+  /** Position index (0 = far-left). Used to coordinate hover highlight across all rows. */
+  sepIndex: number;
+  /** Which separator index is currently highlighted — lifted from the parent. */
+  hoveredSepIndex: number | null;
+  onSepHoverChange: (idx: number | null) => void;
 }
 
-export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setWidth }: Props) {
-  const [hovered, setHovered] = useState(false);
+export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setWidth, sepIndex, hoveredSepIndex, onSepHoverChange }: Props) {
+  const highlighted = hoveredSepIndex === sepIndex;
   const dragState = useRef<{ startX: number; startWidth: number; dragging: boolean } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -49,19 +54,15 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
     <div
       className="relative shrink-0 flex items-stretch select-none cursor-col-resize"
       style={{ width: 16 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => onSepHoverChange(sepIndex)}
+      onMouseLeave={() => onSepHoverChange(null)}
       onMouseDown={handleMouseDown}
     >
-      {/* Left line */}
-      <div className={`w-px self-stretch transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
-      {/* Dark gap middle */}
-      <div className={`flex-1 transition-colors ${hovered ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
-      {/* Right line */}
-      <div className={`w-px self-stretch transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+      <div className={`w-px self-stretch transition-colors ${highlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+      <div className={`flex-1 transition-colors ${highlighted ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
+      <div className={`w-px self-stretch transition-colors ${highlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
 
-      {/* Single "+" centered — consistent with row separator style */}
-      {isAdmin && hovered && (
+      {isAdmin && highlighted && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
         </div>
