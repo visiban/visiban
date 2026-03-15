@@ -2,33 +2,7 @@
 
 ## Release process
 
-When asked to create a release, run the release script. Ask for the version string before starting if it hasn't been provided.
-
-### Version string
-- Format: strict [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH` for stable releases, `MAJOR.MINOR.PATCH-<stage>.N` for pre-releases
-  - Valid pre-release stages in ascending order: `alpha` → `beta` → `rc`
-  - Examples: `0.1.0-alpha.1`, `0.1.0-beta.1`, `1.0.0-rc.1`, `0.1.1`, `0.2.0`, `1.0.0`
-  - Pre-release suffixes must include a numeric component (`rc.1` not `rc`)
-  - Semver precedence: `1.0.0-alpha.1 < 1.0.0-beta.1 < 1.0.0-rc.1 < 1.0.0`
-  - Use `alpha` for early/unstable builds, `beta` for feature-complete but unpolished, `rc` for release candidates (production-ready, baking before stable)
-- If not provided, read `CHANGELOG.md [Unreleased]` and the git log since the last tag, then suggest a version using these rules:
-  - **PATCH** — only `### Fixed` entries (bug fixes, no new features, no breaking changes) → e.g. `0.1.1`
-  - **MINOR** — any `### Added` entries (new backwards-compatible features, with or without fixes) → e.g. `0.2.0`
-  - **MAJOR** — any breaking change: removed or renamed API endpoints, changed auth flows, destructive migrations, incompatible config changes → e.g. `1.0.0`
-  - For pre-releases, keep the same base version and increment the suffix number → e.g. `0.2.0-beta.1` → `0.2.0-beta.2`
-  - When in doubt between MINOR and MAJOR, prefer MINOR and call it out explicitly
-- Present the suggestion with a one-line rationale before asking the user to confirm
-
-### Steps
-1. Confirm all open MRs intended for this release are merged into `main`
-2. Ensure the `## [Unreleased]` section of `CHANGELOG.md` is up to date
-3. Run the release script from the repo root on `main` with a clean working tree:
-   ```bash
-   ./scripts/release.sh {version}
-   ```
-   The script will: create a release branch, update `.env.example`, rotate `CHANGELOG.md`, commit, push the branch, create an MR, wait for the pipeline, merge, tag, create the GitLab release, and deploy docs to docs.visiban.com via `mike deploy`.
-4. Confirm `APP_VERSION` in the running stack matches the new version
-5. Confirm docs.visiban.com shows the new version — pre-releases publish under the `next` alias, stable releases under `latest`
+When asked to create a release, invoke `/release`. The skill handles version string suggestion, pre-flight checks, running `scripts/release.sh`, and post-release verification.
 
 ---
 
@@ -51,25 +25,14 @@ When asked to create a release, run the release script. Ask for the version stri
   - Backend tests: `backend/boards/tests/` (or the relevant app's `tests/` directory)
   - Documentation: `docs/` and `README.md` where applicable
 - Use **US English** in all code, comments, documentation, commit messages, MR descriptions, and UI copy — e.g. "color" not "colour", "center" not "centre", "canceled" not "cancelled", "authorization" not "authorisation"
+- When writing complex business logic (model methods, custom serializer behaviour, transaction sequences, permission checks), add a docstring or inline comment explaining **why** — not what the code does, but the intent or constraint behind it
 
 ---
 
 ## Documentation conventions
 
 - Docs live in the OSS repo alongside the code — never split into a separate repo
-- **New features must be tagged with the version they were introduced in**, using a `> **Added in ...** ` callout immediately after the section heading:
-  - Pre-1.0.0: include the full RC tag — e.g. `> **Added in 1.0.0-rc.5**`
-  - 1.0.0 and later: include only the minor version — e.g. `> **Added in 1.1**` (never `1.1.0`)
-  - Patch releases (e.g. 1.1.1) do not get version callouts — only minor releases and pre-releases
-  - Do not add version callouts to changed or fixed behaviour — only net-new features
-- When writing or updating documentation, mark any feature that requires the enterprise edition with a callout:
-  ```markdown
-  > **Visiban Enterprise** — This feature is available in [Visiban Enterprise](https://visiban.com/enterprise).
-  ```
-- Place the callout immediately after the section heading for the enterprise feature
-- Enterprise-only features that may appear in OSS docs include: SSO/SAML, audit logs, advanced analytics, automation rules, external integrations, multi-tenancy, white-labeling, and compliance tooling
-- Do **not** add the enterprise callout to core OSS features — only features that require the enterprise edition
-- When documenting a feature that has both an OSS and enterprise tier (e.g. basic analytics in OSS, advanced analytics in enterprise), note the distinction inline
+- When writing or updating documentation, invoke `/docs` — it covers structure, version callouts, enterprise callouts, nav updates, and build verification
 
 ---
 
