@@ -9,7 +9,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -72,5 +72,12 @@ describe('auth API', () => {
     const result = await changePassword('old', 'new')
     expect(mockPost).toHaveBeenCalledWith('/api/auth/change-password/', { current_password: 'old', new_password: 'new' })
     expect(result).toEqual({ detail: 'ok' })
+  })
+
+  it('getSiteConfig calls GET /api/auth/site-config/', async () => {
+    mockGet.mockResolvedValue({ data: { registration_open: false } })
+    const result = await getSiteConfig()
+    expect(mockGet).toHaveBeenCalledWith('/api/auth/site-config/')
+    expect(result).toEqual({ registration_open: false })
   })
 })

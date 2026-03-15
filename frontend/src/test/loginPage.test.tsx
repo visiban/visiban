@@ -9,14 +9,16 @@ vi.mock('../api/auth', () => ({
   register: vi.fn(),
   getCurrentUser: vi.fn(),
   getAuthProviders: vi.fn(),
+  getSiteConfig: vi.fn(),
 }))
 
-import { login, register, getCurrentUser, getAuthProviders } from '../api/auth'
+import { login, register, getCurrentUser, getAuthProviders, getSiteConfig } from '../api/auth'
 
 const mockLogin = login as ReturnType<typeof vi.fn>
 const mockRegister = register as ReturnType<typeof vi.fn>
 const mockGetCurrentUser = getCurrentUser as ReturnType<typeof vi.fn>
 const mockGetAuthProviders = getAuthProviders as ReturnType<typeof vi.fn>
+const mockGetSiteConfig = getSiteConfig as ReturnType<typeof vi.fn>
 
 function renderLoginPage(locationState?: Record<string, unknown>) {
   return render(
@@ -30,6 +32,7 @@ describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false })
+    mockGetSiteConfig.mockResolvedValue({ registration_open: true })
   })
 
   it('renders login form by default', () => {
@@ -149,5 +152,36 @@ describe('LoginPage', () => {
     await user.click(screen.getByText('Create account'))
 
     expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123')
+  })
+
+  it('hides "Create one" and shows invite-only message when registration is closed', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    renderLoginPage()
+
+    expect(await screen.findByText('Registration is invite-only.')).toBeInTheDocument()
+    expect(screen.queryByText('Create one')).not.toBeInTheDocument()
+  })
+
+  it('disables submit button in register mode when registration is closed', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    renderLoginPage({ authMode: 'register' })
+
+    const submitButton = await screen.findByRole('button', { name: 'Create account' })
+    expect(submitButton).toBeDisabled()
+  })
+
+  it('shows invite-only message in register mode when registration is closed', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    renderLoginPage({ authMode: 'register' })
+
+    expect(await screen.findByText('An invite link is required to create an account.')).toBeInTheDocument()
+  })
+
+  it('assumes registration open when getSiteConfig fails', async () => {
+    mockGetSiteConfig.mockRejectedValue(new Error('network error'))
+    renderLoginPage()
+
+    // "Create one" link should still be present (fail open)
+    expect(await screen.findByText('Create one')).toBeInTheDocument()
   })
 })

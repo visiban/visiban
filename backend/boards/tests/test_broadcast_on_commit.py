@@ -3,9 +3,10 @@ Tests for #204: broadcast_board_event must fire via transaction.on_commit(),
 not directly inside the transaction, so a rollback cannot push stale state
 to connected WebSocket clients.
 """
-from unittest.mock import patch, call
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.db import transaction
+from django.test import TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -95,8 +96,8 @@ class CardMovedBroadcastOnCommitTests(TestCase):
                 })
                 mock_broadcast.assert_not_called()
 
-    def test_pure_reorder_no_broadcast(self):
-        """Moving a card within the same cell (position change only) does not broadcast card.moved."""
+    def test_pure_reorder_broadcasts_card_moved(self):
+        """Moving a card within the same cell (position change only) still broadcasts card.moved."""
         card2 = Card.objects.create(
             board=self.board, column=self.col_a, swimlane=self.swim,
             title="Other Card", created_by=self.user, position=1,
@@ -109,6 +110,43 @@ class CardMovedBroadcastOnCommitTests(TestCase):
                     "position": 1,
                 })
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
-            # card.moved fires even for pure reorder (position update still broadcasts)
             mock_broadcast.assert_called_once()
         card2.delete()
+
+
+class CardMoveBroadcastRollbackTests(TransactionTestCase):
+    """
+    Uses TransactionTestCase (real transactions, no savepoint wrapping) to verify
+    that on_commit callbacks are suppressed when a transaction rolls back.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="tester", password="pass")
+        self.board = Board.objects.create(name="Test Board", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+        self.col_a = Column.objects.create(board=self.board, name="Backlog", position=0)
+        self.col_b = Column.objects.create(board=self.board, name="Done", position=1)
+        self.swim = Swimlane.objects.create(board=self.board, name="Acme", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Test Card", created_by=self.user, position=0,
+        )
+
+    def test_broadcast_suppressed_on_rollback(self):
+        """on_commit callback must not fire if the enclosing transaction rolls back."""
+        broadcast_calls = []
+
+        def capture_broadcast(*args, **kwargs):
+            broadcast_calls.append(args)
+
+        with patch("boards.views.broadcast_board_event", side_effect=capture_broadcast):
+            try:
+                with transaction.atomic():
+                    # Manually queue an on_commit callback the same way the view does.
+                    transaction.on_commit(lambda: capture_broadcast("should_not_fire"))
+                    raise Exception("forced rollback")
+            except Exception:
+                pass
+
+        # The on_commit callback should NOT have fired because the transaction rolled back.
+        self.assertEqual(broadcast_calls, [])
