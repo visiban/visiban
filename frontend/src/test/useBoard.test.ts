@@ -3,9 +3,12 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 import { useBoard } from '../hooks/useBoard'
 import type { BoardFull, Card, Column, Swimlane, Label } from '../types'
 
+const mockNavigate = vi.fn()
+
 // Mock react-router-dom
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: '1' }),
+  useNavigate: () => mockNavigate,
 }))
 
 // Mock API modules
@@ -59,6 +62,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
 describe('useBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockNavigate.mockClear()
   })
 
   it('loads board on mount', async () => {
@@ -73,7 +77,7 @@ describe('useBoard', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('sets error when load fails', async () => {
+  it('sets error when load fails with a non-404 error', async () => {
     mockGetBoardFull.mockRejectedValue(new Error('fail'))
     const { result } = renderHook(() => useBoard())
 
@@ -81,6 +85,25 @@ describe('useBoard', () => {
       expect(result.current.loading).toBe(false)
     })
     expect(result.current.error).toBe('Failed to load board')
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('navigates to / when board returns 404', async () => {
+    mockGetBoardFull.mockRejectedValue({ response: { status: 404 } })
+    renderHook(() => useBoard())
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+  })
+
+  it('navigates to / when board returns 403', async () => {
+    mockGetBoardFull.mockRejectedValue({ response: { status: 403 } })
+    renderHook(() => useBoard())
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
   })
 
   it('addCard adds a new card', async () => {
