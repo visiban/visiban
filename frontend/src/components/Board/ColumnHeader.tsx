@@ -152,27 +152,33 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           </span>
         </div>
 
-        {/* Rows 2–3: WIP and Weight stats, one per line */}
-        <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px]">
-          <span
-            className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
-            title="Cards in column / WIP limit"
-          >
-            WIP{" "}
-            <span className={`font-semibold ${overWip ? "text-red-400" : "text-slate-300"}`}>
-              {cardCount}/{column.wip_limit ?? "∞"}
-            </span>
-          </span>
-          <span
-            className={`text-[10px] font-medium ${overWeight ? "text-orange-400" : "text-slate-500"}`}
-            title="Total card weight / weight budget"
-          >
-            Weight{" "}
-            <span className={`font-semibold ${overWeight ? "text-orange-400" : "text-slate-300"}`}>
-              {totalWeight}/{column.weight_limit ?? "∞"}
-            </span>
-          </span>
-        </div>
+        {/* Rows 2–3: WIP and Weight stats — only shown when meaningful */}
+        {(column.wip_limit !== null || totalWeight > 0) && (
+          <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px]">
+            {column.wip_limit !== null && (
+              <span
+                className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
+                title="Cards in column / WIP limit"
+              >
+                WIP{" "}
+                <span className={`font-semibold ${overWip ? "text-red-400" : "text-slate-300"}`}>
+                  {cardCount}/{column.wip_limit}
+                </span>
+              </span>
+            )}
+            {totalWeight > 0 && (
+              <span
+                className={`text-[10px] font-medium ${overWeight ? "text-orange-400" : "text-slate-500"}`}
+                title="Total card weight / weight budget"
+              >
+                Weight{" "}
+                <span className={`font-semibold ${overWeight ? "text-orange-400" : "text-slate-300"}`}>
+                  {totalWeight}{column.weight_limit !== null ? `/${column.weight_limit}` : ""}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {isAdmin && editing && (

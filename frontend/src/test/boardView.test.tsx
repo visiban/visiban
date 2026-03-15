@@ -152,6 +152,22 @@ describe('BoardView', () => {
     expect(screen.getByText('Live')).toBeInTheDocument()
   })
 
+  it('live dot is green and pulsing when connected', () => {
+    const { container } = render(<BoardView {...defaultProps()} />)
+    const dot = container.querySelector('.bg-green-400')
+    expect(dot).toBeInTheDocument()
+    expect(dot?.className).toMatch(/animate-pulse/)
+  })
+
+  it('FilterBar renders in its own row below the toolbar', async () => {
+    render(<BoardView {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('Filters'))
+    const filterBar = screen.getByTestId('filter-bar')
+    const toolbar = screen.getByText('Board').closest('div[class*="h-10"]')
+    // FilterBar should not be a descendant of the fixed-height toolbar row
+    expect(toolbar?.contains(filterBar)).toBe(false)
+  })
+
   it('renders Filters button', () => {
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('Filters')).toBeInTheDocument()

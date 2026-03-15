@@ -305,7 +305,7 @@ describe('ColumnHeader', () => {
     const cards = [makeCard({ id: 1 }), makeCard({ id: 2 })]
     render(
       <ColumnHeader
-        column={makeColumn()}
+        column={makeColumn({ wip_limit: 5 })}
         cards={cards}
         boardId={1}
         isAdmin={false}
@@ -333,6 +333,55 @@ describe('ColumnHeader', () => {
       />,
     )
     expect(screen.getByText('1/5')).toBeInTheDocument()
+  })
+
+  it('hides WIP row when wip_limit is null', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: null })}
+        cards={[makeCard()]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onColumnDeleted={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.queryByTitle('Cards in column / WIP limit')).not.toBeInTheDocument()
+  })
+
+  it('hides Weight row when total card weight is zero', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn()}
+        cards={[makeCard({ weight: 0 })]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onColumnDeleted={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.queryByTitle('Total card weight / weight budget')).not.toBeInTheDocument()
+  })
+
+  it('shows Weight row when total card weight is non-zero', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ weight_limit: 10 })}
+        cards={[makeCard({ weight: 3 }), makeCard({ id: 2, weight: 2 })]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onColumnDeleted={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByTitle('Total card weight / weight budget')).toBeInTheDocument()
+    expect(screen.getByText('5/10')).toBeInTheDocument()
   })
 
   it('renders collapsed state with vertical column name', () => {

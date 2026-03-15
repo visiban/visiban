@@ -5,7 +5,6 @@
 The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as `cell:{column_id}:{swimlane_id}`.
 
 - Column headers are sticky on horizontal scroll
-- Each column shows a live card count and total weight
 - WIP limit exceeded → header turns red (visual warning only — the API does not block cards)
 - Weight limit exceeded → header turns orange (visual warning only)
 
@@ -32,8 +31,8 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of cards allowed. When exceeded the column header turns red as a visual warning
-- **Weight limit** — maximum total card weight allowed. When exceeded the header turns orange
+- **WIP limit** — maximum number of cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded it turns red (visual warning only — the API does not block cards). No WIP row is shown for columns with no limit.
+- **Weight limit** — maximum total card weight allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
 Columns can be reordered by dragging the column header left or right. Admins can also edit or delete a column by clicking its header.
@@ -108,7 +107,7 @@ Shortcuts are ignored when focus is inside an input, textarea, or select element
 
 ## Filtering
 
-Click **Filters** in the toolbar (or press `f`) to open the filter bar. Press `/` to open the filter bar and immediately focus the search input. Filters are applied client-side (no round-trip) and stack — all conditions must match.
+Click **Filters** in the toolbar (or press `f`) to open the filter bar below the toolbar. Press `/` to open the filter bar and immediately focus the search input. Filters are applied client-side (no round-trip) and stack — all conditions must match.
 
 | Filter | Options |
 |---|---|
@@ -160,4 +159,4 @@ Admins can manage board members directly from the board toolbar via the **Member
 
 ## Real-time indicator
 
-The toolbar shows a green **Live** dot in the top-right area when the WebSocket connection is active. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
+The toolbar shows a pulsing green **Live** dot in the top-right area when the WebSocket connection is active. The dot is static and grey when disconnected. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
