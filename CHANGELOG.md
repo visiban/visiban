@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Columns now default to collapsed (compact) on every board; an Expand / Collapse button in the toolbar expands or collapses all columns at once, and individual columns can still be toggled by clicking; expanded state is persisted per-board in localStorage
 - Swimlane label sidebar is now resizable by dragging its right edge; minimum width is ~56 px (≈4 characters) and maximum is 400 px; width is persisted per-board in localStorage
 - Column names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full column settings modal
+- Double-clicking an empty area in a cell now opens the inline new-card form (same as right-click and the "+ Add card" button)
 - Board columns are now individually resizable by dragging the right edge separator; width is persisted per-column per-board in localStorage; cards reflow automatically as column width changes and row height adjusts to the tallest cell
 - Swimlane rows can now be reordered by dragging; `closestCenter` was resolving to cell droppables (which cover more area than the swimlane sidebar) and the drop was silently discarded — the cell ID is now mapped back to its swimlane before the sort index lookup, matching the existing fix for column reordering (#195)
 - Cell drop-target highlight no longer activates when dragging a swimlane or column (#195)

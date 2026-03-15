@@ -46,6 +46,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
   return (
     <div
       ref={setNodeRef}
+      onDoubleClick={() => { if (column.allow_card_creation && canEdit) setAdding(true); }}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
       style={{ width: width ?? 220 }}
       className={`shrink-0 min-h-[80px] p-2 border-r border-slate-700/50 transition-colors ${
