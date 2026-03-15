@@ -20,6 +20,7 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 - The column spans the full board height across all swimlanes
 - Each swimlane cell shows the card count for that specific swimlane
 - The column header continues to show the aggregate total across all swimlanes
+- When a filter is active, any cell that contains matching cards pulses with a blue highlight and shows the match count — so hidden results are visible without expanding every column
 
 ## Columns
 

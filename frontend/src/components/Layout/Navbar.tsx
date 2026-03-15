@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { User, Notification } from "../../types";
 import { userDisplayName } from "../../types";
@@ -8,6 +8,7 @@ import { getVersion } from "../../api/auth";
 interface BreadcrumbItem {
   label: string;
   href?: string;
+  suffix?: React.ReactNode;
 }
 
 interface Props {
@@ -104,6 +105,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
             ) : (
               <span className="text-slate-200 text-sm font-medium">{item.label}</span>
             )}
+            {item.suffix}
           </span>
         ))}
         <div className="ml-auto flex items-center gap-3">

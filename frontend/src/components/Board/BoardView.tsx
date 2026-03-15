@@ -1,10 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
-import { starBoard, unstarBoard } from "../../api/boards";
 import {
   DndContext,
   DragOverlay,
@@ -14,11 +13,13 @@ import {
   useSensors,
   useDroppable,
 } from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardFull, Card, Column, Swimlane, Label } from "../../types";
 import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
+import ColumnSeparator from "./ColumnSeparator";
+import RowSeparator from "./RowSeparator";
 import SwimlaneRow from "./SwimlaneRow";
 import CardItem from "../Card/CardItem";
 import CardDetail from "../Card/CardDetail";
@@ -49,7 +50,6 @@ interface Props {
   onLabelAdded: (label: Label) => void;
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
   onBoardDeleted?: () => void;
-  onStarToggled?: () => void;
   userTimezone?: string;
   userDateFormat?: string;
   userTimeFormat?: string;
@@ -104,34 +104,26 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, onStarToggled, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
-  const [isStarred, setIsStarred] = useState(board.is_starred);
-  const [starLoading, setStarLoading] = useState(false);
-  const handleStarToggle = useCallback(async () => {
-    if (starLoading) return;
-    const prev = isStarred;
-    setIsStarred(!prev);
-    setStarLoading(true);
-    try {
-      if (prev) {
-        await unstarBoard(board.id);
-      } else {
-        await starBoard(board.id);
-      }
-      onStarToggled?.();
-    } catch {
-      setIsStarred(prev);
-    } finally {
-      setStarLoading(false);
-    }
-  }, [starLoading, isStarred, board.id, onStarToggled]);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id);
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleHiddenSwimlane, setCardFieldPref } = useViewPrefs(board.id);
+  // For boards with no stored view prefs (e.g. freshly created), expand all columns by default.
+  useEffect(() => {
+    const key = `board:${board.id}:view-prefs`;
+    if (!localStorage.getItem(key) && board.columns.length > 0) {
+      expandAllColumns(board.columns.map((c) => c.id));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.id]);
+
   const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
   const hiddenSwimlaneIds = new Set(viewPrefs.hiddenSwimlaneIds);
+  // Collapsed = not in expandedColumnIds (compact by default; user expands explicitly)
+  const expandedColumnIds = new Set(viewPrefs.expandedColumnIds);
+  const allColumnsExpanded = board.columns.every((c) => expandedColumnIds.has(c.id));
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     if (event.type === "card.created") {
@@ -188,7 +180,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [collapsedColumns, setCollapsedColumns] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -283,6 +274,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const handleColumnAdded = useCallback((col: Column) => {
     onColumnAdded(col);
+    toggleExpandedColumn(col.id);
     if (insertPosition !== null) {
       const currentIds = board.columns.map((c) => c.id);
       const newOrder = [
@@ -292,7 +284,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       ];
       onColumnsReordered(newOrder);
     }
-  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
+  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered, toggleExpandedColumn]);
 
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
     onSwimlaneAdded(swimlane);
@@ -307,13 +299,75 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [board.swimlanes, insertSwimlanePosition, onSwimlaneAdded, onSwimlanesReordered]);
 
-  const toggleColumn = (id: number) => setCollapsedColumns((prev) => {
-    const next = new Set(prev);
-    if (next.has(id)) { next.delete(id); } else { next.add(id); }
-    return next;
-  });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Unique 3-char abbreviations for collapsed column headers.
+  // Algorithm: strip spaces, take first 3 chars uppercased; if two columns share
+  // the same base, suffix the later ones with a digit (e.g. "DON", "DO2").
+  const columnAbbreviations = useCallback((): Map<number, string> => {
+    const result = new Map<number, string>();
+    const seen = new Map<string, number>();
+    for (const col of board.columns) {
+      const base = col.name.replace(/\s+/g, "").slice(0, 3).toUpperCase() || "COL";
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      result.set(col.id, n === 1 ? base : `${base.slice(0, 2)}${n}`);
+    }
+    return result;
+  }, [board.columns])();
+
+  // Resizable swimlane name column
+  const swimlaneColWidth = viewPrefs.swimlaneColumnWidth;
+  const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  // Resizable board columns
+  const DEFAULT_COL_WIDTH = 220;
+  const colWidths = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const col of board.columns) {
+      map.set(col.id, Math.max(160, viewPrefs.columnWidths[col.id] ?? DEFAULT_COL_WIDTH));
+    }
+    return map;
+  }, [board.columns, viewPrefs.columnWidths]);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeState.current = { startX: e.clientX, startWidth: swimlaneColWidth };
+    const onMove = (ev: MouseEvent) => {
+      if (!resizeState.current) return;
+      const delta = ev.clientX - resizeState.current.startX;
+      setSwimlaneColumnWidth(resizeState.current.startWidth + delta);
+    };
+    const onUp = () => {
+      resizeState.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [swimlaneColWidth, setSwimlaneColumnWidth]);
+
+  // Custom collision detection: restrict candidates by the type of item being dragged
+  // so that cell droppables don't steal hits from col: or swim: sortable targets.
+  const collisionDetection = useCallback<CollisionDetection>((args) => {
+    const activeId = String(args.active.id);
+    if (activeId.startsWith("swim:")) {
+      return closestCenter({
+        ...args,
+        droppableContainers: args.droppableContainers.filter((c) => String(c.id).startsWith("swim:")),
+      });
+    }
+    if (activeId.startsWith("col:")) {
+      return closestCenter({
+        ...args,
+        droppableContainers: args.droppableContainers.filter(
+          (c) => String(c.id).startsWith("col:") || String(c.id).startsWith("cell:") || c.id === "trash:column"
+        ),
+      });
+    }
+    return closestCenter(args);
+  }, []);
 
   const handleDragStart = (e: DragStartEvent) => {
     clearSelection();
@@ -422,8 +476,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   return (
     <>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 flex-wrap">
+      <div className="flex items-center gap-2 px-3 py-1.5 mt-2 bg-slate-800 border-b border-slate-700 shrink-0 flex-wrap">
         <ViewToggle view={view} onChange={setView} />
+        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <button
+          onClick={() => allColumnsExpanded ? collapseAllColumns() : expandAllColumns(board.columns.map(c => c.id))}
+          className="text-xs text-slate-300 hover:text-white transition shrink-0"
+          title={allColumnsExpanded ? "Collapse all columns" : "Expand all columns"}
+        >
+          {allColumnsExpanded ? "Collapse" : "Expand"}
+        </button>
         <span className="w-px h-4 bg-slate-600 shrink-0" />
         <button
           onClick={() => setShowFilters((v) => !v)}
@@ -439,16 +501,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
         {/* Inline filter controls — same row, wrap to next line on narrow viewports */}
         {showFilters && <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />}
-
-        <button
-          onClick={handleStarToggle}
-          disabled={starLoading}
-          className={`text-xs transition shrink-0 ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-slate-400 hover:text-yellow-400"}`}
-          title={isStarred ? "Unstar board" : "Star board"}
-          aria-label={isStarred ? "Unstar board" : "Star board"}
-        >
-          {isStarred ? "★" : "☆"}
-        </button>
 
         <span className="w-px h-4 bg-slate-600 ml-auto shrink-0" />
         <button
@@ -481,7 +533,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           Card not found — it may have been archived or deleted.
         </div>
       )}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/*
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
@@ -496,52 +548,55 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           */}
           <div className="min-w-max">
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="flex sticky top-0 z-10 border-b border-slate-700 bg-slate-800">
-            {/* Corner — also sticky to the left */}
-            <div className="w-[220px] shrink-0 bg-slate-800 flex items-center justify-center sticky left-0 z-20">
-              {isAdmin && (
-                <button
-                  onClick={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
-                  className="text-xs text-slate-400 hover:text-white transition px-2 py-1 rounded"
-                >
-                  + Swimlane
-                </button>
-              )}
+          <div className="flex sticky top-0 z-20 border-b border-slate-700 bg-slate-800">
+            {/* Corner — sticky to the left; shows board density at a glance */}
+            <div className="shrink-0 bg-slate-800 flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2" style={{ width: swimlaneColWidth }}>
+              <span className="text-[10px] text-slate-500 font-medium tabular-nums">
+                {board.columns.length} col{board.columns.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium tabular-nums">
+                {board.swimlanes.length} lane{board.swimlanes.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-[10px] text-slate-600 tabular-nums">
+                {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
+              </span>
             </div>
+
+            {/* Far-left separator: drag resizes the swimlane sidebar; click inserts column at pos 0 */}
+            <ColumnSeparator
+              isAdmin={isAdmin}
+              onOpenAdd={() => { setInsertPosition(0); setShowAddColumn(true); }}
+              currentWidth={swimlaneColWidth}
+              setWidth={setSwimlaneColumnWidth}
+            />
 
             <SortableContext items={board.columns.map((c) => `col:${c.id}`)} strategy={horizontalListSortingStrategy}>
               {board.columns.map((col, idx) => (
-                <ColumnHeader
-                  key={col.id}
-                  column={col}
-                  cards={board.cards.filter((c) => c.column === col.id)}
-                  boardId={board.id}
-                  isAdmin={isAdmin}
-                  onColumnUpdated={onColumnUpdated}
-                  onColumnDeleted={onColumnDeleted}
-                  collapsed={collapsedColumns.has(col.id)}
-                  hidden={hiddenColumnIds.has(col.id)}
-                  onToggleCollapse={() => toggleColumn(col.id)}
-                  onInsertLeft={() => { setInsertPosition(idx); setShowAddColumn(true); }}
-                  onInsertRight={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
-                />
+                <React.Fragment key={col.id}>
+                  <ColumnHeader
+                    column={col}
+                    cards={board.cards.filter((c) => c.column === col.id)}
+                    boardId={board.id}
+                    isAdmin={isAdmin}
+                    onColumnUpdated={onColumnUpdated}
+                    onColumnDeleted={onColumnDeleted}
+                    collapsed={!expandedColumnIds.has(col.id)}
+                    hidden={hiddenColumnIds.has(col.id)}
+                    abbreviation={columnAbbreviations.get(col.id)}
+                    width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
+                    onToggleCollapse={() => toggleExpandedColumn(col.id)}
+                  />
+                  <ColumnSeparator
+                    isAdmin={isAdmin}
+                    onOpenAdd={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
+                    currentWidth={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
+                    setWidth={(w) => setColumnWidth(col.id, w)}
+                  />
+                </React.Fragment>
               ))}
             </SortableContext>
 
-            {activeColumn ? (
-              <ColumnTrashZone />
-            ) : (
-              <div className="w-20 shrink-0 flex items-center px-2 bg-slate-800 border-l border-slate-700">
-                {isAdmin && (
-                  <button
-                    onClick={() => setShowAddColumn(true)}
-                    className="text-xs text-slate-400 hover:text-slate-200 whitespace-nowrap px-2 py-1 rounded hover:bg-slate-700 transition"
-                  >
-                    + Col
-                  </button>
-                )}
-              </div>
-            )}
+            {activeColumn && <ColumnTrashZone />}
           </div>
 
           {/* Empty state: no columns */}
@@ -562,38 +617,63 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           {/* Swimlane rows */}
           {board.columns.length > 0 && (
             <SortableContext items={board.swimlanes.map((s) => `swim:${s.id}`)} strategy={verticalListSortingStrategy}>
-              {board.swimlanes
-                .filter((swimlane) => !hiddenSwimlaneIds.has(swimlane.id))
-                .map((swimlane, idx) => (
-            <SwimlaneRow
-              key={swimlane.id}
-              swimlane={swimlane}
-              columns={board.columns}
-              cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
-              boardId={board.id}
-              isAdmin={isAdmin}
-              canEdit={canEdit}
-              closeEditorOnEnter={board.close_editor_on_enter}
-              collapsedColumnIds={collapsedColumns}
-              hiddenColumnIds={hiddenColumnIds}
-              filteredCardIds={filteredCardIds}
-              selectedCardIds={selectedCardIds}
-              highlightedCardId={highlightedCardId}
-              onToggleCardSelection={toggleCardSelection}
-              onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
-              onCardAdded={onCardAdded}
-              onSwimlaneUpdated={onSwimlaneUpdated}
-              onSwimlaneDeleted={onSwimlaneDeleted}
-              onInsertAbove={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
-              onInsertBelow={() => { setInsertSwimlanePosition(idx + 1); setShowAddSwimlane(true); }}
-              hideLabels={viewPrefs.hideLabels}
-              hideDueDate={viewPrefs.hideDueDate}
-              hideAssignee={viewPrefs.hideAssignee}
-              hidePriority={viewPrefs.hidePriority}
-              userTimezone={userTimezone}
-              userDateFormat={userDateFormat}
-            />
-              ))}
+              {(() => {
+                const visible = board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id));
+                return visible.map((swimlane, idx) => (
+                  <React.Fragment key={swimlane.id}>
+                    <RowSeparator
+                      isAdmin={isAdmin}
+                      onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
+                      currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
+                      setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
+                    />
+                    <SwimlaneRow
+                      swimlane={swimlane}
+                      sidebarWidth={swimlaneColWidth}
+                      onResizeStart={handleResizeStart}
+                      colWidths={colWidths}
+                      setColumnWidth={setColumnWidth}
+                      minHeight={viewPrefs.swimlaneHeights[swimlane.id]}
+                      setSwimlaneHeight={(h) => setSwimlaneHeight(swimlane.id, h)}
+                      columns={board.columns}
+                      cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
+                      boardId={board.id}
+                      isAdmin={isAdmin}
+                      canEdit={canEdit}
+                      closeEditorOnEnter={board.close_editor_on_enter}
+                      collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
+                      hiddenColumnIds={hiddenColumnIds}
+                      filteredCardIds={filteredCardIds}
+                      selectedCardIds={selectedCardIds}
+                      highlightedCardId={highlightedCardId}
+                      onToggleCardSelection={toggleCardSelection}
+                      onCardClick={(card) => { clearSelection(); setSelectedCard(card); }}
+                      onCardAdded={onCardAdded}
+                      onSwimlaneUpdated={onSwimlaneUpdated}
+                      onSwimlaneDeleted={onSwimlaneDeleted}
+                      hideLabels={viewPrefs.hideLabels}
+                      hideDueDate={viewPrefs.hideDueDate}
+                      hideAssignee={viewPrefs.hideAssignee}
+                      hidePriority={viewPrefs.hidePriority}
+                      userTimezone={userTimezone}
+                      userDateFormat={userDateFormat}
+                    />
+                  </React.Fragment>
+                ));
+              })()}
+              {/* Bottom separator — resizes the last swimlane */}
+              {(() => {
+                const visible = board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id));
+                const last = visible[visible.length - 1];
+                return (
+                  <RowSeparator
+                    isAdmin={isAdmin}
+                    onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
+                    currentHeight={last ? (viewPrefs.swimlaneHeights[last.id] ?? undefined) : undefined}
+                    setHeight={last ? (h) => setSwimlaneHeight(last.id, h) : undefined}
+                  />
+                );
+              })()}
             </SortableContext>
           )}
 
@@ -617,7 +697,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         <DragOverlay>
           {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} />}
           {activeColumn && (
-            <div className="flex-1 min-w-[180px] px-3 py-3 border border-blue-400 bg-blue-50 rounded shadow-xl opacity-90">
+            <div className="px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
                 <span className="font-semibold text-slate-300 text-sm">{activeColumn.name}</span>
@@ -625,7 +705,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             </div>
           )}
           {activeSwimlane && (
-            <div className="w-[220px] px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90 flex items-center gap-2">
+            <div className="px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90 flex items-center gap-2" style={{ width: swimlaneColWidth }}>
               <span className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: activeSwimlane.color }} />
               <span className="font-semibold text-white text-sm truncate">{activeSwimlane.name}</span>
             </div>

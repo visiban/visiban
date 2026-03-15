@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column } from "../../types";
 import EditColumnModal from "./EditColumnModal";
+import { updateColumn } from "../../api/boards";
 
 interface Props {
   column: Column;
@@ -13,13 +14,16 @@ interface Props {
   onColumnDeleted: (columnId: number) => void;
   collapsed: boolean;
   hidden?: boolean;
+  abbreviation?: string;
+  width?: number;
   onToggleCollapse: () => void;
-  onInsertLeft?: () => void;
-  onInsertRight?: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, hidden, onToggleCollapse, onInsertLeft, onInsertRight }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, collapsed, hidden, abbreviation, width, onToggleCollapse }: Props) {
   const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col:${column.id}`, disabled: !isAdmin });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : undefined };
 
@@ -27,6 +31,24 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const totalWeight = cards.reduce((sum, c) => sum + c.weight, 0);
   const overWip = column.wip_limit !== null && cardCount > column.wip_limit;
   const overWeight = column.weight_limit !== null && totalWeight > column.weight_limit;
+
+  const startRenaming = () => {
+    setDraft(column.name);
+    setRenaming(true);
+  };
+
+  const commitRename = async () => {
+    const trimmed = draft.trim();
+    setRenaming(false);
+    if (!trimmed || trimmed === column.name) return;
+    const updated = await updateColumn(boardId, column.id, { name: trimmed });
+    onColumnUpdated(updated);
+  };
+
+  const cancelRename = () => {
+    setRenaming(false);
+    setDraft("");
+  };
 
   // Hidden by view prefs — render a narrow stub matching hidden cell width
   if (hidden) {
@@ -61,10 +83,11 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           {cardCount}
         </span>
         <span
-          className="text-xs font-semibold text-slate-400 flex-1 flex items-center"
+          className="text-[11px] font-bold text-slate-400 tracking-widest flex-1 flex items-center"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+          title={column.name}
         >
-          {column.name}
+          {abbreviation ?? column.name.slice(0, 3).toUpperCase()}
         </span>
         <span className="text-slate-500 text-xs">▶</span>
       </div>
@@ -77,30 +100,9 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
     <>
       <div
         ref={setNodeRef}
-        style={style}
-        className={`relative flex-1 min-w-[200px] px-3 py-2 border-r border-slate-700 bg-slate-800 group/col transition ${isAdmin ? "cursor-pointer hover:bg-slate-700" : ""}`}
-        onClick={() => isAdmin && setEditing(true)}
-        title={isAdmin ? "Click to edit column" : undefined}
+        style={{ ...style, width: width ?? 220 }}
+        className="relative shrink-0 px-3 py-2 bg-slate-800 border-r border-slate-700 group/col transition"
       >
-        {/* Insert-left button — visible on hover for admins; always visible but dimmed for non-admins */}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (isAdmin) onInsertLeft?.(); }}
-          className={`absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center bg-blue-900/40 text-blue-400 text-sm font-bold transition z-10 rounded-l border-r border-blue-800/50 ${isAdmin ? "opacity-0 group-hover/col:opacity-100 hover:bg-blue-800/60 hover:text-blue-300" : "opacity-50 cursor-not-allowed"}`}
-          title={isAdmin ? "Insert column to the left" : nonAdminTitle}
-          disabled={!isAdmin}
-        >
-          +
-        </button>
-        {/* Insert-right button — visible on hover for admins; always visible but dimmed for non-admins */}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (isAdmin) onInsertRight?.(); }}
-          className={`absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center bg-blue-900/40 text-blue-400 text-sm font-bold transition z-10 rounded-r border-l border-blue-800/50 ${isAdmin ? "opacity-0 group-hover/col:opacity-100 hover:bg-blue-800/60 hover:text-blue-300" : "opacity-50 cursor-not-allowed"}`}
-          title={isAdmin ? "Insert column to the right" : nonAdminTitle}
-          disabled={!isAdmin}
-        >
-          +
-        </button>
-
         {/* Row 1: collapse toggle, color dot, name, edit icon */}
         <div className="flex items-center gap-2">
           <button
@@ -117,18 +119,41 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             {...(isAdmin ? { ...attributes, ...listeners } : {})}
             onClick={(e) => e.stopPropagation()}
           />
-          <span className="font-semibold text-slate-200 text-sm truncate">{column.name}</span>
-          {/* Edit icon — shown to all, dimmed and non-interactive for non-admins */}
+          {renaming ? (
+            <input
+              ref={inputRef}
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); commitRename(); }
+                if (e.key === "Escape") { e.preventDefault(); cancelRename(); }
+              }}
+              onBlur={commitRename}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 min-w-0 text-sm font-semibold bg-slate-900 text-slate-100 border border-blue-500 rounded px-1 py-0 outline-none"
+            />
+          ) : (
+            <span
+              className={`font-semibold text-slate-200 text-sm truncate ${isAdmin ? "cursor-text hover:text-white" : ""}`}
+              title={isAdmin ? "Click to rename" : column.name}
+              onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
+            >
+              {column.name}
+            </span>
+          )}
+          {/* Edit icon — opens full modal */}
           <span
-            className={`ml-auto transition text-xs shrink-0 ${isAdmin ? "text-slate-600 group-hover/col:text-slate-400" : "text-slate-700 opacity-50 cursor-not-allowed"}`}
-            title={isAdmin ? "Click to edit column" : nonAdminTitle}
+            className={`ml-auto transition text-xs shrink-0 ${isAdmin ? "text-slate-600 group-hover/col:text-slate-400 cursor-pointer hover:text-slate-200" : "text-slate-700 opacity-50 cursor-not-allowed"}`}
+            title={isAdmin ? "Edit column settings" : nonAdminTitle}
+            onClick={isAdmin ? (e) => { e.stopPropagation(); setEditing(true); } : undefined}
           >
             ✎
           </span>
         </div>
 
-        {/* Row 2: WIP and Weight stats with labels */}
-        <div className="flex items-center gap-3 mt-1.5 pl-[26px]">
+        {/* Rows 2–3: WIP and Weight stats, one per line */}
+        <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px]">
           <span
             className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
             title="Cards in column / WIP limit"

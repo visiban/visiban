@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
@@ -46,7 +46,9 @@ vi.mock('../components/Board/AnalyticsView', () => ({
   default: () => <div data-testid="analytics-view">Analytics</div>,
 }))
 vi.mock('../components/Board/ColumnHeader', () => ({
-  default: ({ column }: { column: { id: number; name: string } }) => <div data-testid={`col-${column.id}`}>{column.name}</div>,
+  default: ({ column, collapsed }: { column: { id: number; name: string }; collapsed: boolean }) => (
+    <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
+  ),
 }))
 vi.mock('../components/Board/SwimlaneRow', () => ({
   default: ({ swimlane }: { swimlane: { id: number; name: string } }) => <div data-testid={`swim-${swimlane.id}`}>{swimlane.name}</div>,
@@ -58,7 +60,13 @@ vi.mock('../components/Card/CardDetail', () => ({
   default: ({ card, onClose }: { card: { title: string }; onClose: () => void }) => <div data-testid="card-detail">{card.title}<button onClick={onClose}>Close Detail</button></div>,
 }))
 vi.mock('../components/Board/AddColumnModal', () => ({
-  default: () => <div data-testid="add-column-modal">Add Column Modal</div>,
+  default: ({ onAdded }: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true }) => void }) => (
+    <div data-testid="add-column-modal">
+      <button onClick={() => onAdded({ id: 99, name: 'New Column', position: 2, color: '#000', wip_limit: null, weight_limit: null, allow_card_creation: true })}>
+        Confirm Add
+      </button>
+    </div>
+  ),
 }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
   default: () => <div data-testid="add-swimlane-modal">Add Swimlane Modal</div>,
@@ -129,6 +137,7 @@ describe('BoardView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSearchParams = new URLSearchParams()
+    localStorage.clear()
   })
 
   it('renders view toggle buttons', () => {
@@ -222,22 +231,10 @@ describe('BoardView', () => {
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
   })
 
-  it('renders + Col button for admin', () => {
+  it('renders board density stats in the corner cell', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('+ Col')).toBeInTheDocument()
-  })
-
-  it('renders + Swimlane button for admin', () => {
-    render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('+ Swimlane')).toBeInTheDocument()
-  })
-
-  it('hides + Col and + Swimlane for viewer', () => {
-    const props = defaultProps()
-    props.board = makeBoard({ current_user_role: 'viewer' })
-    render(<BoardView {...props} />)
-    expect(screen.queryByText('+ Col')).not.toBeInTheDocument()
-    expect(screen.queryByText('+ Swimlane')).not.toBeInTheDocument()
+    expect(screen.getByText(/col/)).toBeInTheDocument()
+    expect(screen.getByText(/lane/)).toBeInTheDocument()
   })
 
   it('renders ? keyboard shortcuts button', () => {
@@ -284,5 +281,41 @@ describe('BoardView', () => {
     await act(async () => { vi.advanceTimersByTime(4000) })
     expect(screen.queryByText(/Card not found/)).not.toBeInTheDocument()
     vi.useRealTimers()
+  })
+
+  it('fresh board with no stored prefs renders all columns expanded', async () => {
+    // localStorage is cleared in beforeEach — no stored view prefs for this board
+    render(<BoardView {...defaultProps()} />)
+    // The useEffect fires synchronously in jsdom; columns should be expanded (collapsed=false)
+    await act(async () => {})
+    expect(screen.getByTestId('col-10')).toHaveAttribute('data-collapsed', 'false')
+    expect(screen.getByTestId('col-11')).toHaveAttribute('data-collapsed', 'false')
+  })
+
+  it('column added via AddColumnModal is immediately expanded', async () => {
+    const props = defaultProps()
+    // Start with no columns so the empty-state "+ Add column" button is visible
+    props.board = makeBoard({ columns: [] })
+    render(<BoardView {...props} />)
+    await act(async () => {})
+    await userEvent.setup().click(screen.getByText('+ Add column'))
+    expect(screen.getByTestId('add-column-modal')).toBeInTheDocument()
+    // Simulate the modal confirming a new column (id=99)
+    await userEvent.setup().click(screen.getByText('Confirm Add'))
+    // The new column should be registered as expanded in persisted view prefs
+    const stored = JSON.parse(localStorage.getItem('board:1:view-prefs') ?? '{}')
+    expect(stored.expandedColumnIds).toContain(99)
+  })
+
+  it('clicking a column separator opens AddColumnModal', async () => {
+    const { container } = render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    // ColumnSeparators are 16px-wide divs with cursor-col-resize; trigger mousedown+mouseup (no drag)
+    const separators = container.querySelectorAll('.cursor-col-resize')
+    expect(separators.length).toBeGreaterThan(0)
+    const sep = separators[0] as HTMLElement
+    fireEvent.mouseDown(sep, { clientX: 100 })
+    fireEvent.mouseUp(window, { clientX: 100 })
+    expect(screen.getByTestId('add-column-modal')).toBeInTheDocument()
   })
 })

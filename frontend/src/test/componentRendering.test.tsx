@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import Avatar from '../components/Common/Avatar'
 
 // ---------------------------------------------------------------------------
@@ -11,6 +12,17 @@ vi.mock('@dnd-kit/core', () => ({
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, isDragging: false }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
 }))
+
+vi.mock('../api/boards', () => ({
+  updateColumn: vi.fn(),
+  updateSwimlane: vi.fn().mockResolvedValue({
+    id: 20, name: 'Renamed', contact_email: '', notes: '', position: 0,
+    color: '#6B7280', is_collapsed: false, created_at: '',
+  }),
+}))
+
+vi.mock('../components/Board/BoardCell', () => ({ default: () => <div /> }))
+vi.mock('../components/Board/EditSwimlaneModal', () => ({ default: () => <div data-testid="edit-modal" /> }))
 
 vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null, transition: null, isDragging: false }),
@@ -336,7 +348,137 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(screen.getByText('Done')).toBeInTheDocument()
+    expect(screen.getByText('DON')).toBeInTheDocument()
     expect(screen.getByTitle('Expand "Done"')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SwimlaneRow — inline rename
+// ---------------------------------------------------------------------------
+
+import SwimlaneRow from '../components/Board/SwimlaneRow'
+import type { Swimlane } from '../types'
+
+function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
+  return {
+    id: 20, name: 'Customer A', contact_email: 'a@example.com', notes: '',
+    position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01',
+    ...overrides,
+  }
+}
+
+const swimlaneRowBaseProps = {
+  columns: [],
+  cards: [],
+  boardId: 1,
+  canEdit: true,
+  closeEditorOnEnter: false,
+  collapsedColumnIds: new Set<number>(),
+  filteredCardIds: null,
+  selectedCardIds: new Set<number>(),
+  onToggleCardSelection: () => {},
+  onCardClick: () => {},
+  onCardAdded: () => {},
+  onSwimlaneUpdated: () => {},
+  onSwimlaneDeleted: () => {},
+}
+
+describe('SwimlaneRow', () => {
+  it('renders the swimlane name', () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+
+  it('clicking the swimlane name shows a rename input when isAdmin', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
+    await userEvent.setup().click(screen.getByText('Customer A'))
+    const input = screen.getByRole('textbox')
+    expect(input).toBeInTheDocument()
+    expect((input as HTMLInputElement).value).toBe('Customer A')
+  })
+
+  it('does not enter rename mode when isAdmin is false', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
+    await userEvent.setup().click(screen.getByText('Customer A'))
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('pressing Escape cancels the rename', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Customer A'))
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+
+  it('edit button (✎) opens the EditSwimlaneModal when isAdmin', async () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={true} {...swimlaneRowBaseProps} />)
+    await userEvent.setup().click(screen.getByTitle('Edit swimlane'))
+    expect(screen.getByTestId('edit-modal')).toBeInTheDocument()
+  })
+
+  it('collapsed cell shows total count when no filter is active', () => {
+    const col = makeColumn({ id: 5 })
+    const card = makeCard({ id: 99, column: 5, swimlane: 20 })
+    const { container } = render(
+      <SwimlaneRow
+        swimlane={makeSwimlane()}
+        isAdmin={false}
+        {...swimlaneRowBaseProps}
+        columns={[col]}
+        cards={[card]}
+        collapsedColumnIds={new Set([5])}
+        filteredCardIds={null}
+      />
+    )
+    expect(screen.getByText('1')).toBeInTheDocument()
+    // no pulse class when filter is inactive
+    const cell = container.querySelector('.animate-pulse')
+    expect(cell).toBeNull()
+  })
+
+  it('collapsed cell pulses and shows match count when filter has matches', () => {
+    const col = makeColumn({ id: 5 })
+    const matchCard = makeCard({ id: 99, column: 5, swimlane: 20 })
+    const otherCard = makeCard({ id: 100, column: 5, swimlane: 20 })
+    const { container } = render(
+      <SwimlaneRow
+        swimlane={makeSwimlane()}
+        isAdmin={false}
+        {...swimlaneRowBaseProps}
+        columns={[col]}
+        cards={[matchCard, otherCard]}
+        collapsedColumnIds={new Set([5])}
+        filteredCardIds={new Set([99])}
+      />
+    )
+    // shows match count (1), not total (2)
+    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.queryByText('2')).not.toBeInTheDocument()
+    // pulse highlight applied
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+  })
+
+  it('collapsed cell shows total count (no pulse) when filter is active but no matches in this cell', () => {
+    const col = makeColumn({ id: 5 })
+    const card = makeCard({ id: 99, column: 5, swimlane: 20 })
+    const { container } = render(
+      <SwimlaneRow
+        swimlane={makeSwimlane()}
+        isAdmin={false}
+        {...swimlaneRowBaseProps}
+        columns={[col]}
+        cards={[card]}
+        collapsedColumnIds={new Set([5])}
+        filteredCardIds={new Set([999])}
+      />
+    )
+    // total count still shown
+    expect(screen.getByText('1')).toBeInTheDocument()
+    // no pulse when no matches
+    expect(container.querySelector('.animate-pulse')).toBeNull()
   })
 })

@@ -15,8 +15,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Filters toolbar button now uses `text-slate-300 hover:text-white` instead of `text-blue-600 hover:text-blue-800` (#184)
 - Version badge in Navbar is now hidden for all versioned builds (stable and pre-release); only shown when `APP_VERSION` is `dev` (#192)
 - Invite link URLs in Group Settings are now truncated in the display field with the full URL available on hover; copy behaviour is unchanged (#193)
+- Collapsed columns now show a unique 3-character abbreviation (e.g. BAC, TOD, DOI) instead of the full rotated name; duplicates are suffixed with a digit (#195)
+- Columns now default to collapsed (compact) on every board; an Expand / Collapse button in the toolbar expands or collapses all columns at once, and individual columns can still be toggled by clicking; expanded state is persisted per-board in localStorage
+- Swimlane label sidebar is now resizable by dragging its right edge; minimum width is ~56 px (≈4 characters) and maximum is 400 px; width is persisted per-board in localStorage
+- Column names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full column settings modal
+- Column and row separators redesigned as unified interactive handles: two parallel lines with a "+" that appears on hover; clicking inserts a column or swimlane inline; dragging a column separator left/right resizes the column to its left
+- The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the label column on drag
+- Double-clicking an empty area in a cell now opens the inline new-card form (same as right-click and the "+ Add card" button)
+- Board columns are now individually resizable by dragging the right edge separator; width is persisted per-column per-board in localStorage; cards reflow automatically as column width changes and row height adjusts to the tallest cell
+- Star/unstar button moved from the board toolbar to the breadcrumb in the Navbar, immediately after the board name — star is now always visible regardless of which view (Board/Summary/Analytics) is active
+- Board toolbar now has a small top margin so it breathes away from the Navbar
+- Column separator "+" indicator simplified to a single centered sign (matching the row separator style) — three stacked signs were visually noisy in the narrow 16 px column
 - Swimlane rows can now be reordered by dragging; `closestCenter` was resolving to cell droppables (which cover more area than the swimlane sidebar) and the drop was silently discarded — the cell ID is now mapped back to its swimlane before the sort index lookup, matching the existing fix for column reordering (#195)
 - Cell drop-target highlight no longer activates when dragging a swimlane or column (#195)
+- Newly created columns are now automatically expanded (no longer start collapsed); boards with no stored view preferences (e.g. freshly created boards) also start with all columns expanded
+- Header row z-index raised so swimlane rows scroll behind it correctly when the board is scrolled vertically
+- Swimlane names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full swimlane settings modal
+- Swimlane row height is now resizable: drag the bottom edge of any swimlane row to set a minimum height; height is persisted per-swimlane per-board in localStorage
+- Column and row separators redesigned to single hairline (from double-line): barely visible at rest, highlights blue on hover — cleaner in dense kanban layouts
+- Clicking a column separator now opens the Add Column modal (same flow as swimlane separators) rather than an inline input; drag still resizes the column to the left
+- Collapsed column cells now pulse with a blue highlight and show the filter match count when a search or filter is active and matching cards are hidden inside — so results are visible without expanding every column
+- Trailing separator added to SwimlaneRow so the last column aligns correctly with the header in collapsed board view
+- Frontend UI conventions moved from the root `CLAUDE.md` into `frontend/CLAUDE.md` alongside the code they govern
 
 ### Changed
 
