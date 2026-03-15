@@ -250,9 +250,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           card.labels.some((l) => l.name.toLowerCase().includes(q));
         if (!matches) return false;
       }
-      if (filters.assigneeId !== null) {
-        if (filters.assigneeId === -1 && card.assignee !== null) return false;
-        if (filters.assigneeId !== -1 && card.assignee?.id !== filters.assigneeId) return false;
+      if (filters.assigneeIds.length > 0) {
+        const matches = filters.assigneeIds.some((id) =>
+          id === -1 ? card.assignee === null : card.assignee?.id === id
+        );
+        if (!matches) return false;
       }
       if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
       if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;

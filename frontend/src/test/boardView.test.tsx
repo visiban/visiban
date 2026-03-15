@@ -76,7 +76,7 @@ vi.mock('../components/Board/BoardSettingsModal', () => ({
 }))
 vi.mock('../components/Board/FilterBar', () => ({
   default: () => <div data-testid="filter-bar">FilterBar</div>,
-  EMPTY_FILTER: { search: '', assigneeId: null, labelIds: [], priorities: [], dueDate: null },
+  EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null },
   countActiveFilters: () => 0,
 }))
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({

@@ -10,12 +10,20 @@ describe('countActiveFilters', () => {
     expect(countActiveFilters({ ...EMPTY_FILTER, search: 'hello' })).toBe(1)
   })
 
-  it('counts assigneeId as one active filter', () => {
-    expect(countActiveFilters({ ...EMPTY_FILTER, assigneeId: 5 })).toBe(1)
+  it('counts non-empty assigneeIds as one active filter', () => {
+    expect(countActiveFilters({ ...EMPTY_FILTER, assigneeIds: [5] })).toBe(1)
   })
 
-  it('counts unassigned (-1) as one active filter', () => {
-    expect(countActiveFilters({ ...EMPTY_FILTER, assigneeId: -1 })).toBe(1)
+  it('counts unassigned (-1) in assigneeIds as one active filter', () => {
+    expect(countActiveFilters({ ...EMPTY_FILTER, assigneeIds: [-1] })).toBe(1)
+  })
+
+  it('counts multiple assignees as one active filter', () => {
+    expect(countActiveFilters({ ...EMPTY_FILTER, assigneeIds: [1, 2, 3] })).toBe(1)
+  })
+
+  it('does not count empty assigneeIds array', () => {
+    expect(countActiveFilters({ ...EMPTY_FILTER, assigneeIds: [] })).toBe(0)
   })
 
   it('counts non-empty labelIds as one active filter', () => {
@@ -37,7 +45,7 @@ describe('countActiveFilters', () => {
   it('counts all active filters together', () => {
     expect(countActiveFilters({
       search: 'test',
-      assigneeId: 1,
+      assigneeIds: [1],
       labelIds: [3],
       priorities: ['urgent'],
       dueDate: 'today',

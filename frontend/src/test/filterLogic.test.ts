@@ -29,9 +29,11 @@ function filterCards(cards: Card[], filters: FilterState): Card[] {
         card.labels.some((l) => l.name.toLowerCase().includes(q))
       if (!matches) return false
     }
-    if (filters.assigneeId !== null) {
-      if (filters.assigneeId === -1 && card.assignee !== null) return false
-      if (filters.assigneeId !== -1 && card.assignee?.id !== filters.assigneeId) return false
+    if (filters.assigneeIds.length > 0) {
+      const matches = filters.assigneeIds.some((id) =>
+        id === -1 ? card.assignee === null : card.assignee?.id === id
+      )
+      if (!matches) return false
     }
     if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false
     if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false
@@ -129,13 +131,23 @@ describe('filterCards — search filter', () => {
 
 describe('filterCards — assignee filter', () => {
   it('matches assigned user by id', () => {
-    const result = filterCards(cards, { ...EMPTY_FILTER, assigneeId: alice.id })
+    const result = filterCards(cards, { ...EMPTY_FILTER, assigneeIds: [alice.id] })
     expect(result.map((c) => c.id)).toEqual([1, 4])
   })
 
   it('matches unassigned cards with -1', () => {
-    const result = filterCards(cards, { ...EMPTY_FILTER, assigneeId: -1 })
+    const result = filterCards(cards, { ...EMPTY_FILTER, assigneeIds: [-1] })
     expect(result.map((c) => c.id)).toEqual([3])
+  })
+
+  it('matches multiple assignees with OR logic', () => {
+    const result = filterCards(cards, { ...EMPTY_FILTER, assigneeIds: [alice.id, bob.id] })
+    expect(result.map((c) => c.id)).toEqual([1, 2, 4])
+  })
+
+  it('matches assigned + unassigned together', () => {
+    const result = filterCards(cards, { ...EMPTY_FILTER, assigneeIds: [alice.id, -1] })
+    expect(result.map((c) => c.id)).toEqual([1, 3, 4])
   })
 })
 
@@ -219,7 +231,7 @@ describe('filterCards — due date filter', () => {
 
 describe('filterCards — multiple filters stack (AND logic)', () => {
   it('combines search + assignee', () => {
-    const result = filterCards(cards, { ...EMPTY_FILTER, search: 'auth', assigneeId: alice.id })
+    const result = filterCards(cards, { ...EMPTY_FILTER, search: 'auth', assigneeIds: [alice.id] })
     expect(result.map((c) => c.id)).toEqual([4])
   })
 
@@ -229,7 +241,7 @@ describe('filterCards — multiple filters stack (AND logic)', () => {
   })
 
   it('returns empty when filters conflict', () => {
-    const result = filterCards(cards, { ...EMPTY_FILTER, search: 'login', assigneeId: alice.id })
+    const result = filterCards(cards, { ...EMPTY_FILTER, search: 'login', assigneeIds: [alice.id] })
     // "Fix login bug" is assigned to bob, not alice
     expect(result).toEqual([])
   })
@@ -259,7 +271,7 @@ describe('countActiveFilters — additional cases', () => {
     expect(countActiveFilters({
       ...EMPTY_FILTER,
       search: 'x',
-      assigneeId: 1,
+      assigneeIds: [1],
       priorities: ['high'],
     })).toBe(3)
   })
