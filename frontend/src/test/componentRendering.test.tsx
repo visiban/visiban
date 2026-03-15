@@ -419,4 +419,66 @@ describe('SwimlaneRow', () => {
     await userEvent.setup().click(screen.getByTitle('Edit swimlane'))
     expect(screen.getByTestId('edit-modal')).toBeInTheDocument()
   })
+
+  it('collapsed cell shows total count when no filter is active', () => {
+    const col = makeColumn({ id: 5 })
+    const card = makeCard({ id: 99, column: 5, swimlane: 20 })
+    const { container } = render(
+      <SwimlaneRow
+        swimlane={makeSwimlane()}
+        isAdmin={false}
+        {...swimlaneRowBaseProps}
+        columns={[col]}
+        cards={[card]}
+        collapsedColumnIds={new Set([5])}
+        filteredCardIds={null}
+      />
+    )
+    expect(screen.getByText('1')).toBeInTheDocument()
+    // no pulse class when filter is inactive
+    const cell = container.querySelector('.animate-pulse')
+    expect(cell).toBeNull()
+  })
+
+  it('collapsed cell pulses and shows match count when filter has matches', () => {
+    const col = makeColumn({ id: 5 })
+    const matchCard = makeCard({ id: 99, column: 5, swimlane: 20 })
+    const otherCard = makeCard({ id: 100, column: 5, swimlane: 20 })
+    const { container } = render(
+      <SwimlaneRow
+        swimlane={makeSwimlane()}
+        isAdmin={false}
+        {...swimlaneRowBaseProps}
+        columns={[col]}
+        cards={[matchCard, otherCard]}
+        collapsedColumnIds={new Set([5])}
+        filteredCardIds={new Set([99])}
+      />
+    )
+    // shows match count (1), not total (2)
+    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.queryByText('2')).not.toBeInTheDocument()
+    // pulse highlight applied
+    expect(container.querySelector('.animate-pulse')).not.toBeNull()
+  })
+
+  it('collapsed cell shows total count (no pulse) when filter is active but no matches in this cell', () => {
+    const col = makeColumn({ id: 5 })
+    const card = makeCard({ id: 99, column: 5, swimlane: 20 })
+    const { container } = render(
+      <SwimlaneRow
+        swimlane={makeSwimlane()}
+        isAdmin={false}
+        {...swimlaneRowBaseProps}
+        columns={[col]}
+        cards={[card]}
+        collapsedColumnIds={new Set([5])}
+        filteredCardIds={new Set([999])}
+      />
+    )
+    // total count still shown
+    expect(screen.getByText('1')).toBeInTheDocument()
+    // no pulse when no matches
+    expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
 })
