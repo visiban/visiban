@@ -1,5 +1,22 @@
 # Visiban — Claude Instructions
 
+## Secure code — always on
+
+When writing any backend code, apply these by default — no need to be asked:
+
+- **No raw SQL** — always use the ORM or parameterized queries; never string-interpolate user input into a query
+- **Input validation at the boundary** — validate and sanitize in serializers, not in views or models
+- **Never log sensitive fields** — passwords, tokens, emails, and PII must not appear in log statements
+- **Use `secrets` not `random`** for any token, key, or nonce generation
+- **Flag `shell=True`** — any `subprocess` call with `shell=True` must have an inline comment explaining why it is safe; prefer list-form args
+- **No hardcoded credentials** — secrets always come from env vars; never commit `.env` files or literal key values
+- **Object-level authorization** — when fetching a resource by PK, always confirm the requesting user has access to that specific object (IDOR prevention)
+- **Frontend: no `dangerouslySetInnerHTML`** unless the content is sanitized server-side and the reason is documented inline
+
+These apply to all new code and to any existing code touched in a change. CI (`bandit`, `eslint-plugin-security`) enforces a subset of these automatically, but do not rely on CI as the first line of defense.
+
+---
+
 ## Release process
 
 When asked to create a release, invoke `/release`. The skill handles version string suggestion, pre-flight checks, running `scripts/release.sh`, and post-release verification.

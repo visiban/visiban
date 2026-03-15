@@ -15,6 +15,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 - Added docstrings to complex, non-obvious backend and frontend logic: `get_board_role()` permission precedence, `CardMovement` denormalized field rationale, `BoardFullSerializer.get_members()` member resolution, `BoardViewSet` import (JSON/CSV) and analytics endpoints, `CardViewSet.update()` field-change tracking, and `useBoardSocket` WebSocket reconnection behaviour
+- CI: added `backend-sast` (bandit, medium+ severity) and `frontend-sast` (eslint-plugin-security) jobs to the security stage; both run on MR pipelines and on `main` when relevant files change
+- `CLAUDE.md`: added secure coding guidelines covering ORM-only queries, boundary validation, secret generation, IDOR prevention, and `dangerouslySetInnerHTML` restrictions
 
 ### Fixed
 
