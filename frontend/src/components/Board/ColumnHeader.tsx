@@ -183,8 +183,8 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           </span>
         </div>
 
-        {/* Row 2: WIP and Weight stats with labels */}
-        <div className="flex items-center gap-3 mt-1.5 pl-[26px] pr-2">
+        {/* Rows 2–3: WIP and Weight stats, one per line */}
+        <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px] pr-2">
           <span
             className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
             title="Cards in column / WIP limit"
