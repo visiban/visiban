@@ -75,6 +75,21 @@ class ColumnCRUDTests(TestCase):
         )
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
+    @patch(PATCH_BROADCAST)
+    def test_create_column_after_deletion_avoids_position_collision(self, _):
+        # Reproduces: IntegrityError on columns_board_id_position unique constraint.
+        # count()-based position is wrong when positions have gaps after deletion.
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        self.client.delete(f"/api/boards/{self.board.id}/columns/{self.col.id}/")
+        # Board now has one column (col2 at position 1); count()=1 would collide with it.
+        r = self.client.post(
+            f"/api/boards/{self.board.id}/columns/",
+            {"name": "New", "color": "#123456"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        new_pos = Column.objects.get(pk=r.json()["id"]).position
+        self.assertGreater(new_pos, col2.position)
+
 
 # ---------------------------------------------------------------------------
 # Swimlanes

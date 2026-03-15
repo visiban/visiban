@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Creating a new column or swimlane after a deletion no longer raises `IntegrityError` on the `(board_id, position)` unique constraint; position is now derived from `MAX(position) + 1` rather than `count()`, which produces incorrect values when positions have gaps
 - Card movement history now correctly shows deleted column names in italic red even after the column has been deleted; previously the name disappeared because it was derived from the live FK at serialization time — names are now stored as denormalized fields on `CardMovement` at write time (#139)
 - Docker Compose stacks (`docker-compose.yml` and `docker-compose.prod.yml`) now use `postgres:17-alpine`, matching the Kubernetes/Helm deployment; previously Docker Compose used Postgres 16 while Helm used Postgres 17
 - Sidebar "New board" and "New group" footer links now open their respective creation modals directly instead of navigating to the Dashboard (#185)
