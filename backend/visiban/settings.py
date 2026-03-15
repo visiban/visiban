@@ -177,6 +177,7 @@ CSRF_COOKIE_HTTPONLY = False  # Must be False so JS can read it
 SESSION_COOKIE_SAMESITE = "Lax"
 
 # django-allauth
+ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]

@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Site admins can now restrict self-registration to invite-only via a toggle in the admin panel; the login page shows a clear message when registration is closed (#173)
+
+### Fixed
+
+- WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)
+
 ---
 
 ## [v1.0.0-rc.5] — 2026-03-15

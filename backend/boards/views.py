@@ -983,8 +983,8 @@ class CardViewSet(viewsets.ModelViewSet):
                 moved_by=self.request.user,
                 notes="Card created",
             )
-        broadcast_board_event(board.id, "card.created",
-            CardSerializer(card, context={"request": self.request, "board": board}).data)
+        card_data = CardSerializer(card, context={"request": self.request, "board": board}).data
+        transaction.on_commit(lambda: broadcast_board_event(board.id, "card.created", card_data))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -1145,7 +1145,7 @@ class CardViewSet(viewsets.ModelViewSet):
         if movement:
             response_data["movement"] = CardMovementSerializer(movement).data
 
-        broadcast_board_event(board.id, "card.moved", card_data)
+        transaction.on_commit(lambda: broadcast_board_event(board.id, "card.moved", card_data))
         return Response(response_data)
 
     @action(detail=True, methods=["get"])

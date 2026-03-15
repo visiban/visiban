@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { login as apiLogin, register as apiRegister, getCurrentUser, getAuthProviders } from "../../api/auth";
+import { login as apiLogin, register as apiRegister, getCurrentUser, getAuthProviders, getSiteConfig } from "../../api/auth";
 import type { User } from "../../types";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -20,9 +20,11 @@ export default function LoginPage({ onLogin }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean } | null>(null);
+  const [registrationOpen, setRegistrationOpen] = useState(true);
 
   useEffect(() => {
     getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false }));
+    getSiteConfig().then((c) => setRegistrationOpen(c.registration_open)).catch(() => setRegistrationOpen(true));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,23 +93,32 @@ export default function LoginPage({ onLogin }: Props) {
               className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
           )}
+          {mode === "register" && !registrationOpen && (
+            <p className="text-slate-400 text-xs text-center">
+              An invite link is required to create an account.
+            </p>
+          )}
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (mode === "register" && !registrationOpen)}
             className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
           >
             {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </button>
           <p className="text-center text-xs text-slate-400">
             {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
-            <button
-              type="button"
-              onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
-              className="text-accent hover:text-accent/80 underline"
-            >
-              {mode === "login" ? "Create one" : "Sign in"}
-            </button>
+            {mode === "login" && !registrationOpen ? (
+              <span className="text-slate-500">Registration is invite-only.</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
+                className="text-accent hover:text-accent/80 underline"
+              >
+                {mode === "login" ? "Create one" : "Sign in"}
+              </button>
+            )}
           </p>
         </form>
 
