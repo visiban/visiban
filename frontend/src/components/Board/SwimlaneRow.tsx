@@ -27,6 +27,7 @@ interface Props {
   onInsertBelow?: () => void;
   sidebarWidth?: number;
   onResizeStart?: (e: React.MouseEvent) => void;
+  colWidths?: Map<number, number>;
   hideLabels?: boolean;
   hideDueDate?: boolean;
   hideAssignee?: boolean;
@@ -35,7 +36,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, sidebarWidth, onResizeStart, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, sidebarWidth, onResizeStart, colWidths, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -138,6 +139,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         {columns.map((col) => {
           const cellCards = cards.filter((c) => c.column === col.id);
           const cellCount = cellCards.length;
+          const cellWidth = colWidths?.get(col.id) ?? 220;
 
           // Hidden by view prefs — show a narrow placeholder to preserve grid alignment
           if (hiddenColumnIds?.has(col.id)) {
@@ -172,7 +174,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             return (
               <div
                 key={col.id}
-                className="flex-1 min-w-[200px] border-r border-slate-700 flex items-center justify-center"
+                style={{ width: cellWidth }}
+                className="shrink-0 border-r border-slate-700 flex items-center justify-center"
               >
                 {cellCount > 0 && (
                   <span className="text-xs text-slate-400 italic">{cellCount} hidden</span>
@@ -202,6 +205,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               hidePriority={hidePriority}
               userTimezone={userTimezone}
               userDateFormat={userDateFormat}
+              width={cellWidth}
             />
           );
         })}

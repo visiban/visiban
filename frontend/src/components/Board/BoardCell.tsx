@@ -24,9 +24,10 @@ interface Props {
   hidePriority?: boolean;
   userTimezone?: string;
   userDateFormat?: string;
+  width?: number;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat, width }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -46,7 +47,8 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
     <div
       ref={setNodeRef}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
-      className={`flex-1 min-w-[200px] min-h-[80px] p-2 border-r border-slate-700/50 transition-colors ${
+      style={{ width: width ?? 220 }}
+      className={`shrink-0 min-h-[80px] p-2 border-r border-slate-700/50 transition-colors ${
         isOver && isDraggingCard ? "bg-blue-900/20" : ""
       }`}
     >

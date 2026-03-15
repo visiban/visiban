@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
@@ -129,7 +129,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [starLoading, isStarred, board.id, onStarToggled]);
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setCardFieldPref } = useViewPrefs(board.id);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setCardFieldPref } = useViewPrefs(board.id);
   const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
   const hiddenSwimlaneIds = new Set(viewPrefs.hiddenSwimlaneIds);
   // Collapsed = not in expandedColumnIds (compact by default; user expands explicitly)
@@ -330,6 +330,34 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // Resizable swimlane name column
   const swimlaneColWidth = viewPrefs.swimlaneColumnWidth;
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  // Resizable board columns
+  const DEFAULT_COL_WIDTH = 220;
+  const colWidths = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const col of board.columns) {
+      map.set(col.id, viewPrefs.columnWidths[col.id] ?? DEFAULT_COL_WIDTH);
+    }
+    return map;
+  }, [board.columns, viewPrefs.columnWidths]);
+  const colResizeState = useRef<{ colId: number; startX: number; startWidth: number } | null>(null);
+
+  const handleColResizeStart = useCallback((colId: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    colResizeState.current = { colId, startX: e.clientX, startWidth: colWidths.get(colId) ?? DEFAULT_COL_WIDTH };
+    const onMove = (ev: MouseEvent) => {
+      if (!colResizeState.current) return;
+      const delta = ev.clientX - colResizeState.current.startX;
+      setColumnWidth(colResizeState.current.colId, colResizeState.current.startWidth + delta);
+    };
+    const onUp = () => {
+      colResizeState.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [colWidths, setColumnWidth]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -592,6 +620,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                   collapsed={!expandedColumnIds.has(col.id)}
                   hidden={hiddenColumnIds.has(col.id)}
                   abbreviation={columnAbbreviations.get(col.id)}
+                  width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
+                  onResizeStart={(e) => handleColResizeStart(col.id, e)}
                   onToggleCollapse={() => toggleExpandedColumn(col.id)}
                   onInsertLeft={() => { setInsertPosition(idx); setShowAddColumn(true); }}
                   onInsertRight={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
@@ -641,6 +671,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               swimlane={swimlane}
               sidebarWidth={swimlaneColWidth}
               onResizeStart={handleResizeStart}
+              colWidths={colWidths}
               columns={board.columns}
               cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
               boardId={board.id}
@@ -690,7 +721,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         <DragOverlay>
           {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} />}
           {activeColumn && (
-            <div className="flex-1 min-w-[180px] px-3 py-3 border border-blue-400 bg-blue-50 rounded shadow-xl opacity-90">
+            <div className="px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
                 <span className="font-semibold text-slate-300 text-sm">{activeColumn.name}</span>

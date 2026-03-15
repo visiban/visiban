@@ -6,6 +6,7 @@ export interface ViewPrefs {
   // Columns the user has explicitly expanded. All others are collapsed (compact by default).
   expandedColumnIds: number[];
   swimlaneColumnWidth: number;
+  columnWidths: Record<number, number>;
   hideLabels: boolean;
   hideDueDate: boolean;
   hideAssignee: boolean;
@@ -17,6 +18,7 @@ const DEFAULT_PREFS: ViewPrefs = {
   hiddenSwimlaneIds: [],
   expandedColumnIds: [],
   swimlaneColumnWidth: 220,
+  columnWidths: {},
   hideLabels: false,
   hideDueDate: false,
   hideAssignee: false,
@@ -37,6 +39,7 @@ function load(boardId: number): ViewPrefs {
       hiddenSwimlaneIds: Array.isArray(parsed.hiddenSwimlaneIds) ? parsed.hiddenSwimlaneIds : [],
       expandedColumnIds: Array.isArray(parsed.expandedColumnIds) ? parsed.expandedColumnIds : [],
       swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" ? parsed.swimlaneColumnWidth : 220,
+      columnWidths: (typeof parsed.columnWidths === "object" && parsed.columnWidths !== null && !Array.isArray(parsed.columnWidths)) ? parsed.columnWidths as Record<number, number> : {},
       hideLabels: typeof parsed.hideLabels === "boolean" ? parsed.hideLabels : false,
       hideDueDate: typeof parsed.hideDueDate === "boolean" ? parsed.hideDueDate : false,
       hideAssignee: typeof parsed.hideAssignee === "boolean" ? parsed.hideAssignee : false,
@@ -98,6 +101,15 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
+  const setColumnWidth = useCallback(
+    (columnId: number, width: number) =>
+      setPrefs((prev) => ({
+        ...prev,
+        columnWidths: { ...prev.columnWidths, [columnId]: Math.max(100, Math.min(600, width)) },
+      })),
+    [setPrefs],
+  );
+
   const expandAllColumns = useCallback(
     (columnIds: number[]) => setPrefs((prev) => ({ ...prev, expandedColumnIds: columnIds })),
     [setPrefs],
@@ -127,5 +139,5 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
-  return { prefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setCardFieldPref };
+  return { prefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setCardFieldPref };
 }
