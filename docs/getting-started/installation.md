@@ -17,7 +17,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Docker Compose starts four services: `db` (Postgres 16), `redis` (Redis 7), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
+Docker Compose starts four services: `db` (Postgres 17), `redis` (Redis 7), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
 
 This setup is for **local development only** — the Vite dev server is not suitable for production. See [Production with HTTPS](#production-with-https) below for a production deployment.
 

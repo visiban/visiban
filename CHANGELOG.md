@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Docker Compose stacks (`docker-compose.yml` and `docker-compose.prod.yml`) now use `postgres:17-alpine`, matching the Kubernetes/Helm deployment; previously Docker Compose used Postgres 16 while Helm used Postgres 17
 - Sidebar "New board" and "New group" footer links now open their respective creation modals directly instead of navigating to the Dashboard (#185)
 - Invalid or expired invite link page now auto-redirects to the dashboard after a 5-second countdown instead of requiring a manual button click (#172)
 - Escape key to close the profile/user-settings dialog was already implemented — issue #144 closed as resolved
