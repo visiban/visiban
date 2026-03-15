@@ -46,7 +46,7 @@ When asked to create a release, run the release script. Ask for the version stri
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
 - **CHANGELOG entries must be appended to the existing `### Added` / `### Changed` / `### Fixed` section** within `[Unreleased]` — never create a second `### Added`, `### Changed`, or `### Fixed` heading in the same release block; duplicate headings cause the changelog to render incorrectly and entries to appear twice
-- When functionality changes, update the relevant documentation in `docs/` and `README.md` (if applicable) to reflect the new behavior
+- **Every new or modified feature must include test cases and documentation updates in the same MR** — do not ship a feature without both. Tests go in the relevant `frontend/src/test/` file; documentation goes in `docs/` and `README.md` where applicable
 - Use **US English** in all code, comments, documentation, commit messages, MR descriptions, and UI copy — e.g. "color" not "colour", "center" not "centre", "canceled" not "cancelled", "authorization" not "authorisation"
 
 ---
