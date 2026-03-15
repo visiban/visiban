@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [v1.0.0-rc.5] — 2026-03-15
+
 ### Added
 
 - Double-clicking a column header now opens the Edit Column modal (admin only); double-clicking a swimlane label now opens the Edit Swimlane modal (admin only)
