@@ -28,6 +28,7 @@ interface Props {
   onResizeStart?: (e: React.MouseEvent) => void;
   colWidths?: Map<number, number>;
   setColumnWidth?: (colId: number, width: number) => void;
+  onInsertColumn?: (colId: number) => void;
   minHeight?: number;
   setSwimlaneHeight?: (h: number) => void;
   hideLabels?: boolean;
@@ -38,7 +39,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, onInsertColumn, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -174,19 +175,20 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const cellCount = cellCards.length;
           const cellWidth = colWidths?.get(col.id) ?? 220;
 
-          // Interactive cell separator — drag resizes the column to the left
-          const handleSepMouseDown = setColumnWidth
+          // Interactive cell separator — drag resizes the column to the left; click inserts a column
+          const handleSepMouseDown = (setColumnWidth || onInsertColumn)
             ? (e: React.MouseEvent) => {
                 e.preventDefault();
                 const startX = e.clientX;
                 const startWidth = cellWidth;
-                let dragging = false;
+                let didDrag = false;
                 const onMove = (ev: MouseEvent) => {
                   const delta = ev.clientX - startX;
-                  if (!dragging && Math.abs(delta) > 4) dragging = true;
-                  if (dragging) setColumnWidth(col.id, startWidth + delta);
+                  if (!didDrag && Math.abs(delta) > 4) didDrag = true;
+                  if (didDrag && setColumnWidth) setColumnWidth(col.id, startWidth + delta);
                 };
                 const onUp = () => {
+                  if (!didDrag && isAdmin && onInsertColumn) onInsertColumn(col.id);
                   window.removeEventListener("mousemove", onMove);
                   window.removeEventListener("mouseup", onUp);
                 };
@@ -198,13 +200,18 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const sep = (
             <div
               key={`sep-${col.id}`}
-              className={`shrink-0 flex items-stretch select-none ${setColumnWidth ? "cursor-col-resize" : ""}`}
+              className={`group relative shrink-0 flex items-stretch select-none ${setColumnWidth || onInsertColumn ? "cursor-col-resize" : ""}`}
               style={{ width: 16 }}
               onMouseDown={handleSepMouseDown}
             >
-              <div className="w-px self-stretch bg-slate-600/70" />
-              <div className="flex-1 bg-slate-900/70" />
-              <div className="w-px self-stretch bg-slate-600/70" />
+              <div className="w-px self-stretch bg-slate-600/70 group-hover:bg-blue-400/50 transition-colors" />
+              <div className="flex-1 bg-slate-900/70 group-hover:bg-blue-400/5 transition-colors" />
+              <div className="w-px self-stretch bg-slate-600/70 group-hover:bg-blue-400/50 transition-colors" />
+              {isAdmin && onInsertColumn && (
+                <div className="absolute inset-0 hidden group-hover:flex items-center justify-center pointer-events-none">
+                  <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
+                </div>
+              )}
             </div>
           );
 

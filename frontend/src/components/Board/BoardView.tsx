@@ -633,6 +633,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       onResizeStart={handleResizeStart}
                       colWidths={colWidths}
                       setColumnWidth={setColumnWidth}
+                      onInsertColumn={(colId) => {
+                        setInsertPosition(board.columns.findIndex((c) => c.id === colId));
+                        setShowAddColumn(true);
+                      }}
                       minHeight={viewPrefs.swimlaneHeights[swimlane.id]}
                       setSwimlaneHeight={(h) => setSwimlaneHeight(swimlane.id, h)}
                       columns={board.columns}
