@@ -416,7 +416,6 @@ frontend-sast:
     - npm install --save-dev eslint-plugin-security --prefer-offline 2>/dev/null || true
   script:
     - |
-      cd frontend
       npx eslint src/
         --plugin security
         --rule 'security/detect-object-injection: error'
