@@ -177,10 +177,10 @@ CSRF_COOKIE_HTTPONLY = False  # Must be False so JS can read it
 SESSION_COOKIE_SAMESITE = "Lax"
 
 # django-allauth
+ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
-ACCOUNT_USERNAME_REQUIRED = False
 LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
 ACCOUNT_LOGOUT_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
@@ -214,6 +214,10 @@ REST_AUTH = {
     "USE_JWT": False,
     "SESSION_LOGIN": True,
     "USER_DETAILS_SERIALIZER": "accounts.serializers.UserSerializer",
+    # allauth 65.x SIGNUP_FIELDS causes USERNAME_REQUIRED to return None, which DRF
+    # normalises to required=True. Use a custom serializer that sets required=False
+    # explicitly so email-only registration works without a username field.
+    "REGISTER_SERIALIZER": "accounts.serializers.RegistrationSerializer",
 }
 
 APP_VERSION = env("APP_VERSION", default="dev")

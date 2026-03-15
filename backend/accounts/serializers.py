@@ -1,5 +1,19 @@
+from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
+
 from .models import User
+
+
+class RegistrationSerializer(RegisterSerializer):
+    # allauth 65.x SIGNUP_FIELDS causes allauth_account_settings.USERNAME_REQUIRED
+    # to return None rather than False. DRF normalises required=None to required=True
+    # (Field.__init__: if required is None: required = default is empty and not read_only),
+    # making username mandatory even when it is not a signup field. Override with an
+    # explicit required=False so users can register with only email + passwords.
+    username = serializers.CharField(
+        max_length=150,
+        required=False,
+    )
 
 
 class UserSerializer(serializers.ModelSerializer):

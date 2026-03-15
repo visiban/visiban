@@ -2,6 +2,31 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
+class SiteSetting(models.Model):
+    """Singleton model for instance-wide configuration. Always access via SiteSetting.get()."""
+
+    require_invite_for_registration = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, self-registration is blocked. "
+            "New accounts can only be created by site admins via the admin panel."
+        ),
+    )
+
+    class Meta:
+        db_table = "site_settings"
+
+    def save(self, *args, **kwargs):
+        # Enforce singleton: the row always has pk=1.
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class User(AbstractUser):
     """Extended user model. django-allauth handles OAuth linkage."""
     avatar_url = models.URLField(blank=True)

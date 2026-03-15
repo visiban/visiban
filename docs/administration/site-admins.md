@@ -35,3 +35,26 @@ Or uncheck `Is site admin` in the Django admin panel.
 
 !!! note
     A site admin can revoke their own site admin status. Ensure at least one site admin remains on the instance.
+
+## Restricting registration (invite-only mode)
+
+By default, anyone can create an account on a Visiban instance. You can restrict this so that only users created directly by a site admin can log in.
+
+**To enable invite-only mode:**
+
+1. Go to `/admin/accounts/sitesetting/1/change/`
+2. Enable **Require invite for registration**
+3. Click **Save**
+
+The change takes effect immediately — no restart required.
+
+**What changes when enabled:**
+
+- `POST /api/auth/registration/` returns `403 Forbidden` for new sign-ups
+- OAuth sign-up flows (Google, GitHub, GitLab) are also blocked — existing OAuth-linked accounts can still log in, but new OAuth accounts cannot be created
+- The login page shows: *"An invite link is required to create an account."*
+- Existing users are unaffected
+
+**Creating accounts when invite-only is on:**
+
+Go to `/admin/accounts/user/add/` and create the account manually. The new user can then set a password or link an OAuth provider on first login.

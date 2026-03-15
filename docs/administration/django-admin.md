@@ -18,6 +18,7 @@ u.save()
 ## What you can manage
 
 - **Users** — view/edit all user accounts, set `is_site_admin`, `must_change_password`, `is_staff`
+- **Site settings** — instance-wide configuration (registration toggle); clicking the entry goes directly to the settings form — there is always exactly one row
 - **Boards, columns, swimlanes** — direct database access for debugging
 - **Group memberships** — view and correct membership records
 - **Social accounts** — inspect OAuth-linked accounts

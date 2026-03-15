@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
+from .models import SiteSetting
 from .serializers import UserSerializer
 
 User = get_user_model()
@@ -89,3 +90,13 @@ class ChangePasswordView(APIView):
         # user does not get logged out and left with a broken session state.
         update_session_auth_hash(request, request.user)
         return Response({"detail": "Password changed successfully."})
+
+
+class SiteConfigView(APIView):
+    """Return public instance configuration needed before login (e.g. registration open/closed)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        setting = SiteSetting.get()
+        return Response({"registration_open": not setting.require_invite_for_registration})
