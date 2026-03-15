@@ -351,6 +351,19 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     return x;
   }, [hoveredSepIndex, swimlaneColWidth, board.columns, hiddenColumnIds, expandedColumnIds, colWidths]);
 
+  // Center X of each column within the scrollable area — used by RowSeparator to position "+" signs.
+  // Layout: sidebar(W) | sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
+  const colCenterXs = useMemo(() => {
+    const result: number[] = [];
+    let x = swimlaneColWidth + 16; // after sidebar + first sep
+    for (const col of board.columns) {
+      const w = (hiddenColumnIds.has(col.id) || !expandedColumnIds.has(col.id)) ? 40 : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
+      result.push(x + w / 2);
+      x += w + 16;
+    }
+    return result;
+  }, [swimlaneColWidth, board.columns, hiddenColumnIds, expandedColumnIds, colWidths]);
+
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     resizeState.current = { startX: e.clientX, startWidth: swimlaneColWidth };
@@ -653,6 +666,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
                       setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
                       hoveredSepX={hoveredSepX}
+                      colCenterXs={colCenterXs}
                     />
                     <SwimlaneRow
                       swimlane={swimlane}
@@ -706,6 +720,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     currentHeight={last ? (viewPrefs.swimlaneHeights[last.id] ?? undefined) : undefined}
                     setHeight={last ? (h) => setSwimlaneHeight(last.id, h) : undefined}
                     hoveredSepX={hoveredSepX}
+                    colCenterXs={colCenterXs}
                   />
                 );
               })()}

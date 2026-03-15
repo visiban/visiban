@@ -11,9 +11,11 @@ interface Props {
   setHeight?: (h: number) => void;
   /** X offset (px) of the currently-hovered column separator — renders the column strip through this row. */
   hoveredSepX?: number | null;
+  /** Center X of each column — renders a "+" at each position when this row sep is hovered. */
+  colCenterXs?: number[];
 }
 
-export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight, hoveredSepX }: Props) {
+export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight, hoveredSepX, colCenterXs }: Props) {
   const [hovered, setHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startY: number; startHeight: number; dragging: boolean } | null>(null);
@@ -71,12 +73,14 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
       {/* Bottom line */}
       <div className={`w-full h-px transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
 
-      {/* Single "+" centered — mirrors ColumnSeparator */}
-      {isAdmin && hovered && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
-        </div>
-      )}
+      {/* "+" at each column center — mirrors ColumnSeparator showing "+" at each swimlane row */}
+      {isAdmin && hovered && colCenterXs?.map((cx, i) => (
+        <span
+          key={i}
+          className="absolute text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm pointer-events-none"
+          style={{ left: cx, top: "50%", transform: "translate(-50%, -50%)" }}
+        >+</span>
+      ))}
 
       {/* Column separator continuation — keeps the highlighted column strip unbroken through this row */}
       {hoveredSepX != null && (
