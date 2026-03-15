@@ -598,6 +598,46 @@ docs-deploy:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: manual
 
+# ─── Scheduled branch cleanup ─────────────────────────────────────────────────
+#
+# Deletes remote branches that have been fully merged into main.
+# Runs on a GitLab CI schedule (e.g. weekly) — not on every push.
+#
+# Requires the same DOCS_DEPLOY_TOKEN variable used by docs-deploy
+# (write_repository scope is sufficient to delete branches).
+#
+# Protected branches (main, gh-pages) are never touched — GitLab enforces
+# this server-side regardless, but the grep exclude below makes the intent
+# explicit. The gh-pages branch is managed by mike and must never be deleted.
+#
+# To configure the schedule: CI/CD → Schedules → New schedule → set branch
+# to main and cron to "0 3 * * 1" (Mondays at 03:00 UTC).
+
+cleanup-merged-branches:
+  stage: deploy
+  image: alpine:3.19
+  needs: []
+  before_script:
+    - apk add --no-cache git
+    - git config user.email "ci@visiban.com"
+    - git config user.name "Visiban CI"
+    - git remote set-url origin "https://oauth2:${DOCS_DEPLOY_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git"
+    - git fetch --prune origin
+  script:
+    - |
+      merged=$(git branch -r --merged origin/main \
+        | grep -v 'origin/main$\|origin/HEAD\|origin/gh-pages' \
+        | sed 's|origin/||' \
+        | xargs)
+      if [ -z "$merged" ]; then
+        echo "No merged branches to delete."
+      else
+        echo "Deleting: $merged"
+        echo "$merged" | xargs git push origin --delete
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
 # Runs on the gh-pages branch after docs-deploy pushes to it.
 # Copies the branch content to public/ for GitLab Pages to serve.
 # The job name must be exactly "pages" for GitLab Pages to pick it up.
