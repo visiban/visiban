@@ -186,6 +186,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   const [view, setView] = useState<"board" | "summary" | "analytics">("board");
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
+  const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
+  const [hoveredRowSwimlaneId, setHoveredRowSwimlaneId] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const toggleCardSelection = useCallback((cardId: number) => {
@@ -568,6 +570,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               onOpenAdd={() => { setInsertPosition(0); setShowAddColumn(true); }}
               currentWidth={swimlaneColWidth}
               setWidth={setSwimlaneColumnWidth}
+              sepIndex={0}
+              hoveredSepIndex={hoveredSepIndex}
+              onSepHoverChange={setHoveredSepIndex}
             />
 
             <SortableContext items={board.columns.map((c) => `col:${c.id}`)} strategy={horizontalListSortingStrategy}>
@@ -591,6 +596,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     onOpenAdd={() => { setInsertPosition(idx + 1); setShowAddColumn(true); }}
                     currentWidth={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
                     setWidth={(w) => setColumnWidth(col.id, w)}
+                    sepIndex={idx + 1}
+                    hoveredSepIndex={hoveredSepIndex}
+                    onSepHoverChange={setHoveredSepIndex}
                   />
                 </React.Fragment>
               ))}
@@ -626,6 +634,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       onInsert={() => { setInsertSwimlanePosition(idx); setShowAddSwimlane(true); }}
                       currentHeight={idx > 0 ? (viewPrefs.swimlaneHeights[visible[idx - 1].id] ?? undefined) : undefined}
                       setHeight={idx > 0 ? (h) => setSwimlaneHeight(visible[idx - 1].id, h) : undefined}
+                      onHoverChange={idx > 0 ? (h) => setHoveredRowSwimlaneId(h ? visible[idx - 1].id : null) : undefined}
                     />
                     <SwimlaneRow
                       swimlane={swimlane}
@@ -637,6 +646,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                         setInsertPosition(board.columns.findIndex((c) => c.id === colId));
                         setShowAddColumn(true);
                       }}
+                      hoveredSepIndex={hoveredSepIndex}
+                      onSepHoverChange={setHoveredSepIndex}
+                      rowHighlighted={hoveredRowSwimlaneId === swimlane.id}
                       minHeight={viewPrefs.swimlaneHeights[swimlane.id]}
                       setSwimlaneHeight={(h) => setSwimlaneHeight(swimlane.id, h)}
                       columns={board.columns}
@@ -675,6 +687,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     onInsert={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
                     currentHeight={last ? (viewPrefs.swimlaneHeights[last.id] ?? undefined) : undefined}
                     setHeight={last ? (h) => setSwimlaneHeight(last.id, h) : undefined}
+                    onHoverChange={last ? (h) => setHoveredRowSwimlaneId(h ? last.id : null) : undefined}
                   />
                 );
               })()}

@@ -9,9 +9,11 @@ interface Props {
   currentHeight?: number;
   /** Called continuously while dragging to resize the swimlane above. */
   setHeight?: (h: number) => void;
+  /** Called when the separator gains or loses hover — lets the parent highlight the adjacent row. */
+  onHoverChange?: (hovered: boolean) => void;
 }
 
-export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight }: Props) {
+export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeight, onHoverChange }: Props) {
   const [hovered, setHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startY: number; startHeight: number; dragging: boolean } | null>(null);
@@ -58,8 +60,8 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
       ref={containerRef}
       className="relative flex items-center select-none"
       style={{ height: 8 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); onHoverChange?.(true); }}
+      onMouseLeave={() => { setHovered(false); onHoverChange?.(false); }}
       onMouseDown={handleMouseDown}
     >
       {/* Single hairline */}

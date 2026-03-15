@@ -29,6 +29,11 @@ interface Props {
   colWidths?: Map<number, number>;
   setColumnWidth?: (colId: number, width: number) => void;
   onInsertColumn?: (colId: number) => void;
+  /** Which column separator index (0-based from left) is currently hovered — for full-height highlight. */
+  hoveredSepIndex?: number | null;
+  onSepHoverChange?: (idx: number | null) => void;
+  /** When true the whole row gets a subtle highlight (row separator hover). */
+  rowHighlighted?: boolean;
   minHeight?: number;
   setSwimlaneHeight?: (h: number) => void;
   hideLabels?: boolean;
@@ -39,7 +44,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, onInsertColumn, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, rowHighlighted, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -99,7 +104,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       <div
         ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
         style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: minHeight ?? undefined }}
-        className="relative flex border-b border-slate-700 bg-slate-800"
+        className={`relative flex border-b border-slate-700 transition-colors ${rowHighlighted ? "bg-slate-700" : "bg-slate-800"}`}
       >
         {/* Swimlane label — sticky to the left */}
         <div
@@ -170,10 +175,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         </div>
 
         {/* Cells — always iterate columns so collapsed-column stubs stay aligned */}
-        {columns.map((col) => {
+        {columns.map((col, colIdx) => {
           const cellCards = cards.filter((c) => c.column === col.id);
           const cellCount = cellCards.length;
           const cellWidth = colWidths?.get(col.id) ?? 220;
+          const sepHighlighted = hoveredSepIndex === colIdx;
 
           // Interactive cell separator — drag resizes the column to the left; click inserts a column
           const handleSepMouseDown = (setColumnWidth || onInsertColumn)
@@ -200,15 +206,17 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           const sep = (
             <div
               key={`sep-${col.id}`}
-              className={`group relative shrink-0 flex items-stretch select-none ${setColumnWidth || onInsertColumn ? "cursor-col-resize" : ""}`}
+              className={`relative shrink-0 flex items-stretch select-none ${setColumnWidth || onInsertColumn ? "cursor-col-resize" : ""}`}
               style={{ width: 16 }}
+              onMouseEnter={() => onSepHoverChange?.(colIdx)}
+              onMouseLeave={() => onSepHoverChange?.(null)}
               onMouseDown={handleSepMouseDown}
             >
-              <div className="w-px self-stretch bg-slate-600/70 group-hover:bg-blue-400/50 transition-colors" />
-              <div className="flex-1 bg-slate-900/70 group-hover:bg-blue-400/5 transition-colors" />
-              <div className="w-px self-stretch bg-slate-600/70 group-hover:bg-blue-400/50 transition-colors" />
-              {isAdmin && onInsertColumn && (
-                <div className="absolute inset-0 hidden group-hover:flex items-center justify-center pointer-events-none">
+              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+              <div className={`flex-1 transition-colors ${sepHighlighted ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
+              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+              {isAdmin && onInsertColumn && sepHighlighted && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
                 </div>
               )}
