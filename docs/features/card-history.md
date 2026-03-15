@@ -40,7 +40,7 @@ Open a card and click the **History** tab in the side panel. The timeline shows 
 - Who made the change
 - When it happened (relative time, e.g. "3 days ago")
 
-Movement entries display the full column and swimlane names, preserved even if those columns or swimlanes have since been renamed or deleted.
+Movement entries display the full column and swimlane names, preserved even if those columns or swimlanes have since been renamed or deleted. If a referenced column has been deleted since the move occurred, its name is shown in italic red with a **Deleted —** prefix and a hover tooltip, so you can distinguish live columns from removed ones at a glance.
 
 ## How dwell time is calculated
 

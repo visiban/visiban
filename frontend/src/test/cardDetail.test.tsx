@@ -310,6 +310,37 @@ describe('CardDetail', () => {
     })
   })
 
+  it('checklist section collapses and hides items when toggle clicked', async () => {
+    const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
+    mockGetChecklist.mockResolvedValue([
+      { id: 1, text: 'Item A', is_checked: false, position: 0 },
+    ])
+    render(<CardDetail {...defaultProps()} />)
+    await waitFor(() => expect(screen.getByText('Item A')).toBeInTheDocument())
+    // Click the Checklist toggle to collapse
+    await userEvent.setup().click(screen.getByText('Checklist'))
+    expect(screen.queryByText('Item A')).not.toBeInTheDocument()
+  })
+
+  it('checklist section starts collapsed when empty', async () => {
+    // getChecklist returns [] by default in beforeEach
+    render(<CardDetail {...defaultProps()} />)
+    // The checklist items list is not shown (empty) — add-item input is still present
+    await waitFor(() => expect(screen.queryByText('1/1')).not.toBeInTheDocument())
+    expect(screen.getByPlaceholderText('Add item (Enter)…')).toBeInTheDocument()
+  })
+
+  it('attachments section collapses and hides items when toggle clicked', async () => {
+    const mockGetAttachments = getCardAttachments as ReturnType<typeof vi.fn>
+    mockGetAttachments.mockResolvedValue([
+      { id: 1, filename: 'doc.pdf', size: 1024, url: '/files/1', uploaded_by: fakeUser, uploaded_at: '2026-01-01' },
+    ])
+    render(<CardDetail {...defaultProps()} />)
+    await waitFor(() => expect(screen.getByText('doc.pdf')).toBeInTheDocument())
+    await userEvent.setup().click(screen.getByText('Attachments'))
+    expect(screen.queryByText('doc.pdf')).not.toBeInTheDocument()
+  })
+
   it('renders mention highlights in comments', async () => {
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([

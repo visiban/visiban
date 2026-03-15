@@ -60,12 +60,20 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [newItemText, setNewItemText] = useState("");
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const [checklistOpen, setChecklistOpen] = useState(true);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getCardComments(board.id, card.id).then(setComments);
-    getCardAttachments(board.id, card.id).then(setAttachments);
-    getChecklist(board.id, card.id).then(setChecklist);
+    getCardAttachments(board.id, card.id).then((data) => {
+      setAttachments(data);
+      setAttachmentsOpen(data.length > 0);
+    });
+    getChecklist(board.id, card.id).then((data) => {
+      setChecklist(data);
+      setChecklistOpen(data.length > 0);
+    });
   }, [board.id, card.id]);
 
   useEffect(() => {
@@ -257,9 +265,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="relative flex-1 overflow-hidden">
+          <div className="h-full overflow-y-auto px-5 py-4">
           {tab === "details" ? (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-6">
 
               {/* Description */}
               <div>
@@ -428,15 +437,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Checklist */}
               <div>
-                <div className="flex items-center justify-between mb-2">
+                <button
+                  className="flex items-center justify-between w-full mb-2 group/cl"
+                  onClick={() => setChecklistOpen((o) => !o)}
+                >
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Checklist
                     {checklist.length > 0 && (
                       <span className="ml-1.5 normal-case font-normal text-slate-500">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
                     )}
                   </p>
-                </div>
-                {checklist.length > 0 && (
+                  <svg className={`w-3.5 h-3.5 text-slate-600 group-hover/cl:text-slate-400 transition-transform ${checklistOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {checklistOpen && checklist.length > 0 && ( // items and progress only when expanded
                   <>
                     <div className="h-1 bg-slate-700 rounded-full mb-3 overflow-hidden">
                       <div
@@ -512,17 +527,31 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {/* Attachments */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Attachments</p>
                   <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50 transition"
+                    className="flex items-center gap-1.5 group/att"
+                    onClick={() => setAttachmentsOpen((o) => !o)}
                   >
-                    {uploading ? "Uploading…" : "+ Upload"}
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Attachments{attachments.length > 0 && <span className="ml-1.5 normal-case font-normal text-slate-500">({attachments.length})</span>}
+                    </p>
+                    <svg className={`w-3.5 h-3.5 text-slate-600 group-hover/att:text-slate-400 transition-transform ${attachmentsOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
                   </button>
-                  <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                  {attachmentsOpen && (
+                    <>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50 transition"
+                      >
+                        {uploading ? "Uploading…" : "+ Upload"}
+                      </button>
+                      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                    </>
+                  )}
                 </div>
-                {attachments.length === 0 ? (
+                {attachmentsOpen && (attachments.length === 0 ? (
                   <p className="text-xs text-slate-600 italic">No attachments.</p>
                 ) : (
                   <div className="flex flex-col gap-1.5">
@@ -543,7 +572,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     ))}
                   </div>
-                )}
+                ))}
               </div>
 
               <div className="border-t border-slate-700" />
@@ -604,8 +633,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
             </div>
           ) : (
-            <CardMovementTimeline boardId={board.id} cardId={card.id} userDateFormat={userDateFormat} userTimeFormat={userTimeFormat} />
+            <CardMovementTimeline boardId={board.id} cardId={card.id} columnIds={new Set(board.columns.map((c) => c.id))} userDateFormat={userDateFormat} userTimeFormat={userTimeFormat} />
           )}
+          </div>
+          {/* Scroll affordance — fade gradient at bottom signals more content below */}
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none" />
         </div>
 
         {/* Footer */}

@@ -16,6 +16,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card count badge appears in the top-right corner of any cell containing 2 or more cards — faint and non-intrusive, helps spot dense columns at a glance (#198)
 - Overdue card due dates now render in `text-red-400` to match the design token convention (#198)
 
+- Card detail panel now shows a scroll gradient at the bottom of the content area so users can see when more content is below the visible area (#188)
+- Checklist and Attachments sections in the card detail panel are now collapsible via a chevron toggle; each section auto-collapses when empty on load (#188)
+- Movement history now highlights deleted column names in italic red with a "Deleted —" prefix and a tooltip, so users can distinguish live columns from removed ones in a card's move history (#139)
+
 ### Fixed
 
 - Sidebar "New board" and "New group" footer links now open their respective creation modals directly instead of navigating to the Dashboard (#185)
