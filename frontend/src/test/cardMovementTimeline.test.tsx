@@ -103,6 +103,33 @@ describe('CardMovementTimeline', () => {
     expect(screen.getByText('Priority: low → high')).toBeInTheDocument()
   })
 
+  it('shows deleted column name in italic red when column id is not in columnIds', async () => {
+    mockGetMovements.mockResolvedValue([
+      { id: 1, from_column: 10, from_column_name: 'Old Column', to_column: 11, to_column_name: 'In Progress', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
+    ])
+    mockGetActivities.mockResolvedValue([])
+    // columnIds only contains 11 (In Progress) — column 10 (Old Column) is deleted
+    render(<CardMovementTimeline boardId={1} cardId={1} columnIds={new Set([11])} />)
+    await waitFor(() => {
+      const deleted = screen.getByTitle('This column has been deleted')
+      expect(deleted).toBeInTheDocument()
+      expect(deleted.textContent).toBe('Deleted — Old Column')
+      expect(deleted.className).toContain('italic')
+      expect(deleted.className).toContain('text-red-400')
+    })
+  })
+
+  it('shows column name normally when column still exists', async () => {
+    mockGetMovements.mockResolvedValue([
+      { id: 1, from_column: 10, from_column_name: 'To Do', to_column: 11, to_column_name: 'In Progress', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
+    ])
+    mockGetActivities.mockResolvedValue([])
+    render(<CardMovementTimeline boardId={1} cardId={1} columnIds={new Set([10, 11])} />)
+    await waitFor(() => {
+      expect(screen.queryByTitle('This column has been deleted')).not.toBeInTheDocument()
+    })
+  })
+
   it('renders activity entries after toggling show all', async () => {
     mockGetMovements.mockResolvedValue([
       { id: 1, from_column: null, from_column_name: null, to_column: 10, to_column_name: 'To Do', from_swimlane: null, from_swimlane_name: null, to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },

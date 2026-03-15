@@ -54,6 +54,11 @@ When dragging a column, a red **Delete** drop target appears at the right edge o
 
 Cards are displayed as compact tiles with a full colored border indicating priority. Hovering over a card expands it inline to show additional metadata without opening the detail panel. Cards communicate their full status at a glance — priority badge (medium and above), assignee avatar, label pills, checklist progress, and due date are visible directly on the card face.
 
+Click a card to open its **detail panel** on the right side. The panel contains all editable fields plus two tabs:
+
+- **Details** — description, priority, assignee, labels, due date, weight, checklist, attachments, and comments. The Checklist and Attachments sections are collapsible via a chevron toggle; each auto-collapses when empty on load. A scroll gradient at the bottom of the panel indicates there is more content below the visible area.
+- **History** — the full movement and activity timeline. See [Card History](card-history.md).
+
 Each card belongs to exactly one column and one swimlane. Cards have:
 
 | Field | Description |
