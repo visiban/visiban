@@ -13,7 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Replaced all `gray-*` Tailwind tokens with `slate-*` equivalents across Dashboard, Settings, BoardView, SwimlaneRow, BoardCell, and BulkActionToolbar to eliminate the warm/cool color mismatch on adjacent surfaces (#184, #158)
 - Filter active-count badge changed from light-mode `bg-blue-100 text-blue-700` to dark-theme `bg-blue-500/20 text-blue-400` (#184)
 - Filters toolbar button now uses `text-slate-300 hover:text-white` instead of `text-blue-600 hover:text-blue-800` (#184)
-- Version badge in Navbar is now hidden for stable production builds; only shown when `APP_VERSION` is `dev` or contains a pre-release suffix (e.g. `-alpha.1`, `-rc.2`) (#192)
+- Version badge in Navbar is now hidden for all versioned builds (stable and pre-release); only shown when `APP_VERSION` is `dev` (#192)
 - Invite link URLs in Group Settings are now truncated in the display field with the full URL available on hover; copy behaviour is unchanged (#193)
 
 ### Changed
