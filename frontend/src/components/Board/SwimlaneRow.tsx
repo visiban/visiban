@@ -223,13 +223,19 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           }
 
           if (collapsedColumnIds.has(col.id)) {
-            // Collapsed column: show per-swimlane card count
+            // Collapsed column: show per-swimlane card count; pulse if filter matches are hidden here
+            const matchCount = filteredCardIds
+              ? cellCards.filter((c) => filteredCardIds.has(c.id)).length
+              : 0;
+            const hasMatch = matchCount > 0;
             return (
               <div key={col.id} className="contents">
                 {sep}
-                <div className="w-10 shrink-0 flex items-center justify-center py-1">
-                  {cellCount > 0 && (
-                    <span className="text-xs text-slate-400 font-medium">{cellCount}</span>
+                <div className={`w-10 shrink-0 flex items-center justify-center py-1${hasMatch ? " animate-pulse bg-blue-500/15" : ""}`}>
+                  {(hasMatch ? matchCount : cellCount) > 0 && (
+                    <span className={`text-xs font-medium ${hasMatch ? "text-blue-400" : "text-slate-400"}`}>
+                      {hasMatch ? matchCount : cellCount}
+                    </span>
                   )}
                 </div>
               </div>
