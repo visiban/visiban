@@ -49,10 +49,15 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
       onDoubleClick={() => { if (column.allow_card_creation && canEdit) setAdding(true); }}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
       style={{ width: width ?? 220 }}
-      className={`shrink-0 min-h-[80px] p-2 transition-colors ${
+      className={`relative shrink-0 min-h-[80px] p-2 transition-colors ${
         isOver && isDraggingCard ? "bg-blue-900/20" : ""
       } ${cards.length === 0 && !adding ? "border border-dashed border-slate-700/50" : "border-r border-slate-700/50"}`}
     >
+      {cards.length >= 2 && (
+        <span className="absolute top-1.5 right-2 text-[9px] font-medium text-slate-600 select-none pointer-events-none">
+          {cards.length}
+        </span>
+      )}
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
         <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
           {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (

@@ -107,7 +107,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-[3px] group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
+          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-4 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
         >
           {/* Drag handle */}
@@ -115,7 +115,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             <span
               {...attributes}
               {...listeners}
-              className={`text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 ${collapsed ? "" : "mt-0.5"}`}
+              className={`text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${collapsed ? "" : "mt-0.5"}`}
               title="Drag to reorder"
             >
               ⠿
@@ -139,7 +139,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               />
             ) : (
               <p
-                className={`text-sm font-semibold text-white truncate ${isAdmin ? "cursor-text hover:text-blue-200" : ""}`}
+                className={`text-sm font-bold text-white truncate ${isAdmin ? "cursor-text hover:text-blue-200" : ""}`}
                 title={isAdmin ? "Click to rename" : swimlane.name}
                 onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
               >
@@ -165,7 +165,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               title={collapsed ? "Expand" : "Collapse"}
             >
               <svg
-                className={`w-3.5 h-3.5 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                className={`w-4 h-4 transition-transform ${collapsed ? "-rotate-90" : ""}`}
                 viewBox="0 0 20 20"
                 fill="currentColor"
               >

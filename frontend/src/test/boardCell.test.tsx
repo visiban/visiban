@@ -117,4 +117,30 @@ describe('BoardCell', () => {
     await user.click(screen.getByText('Add'))
     expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'New Card' })
   })
+
+  it('shows card count badge when 2 or more cards are present', () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 }), makeCard({ id: 2, title: 'Card B' })]
+    render(<BoardCell {...props} />)
+    expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('does not show count badge for a single card', () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 })]
+    render(<BoardCell {...props} />)
+    expect(screen.queryByText('1')).not.toBeInTheDocument()
+  })
+
+  it('empty cell has dashed border', () => {
+    const { container } = render(<BoardCell {...defaultProps()} />)
+    expect(container.firstChild as HTMLElement).toHaveClass('border-dashed')
+  })
+
+  it('non-empty cell does not have dashed border', () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 })]
+    const { container } = render(<BoardCell {...props} />)
+    expect(container.firstChild as HTMLElement).not.toHaveClass('border-dashed')
+  })
 })

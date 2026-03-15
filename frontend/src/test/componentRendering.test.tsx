@@ -162,7 +162,7 @@ describe('CardItem', () => {
     render(<CardItem card={makeCard({ due_date: iso })} />)
     // The overdue span has text-red-500 class
     const dueBadge = screen.getByTitle(`Due ${iso}`)
-    expect(dueBadge.className).toContain('text-red-500')
+    expect(dueBadge.className).toContain('text-red-400')
   })
 
   it('shows attachment count when attachment_count > 0', () => {
@@ -237,6 +237,28 @@ describe('CardItem', () => {
     })
     render(<CardItem card={card} />)
     expect(screen.getByText('+1')).toBeInTheDocument()
+  })
+
+  it('shows priority badge for medium and above', () => {
+    render(<CardItem card={makeCard({ priority: 'high' })} />)
+    expect(screen.getByTitle('Priority: high')).toBeInTheDocument()
+  })
+
+  it('does not show priority badge for low priority', () => {
+    render(<CardItem card={makeCard({ priority: 'low', labels: [], checklist_total: 0, attachment_count: 0, due_date: null, assignee: null, weight: 1, is_stale: false, last_moved_at: null })} />)
+    expect(screen.queryByTitle(/Priority:/)).not.toBeInTheDocument()
+  })
+
+  it('truncates long label names to 7 chars + ellipsis', () => {
+    const card = makeCard({ labels: [{ id: 1, name: 'VeryLongLabelName', color: '#EF4444' }] })
+    render(<CardItem card={card} />)
+    expect(screen.getByTitle('VeryLongLabelName')).toHaveTextContent('VeryLon…')
+  })
+
+  it('uses slate color tokens (not gray)', () => {
+    const { container } = render(<CardItem card={makeCard()} />)
+    const html = container.innerHTML
+    expect(html).not.toMatch(/bg-gray-|text-gray-|border-gray-/)
   })
 })
 
@@ -384,6 +406,40 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('5/10')).toBeInTheDocument()
   })
 
+  it('adds red bottom border to header when WIP limit is exceeded', () => {
+    const cards = [makeCard({ id: 1 }), makeCard({ id: 2 }), makeCard({ id: 3 })]
+    const { container } = render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onColumnDeleted={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    const header = container.querySelector('.border-b-red-500\\/50')
+    expect(header).toBeInTheDocument()
+  })
+
+  it('does not add red bottom border when WIP limit is not exceeded', () => {
+    const { container } = render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: 5 })}
+        cards={[makeCard()]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onColumnDeleted={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(container.querySelector('.border-b-red-500\\/50')).not.toBeInTheDocument()
+  })
+
   it('renders collapsed state with vertical column name', () => {
     render(
       <ColumnHeader
@@ -529,5 +585,19 @@ describe('SwimlaneRow', () => {
     expect(screen.getByText('1')).toBeInTheDocument()
     // no pulse when no matches
     expect(container.querySelector('.animate-pulse')).toBeNull()
+  })
+
+  it('swimlane label panel has border-l-4 (strong color accent)', () => {
+    const { container } = render(
+      <SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />,
+    )
+    const label = container.querySelector('.border-l-4')
+    expect(label).toBeInTheDocument()
+  })
+
+  it('swimlane name uses font-bold', () => {
+    render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
+    const name = screen.getByText('Customer A')
+    expect(name.className).toContain('font-bold')
   })
 })
