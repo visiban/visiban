@@ -26,6 +26,7 @@ interface Props {
   onInsertAbove?: () => void;
   onInsertBelow?: () => void;
   sidebarWidth?: number;
+  onResizeStart?: (e: React.MouseEvent) => void;
   hideLabels?: boolean;
   hideDueDate?: boolean;
   hideAssignee?: boolean;
@@ -34,7 +35,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, sidebarWidth, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, onInsertAbove, onInsertBelow, sidebarWidth, onResizeStart, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
 
@@ -119,6 +120,17 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             >
               <span className="text-blue-400 text-xs leading-none">+</span>
             </button>
+          )}
+
+          {/* Resize handle — right edge of sidebar */}
+          {onResizeStart && (
+            <div
+              onMouseDown={onResizeStart}
+              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize flex items-center justify-center group/resize hover:bg-blue-500/20 active:bg-blue-500/30 transition-colors z-20"
+              title="Drag to resize"
+            >
+              <div className="w-0.5 h-6 rounded-full bg-slate-600/0 group-hover/resize:bg-blue-400 transition-colors" />
+            </div>
           )}
         </div>
 

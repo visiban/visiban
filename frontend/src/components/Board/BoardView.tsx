@@ -564,9 +564,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               {/* Resize handle */}
               <div
                 onMouseDown={handleResizeStart}
-                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors z-30"
-                title="Drag to resize swimlane column"
-              />
+                className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize flex items-center justify-center group/resize hover:bg-blue-500/20 active:bg-blue-500/30 transition-colors z-30"
+                title="Drag to resize"
+              >
+                <div className="w-0.5 h-6 rounded-full bg-slate-600 group-hover/resize:bg-blue-400 transition-colors" />
+              </div>
               {isAdmin && (
                 <button
                   onClick={() => { setInsertSwimlanePosition(null); setShowAddSwimlane(true); }}
@@ -638,6 +640,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               key={swimlane.id}
               swimlane={swimlane}
               sidebarWidth={swimlaneColWidth}
+              onResizeStart={handleResizeStart}
               columns={board.columns}
               cards={board.cards.filter((c) => c.swimlane === swimlane.id)}
               boardId={board.id}
