@@ -105,7 +105,7 @@ export function useViewPrefs(boardId: number) {
     (columnId: number, width: number) =>
       setPrefs((prev) => ({
         ...prev,
-        columnWidths: { ...prev.columnWidths, [columnId]: Math.max(100, Math.min(600, width)) },
+        columnWidths: { ...prev.columnWidths, [columnId]: Math.max(160, Math.min(600, width)) },
       })),
     [setPrefs],
   );

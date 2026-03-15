@@ -336,7 +336,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const colWidths = useMemo(() => {
     const map = new Map<number, number>();
     for (const col of board.columns) {
-      map.set(col.id, viewPrefs.columnWidths[col.id] ?? DEFAULT_COL_WIDTH);
+      map.set(col.id, Math.max(160, viewPrefs.columnWidths[col.id] ?? DEFAULT_COL_WIDTH));
     }
     return map;
   }, [board.columns, viewPrefs.columnWidths]);
