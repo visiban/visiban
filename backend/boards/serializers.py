@@ -179,7 +179,18 @@ class BoardFullSerializer(serializers.ModelSerializer):
         ]
 
     def get_members(self, obj):
-        """Return effective members: direct board memberships + group-inherited members."""
+        """Return the effective member list for @mention autocomplete and the members panel.
+
+        Combines four sources, in precedence order (first writer wins per user):
+          1. Direct BoardMembership rows — authoritative; override any group role.
+          2. Group-inherited memberships — walk the group ancestor chain (capped at
+             6 levels) and include each user not already seen from step 1.
+          3. Board owner — always included as admin even without an explicit row.
+          4. Site admins — included so they appear in @mention autocomplete on all boards.
+
+        The ``id`` field is None for inherited/implicit members (they have no
+        BoardMembership row on this board).
+        """
         from accounts.models import User
 
         # Direct board members keyed by user_id
