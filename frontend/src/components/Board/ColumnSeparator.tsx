@@ -60,12 +60,10 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
       {/* Right line */}
       <div className={`w-px self-stretch transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
 
-      {/* Multiple "+" signs spread vertically — makes click intent obvious */}
+      {/* Single "+" centered — consistent with row separator style */}
       {isAdmin && hovered && (
-        <div className="absolute inset-0 flex flex-col items-center justify-around py-3 pointer-events-none">
-          {[0, 1, 2].map((i) => (
-            <span key={i} className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
-          ))}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
         </div>
       )}
     </div>

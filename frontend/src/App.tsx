@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useBoard } from "./hooks/useBoard";
@@ -12,6 +12,7 @@ import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
 import SettingsPage from "./pages/SettingsPage";
 import type { User } from "./types";
+import { starBoard, unstarBoard } from "./api/boards";
 
 export default function App() {
   const { user, loading, logout, updateUser } = useAuth();
@@ -94,6 +95,22 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
     updateBoardSettings,
   } = useBoard();
 
+  const [isStarred, setIsStarred] = useState(false);
+  const [starLoading, setStarLoading] = useState(false);
+  useEffect(() => { if (board) setIsStarred(board.is_starred); }, [board?.id, board?.is_starred]);
+
+  const handleStarToggle = async () => {
+    if (starLoading || !board) return;
+    const prev = isStarred;
+    setIsStarred(!prev);
+    setStarLoading(true);
+    try {
+      if (prev) await unstarBoard(board.id); else await starBoard(board.id);
+      onStarToggled();
+    } catch { setIsStarred(prev); }
+    finally { setStarLoading(false); }
+  };
+
   const handleBack = () => {
     if (board?.group) {
       navigate(`/groups/${board.group}`);
@@ -101,6 +118,18 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
       navigate("/");
     }
   };
+
+  const starButton = board ? (
+    <button
+      onClick={handleStarToggle}
+      disabled={starLoading}
+      className={`text-sm transition ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-slate-500 hover:text-yellow-400"}`}
+      title={isStarred ? "Unstar board" : "Star board"}
+      aria-label={isStarred ? "Unstar board" : "Star board"}
+    >
+      {isStarred ? "★" : "☆"}
+    </button>
+  ) : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -110,7 +139,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         onUserUpdated={onUserUpdated}
         breadcrumb={[
           ...(board?.group ? [{ label: board.group_name ?? "Group", href: `/groups/${board.group}` }] : []),
-          { label: board?.name ?? "…" },
+          { label: board?.name ?? "…", suffix: starButton },
         ]}
       />
       <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
@@ -134,7 +163,6 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onLabelAdded={addLabel}
             onBoardSettingsChanged={updateBoardSettings}
             onBoardDeleted={handleBack}
-            onStarToggled={onStarToggled}
             userTimezone={user.timezone ?? ""}
             userDateFormat={user.date_format ?? "MM/DD/YYYY"}
             userTimeFormat={user.time_format ?? "12h"}
