@@ -588,7 +588,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               boardId={board.id}
               insertPosition={0}
               isAdmin={isAdmin}
-              onColumnAdded={onColumnAdded}
+              onColumnAdded={(col) => {
+                onColumnAdded(col);
+                onColumnsReordered([col.id, ...board.columns.map((c) => c.id)]);
+              }}
               currentWidth={swimlaneColWidth}
               setWidth={setSwimlaneColumnWidth}
             />
@@ -613,7 +616,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     boardId={board.id}
                     insertPosition={idx + 1}
                     isAdmin={isAdmin}
-                    onColumnAdded={onColumnAdded}
+                    onColumnAdded={(newCol) => {
+                      onColumnAdded(newCol);
+                      const ids = board.columns.map((c) => c.id);
+                      onColumnsReordered([...ids.slice(0, idx + 1), newCol.id, ...ids.slice(idx + 1)]);
+                    }}
                     currentWidth={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
                     setWidth={(w) => setColumnWidth(col.id, w)}
                   />
