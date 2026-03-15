@@ -16,6 +16,10 @@ A 3D engraved separator (`h-px bg-slate-900` / `h-px bg-slate-600/50`) appears b
 
 Groups and personal boards are populated from a single API call on mount (`GET /api/groups/` and `GET /api/boards/`). Favorite boards and groups are fetched from `GET /api/boards/?starred=true` and `GET /api/groups/?starred=true` and are re-fetched whenever the star version counter increments (i.e. any time a board or group is starred or unstarred).
 
+## Starring boards and groups
+
+The star button (☆/★) appears in the **breadcrumb in the top navbar** when viewing a board or group — immediately after the board or group name. Click it to toggle the starred state. Starred boards and groups appear in the **Favorite Boards** and **Favorite Groups** sections at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.
+
 ## Collapse and expand
 
 A toggle button sits in the header of the sidebar. Clicking it switches between two states:
@@ -64,7 +68,7 @@ On mobile, use the top navigation bar for board and group access. The sidebar do
 
 When the sidebar is in its expanded state, a footer section is pinned to the bottom with two quick-action links:
 
-- **New board** — navigates to the dashboard (`/`) where a new board can be created
-- **New group** — navigates to the dashboard (`/`) where a new group can be created
+- **New board** — opens the board creation modal directly
+- **New group** — opens the group creation modal directly
 
 The footer is hidden entirely when the sidebar is collapsed to the icon rail.

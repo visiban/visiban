@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Creating a new column or swimlane after a deletion no longer raises `IntegrityError` on the `(board_id, position)` unique constraint; position is now derived from `MAX(position) + 1` rather than `count()`, which produces incorrect values when positions have gaps
 - Card movement history now correctly shows deleted column names in italic red even after the column has been deleted; previously the name disappeared because it was derived from the live FK at serialization time — names are now stored as denormalized fields on `CardMovement` at write time (#139)
 - Docker Compose stacks (`docker-compose.yml` and `docker-compose.prod.yml`) now use `postgres:17-alpine`, matching the Kubernetes/Helm deployment; previously Docker Compose used Postgres 16 while Helm used Postgres 17
 - Sidebar "New board" and "New group" footer links now open their respective creation modals directly instead of navigating to the Dashboard (#185)
@@ -78,11 +79,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 - `release.sh` now calls `mike set-default --push next` for pre-releases so docs.visiban.com has a root redirect and doesn't 404
 - Broken doc anchor links corrected: `board.md#export--import` → `#export-import`, `deployment.md#kubernetes--helm` → `#kubernetes-helm`, `first-boot.md#kubernetes--helm` → `#kubernetes-helm`
-
-### Changed
-
 - `docs-deploy` CI job no longer fires automatically on version tag pushes — docs are deployed by `scripts/release.sh` directly via `mike deploy`; the CI job is retained as a manual recovery tool only
 - `features/navigation.md` (sidebar navigation docs) added to the mkdocs.yml nav so it appears in the docs site
+- Sidebar footer "New board" and "New group" shortcuts now open their respective creation modals directly instead of navigating to the dashboard
+- Star/unstar button for boards and groups moved from the board toolbar to the breadcrumb in the top navbar, immediately after the board or group name — always visible regardless of which view is active
 
 ---
 

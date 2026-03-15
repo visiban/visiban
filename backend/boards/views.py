@@ -8,7 +8,7 @@ import statistics
 import django_filters
 from django.conf import settings as django_settings
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F, Max, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -774,7 +774,8 @@ class ColumnViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        max_pos = board.columns.count()
+        _max = board.columns.aggregate(m=Max("position"))["m"]
+        max_pos = 0 if _max is None else _max + 1
         column = serializer.save(board=board, position=max_pos)
         broadcast_board_event(board.id, "column.created", ColumnSerializer(column).data)
 
@@ -836,7 +837,8 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        max_pos = board.swimlanes.count()
+        _max = board.swimlanes.aggregate(m=Max("position"))["m"]
+        max_pos = 0 if _max is None else _max + 1
         swimlane = serializer.save(board=board, position=max_pos)
         broadcast_board_event(board.id, "swimlane.created", SwimlaneSerializer(swimlane).data)
 
