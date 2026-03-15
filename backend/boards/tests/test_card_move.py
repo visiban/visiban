@@ -174,7 +174,7 @@ class CardMoveTests(TestCase):
             "position": 0,
         })
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        movement = CardMovement.objects.get(card=self.card)
+        movement = CardMovement.objects.get(card=self.card, from_column=self.col_a)
         self.assertEqual(movement.from_column_name, self.col_a.name)
         self.assertEqual(movement.to_column_name, self.col_b.name)
         self.assertEqual(movement.from_swimlane_name, self.swim_x.name)
@@ -183,12 +183,20 @@ class CardMoveTests(TestCase):
     def test_movement_api_returns_names_after_column_deleted(self):
         """Names must survive column deletion — the key regression being fixed."""
         col_b_name = self.col_b.name
+        # Move card to col_b (creates the movement record we want to verify)
         self.client.post(self._move_url(), {
             "column_id": self.col_b.pk,
             "swimlane_id": self.swim_x.pk,
             "position": 0,
         })
-        # Delete the destination column (simulates the bug scenario)
+        # Move card back to col_a so it survives col_b deletion
+        # (Card.column has on_delete=CASCADE, so the card would be deleted with col_b)
+        self.client.post(self._move_url(), {
+            "column_id": self.col_a.pk,
+            "swimlane_id": self.swim_x.pk,
+            "position": 0,
+        })
+        # Delete col_b — simulates the bug scenario
         self.col_b.delete()
 
         resp = self.client.get(
@@ -196,5 +204,6 @@ class CardMoveTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         movements = resp.json()
-        move = next(m for m in movements if m["to_column"] is None)
+        # The col_a→col_b movement now has to_column=null (FK nulled), name preserved
+        move = next(m for m in movements if m["to_column"] is None and m["to_column_name"] == col_b_name)
         self.assertEqual(move["to_column_name"], col_b_name)
