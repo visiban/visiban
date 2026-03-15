@@ -60,6 +60,7 @@ When asked to create a release, run the release script. Ask for the version stri
 - **New features must be tagged with the version they were introduced in**, using a `> **Added in ...** ` callout immediately after the section heading:
   - Pre-1.0.0: include the full RC tag — e.g. `> **Added in 1.0.0-rc.5**`
   - 1.0.0 and later: include only the minor version — e.g. `> **Added in 1.1**` (never `1.1.0`)
+  - Patch releases (e.g. 1.1.1) do not get version callouts — only minor releases and pre-releases
   - Do not add version callouts to changed or fixed behaviour — only net-new features
 - When writing or updating documentation, mark any feature that requires the enterprise edition with a callout:
   ```markdown
