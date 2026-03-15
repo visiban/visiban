@@ -5,6 +5,20 @@ export type BoardEvent = {
   [key: string]: unknown;
 };
 
+/**
+ * Opens a WebSocket connection to the board's real-time channel and calls
+ * `onEvent` for every message received from the server.
+ *
+ * Reconnection behaviour: the socket reconnects automatically after 3 seconds
+ * whenever it closes unexpectedly. Reconnection is suppressed for:
+ *   - Normal closure (code 1000) — e.g. component unmount.
+ *   - Auth rejection (code 4001 / 4003) — the server closes the socket when
+ *     the session cookie is invalid or the user is no longer a board member.
+ *     Reconnecting would loop indefinitely in those cases.
+ *
+ * `onEvent` is stored in a ref so callers can pass an inline arrow function
+ * without causing the effect to re-run on every render.
+ */
 export function useBoardSocket(
   boardId: number | null,
   onEvent: (event: BoardEvent) => void

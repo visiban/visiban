@@ -6,6 +6,17 @@ SITE_ADMIN = "site_admin"
 
 
 def get_board_role(user, board):
+    """Return the effective role of *user* on *board*, or None if they have no access.
+
+    Precedence (highest to lowest):
+      1. Site admins — always return SITE_ADMIN regardless of explicit membership.
+      2. Board owner — implicitly ADMIN even without a BoardMembership row.
+      3. Explicit BoardMembership — takes priority over any group-inherited role.
+      4. Group-inherited — walk up the group ancestor chain (capped at 6 levels to
+         prevent runaway queries on deep trees) and return the first match found.
+
+    Returns None if the user has no access at any level.
+    """
     if user.is_site_admin:
         return SITE_ADMIN
     if board.owner_id == user.id:

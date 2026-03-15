@@ -173,6 +173,23 @@ class BoardViewSet(viewsets.ModelViewSet):
         return group
 
     def _import_json(self, request, file):
+        """Create a new board from a Visiban JSON export file.
+
+        Expected top-level shape::
+
+            {
+              "name": str,
+              "description": str (optional),
+              "columns": [{"name": str, "position": int, "color": str, ...}],
+              "swimlanes": [{"name": str, ...}],
+              "labels": [{"name": str, "color": str}],
+              "cards": [{"title": str, "column": str, "swimlane": str, ...}]
+            }
+
+        Columns and swimlanes are referenced by name from cards. The entire
+        board is created inside a single atomic transaction so a validation
+        failure mid-way leaves no partial state.
+        """
         try:
             raw = file.read().decode("utf-8")
             data = json.loads(raw)
@@ -303,6 +320,17 @@ class BoardViewSet(viewsets.ModelViewSet):
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
     def _import_csv(self, request, file):
+        """Create a new board from a CSV file with one card per row.
+
+        Required headers: Title, Column, Swimlane.
+        Optional headers: Description, Priority, Weight, Labels (comma-separated),
+                          Assignee (username), DueDate (YYYY-MM-DD).
+
+        Columns, swimlanes, and labels are auto-created from the values seen in
+        the file. Their order matches their first appearance in the CSV so that
+        column/swimlane ordering reflects the original export. All objects are
+        created inside a single atomic transaction.
+        """
         try:
             raw = file.read().decode("utf-8")
             reader = csv.DictReader(io.StringIO(raw))
@@ -486,7 +514,19 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def analytics(self, request, pk=None):
-        """Time-in-stage heatmap with outlier detection and stalled cards."""
+        """Time-in-stage heatmap with outlier detection and stalled cards.
+
+        Query params:
+          - ``days`` (int, default 30): window for velocity calculations.
+          - ``stalled_days`` (int, default 7): a card is "stalled" if its last
+            movement was more than this many days ago.
+
+        Dwell time is measured as the number of days a card spent in each column:
+        the gap between consecutive movement timestamps (or "now" for the current
+        position). Per-swimlane averages are compared against board-wide medians;
+        a swimlane/column cell is flagged as an outlier when its average exceeds
+        2× the board median for that column.
+        """
         board, _ = get_board_for_user(pk, request.user)
         days = int(request.query_params.get("days", 30))
         stalled_days = int(request.query_params.get("stalled_days", 7))
@@ -996,6 +1036,16 @@ class CardViewSet(viewsets.ModelViewSet):
         broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
 
     def update(self, request, *args, **kwargs):
+        """Update card fields and record a CardActivity entry for each changed field.
+
+        A snapshot of mutable fields is taken before the save, then compared
+        afterwards to determine which fields actually changed. Only fields present
+        in the request body are considered for title/description (to avoid spurious
+        activity entries when a partial PATCH omits them). Label changes are
+        expressed as a single activity entry listing added (+) and removed (-)
+        names. A Notification is created for the new assignee when the assignee
+        changes to someone other than the current user.
+        """
         _, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
             raise PermissionDenied
