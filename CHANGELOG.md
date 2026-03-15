@@ -37,6 +37,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Collapsed column cells now pulse with a blue highlight and show the filter match count when a search or filter is active and matching cards are hidden inside — so results are visible without expanding every column
 - Trailing separator added to SwimlaneRow so the last column aligns correctly with the header in collapsed board view
 - Frontend UI conventions moved from the root `CLAUDE.md` into `frontend/CLAUDE.md` alongside the code they govern
+- Row separator now shows a "+" at each column's center X when hovered, mirroring how column separators show "+" at each swimlane row — the insert affordance is now symmetric in both axes
+- Collapsed swimlane rows are now compact: each cell renders as a narrow `w-10` box showing only the card count (no "N hidden" text), the label panel shrinks to a single line, and the stored row min-height is suppressed so the row collapses to its natural minimum
 
 ### Changed
 

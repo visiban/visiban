@@ -87,12 +87,12 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTitle('Collapse')).toBeInTheDocument()
   })
 
-  it('collapsing swimlane shows hidden count', async () => {
+  it('collapsing swimlane shows compact count', async () => {
     const props = defaultProps()
     props.cards = [makeCard({ id: 1, column: 10 }), makeCard({ id: 2, column: 10 })]
     render(<SwimlaneRow {...props} />)
     await userEvent.setup().click(screen.getByTitle('Collapse'))
-    expect(screen.getByText('2 hidden')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
   })
 
   it('shows edit button for admin', () => {

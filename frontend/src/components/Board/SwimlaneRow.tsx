@@ -102,12 +102,12 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
     <>
       <div
         ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
-        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: minHeight ?? undefined }}
+        style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
         className="relative flex border-b border-slate-700 bg-slate-800"
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className="shrink-0 flex items-start gap-2 pl-1 pr-3 py-3 sticky left-0 z-10 bg-slate-800 border-l-[3px] group relative"
+          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-[3px] group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
         >
           {/* Drag handle */}
@@ -115,7 +115,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             <span
               {...attributes}
               {...listeners}
-              className="text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 mt-0.5"
+              className={`text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 ${collapsed ? "" : "mt-0.5"}`}
               title="Drag to reorder"
             >
               ⠿
@@ -146,17 +146,19 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 {swimlane.name}
               </p>
             )}
-            <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>
+            {!collapsed && <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => { if (isAdmin) setEditing(true); }}
-              className={`transition text-xs ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
-              title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
-              disabled={!isAdmin}
-            >
-              ✎
-            </button>
+            {!collapsed && (
+              <button
+                onClick={() => { if (isAdmin) setEditing(true); }}
+                className={`transition text-xs ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
+                title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
+                disabled={!isAdmin}
+              >
+                ✎
+              </button>
+            )}
             <button
               onClick={() => setCollapsed((c) => !c)}
               className="text-slate-400 hover:text-white transition shrink-0"
@@ -269,16 +271,13 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           }
 
           if (collapsed) {
-            // Swimlane collapsed, non-collapsed column: show hidden count placeholder
+            // Swimlane collapsed — compact w-10 box matching collapsed-column cell style
             return (
               <div key={col.id} className="contents">
                 {sep}
-                <div
-                  style={{ width: cellWidth }}
-                  className="shrink-0 flex items-center justify-center"
-                >
+                <div className="w-10 shrink-0 flex items-center justify-center py-1">
                   {cellCount > 0 && (
-                    <span className="text-xs text-slate-400 italic">{cellCount} hidden</span>
+                    <span className="text-xs font-medium text-slate-400">{cellCount}</span>
                   )}
                 </div>
               </div>
