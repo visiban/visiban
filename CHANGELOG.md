@@ -15,74 +15,67 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card labels now show truncated full names (up to 7 characters) instead of 2-character abbreviations, making them readable without hovering (#196)
 - Card count badge appears in the top-right corner of any cell containing 2 or more cards — faint and non-intrusive, helps spot dense columns at a glance (#198)
 - Overdue card due dates now render in `text-red-400` to match the design token convention (#198)
-
 - Card detail panel now shows a scroll gradient at the bottom of the content area so users can see when more content is below the visible area (#188)
 - Checklist and Attachments sections in the card detail panel are now collapsible via a chevron toggle; each section auto-collapses when empty on load (#188)
 - Movement history now highlights deleted column names in italic red with a "Deleted —" prefix and a tooltip, so users can distinguish live columns from removed ones in a card's move history (#139)
+- Swimlane label sidebar is now resizable by dragging its right edge; minimum width is ~56 px (≈4 characters) and maximum is 400 px; width is persisted per-board in localStorage
+- Column names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full column settings modal
+- Swimlane names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full swimlane settings modal
+- Column and row separators redesigned as unified interactive handles: two parallel lines with a "+" that appears on hover; clicking inserts a column or swimlane inline; dragging a column separator left/right resizes the column to its left
+- The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the label column on drag
+- Board columns are now individually resizable by dragging the right edge separator; width is persisted per-column per-board in localStorage; cards reflow automatically as column width changes and row height adjusts to the tallest cell
+- Swimlane row height is now resizable: drag the bottom edge of any swimlane row to set a minimum height; height is persisted per-swimlane per-board in localStorage
+- Double-clicking an empty area in a cell now opens the inline new-card form (same as right-click and the "+ Add card" button)
+- Collapsed column cells now pulse with a blue highlight and show the filter match count when a search or filter is active and matching cards are hidden inside — so results are visible without expanding every column
+- Empty board cells (no cards, not adding) now show a dashed border to visually communicate the drop zone; `+ Add card` button uses a lighter style in empty cells vs. non-empty cells (#200)
+
+### Changed
+
+- Replaced all `gray-*` Tailwind tokens with `slate-*` equivalents across Dashboard, Settings, BoardView, SwimlaneRow, BoardCell, and BulkActionToolbar to eliminate the warm/cool color mismatch on adjacent surfaces (#184, #158)
+- All card color tokens migrated from `gray-*` to `slate-*` for consistency with the rest of the dark theme (#196)
+- Filter active-count badge changed from light-mode `bg-blue-100 text-blue-700` to dark-theme `bg-blue-500/20 text-blue-400` (#184)
+- Filters toolbar button now uses `text-slate-300 hover:text-white` instead of `text-blue-600 hover:text-blue-800` (#184)
+- Column header shows a red bottom border accent (`border-b-2 border-b-red-500/50`) when the WIP limit is exceeded, making violations visible without reading the stats row (#198)
+- Collapsed columns now show a unique 3-character abbreviation (e.g. BAC, TOD, DOI) instead of the full rotated name; duplicates are suffixed with a digit (#195)
+- Columns now default to collapsed (compact) on every board; an Expand / Collapse button in the toolbar expands or collapses all columns at once, and individual columns can still be toggled by clicking; expanded state is persisted per-board in localStorage
+- Star/unstar button moved from the board toolbar to the breadcrumb in the Navbar, immediately after the board name — star is now always visible regardless of which view (Board/Summary/Analytics) is active
+- Board toolbar now has a small top margin so it breathes away from the Navbar
+- Column separator "+" indicator simplified to a single centered sign (matching the row separator style) — three stacked signs were visually noisy in the narrow 16 px column
+- Column and row separators redesigned to single hairline (from double-line): barely visible at rest, highlights blue on hover — cleaner in dense kanban layouts
+- Clicking a column separator now opens the Add Column modal (same flow as swimlane separators) rather than an inline input; drag still resizes the column to the left
+- Row separator now shows a "+" at each column's center X when hovered, mirroring how column separators show "+" at each swimlane row — the insert affordance is now symmetric in both axes
+- Collapsed swimlane rows are now compact: each cell renders as a narrow `w-10` box showing only the card count (no "N hidden" text), the label panel shrinks to a single line, and the stored row min-height is suppressed so the row collapses to its natural minimum
+- Swimlane label panel left border increased from 3 px to 4 px (`border-l-4`) for a stronger color identity signal (#197)
+- Swimlane name font weight increased from `font-semibold` to `font-bold` so lanes read as navigation landmarks (#197)
+- Swimlane collapse chevron increased from 3.5 to 4 px icon to improve interactivity affordance (#197)
+- Swimlane drag handle is now hidden at rest and visible on row hover (`opacity-0 → opacity-100`) — reduces visual noise without hiding the reorder affordance (#197)
+- Swimlane label panel now renders the swimlane color as a 3 px left border instead of a narrow interior stripe, making color identity visible at a glance (#190)
+- Swimlane collapse/expand control replaced text arrows (`▶`/`▼`) with an SVG chevron that rotates on state change (#190)
+- Swimlane edit button (✎) is now dimly visible at rest (`opacity-30`) and fully visible on row hover, instead of fully hidden until hover (#190)
+- Board sub-nav toolbar restructured to a fixed `h-10` row so it no longer compresses when filters are open; FilterBar moved to its own collapsible row below the toolbar (#187, #199)
+- Live connection indicator dot now pulses (`animate-pulse`) when connected and uses `bg-green-400` (#199)
+- Column WIP and Weight stats are now shown conditionally: WIP row only appears when a WIP limit is set; Weight row only appears when total weight is non-zero (#187)
+- Docker Compose stacks (`docker-compose.yml` and `docker-compose.prod.yml`) now use `postgres:17-alpine`, matching the Kubernetes/Helm deployment; previously Docker Compose used Postgres 16 while Helm used Postgres 17
+- Frontend UI conventions moved from the root `CLAUDE.md` into `frontend/CLAUDE.md` alongside the code they govern
+- `docs-deploy` CI job no longer fires automatically on version tag pushes — docs are deployed by `scripts/release.sh` directly via `mike deploy`; the CI job is retained as a manual recovery tool only
 
 ### Fixed
 
 - Creating a new column or swimlane after a deletion no longer raises `IntegrityError` on the `(board_id, position)` unique constraint; position is now derived from `MAX(position) + 1` rather than `count()`, which produces incorrect values when positions have gaps
 - Card movement history now correctly shows deleted column names in italic red even after the column has been deleted; previously the name disappeared because it was derived from the live FK at serialization time — names are now stored as denormalized fields on `CardMovement` at write time (#139)
-- Docker Compose stacks (`docker-compose.yml` and `docker-compose.prod.yml`) now use `postgres:17-alpine`, matching the Kubernetes/Helm deployment; previously Docker Compose used Postgres 16 while Helm used Postgres 17
 - Sidebar "New board" and "New group" footer links now open their respective creation modals directly instead of navigating to the Dashboard (#185)
 - Invalid or expired invite link page now auto-redirects to the dashboard after a 5-second countdown instead of requiring a manual button click (#172)
-- Escape key to close the profile/user-settings dialog was already implemented — issue #144 closed as resolved
-
-- Replaced all `gray-*` Tailwind tokens with `slate-*` equivalents across Dashboard, Settings, BoardView, SwimlaneRow, BoardCell, and BulkActionToolbar to eliminate the warm/cool color mismatch on adjacent surfaces (#184, #158)
-- Filter active-count badge changed from light-mode `bg-blue-100 text-blue-700` to dark-theme `bg-blue-500/20 text-blue-400` (#184)
-- Filters toolbar button now uses `text-slate-300 hover:text-white` instead of `text-blue-600 hover:text-blue-800` (#184)
 - Version badge in Navbar is now hidden for all versioned builds (stable and pre-release); only shown when `APP_VERSION` is `dev` (#192)
 - Invite link URLs in Group Settings are now truncated in the display field with the full URL available on hover; copy behaviour is unchanged (#193)
-- Collapsed columns now show a unique 3-character abbreviation (e.g. BAC, TOD, DOI) instead of the full rotated name; duplicates are suffixed with a digit (#195)
-- Columns now default to collapsed (compact) on every board; an Expand / Collapse button in the toolbar expands or collapses all columns at once, and individual columns can still be toggled by clicking; expanded state is persisted per-board in localStorage
-- Swimlane label sidebar is now resizable by dragging its right edge; minimum width is ~56 px (≈4 characters) and maximum is 400 px; width is persisted per-board in localStorage
-- Column names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full column settings modal
-- Column and row separators redesigned as unified interactive handles: two parallel lines with a "+" that appears on hover; clicking inserts a column or swimlane inline; dragging a column separator left/right resizes the column to its left
-- The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the label column on drag
-- Double-clicking an empty area in a cell now opens the inline new-card form (same as right-click and the "+ Add card" button)
-- Board columns are now individually resizable by dragging the right edge separator; width is persisted per-column per-board in localStorage; cards reflow automatically as column width changes and row height adjusts to the tallest cell
-- Star/unstar button moved from the board toolbar to the breadcrumb in the Navbar, immediately after the board name — star is now always visible regardless of which view (Board/Summary/Analytics) is active
-- Board toolbar now has a small top margin so it breathes away from the Navbar
-- Column separator "+" indicator simplified to a single centered sign (matching the row separator style) — three stacked signs were visually noisy in the narrow 16 px column
 - Swimlane rows can now be reordered by dragging; `closestCenter` was resolving to cell droppables (which cover more area than the swimlane sidebar) and the drop was silently discarded — the cell ID is now mapped back to its swimlane before the sort index lookup, matching the existing fix for column reordering (#195)
 - Cell drop-target highlight no longer activates when dragging a swimlane or column (#195)
 - Newly created columns are now automatically expanded (no longer start collapsed); boards with no stored view preferences (e.g. freshly created boards) also start with all columns expanded
 - Header row z-index raised so swimlane rows scroll behind it correctly when the board is scrolled vertically
-- Swimlane names can now be renamed inline: click the name to edit, Enter to confirm, Escape to cancel; the ✎ icon still opens the full swimlane settings modal
-- Swimlane row height is now resizable: drag the bottom edge of any swimlane row to set a minimum height; height is persisted per-swimlane per-board in localStorage
-- Column and row separators redesigned to single hairline (from double-line): barely visible at rest, highlights blue on hover — cleaner in dense kanban layouts
-- Clicking a column separator now opens the Add Column modal (same flow as swimlane separators) rather than an inline input; drag still resizes the column to the left
-- Collapsed column cells now pulse with a blue highlight and show the filter match count when a search or filter is active and matching cards are hidden inside — so results are visible without expanding every column
 - Trailing separator added to SwimlaneRow so the last column aligns correctly with the header in collapsed board view
-- Frontend UI conventions moved from the root `CLAUDE.md` into `frontend/CLAUDE.md` alongside the code they govern
-- Row separator now shows a "+" at each column's center X when hovered, mirroring how column separators show "+" at each swimlane row — the insert affordance is now symmetric in both axes
-- Collapsed swimlane rows are now compact: each cell renders as a narrow `w-10` box showing only the card count (no "N hidden" text), the label panel shrinks to a single line, and the stored row min-height is suppressed so the row collapses to its natural minimum
-
-- Board sub-nav toolbar restructured to a fixed `h-10` row so it no longer compresses when filters are open; FilterBar moved to its own collapsible row below the toolbar (#187, #199)
-- Live connection indicator dot now pulses (`animate-pulse`) when connected and uses `bg-green-400` (#199)
-- Column WIP and Weight stats are now shown conditionally: WIP row only appears when a WIP limit is set; Weight row only appears when total weight is non-zero (#187)
-- Empty board cells (no cards, not adding) now show a dashed border to visually communicate the drop zone; `+ Add card` button uses a lighter style in empty cells vs. non-empty cells (#200)
-
-### Changed
-
-- All card color tokens migrated from `gray-*` to `slate-*` for consistency with the rest of the dark theme (#196)
-- Column header shows a red bottom border accent (`border-b-2 border-b-red-500/50`) when the WIP limit is exceeded, making violations visible without reading the stats row (#198)
-- Swimlane label panel left border increased from 3 px to 4 px (`border-l-4`) for a stronger color identity signal (#197)
-- Swimlane name font weight increased from `font-semibold` to `font-bold` so lanes read as navigation landmarks (#197)
-- Swimlane collapse chevron increased from 3.5 to 4 px icon to improve interactivity affordance (#197)
-- Swimlane drag handle is now hidden at rest and visible on row hover (`opacity-0 → opacity-100`) — reduces visual noise without hiding the reorder affordance (#197)
-
-- Swimlane label panel now renders the swimlane color as a 3 px left border instead of a narrow interior stripe, making color identity visible at a glance (#190)
-- Swimlane collapse/expand control replaced text arrows (`▶`/`▼`) with an SVG chevron that rotates on state change (#190)
-- Swimlane edit button (✎) is now dimly visible at rest (`opacity-30`) and fully visible on row hover, instead of fully hidden until hover (#190)
-
 - `release.sh` now calls `mike set-default --push next` for pre-releases so docs.visiban.com has a root redirect and doesn't 404
 - Broken doc anchor links corrected: `board.md#export--import` → `#export-import`, `deployment.md#kubernetes--helm` → `#kubernetes-helm`, `first-boot.md#kubernetes--helm` → `#kubernetes-helm`
-- `docs-deploy` CI job no longer fires automatically on version tag pushes — docs are deployed by `scripts/release.sh` directly via `mike deploy`; the CI job is retained as a manual recovery tool only
 - `features/navigation.md` (sidebar navigation docs) added to the mkdocs.yml nav so it appears in the docs site
-- Sidebar footer "New board" and "New group" shortcuts now open their respective creation modals directly instead of navigating to the dashboard
-- Star/unstar button for boards and groups moved from the board toolbar to the breadcrumb in the top navbar, immediately after the board or group name — always visible regardless of which view is active
+- Escape key to close the profile/user-settings dialog was already implemented — issue #144 closed as resolved
 
 ---
 
