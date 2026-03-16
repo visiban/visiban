@@ -23,12 +23,14 @@ Create a card. Requires member or above. The target column must have `allow_card
 ```
 
 ### `GET /api/boards/{board_id}/cards/{id}/`
-Get a single card.
+Get a single card. The response includes a `uid` field — a stable 16-character hex identifier that does not change when the card is renamed, moved, or reassigned. The `uid` is read-only.
 
 ### `PATCH /api/boards/{board_id}/cards/{id}/`
 Update card fields. Requires member or above.
 
 **Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `column`, `swimlane`
+
+> `uid` is not patchable — any `uid` value sent in the request body is silently ignored.
 
 ### `DELETE /api/boards/{board_id}/cards/{id}/`
 Delete a card. Requires member or above.
@@ -48,19 +50,38 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 **Response**
 ```json
 {
-  "card": { ... },
-  "movement": { "id": 42, "from_column_name": "To Do", "to_column_name": "Doing", ... }
+  "card": { "id": 101, "uid": "3a9f1c2d7e4b8a05", ... },
+  "movement": {
+    "id": 42,
+    "from_column": 2,
+    "from_column_name": "To Do",
+    "from_column_uid": "a1b2c3d4e5f60718",
+    "to_column": 3,
+    "to_column_name": "Doing",
+    "to_column_uid": "9f8e7d6c5b4a3210",
+    "from_swimlane": 1,
+    "from_swimlane_name": "Acme Corp",
+    "from_swimlane_uid": "deadbeef01234567",
+    "to_swimlane": 1,
+    "to_swimlane_name": "Acme Corp",
+    "to_swimlane_uid": "deadbeef01234567",
+    "moved_by": { "id": 7, "username": "alice" },
+    "moved_at": "2026-03-15T09:41:22Z",
+    "notes": ""
+  }
 }
 ```
 
 `movement` is `null` if only position changed within the same cell.
+
+The `*_uid` fields in the movement record are permanent — they remain set even after the referenced column or swimlane is deleted (the FK `*_id` field becomes `null` at that point, but the UID is preserved). See [Stable UIDs](../features/stable-uids.md).
 
 ---
 
 ## History
 
 ### `GET /api/boards/{board_id}/cards/{id}/movements/`
-Full movement history for a card.
+Full movement history for a card. Each record includes `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields. UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
 ### `GET /api/boards/{board_id}/cards/{id}/activities/`
 Activity log (field changes, comments, attachments, checklist events).

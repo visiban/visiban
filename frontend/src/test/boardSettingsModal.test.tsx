@@ -52,6 +52,7 @@ const fakeMember2: User = {
 
 const fakeBoard: BoardFull = {
   id: 1,
+  uid: 'boarduid0001',
   name: 'Sprint Board',
   description: '',
   group: null,

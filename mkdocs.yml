@@ -55,6 +55,7 @@ nav:
     - Notifications: features/notifications.md
     - Real-time Updates: features/realtime.md
     - Card History: features/card-history.md
+    - Stable UIDs: features/stable-uids.md
     - Groups: features/groups.md
     - Navigation: features/navigation.md
     - Roles & Permissions:

@@ -6,8 +6,11 @@ Every card maintains a full audit trail of movements and field changes.
 
 A `CardMovement` record is created whenever a card changes column or swimlane. Each record captures:
 
-- From column / to column
-- From swimlane / to swimlane
+- From column / to column (FK, nullable after deletion)
+- From swimlane / to swimlane (FK, nullable after deletion)
+- From column UID / to column UID — stable even after the column is deleted or renamed
+- From swimlane UID / to swimlane UID — stable even after the swimlane is deleted or renamed
+- Denormalized names at the time of the move (from_column_name, to_column_name, etc.)
 - Who moved it (`moved_by`)
 - When (`moved_at`)
 - Optional notes
@@ -42,6 +45,8 @@ Open a card and click the **History** tab in the side panel. The timeline shows 
 
 Movement entries display the full column and swimlane names, preserved even if those columns or swimlanes have since been renamed or deleted. If a referenced column has been deleted since the move occurred, its name is shown in italic red with a **Deleted —** prefix and a hover tooltip, so you can distinguish live columns from removed ones at a glance.
 
+The UID fields on each movement record (`from_column_uid`, `to_column_uid`, `from_swimlane_uid`, `to_swimlane_uid`) are also preserved permanently — these are the correct identifiers to use when correlating movement history in an external system. See [Stable UIDs](stable-uids.md).
+
 ## How dwell time is calculated
 
 The time a card spends in a column is the gap between two consecutive `CardMovement` records. The Analytics view uses these gaps to compute median dwell time per stage and flag outliers. See [Analytics](analytics.md).
@@ -59,4 +64,4 @@ GET /api/boards/{board_id}/cards/{card_id}/movements/
 GET /api/boards/{board_id}/cards/{card_id}/activities/
 ```
 
-Movement records include `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name`, `moved_by`, and `moved_at` — all denormalised so historical data remains accurate regardless of future renames.
+Movement records include `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, `to_swimlane_uid`, `moved_by`, and `moved_at`. The name and UID fields are denormalized — they are captured at write time and remain accurate regardless of future renames or deletions. See [Stable UIDs](stable-uids.md) for full field reference and integration examples.

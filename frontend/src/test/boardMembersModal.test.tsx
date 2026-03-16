@@ -15,7 +15,7 @@ const fakeUser: User = {
 }
 
 const fakeBoard: BoardFull = {
-  id: 1, name: 'Test', description: '', group: null, group_name: null,
+  id: 1, uid: 'boarduid0001', name: 'Test', description: '', group: null, group_name: null,
   columns: [], swimlanes: [], cards: [], labels: [],
   members: [
     { id: 1, user: fakeUser, role: 'admin', joined_at: '' },

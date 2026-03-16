@@ -155,7 +155,7 @@ See [Analytics](analytics.md) for details.
 Click **Export** in the board toolbar to download the board data:
 
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history
-- **JSON** — full board structure including columns, swimlanes, labels, and cards with comments and checklists
+- **JSON** — full board structure including columns, swimlanes, labels, and cards with comments and checklists; all objects include their `uid` field, making the export suitable for diffing snapshots or importing into external systems while preserving identity
 
 Export is available to all board members (viewer and above). The export endpoints are:
 

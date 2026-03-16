@@ -94,16 +94,16 @@ const fakeUser: User = {
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
-    id: 1, name: 'Test Board', description: '', group: null, group_name: null,
+    id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     columns: [
-      { id: 10, name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
-      { id: 11, name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
+      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
+      { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
     ],
     swimlanes: [
-      { id: 20, name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
+      { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
     ],
     cards: [],
-    labels: [{ id: 100, name: 'Bug', color: '#EF4444' }],
+    labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     staleness_threshold_days: 7,
     close_editor_on_enter: false,
@@ -267,7 +267,7 @@ describe('BoardView', () => {
   it('?card= param opens CardDetail for a matching card', () => {
     mockSearchParams = new URLSearchParams('card=1')
     const card = {
-      id: 1, column: 10, swimlane: 20, title: 'Deep Link Card',
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Deep Link Card',
       description: '', priority: 'medium' as const, assignee: null,
       labels: [], due_date: null, weight: 1, position: 0, created_by: 1,
       created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',

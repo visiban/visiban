@@ -1,10 +1,13 @@
 from django.db import models
 from django.conf import settings
 
+from boards.uid import _generate_uid
+
 
 class Board(models.Model):
     """A kanban board containing columns, swimlanes, cards, and members."""
 
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     owner = models.ForeignKey(
@@ -71,6 +74,7 @@ class BoardFavorite(models.Model):
 class Column(models.Model):
     """A vertical stage column on a board (e.g. Backlog, In Progress, Done)."""
 
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="columns")
     name = models.CharField(max_length=255)
     position = models.IntegerField(default=0)
@@ -91,6 +95,7 @@ class Column(models.Model):
 class Swimlane(models.Model):
     """A horizontal row grouping cards on a board, typically representing a customer or workstream."""
 
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="swimlanes")
     name = models.CharField(max_length=255)
     contact_email = models.EmailField(blank=True)
@@ -112,6 +117,7 @@ class Swimlane(models.Model):
 class Label(models.Model):
     """A color-coded tag that can be applied to cards on a board."""
 
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="labels")
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=7, default="#EAB308")
@@ -126,6 +132,8 @@ class Label(models.Model):
 
 class Card(models.Model):
     """A work item positioned in a column/swimlane cell on a board."""
+
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
 
     class Priority(models.TextChoices):
         """Priority levels available for a card."""
@@ -196,6 +204,13 @@ class CardMovement(models.Model):
     to_column_name = models.CharField(max_length=255, blank=True, default="")
     from_swimlane_name = models.CharField(max_length=255, blank=True, default="")
     to_swimlane_name = models.CharField(max_length=255, blank=True, default="")
+    # Stable UIDs captured at write time — parallel to the *_name fields above.
+    # Rows where the FK was already NULL at migration time cannot be backfilled
+    # and remain ""; this is intentional and consistent with the _name fields.
+    from_column_uid = models.CharField(max_length=16, blank=True, default="")
+    to_column_uid = models.CharField(max_length=16, blank=True, default="")
+    from_swimlane_uid = models.CharField(max_length=16, blank=True, default="")
+    to_swimlane_uid = models.CharField(max_length=16, blank=True, default="")
     moved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )
