@@ -15,6 +15,14 @@
 - Borders: `border-slate-800` for grid lines (subtle), `border-slate-700` for panels, `border-slate-600` for interactive elements
 - Text: `text-slate-200` for primary content, `text-slate-300` for secondary, `text-slate-500` for muted/stats
 
+## Section header actions
+
+When a section header (e.g. "My Boards", "Groups") carries action buttons:
+- Place them right-aligned in a `flex items-center gap-2` group
+- Primary action (e.g. "+ New board"): primary button variant
+- Secondary action (e.g. "Import"): secondary button variant — **not** `text-blue-400`; that color is reserved for active filter/selection states
+- Do **not** use a full-width dashed bottom button as the primary creation affordance when the section already has content — that pattern reads as an empty state
+
 ## Buttons
 
 Three variants — use no others:
