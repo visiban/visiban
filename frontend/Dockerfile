@@ -11,6 +11,12 @@ RUN npm ci --include=dev
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
 
+# NODE_OPTIONS can be set at build time (e.g. --max-old-space-size=512) to
+# cap Node's heap on memory-constrained CI runners.  Empty by default so
+# production builds are unaffected.
+ARG NODE_OPTIONS=""
+ENV NODE_OPTIONS=$NODE_OPTIONS
+
 COPY . .
 RUN npm run build
 
