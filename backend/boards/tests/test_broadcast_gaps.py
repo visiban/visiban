@@ -17,7 +17,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from boards.models import (
     Board, BoardMembership, Card, CardAttachment, CardChecklist,
-    CardComment, Column, Label, Swimlane,
+    Column, Label, Swimlane,
 )
 
 
