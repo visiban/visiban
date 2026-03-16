@@ -130,6 +130,13 @@ const defaultProps = () => ({
   onSwimlaneDeleted: vi.fn(),
   onSwimlanesReordered: vi.fn(),
   onLabelAdded: vi.fn(),
+  onLabelUpdated: vi.fn(),
+  onLabelDeleted: vi.fn(),
+  onMemberAdded: vi.fn(),
+  onMemberUpdated: vi.fn(),
+  onMemberRemoved: vi.fn(),
+  onColumnOrderApplied: vi.fn(),
+  onSwimlaneOrderApplied: vi.fn(),
   onBoardSettingsChanged: vi.fn(),
 })
 

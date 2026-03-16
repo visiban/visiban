@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, updateBoard as apiUpdateBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
-import type { BoardFull, Card, Column, Swimlane, Label } from "../types";
+import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../types";
 
 export function useBoard() {
   const { id } = useParams<{ id: string }>();
@@ -118,6 +118,40 @@ export function useBoard() {
     setBoard((b) => b ? { ...b, labels: [...b.labels, label] } : b);
   }, []);
 
+  const updateLabel = useCallback((label: Label) => {
+    setBoard((b) => b ? { ...b, labels: b.labels.map((l) => l.id === label.id ? label : l) } : b);
+  }, []);
+
+  const removeLabel = useCallback((labelId: number) => {
+    setBoard((b) => b ? { ...b, labels: b.labels.filter((l) => l.id !== labelId) } : b);
+  }, []);
+
+  const addMember = useCallback((membership: BoardMembership) => {
+    setBoard((b) => {
+      if (!b) return b;
+      const exists = b.members.some((m) => m.user.id === membership.user.id);
+      return exists
+        ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? membership : m) }
+        : { ...b, members: [...b.members, membership] };
+    });
+  }, []);
+
+  const updateMember = useCallback((membership: BoardMembership) => {
+    setBoard((b) => b ? { ...b, members: b.members.map((m) => m.user.id === membership.user.id ? membership : m) } : b);
+  }, []);
+
+  const removeMember = useCallback((userId: number) => {
+    setBoard((b) => b ? { ...b, members: b.members.filter((m) => m.user.id !== userId) } : b);
+  }, []);
+
+  const applyColumnOrder = useCallback((columns: Column[]) => {
+    setBoard((b) => b ? { ...b, columns } : b);
+  }, []);
+
+  const applySwimlaneOrder = useCallback((swimlanes: Swimlane[]) => {
+    setBoard((b) => b ? { ...b, swimlanes } : b);
+  }, []);
+
   const reorderColumns = useCallback(async (orderedIds: number[]) => {
     if (!board) return;
     const prev = board.columns;
@@ -173,5 +207,5 @@ export function useBoard() {
     }
   }, [board, boardId, load]);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings };
+  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings };
 }

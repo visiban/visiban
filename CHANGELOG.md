@@ -24,6 +24,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)
+- Real-time board updates now broadcast for all remaining mutation operations: adding a comment, adding or deleting an attachment, adding, updating, or deleting a checklist item, creating, updating, or deleting a label, adding, updating, or removing a board member, and reordering columns or swimlanes — other users' boards now reflect these changes instantly without a page refresh (#203)
+- Card delete and card field-update broadcasts are now also deferred to transaction commit (fixing two previously-bare calls that matched the pattern of #204)
 - Navigating to a board URL that no longer exists (e.g. after a database reset or after losing board access) now redirects to the dashboard instead of showing a blank "Failed to load board" error
 - **Security [High]**: removed insecure `:-visiban` default fallback from `DB_PASSWORD` in `docker-compose.prod.yml` — Docker Compose now fails loudly if the variable is unset (#218)
 - **Security [High]**: Django raises `ImproperlyConfigured` at startup when `DJANGO_SECRET_KEY` is left as `change-me-in-production` or empty in production (`DEBUG=False`) (#218)
