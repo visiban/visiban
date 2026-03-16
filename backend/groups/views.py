@@ -6,13 +6,13 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
-
-logger = logging.getLogger(__name__)
 
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import GroupSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
+
+logger = logging.getLogger(__name__)
 
 
 def _require_group_admin(user, group):

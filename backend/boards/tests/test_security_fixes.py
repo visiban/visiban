@@ -18,7 +18,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, Column, Label, Notification, Swimlane,
+    Board, BoardMembership, Card, Column, Notification, Swimlane,
 )
 from boards.views import _sanitize_csv_field, _validate_upload_mime
 
@@ -85,9 +85,11 @@ class SanitizeCsvFieldTests(TestCase):
         r = client.get(f"/api/boards/{board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         content = r.content.decode("utf-8")
-        # The leading = must be stripped in the CSV output
+        # The leading = must be stripped in the CSV output.
         self.assertNotIn("=HYPERLINK", content)
-        self.assertIn('HYPERLINK("evil.example.com")', content)
+        # Python's csv module escapes double-quotes by doubling them, so the
+        # literal " in the original title appears as "" in the raw CSV bytes.
+        self.assertIn('HYPERLINK(""evil.example.com"")', content)
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +330,8 @@ class NotificationStructuredFieldsTests(TestCase):
         with patch("boards.views.broadcast_board_event"):
             r = client.patch(
                 f"/api/boards/{board.id}/cards/{card.id}/",
-                {"assignee": assignee.id},
+                # assignee_id is the write field name on CardSerializer
+                {"assignee_id": assignee.id},
                 format="json",
             )
         self.assertEqual(r.status_code, status.HTTP_200_OK)

@@ -67,8 +67,9 @@ class CsvSpecialCharacterTests(TestCase):
         self.assertIn("Line 2", rows[1][2])
 
     def test_csv_with_formula_injection_in_title(self):
-        """CSV injection vectors like =SUM(), +cmd, -cmd, @SUM should be
-        preserved literally (proper quoting by Python csv module)."""
+        """CSV injection vectors like =SUM(), +cmd, -cmd, @SUM are stripped of
+        their leading formula prefix characters before being written to the CSV
+        to prevent spreadsheet formula injection."""
         Card.objects.create(
             board=self.board, column=self.col, swimlane=self.swim,
             title="=SUM(A1:A10)", created_by=self.owner, position=0,
@@ -76,8 +77,8 @@ class CsvSpecialCharacterTests(TestCase):
         r = self.client.get(f"/api/boards/{self.board.id}/export/")
         reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
         rows = list(reader)
-        # The csv module should preserve the literal string
-        self.assertEqual(rows[1][1], "=SUM(A1:A10)")
+        # The leading = must be stripped to neutralize the formula injection vector.
+        self.assertEqual(rows[1][1], "SUM(A1:A10)")
 
 
 class JsonUnicodeTests(TestCase):
