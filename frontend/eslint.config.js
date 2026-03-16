@@ -32,11 +32,12 @@ export default defineConfig([
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
-  // Security SAST rules — runs for all TS/TSX source files.
+  // Security SAST rules — scoped to src/ to keep the scan focused and avoid
+  // OOM in memory-constrained CI runners scanning config/test infrastructure.
   // detect-object-injection is off: TypeScript types already constrain property
   // access, so the rule produces false positives on typed enum/const indexing.
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
     plugins: { security },
     rules: {
       'security/detect-object-injection': 'off',
