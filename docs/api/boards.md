@@ -20,7 +20,7 @@ Update board name/description. Requires board admin.
 Delete board. Requires board owner or site admin.
 
 ### `GET /api/boards/{id}/full/`
-Full board state — columns, swimlanes, cards, labels, members, and `current_user_role`.
+Full board state — columns, swimlanes, cards, labels, members, and `current_user_role`. All objects include their `uid` field.
 
 ### `POST /api/boards/{id}/move-group/`
 Move board to a different group (or `null` for personal).
@@ -35,7 +35,7 @@ Move board to a different group (or `null` for personal).
 Export the board as CSV. Returns a downloadable file with one row per card including metadata and movement history. Available to all board members.
 
 ### `GET /api/boards/{id}/export/?format=json`
-Export the board as JSON. Returns a structured object with columns, swimlanes, labels, and cards (including comments and checklists). Available to all board members.
+Export the board as JSON. Returns a structured object with columns, swimlanes, labels, and cards (including comments and checklists). All objects include their `uid`. Available to all board members.
 
 ### `POST /api/boards/import/`
 Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group (requires group admin). Creates a new board atomically. Requires authentication.
@@ -57,6 +57,8 @@ Remove a member. Requires board admin. Cannot remove a site admin.
 ---
 
 ## Columns
+
+Column objects include a `uid` field — a stable 16-character hex identifier that does not change when the column is renamed or reordered. The `uid` is read-only; any `uid` value sent in a request body is ignored.
 
 ### `POST /api/boards/{id}/columns/`
 Create a column. Requires board admin.
@@ -80,6 +82,8 @@ Reorder columns. Requires board admin.
 
 ## Swimlanes
 
+Swimlane objects include a `uid` field — stable across renames, read-only.
+
 ### `POST /api/boards/{id}/swimlanes/`
 Create a swimlane. Requires board admin.
 
@@ -101,6 +105,8 @@ Reorder swimlanes. Requires board admin.
 ---
 
 ## Labels
+
+Label objects include a `uid` field — stable across renames, read-only.
 
 ### `GET /api/boards/{id}/labels/`
 List board labels.
