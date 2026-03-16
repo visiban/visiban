@@ -284,7 +284,8 @@ frontend-test:
   needs: []
   image: node:20-alpine
   variables:
-    NODE_OPTIONS: "--max-old-space-size=1500"
+    # Match frontend-lint: cap below available RAM so V8 GCs before OOM-kill.
+    NODE_OPTIONS: "--max-old-space-size=512"
   rules:
     - changes:
         - frontend/**/*
@@ -549,6 +550,9 @@ frontend-license-check:
 backend-docker-build:
   stage: test
   needs: []
+  # Serialize both kaniko jobs so they don't compete for RAM with each other
+  # and the concurrent Python jobs (pip install, coverage run).
+  resource_group: kaniko-build
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
@@ -573,6 +577,7 @@ backend-docker-build:
 frontend-docker-build:
   stage: test
   needs: []
+  resource_group: kaniko-build
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
