@@ -549,9 +549,9 @@ frontend-license-check:
 
 backend-docker-build:
   stage: test
-  needs: []
-  # Serialize both kaniko jobs so they don't compete for RAM with each other
-  # and the concurrent Python jobs (pip install, coverage run).
+  # No needs: [] — let lint finish before kaniko starts so both don't compete
+  # for RAM on the same runner. resource_group serializes the two kaniko jobs
+  # so they don't overlap with each other either.
   resource_group: kaniko-build
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
@@ -576,7 +576,6 @@ backend-docker-build:
 
 frontend-docker-build:
   stage: test
-  needs: []
   resource_group: kaniko-build
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
