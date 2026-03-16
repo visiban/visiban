@@ -23,19 +23,22 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 class ColumnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Column
-        fields = ["id", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation"]
+        fields = ["id", "uid", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation"]
+        read_only_fields = ["uid"]
 
 
 class SwimlaneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Swimlane
-        fields = ["id", "name", "contact_email", "notes", "position", "color", "is_collapsed", "created_at"]
+        fields = ["id", "uid", "name", "contact_email", "notes", "position", "color", "is_collapsed", "created_at"]
+        read_only_fields = ["uid"]
 
 
 class LabelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Label
-        fields = ["id", "name", "color"]
+        fields = ["id", "uid", "name", "color"]
+        read_only_fields = ["uid"]
 
 
 class CardMovementSerializer(serializers.ModelSerializer):
@@ -44,8 +47,11 @@ class CardMovementSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardMovement
         fields = [
-            "id", "from_column", "from_column_name", "to_column", "to_column_name",
-            "from_swimlane", "from_swimlane_name", "to_swimlane", "to_swimlane_name",
+            "id",
+            "from_column", "from_column_name", "from_column_uid",
+            "to_column", "to_column_name", "to_column_uid",
+            "from_swimlane", "from_swimlane_name", "from_swimlane_uid",
+            "to_swimlane", "to_swimlane_name", "to_swimlane_uid",
             "moved_by", "moved_at", "notes",
         ]
 
@@ -90,13 +96,13 @@ class CardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Card
         fields = [
-            "id", "column", "swimlane", "title", "description", "priority",
+            "id", "uid", "column", "swimlane", "title", "description", "priority",
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
             "is_stale",
         ]
-        read_only_fields = ["created_by", "created_at", "updated_at"]
+        read_only_fields = ["uid", "created_by", "created_at", "updated_at"]
 
     def get_last_moved_at(self, obj):
         movement = obj.movements.first()
@@ -144,8 +150,8 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "close_editor_on_enter", "allowed_priorities", "created_at", "updated_at", "is_starred"]
-        read_only_fields = ["created_at", "updated_at"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "close_editor_on_enter", "allowed_priorities", "created_at", "updated_at", "is_starred"]
+        read_only_fields = ["uid", "created_at", "updated_at"]
 
     def get_member_count(self, obj):
         return obj.memberships.count()
@@ -173,10 +179,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board
         fields = [
-            "id", "name", "description", "group", "group_name", "columns", "swimlanes",
+            "id", "uid", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "close_editor_on_enter",
             "allowed_priorities", "created_at", "updated_at", "current_user_role", "is_starred",
         ]
+        read_only_fields = ["uid"]
 
     def get_members(self, obj):
         """Return the effective member list for @mention autocomplete and the members panel.

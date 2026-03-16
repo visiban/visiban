@@ -17,15 +17,15 @@ const mockDeleteCard = deleteCard as ReturnType<typeof vi.fn>
 
 function makeBoard(): BoardFull {
   return {
-    id: 1, name: 'Test', description: '', group: null, group_name: null,
+    id: 1, uid: 'boarduid0001', name: 'Test', description: '', group: null, group_name: null,
     columns: [
-      { id: 10, name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
-      { id: 11, name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
+      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
+      { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
     ],
-    swimlanes: [{ id: 20, name: 'Lane', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' }],
+    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' }],
     cards: [
-      { id: 100, column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false },
-      { id: 101, column: 10, swimlane: 20, title: 'Card 2', description: '', priority: 'low', assignee: null, labels: [], due_date: null, weight: 1, position: 1, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false },
+      { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false },
+      { id: 101, uid: 'carduid00002', column: 10, swimlane: 20, title: 'Card 2', description: '', priority: 'low', assignee: null, labels: [], due_date: null, weight: 1, position: 1, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false },
     ],
     labels: [],
     members: [

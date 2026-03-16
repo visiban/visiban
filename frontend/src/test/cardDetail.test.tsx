@@ -49,7 +49,7 @@ const fakeUser: User = {
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {
-    id: 1, column: 10, swimlane: 20, title: 'Test Card', description: 'A test card',
+    id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Test Card', description: 'A test card',
     priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
     position: 0, created_by: 1, created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
@@ -60,10 +60,10 @@ function makeCard(overrides: Partial<Card> = {}): Card {
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
-    id: 1, name: 'Test Board', description: '', group: null, group_name: null,
-    columns: [{ id: 10, name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true }],
-    swimlanes: [{ id: 20, name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }],
-    cards: [], labels: [{ id: 100, name: 'Bug', color: '#EF4444' }],
+    id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
+    columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true }],
+    swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }],
+    cards: [], labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     staleness_threshold_days: 7, close_editor_on_enter: false, allowed_priorities: [],
     is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
@@ -268,7 +268,7 @@ describe('CardDetail', () => {
 
   it('renders card with labels checked', () => {
     const props = defaultProps()
-    props.card = makeCard({ labels: [{ id: 100, name: 'Bug', color: '#EF4444' }] })
+    props.card = makeCard({ labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }] })
     render(<CardDetail {...props} />)
     expect(screen.getByText('Bug')).toBeInTheDocument()
   })

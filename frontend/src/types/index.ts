@@ -52,6 +52,7 @@ export type SiteRole = "site_admin";
 
 export interface Column {
   id: number;
+  uid: string;
   name: string;
   position: number;
   color: string;
@@ -62,6 +63,7 @@ export interface Column {
 
 export interface Swimlane {
   id: number;
+  uid: string;
   name: string;
   contact_email: string;
   notes: string;
@@ -73,6 +75,7 @@ export interface Swimlane {
 
 export interface Label {
   id: number;
+  uid: string;
   name: string;
   color: string;
 }
@@ -97,6 +100,7 @@ export interface CardAttachment {
 
 export interface Card {
   id: number;
+  uid: string;
   column: number;
   swimlane: number;
   title: string;
@@ -132,12 +136,16 @@ export interface CardMovement {
   id: number;
   from_column: number | null;
   from_column_name: string | null;
+  from_column_uid: string;
   to_column: number | null;
   to_column_name: string | null;
+  to_column_uid: string;
   from_swimlane: number | null;
   from_swimlane_name: string | null;
+  from_swimlane_uid: string;
   to_swimlane: number | null;
   to_swimlane_name: string | null;
+  to_swimlane_uid: string;
   moved_by: User | null;
   moved_at: string;
   notes: string;
@@ -177,6 +185,7 @@ export interface CardComment {
 
 export interface Board {
   id: number;
+  uid: string;
   name: string;
   description: string;
   owner: User;
@@ -191,6 +200,7 @@ export interface Board {
 
 export interface BoardFull {
   id: number;
+  uid: string;
   name: string;
   description: string;
   group: number | null;

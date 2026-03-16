@@ -25,12 +25,12 @@ vi.mock('../components/Card/CardItem', () => ({
 import { createCard } from '../api/cards'
 const mockCreateCard = createCard as ReturnType<typeof vi.fn>
 
-const column: Column = { id: 10, name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true }
-const swimlane: Swimlane = { id: 20, name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }
+const column: Column = { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true }
+const swimlane: Swimlane = { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' }
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {
-    id: 1, column: 10, swimlane: 20, title: 'Test Card', description: '',
+    id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Test Card', description: '',
     priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
     position: 0, created_by: 1, created_at: '', updated_at: '',
     last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false,

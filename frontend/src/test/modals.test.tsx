@@ -45,17 +45,17 @@ const fakeUser: User = {
 }
 
 const fakeBoard: Board = {
-  id: 1, name: 'Test Board', description: '', owner: fakeUser,
+  id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', owner: fakeUser,
   group: null, group_name: null, member_count: 1, card_count: 0, is_starred: false, created_at: '', updated_at: '',
 }
 
 const fakeColumn: Column = {
-  id: 10, name: 'To Do', position: 0, color: '#3B82F6',
+  id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6',
   wip_limit: null, weight_limit: null, allow_card_creation: true,
 }
 
 const fakeSwimlane: Swimlane = {
-  id: 20, name: 'Lane A', contact_email: '', notes: '', position: 0,
+  id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0,
   color: '#6B7280', is_collapsed: false, created_at: '2026-01-01',
 }
 

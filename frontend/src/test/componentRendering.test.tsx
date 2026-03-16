@@ -44,6 +44,7 @@ import type { Card, Column } from '../types'
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {
     id: 1,
+    uid: 'carduid00001',
     column: 10,
     swimlane: 20,
     title: 'Test Card',
@@ -69,6 +70,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
 function makeColumn(overrides: Partial<Column> = {}): Column {
   return {
     id: 10,
+    uid: 'coluid000001',
     name: 'To Do',
     position: 0,
     color: '#3B82F6',
@@ -98,7 +100,7 @@ describe('CardItem', () => {
 
   it('renders label pills when labels are provided', () => {
     const card = makeCard({
-      labels: [{ id: 1, name: 'Bug', color: '#EF4444' }],
+      labels: [{ id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     })
     render(<CardItem card={card} />)
     expect(screen.getByText('Bug')).toBeInTheDocument()
@@ -230,10 +232,10 @@ describe('CardItem', () => {
   it('shows label overflow count when more than 3 labels', () => {
     const card = makeCard({
       labels: [
-        { id: 1, name: 'Bug', color: '#EF4444' },
-        { id: 2, name: 'Feature', color: '#3B82F6' },
-        { id: 3, name: 'Docs', color: '#10B981' },
-        { id: 4, name: 'Test', color: '#F59E0B' },
+        { id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' },
+        { id: 2, uid: 'lbluid000002', name: 'Feature', color: '#3B82F6' },
+        { id: 3, uid: 'lbluid000003', name: 'Docs', color: '#10B981' },
+        { id: 4, uid: 'lbluid000004', name: 'Test', color: '#F59E0B' },
       ],
     })
     render(<CardItem card={card} />)
@@ -251,7 +253,7 @@ describe('CardItem', () => {
   })
 
   it('truncates long label names to 7 chars + ellipsis', () => {
-    const card = makeCard({ labels: [{ id: 1, name: 'VeryLongLabelName', color: '#EF4444' }] })
+    const card = makeCard({ labels: [{ id: 1, uid: 'lbluid000001', name: 'VeryLongLabelName', color: '#EF4444' }] })
     render(<CardItem card={card} />)
     expect(screen.getByTitle('VeryLongLabelName')).toHaveTextContent('VeryLon…')
   })
@@ -502,7 +504,7 @@ import type { Swimlane } from '../types'
 
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   return {
-    id: 20, name: 'Customer A', contact_email: 'a@example.com', notes: '',
+    id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: 'a@example.com', notes: '',
     position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01',
     ...overrides,
   }

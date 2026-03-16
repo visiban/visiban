@@ -69,6 +69,7 @@ const bob: User = {
 
 function makeCard(overrides: Partial<Card> & { id: number; title: string }): Card {
   return {
+    uid: 'carduid00001',
     column: 1,
     swimlane: 1,
     description: '',
@@ -91,10 +92,10 @@ function makeCard(overrides: Partial<Card> & { id: number; title: string }): Car
 }
 
 const cards: Card[] = [
-  makeCard({ id: 1, title: 'Setup CI pipeline', description: 'Configure GitHub Actions', priority: 'high', assignee: alice, labels: [{ id: 1, name: 'devops', color: '#00f' }] }),
+  makeCard({ id: 1, title: 'Setup CI pipeline', description: 'Configure GitHub Actions', priority: 'high', assignee: alice, labels: [{ id: 1, uid: 'lbluid000001', name: 'devops', color: '#00f' }] }),
   makeCard({ id: 2, title: 'Fix login bug', description: 'Users cannot log in with SSO', priority: 'urgent', assignee: bob }),
-  makeCard({ id: 3, title: 'Write docs', description: 'Add API documentation', priority: 'low', assignee: null, labels: [{ id: 2, name: 'docs', color: '#0f0' }] }),
-  makeCard({ id: 4, title: 'Refactor auth', description: 'Clean up auth module', priority: 'medium', assignee: alice, labels: [{ id: 1, name: 'devops', color: '#00f' }, { id: 2, name: 'docs', color: '#0f0' }] }),
+  makeCard({ id: 3, title: 'Write docs', description: 'Add API documentation', priority: 'low', assignee: null, labels: [{ id: 2, uid: 'lbluid000002', name: 'docs', color: '#0f0' }] }),
+  makeCard({ id: 4, title: 'Refactor auth', description: 'Clean up auth module', priority: 'medium', assignee: alice, labels: [{ id: 1, uid: 'lbluid000001', name: 'devops', color: '#00f' }, { id: 2, uid: 'lbluid000002', name: 'docs', color: '#0f0' }] }),
 ]
 
 describe('filterCards — search filter', () => {
