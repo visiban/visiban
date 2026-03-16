@@ -14,10 +14,10 @@ import secrets
 
 from django.db import migrations, models
 
-from boards.models import _generate_uid
 
-
-def _token():
+def _generate_uid():
+    # Self-contained copy — migrations must not import from models.py because
+    # a future rename/removal would break fresh-DB applies permanently.
     return secrets.token_hex(8)
 
 
@@ -27,7 +27,7 @@ def backfill_uids(apps, schema_editor):
         Model = apps.get_model("boards", model_name)
         batch = []
         for obj in Model.objects.filter(uid__isnull=True).iterator():
-            obj.uid = _token()
+            obj.uid = _generate_uid()
             batch.append(obj)
             if len(batch) >= 500:
                 Model.objects.bulk_update(batch, ["uid"])
