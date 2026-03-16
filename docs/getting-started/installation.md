@@ -156,7 +156,7 @@ Open `.env` in a text editor and set the following values. Every line marked **r
 DJANGO_SECRET_KEY=<long random string>   # required — generate: python -c "import secrets; print(secrets.token_urlsafe(50))"
 DEBUG=false                              # required — never run DEBUG=true in production
 ALLOWED_HOSTS=yourdomain.com            # required
-CORS_ALLOWED_ORIGINS=https://yourdomain.com  # required
+CORS_ALLOWED_ORIGINS=https://yourdomain.com  # required — must be your public domain, not localhost
 FRONTEND_URL=https://yourdomain.com     # required — allauth redirects here after OAuth login/logout
 SITE_DOMAIN=yourdomain.com             # required — used for OAuth callback URLs
 
@@ -175,6 +175,21 @@ CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alert
 # App version — set to the version you are deploying (see CHANGELOG.md)
 APP_VERSION=1.0.0-rc.1
 ```
+
+!!! warning "CORS_ALLOWED_ORIGINS must not contain localhost in production"
+    Visiban refuses to start with `DEBUG=False` if `CORS_ALLOWED_ORIGINS` contains a
+    `localhost` or `127.0.0.1` origin. This prevents a common misconfiguration where
+    the default development value is left in place for a production deployment.
+
+    **Correct:**
+    ```
+    CORS_ALLOWED_ORIGINS=https://yourdomain.com
+    ```
+
+    **Incorrect (will cause startup failure):**
+    ```
+    CORS_ALLOWED_ORIGINS=http://localhost:5173
+    ```
 
 > **OAuth** (Google, GitHub, GitLab) is optional. See [OAuth Setup](oauth.md) if you want social login.
 

@@ -78,4 +78,5 @@ nav:
     - administration/index.md
     - Site Admins: administration/site-admins.md
     - Django Admin: administration/django-admin.md
+    - Media Storage Security: administration/media-security.md
   - Changelog: changelog.md

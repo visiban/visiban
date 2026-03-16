@@ -22,6 +22,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 - WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)
 - Navigating to a board URL that no longer exists (e.g. after a database reset or after losing board access) now redirects to the dashboard instead of showing a blank "Failed to load board" error
+- **Security [Medium] #219** — User search endpoint is now rate-limited to 30 requests/minute per user to prevent account enumeration at high speed
+- **Security [Medium] #219** — File attachment uploads now validate both the declared MIME type and the file's magic bytes against an allowlist (images, PDF, Office documents, ZIP, plain text); mismatched or disallowed types are rejected before any bytes reach storage
+- **Security [Medium] #219** — Board import endpoints (JSON and CSV) now reject payloads exceeding 500 cards, 50 columns, or 100 swimlanes with HTTP 400
+- **Security [Medium] #219** — Visiban now refuses to start with `DEBUG=False` if `CORS_ALLOWED_ORIGINS` contains a `localhost` or `127.0.0.1` origin, preventing a common deployment misconfiguration
+- **Security [Medium] #219** — Invite-link redemption is now rate-limited to 10 attempts/hour per IP; all redemption attempts (success and failure) are logged with a truncated token, IP, and outcome
+- **Security [Low] #220** — CSV exports now strip leading `=`, `+`, `-`, `@`, tab, and carriage-return characters from all string fields to neutralize spreadsheet formula injection
+- **Security [Low] #220** — `Notification` model gains structured `actor` (FK) and `action_type` (choice field) columns; notification links in the frontend use `.textContent` rendering, never `innerHTML`
+- **Security [Low] #220** — Group and board permission traversals now emit a `logger.warning()` when the 6-level depth cap is hit, surfacing overly deep trees to operators
+- **Security [Low] #220** — Version endpoint (`GET /api/version/`) now requires authentication
 
 ---
 

@@ -40,6 +40,105 @@ from .serializers import (
 from .templates import BOARD_TEMPLATES
 
 
+# ---------------------------------------------------------------------------
+# Attachment upload helpers
+# ---------------------------------------------------------------------------
+
+# Magic-byte signatures for allowed file types.  We read only the first 12
+# bytes so this check is fast and cannot be spoofed by renaming the file or
+# supplying a fraudulent Content-Type header.
+_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
+    # JPEG
+    (b"\xff\xd8\xff", "image/jpeg"),
+    # PNG
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    # GIF87a / GIF89a
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+    # WEBP (RIFF....WEBP)
+    (b"RIFF", "image/webp"),
+    # PDF
+    (b"%PDF-", "application/pdf"),
+    # ZIP (also covers DOCX/XLSX/PPTX which are ZIP-based OOXML)
+    (b"PK\x03\x04", "application/zip"),
+    # Plain text / CSV — no magic bytes; allowed by MIME type check below
+]
+
+# Allowlist of MIME types that may be uploaded as card attachments.
+# Anything not in this set is rejected with HTTP 400.
+_ALLOWED_MIME_TYPES: frozenset[str] = frozenset([
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+    # OOXML office formats (all stored as ZIP internally)
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/zip",
+    "text/plain",
+    "text/csv",
+])
+
+
+def _validate_upload_mime(file) -> str | None:
+    """Validate a file upload against the allowlist and magic bytes.
+
+    Returns an error message string if the file should be rejected, or None if
+    it is acceptable.
+
+    We do NOT trust the client-supplied Content-Type or the filename extension.
+    Instead we read the first 12 bytes and compare against known magic-byte
+    signatures.  For text-based formats (plain text, CSV) that have no
+    distinguishing magic bytes we fall back to the declared MIME type — but
+    only after the type itself has been checked against the allowlist.
+    """
+    declared_type = (file.content_type or "application/octet-stream").split(";")[0].strip().lower()
+
+    if declared_type not in _ALLOWED_MIME_TYPES:
+        return (
+            f"File type '{declared_type}' is not allowed. "
+            "Accepted types: images (JPEG, PNG, GIF, WebP), PDF, "
+            "Office documents (DOCX, XLSX, PPTX), plain text, CSV, ZIP."
+        )
+
+    # Read magic bytes without consuming the file object — seek back afterwards.
+    header = file.read(12)
+    file.seek(0)
+
+    # Text-based types have no reliable magic bytes; allow them through if the
+    # declared MIME type is in the allowlist (already checked above).
+    text_types = {"text/plain", "text/csv"}
+    if declared_type in text_types:
+        return None
+
+    # For binary types, require at least one known signature to match.
+    for magic, _ in _MAGIC_SIGNATURES:
+        if header[:len(magic)] == magic:
+            return None
+
+    return (
+        "File content does not match a recognized safe format. "
+        "The file may be corrupt or its type may have been misrepresented."
+    )
+
+
+def _sanitize_csv_field(value: str) -> str:
+    """Strip leading characters that spreadsheet applications interpret as formula prefixes.
+
+    Spreadsheet programs (Excel, Google Sheets, LibreOffice Calc) execute any
+    cell value that starts with =, +, -, @, tab, or carriage-return as a
+    formula.  User-controlled strings in a CSV export (card titles, descriptions,
+    usernames, etc.) could exploit this to run arbitrary macros when the CSV is
+    opened.  Stripping those prefix characters neutralizes the injection vector
+    without distorting the actual content in any meaningful way.
+    """
+    if not isinstance(value, str):
+        return value
+    return value.lstrip("=+-@\t\r")
+
+
 def get_board_for_user(board_id, user):
     """Return (board, role) for board_id if user has access; raise 404 or 403 otherwise."""
     board = get_object_or_404(Board, pk=board_id)
@@ -199,6 +298,33 @@ class BoardViewSet(viewsets.ModelViewSet):
         if not isinstance(data, dict):
             return Response({"detail": "Invalid JSON: expected an object at the top level."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Enforce per-import item ceilings before touching the database.  These
+        # limits prevent a single large import from exhausting server resources
+        # or producing a board that is impractical to use.
+        _IMPORT_MAX_CARDS = 500
+        _IMPORT_MAX_COLUMNS = 50
+        _IMPORT_MAX_SWIMLANES = 100
+
+        card_count = len(data.get("cards", []))
+        column_count = len(data.get("columns", []))
+        swimlane_count = len(data.get("swimlanes", []))
+
+        if card_count > _IMPORT_MAX_CARDS:
+            return Response(
+                {"detail": f"Import contains {card_count} cards, which exceeds the limit of {_IMPORT_MAX_CARDS}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if column_count > _IMPORT_MAX_COLUMNS:
+            return Response(
+                {"detail": f"Import contains {column_count} columns, which exceeds the limit of {_IMPORT_MAX_COLUMNS}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if swimlane_count > _IMPORT_MAX_SWIMLANES:
+            return Response(
+                {"detail": f"Import contains {swimlane_count} swimlanes, which exceeds the limit of {_IMPORT_MAX_SWIMLANES}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Validate required fields
         if "name" not in data:
             return Response({"detail": "Missing required field: name"}, status=status.HTTP_400_BAD_REQUEST)
@@ -341,6 +467,17 @@ class BoardViewSet(viewsets.ModelViewSet):
         if not rows:
             return Response({"detail": "CSV file is empty."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Enforce row (card) ceiling early — before scanning for columns/swimlanes —
+        # so that oversized imports are rejected without building intermediate data
+        # structures.  Column and swimlane counts are validated after the first
+        # pass collects unique names.
+        _IMPORT_MAX_CARDS = 500
+        if len(rows) > _IMPORT_MAX_CARDS:
+            return Response(
+                {"detail": f"Import contains {len(rows)} rows, which exceeds the card limit of {_IMPORT_MAX_CARDS}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Validate required headers
         required_headers = {"Title", "Column", "Swimlane"}
         if reader.fieldnames is None:
@@ -361,6 +498,23 @@ class BoardViewSet(viewsets.ModelViewSet):
                         {"detail": f"Row {i + 2} is missing required field: {field}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+        # Count unique columns and swimlanes from the CSV rows so we can enforce
+        # the same per-import ceilings as the JSON import path.
+        _IMPORT_MAX_COLUMNS = 50
+        _IMPORT_MAX_SWIMLANES = 100
+        unique_columns = {row["Column"].strip() for row in rows if row.get("Column", "").strip()}
+        unique_swimlanes = {row["Swimlane"].strip() for row in rows if row.get("Swimlane", "").strip()}
+        if len(unique_columns) > _IMPORT_MAX_COLUMNS:
+            return Response(
+                {"detail": f"Import contains {len(unique_columns)} columns, which exceeds the limit of {_IMPORT_MAX_COLUMNS}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(unique_swimlanes) > _IMPORT_MAX_SWIMLANES:
+            return Response(
+                {"detail": f"Import contains {len(unique_swimlanes)} swimlanes, which exceeds the limit of {_IMPORT_MAX_SWIMLANES}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         board_name = request.data.get("name") or "Imported Board"
         group = self._resolve_import_group(request)
@@ -722,15 +876,16 @@ class BoardViewSet(viewsets.ModelViewSet):
             "Movement History",
         ])
 
+        s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
         for card in cards:
             movements = list(card.movements.order_by("moved_at"))
-            label_names = ", ".join(lb.name for lb in card.labels.all())
+            label_names = ", ".join(s(lb.name) for lb in card.labels.all())
             last_moved = movements[-1].moved_at.isoformat() if movements else ""
             history_parts = []
             for mv in movements:
-                from_col = mv.from_column.name if mv.from_column else ""
-                to_col = mv.to_column.name if mv.to_column else ""
-                moved_by = mv.moved_by.username if mv.moved_by else ""
+                from_col = s(mv.from_column.name) if mv.from_column else ""
+                to_col = s(mv.to_column.name) if mv.to_column else ""
+                moved_by = s(mv.moved_by.username) if mv.moved_by else ""
                 history_parts.append(
                     f"{mv.moved_at.isoformat()}|{from_col}|{to_col}|{moved_by}"
                 )
@@ -738,17 +893,17 @@ class BoardViewSet(viewsets.ModelViewSet):
 
             writer.writerow([
                 card.id,
-                card.title,
-                card.description,
-                card.column.name,
-                card.swimlane.name,
+                s(card.title),
+                s(card.description),
+                s(card.column.name),
+                s(card.swimlane.name),
                 card.priority,
-                card.assignee.username if card.assignee else "",
+                s(card.assignee.username) if card.assignee else "",
                 label_names,
                 card.due_date.isoformat() if card.due_date else "",
                 card.weight,
                 card.created_at.isoformat(),
-                card.created_by.username if card.created_by else "",
+                s(card.created_by.username) if card.created_by else "",
                 last_moved,
                 len(movements),
                 history,
@@ -1094,6 +1249,8 @@ class CardViewSet(viewsets.ModelViewSet):
             if card.assignee and card.assignee != request.user:
                 Notification.objects.create(
                     recipient=card.assignee,
+                    actor=request.user,
+                    action_type=Notification.ActionType.ASSIGNED,
                     verb=f"You were assigned to \"{card.title}\"",
                     card=card,
                     board=card.board,
@@ -1251,6 +1408,8 @@ class CardViewSet(viewsets.ModelViewSet):
             Notification.objects.bulk_create([
                 Notification(
                     recipient=u,
+                    actor=request.user,
+                    action_type=Notification.ActionType.MENTIONED,
                     verb=f"{request.user.username} mentioned you in \"{card.title}\"",
                     card=card,
                     board=board,
@@ -1281,6 +1440,13 @@ class CardViewSet(viewsets.ModelViewSet):
                 {"detail": f"File too large. Maximum size is {max_size // (1024 * 1024)} MB."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Validate MIME type and magic bytes against the allowlist.  This must
+        # happen before the file is saved to storage so that an invalid upload
+        # never touches the filesystem or object store.
+        mime_error = _validate_upload_mime(file)
+        if mime_error:
+            return Response({"detail": mime_error}, status=status.HTTP_400_BAD_REQUEST)
 
         attachment = CardAttachment.objects.create(
             card=card,

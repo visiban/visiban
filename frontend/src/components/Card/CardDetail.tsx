@@ -559,7 +559,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <div key={a.id} className="flex items-center gap-2 bg-slate-700 rounded-lg px-3 py-2 group">
                         <span className="text-slate-500 text-sm shrink-0">📎</span>
                         <div className="flex-1 min-w-0">
-                          <a href={a.url} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:underline truncate block">
+                          {/* The download attribute tells the browser to always save the file
+                              rather than attempting to render it inline. This is defense-in-depth
+                              alongside the server-side Content-Disposition: attachment header. */}
+                          <a href={a.url} download={a.filename} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:underline truncate block">
                             {a.filename}
                           </a>
                           <p className="text-xs text-slate-500">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
