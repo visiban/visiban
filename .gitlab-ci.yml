@@ -432,13 +432,17 @@ frontend-sast:
       cat > eslint-security.config.mjs <<'ESLINTEOF'
       import security from 'eslint-plugin-security';
       import tsParser from '@typescript-eslint/parser';
+      import reactHooks from 'eslint-plugin-react-hooks';
+      import reactRefresh from 'eslint-plugin-react-refresh';
+      import tseslint from 'typescript-eslint';
       const rules = { 'security/detect-object-injection': 'warn', 'security/detect-non-literal-regexp': 'error', 'security/detect-non-literal-require': 'error', 'security/detect-possible-timing-attacks': 'warn', 'security/detect-eval-with-expression': 'error' };
-      // reportUnusedDisableDirectives: 'off' prevents errors on eslint-disable comments
-      // that reference rules (react-hooks, react-refresh, @typescript-eslint) not loaded
-      // in this security-only config.
+      // Register react-hooks, react-refresh, and @typescript-eslint plugins so that
+      // eslint-disable-next-line comments referencing their rules are recognised as
+      // valid (prevents "Definition for rule X was not found" errors).  No rules from
+      // these plugins are enabled — only security/ rules are enforced here.
       const linterOptions = { reportUnusedDisableDirectives: 'off' };
       export default [
-        { files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser }, linterOptions, plugins: { security }, rules },
+        { files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser }, linterOptions, plugins: { security, 'react-hooks': reactHooks, 'react-refresh': reactRefresh, '@typescript-eslint': tseslint.plugin }, rules },
         { files: ['**/*.{js,mjs,jsx}'], linterOptions, plugins: { security }, rules },
       ];
       ESLINTEOF
