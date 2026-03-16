@@ -1,6 +1,6 @@
 """Tests for the CORS localhost production guard in settings.py."""
 from django.core.exceptions import ImproperlyConfigured
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 
 class CorsLocalhostGuardTests(TestCase):
