@@ -1,25 +1,35 @@
+import logging
+
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import GroupSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
 
+logger = logging.getLogger(__name__)
+
 
 def _require_group_admin(user, group):
-    """Raise PermissionDenied if user is not an admin of this group or any ancestor."""
+    """Raise PermissionDenied if user is not an admin of this group or any ancestor.
+
+    Traversal is capped at _GROUP_TRAVERSAL_MAX_DEPTH + 1 levels (one extra
+    for the target group itself) to guard against runaway queries on deep trees.
+    """
     from rest_framework.exceptions import PermissionDenied
+    from .models import _GROUP_TRAVERSAL_MAX_DEPTH
     if getattr(user, "is_site_admin", False):
         return
     # Walk from the group up through its ancestors — direct membership with admin
     # role at any level grants admin on all descendants.
     node = group
     depth = 0
-    while node and depth < 7:
+    while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH + 1:
         if node.owner_id == user.id:
             return
         try:
@@ -36,8 +46,12 @@ def _require_group_admin(user, group):
 
 
 def _require_group_member(user, group):
-    """Raise PermissionDenied if user is not a member of this group or any ancestor."""
+    """Raise PermissionDenied if user is not a member of this group or any ancestor.
+
+    Traversal is capped at _GROUP_TRAVERSAL_MAX_DEPTH levels.
+    """
     from rest_framework.exceptions import PermissionDenied
+    from .models import _GROUP_TRAVERSAL_MAX_DEPTH
     if getattr(user, "is_site_admin", False):
         return
     if group.owner_id == user.id:
@@ -45,7 +59,7 @@ def _require_group_member(user, group):
     # Walk up the ancestor chain
     node = group
     depth = 0
-    while node and depth < 6:
+    while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
         if node.memberships.filter(user=user).exists():
             return
         node = node.parent
@@ -395,6 +409,32 @@ class GroupViewSet(viewsets.ModelViewSet):
         return Response({"starred": True}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
+class JoinGroupRateThrottle(AnonRateThrottle):
+    """Shared rate limit for invite-link redemption attempts.
+
+    Applied to both the anonymous GET (token preview) and authenticated POST
+    (join) endpoints. 10 requests per hour prevents brute-force token scanning
+    while still allowing a user to retry after a network error or browser
+    back-navigation within the same hour.
+    """
+
+    scope = "join_group"
+
+    def get_cache_key(self, request, view):
+        # Use IP address for both anon and authenticated requests so that an
+        # attacker cannot escape the limit by logging in.
+        ident = self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
+def _get_client_ip(request) -> str:
+    """Return the best-guess client IP address, preferring X-Forwarded-For."""
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
 class JoinGroupView(APIView):
     """
     Invite-link join flow.
@@ -403,18 +443,35 @@ class JoinGroupView(APIView):
     POST /api/groups/join/<token>/ — authenticated; add the requesting user to the group.
     """
 
+    throttle_classes = [JoinGroupRateThrottle]
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
         return [IsAuthenticated()]
 
     def get(self, request, token):
+        # Truncate token in log to avoid leaking the full value into log files
+        # while still making it possible to correlate with an audit trail.
+        token_hint = str(token)[:8]
+        ip = _get_client_ip(request)
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
         if link.is_expired:
+            logger.info(
+                "Invite token lookup failed: expired. token=%s ip=%s",
+                token_hint,
+                ip,
+            )
             return Response(
                 {"detail": "This invite link has expired."},
                 status=status.HTTP_410_GONE,
             )
+        logger.info(
+            "Invite token preview. token=%s group_id=%s ip=%s",
+            token_hint,
+            link.group_id,
+            ip,
+        )
         return Response({
             "group_id": link.group_id,
             "group_name": link.group.name,
@@ -422,8 +479,16 @@ class JoinGroupView(APIView):
         })
 
     def post(self, request, token):
+        token_hint = str(token)[:8]
+        ip = _get_client_ip(request)
         link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
         if link.is_expired:
+            logger.info(
+                "Invite token redemption failed: expired. token=%s user_id=%s ip=%s outcome=failure",
+                token_hint,
+                request.user.pk,
+                ip,
+            )
             return Response(
                 {"detail": "This invite link has expired."},
                 status=status.HTTP_410_GONE,
@@ -432,6 +497,14 @@ class JoinGroupView(APIView):
             group=link.group,
             user=request.user,
             defaults={"role": link.role},
+        )
+        logger.info(
+            "Invite token redeemed. token=%s group_id=%s user_id=%s new_member=%s ip=%s outcome=success",
+            token_hint,
+            link.group_id,
+            request.user.pk,
+            created,
+            ip,
         )
         group_data = GroupSerializer(link.group).data
         return Response(group_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

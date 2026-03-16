@@ -1,6 +1,6 @@
 import environ
-from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
+from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -176,12 +176,30 @@ REST_FRAMEWORK = {
         # user easily makes 500+ authenticated requests per hour.
         "anon": "9999/hour" if DEBUG else "300/hour",
         "user": "9999/hour" if DEBUG else "5000/hour",
+        # Tighter limit for user-search: protects against enumeration attacks
+        # while still comfortably supporting interactive autocomplete use.
+        "user_search": "9999/hour" if DEBUG else "30/min",
+        # Invite-link redemption: low ceiling prevents token brute-force scanning.
+        "join_group": "9999/hour" if DEBUG else "10/hour",
     },
 }
 
 # CORS
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
 CORS_ALLOW_CREDENTIALS = True
+
+# Guard: refuse to start in production if CORS_ALLOWED_ORIGINS contains a
+# localhost or loopback origin. Developers sometimes leave the default env value
+# in place when deploying; this raises loud-and-early rather than silently
+# shipping a misconfiguration that allows cross-origin requests from any local
+# browser tab.
+if not DEBUG:
+    for _origin in CORS_ALLOWED_ORIGINS:
+        if "localhost" in _origin or "127.0.0.1" in _origin:
+            raise ImproperlyConfigured(
+                f"CORS_ALLOWED_ORIGINS contains a localhost origin ({_origin}) in production "
+                "(DEBUG=False). Set CORS_ALLOWED_ORIGINS to your public domain(s) before starting."
+            )
 
 # CSRF — defaults to CORS_ALLOWED_ORIGINS so that a single env var covers both.
 # Override with CSRF_TRUSTED_ORIGINS if the two sets of origins must differ.

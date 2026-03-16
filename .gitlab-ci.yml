@@ -774,7 +774,6 @@ seed-export-check:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/boards/management/commands/seed_demo_data.py
-        - backend/boards/models.py
         - scripts/seed/**/*
 
 # Runs on the gh-pages branch after docs-deploy pushes to it.

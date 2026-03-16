@@ -1,12 +1,8 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
-// Vitest config is separate from vite.config.ts because vitest 2.x bundles its own
-// copy of vite, which causes type incompatibilities with the top-level vite 7.
-// The `as never` cast on the react plugin silences that version skew at the type level;
-// at runtime both are identical plugin objects.
 export default defineConfig({
-  plugins: [react() as never],
+  plugins: [react()],
   test: {
     environment: 'jsdom',
     globals: true,

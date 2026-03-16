@@ -27,6 +27,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Security [High]**: added `AdminIPRestrictionMiddleware` to restrict `/admin/` to loopback addresses (or `DJANGO_ADMIN_ALLOWED_IPS`) in production; Nginx config now also blocks external access to `/admin/` at the network layer (#218)
 - **Security [High]**: `ensure_site_admin` no longer prints the one-time admin password to stdout (visible in container log aggregators); password is now written to `/tmp/visiban_admin_password` (mode 0600) instead (#218)
 - Inserting a swimlane at a specific position no longer produces a duplicate entry when the real-time event arrives before the API response; a failed reorder API call no longer silently drops a newly-created swimlane from the board (#223)
+- **Security [Medium] #219** — User search endpoint is now rate-limited to 30 requests/minute per user to prevent account enumeration at high speed
+- **Security [Medium] #219** — File attachment uploads now validate both the declared MIME type and the file's magic bytes against an allowlist (images, PDF, Office documents, ZIP, plain text); mismatched or disallowed types are rejected before any bytes reach storage
+- **Security [Medium] #219** — Board import endpoints (JSON and CSV) now reject payloads exceeding 500 cards, 50 columns, or 100 swimlanes with HTTP 400
+- **Security [Medium] #219** — Visiban now refuses to start with `DEBUG=False` if `CORS_ALLOWED_ORIGINS` contains a `localhost` or `127.0.0.1` origin, preventing a common deployment misconfiguration
+- **Security [Medium] #219** — Invite-link redemption is now rate-limited to 10 attempts/hour per IP; all redemption attempts (success and failure) are logged with a truncated token, IP, and outcome
+- **Security [Low] #220** — CSV exports now strip leading `=`, `+`, `-`, `@`, tab, and carriage-return characters from all string fields to neutralize spreadsheet formula injection
+- **Security [Low] #220** — `Notification` model gains structured `actor` (FK) and `action_type` (choice field) columns; notification links in the frontend use `.textContent` rendering, never `innerHTML`
+- **Security [Low] #220** — Group and board permission traversals now emit a `logger.warning()` when the 6-level depth cap is hit, surfacing overly deep trees to operators
+- **Security [Low] #220** — Version endpoint (`GET /api/version/`) now requires authentication
 
 ---
 

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.db.models import Q
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -11,10 +12,23 @@ from .serializers import UserSerializer
 User = get_user_model()
 
 
+class UserSearchRateThrottle(UserRateThrottle):
+    """Tighter per-user rate limit for the user-search endpoint.
+
+    User search hits the database with a LIKE query on every call, so it is
+    more expensive than a typical read endpoint. 30 req/min is generous enough
+    for interactive use (autocomplete fires on each keystroke) but prevents a
+    single account from enumerating the entire user list at high speed.
+    """
+
+    scope = "user_search"
+
+
 class UserSearchView(APIView):
     """Search users by display name, email, or username; requires at least 2 characters."""
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserSearchRateThrottle]
 
     def get(self, request):
         query = request.query_params.get("search", "").strip()

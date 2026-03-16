@@ -87,6 +87,30 @@ List attachments.
 ### `POST /api/boards/{board_id}/cards/{id}/attachments/`
 Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB.
 
+**Allowed file types**
+
+The server validates both the declared `Content-Type` and the file's magic bytes. Uploads with a disallowed type are rejected with `HTTP 400`.
+
+| Category | Accepted types |
+|---|---|
+| Images | JPEG, PNG, GIF, WebP |
+| Documents | PDF |
+| Office (OOXML) | DOCX, XLSX, PPTX |
+| Archives | ZIP |
+| Text | Plain text, CSV |
+
+**Error response (unsupported type)**
+
+```json
+{ "detail": "File type 'application/x-executable' is not allowed. Accepted types: images (JPEG, PNG, GIF, WebP), PDF, Office documents (DOCX, XLSX, PPTX), plain text, CSV, ZIP." }
+```
+
+**Error response (magic-byte mismatch)**
+
+```json
+{ "detail": "File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented." }
+```
+
 ### `DELETE /api/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
 Delete an attachment.
 
