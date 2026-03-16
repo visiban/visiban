@@ -166,8 +166,10 @@ describe('LoginPage', () => {
     mockGetSiteConfig.mockResolvedValue({ registration_open: false })
     renderLoginPage({ authMode: 'register' })
 
-    const submitButton = await screen.findByRole('button', { name: 'Create account' })
-    expect(submitButton).toBeDisabled()
+    // Wait for the async getSiteConfig response to propagate — the invite-only
+    // message appears at the same time the button becomes disabled.
+    await screen.findByText('An invite link is required to create an account.')
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled()
   })
 
   it('shows invite-only message in register mode when registration is closed', async () => {
