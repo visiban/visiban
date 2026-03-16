@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - Site admins can now restrict self-registration to invite-only via a toggle in the admin panel; the login page shows a clear message when registration is closed (#173)
+- `seed_demo_data` management command generates a realistic "Visiban Demo Board" (5 columns, 10 swimlanes, 87 cards with checklists, comments, movement history, and varied priorities/due dates) for demos and integration testing; supports `--wipe` (board-scoped, refuses on non-debug environments without `--force`) and `--export` to regenerate `scripts/seed/demo_board.json` and `scripts/seed/demo_board.csv`; a GitLab CI scheduled job refreshes the demo environment weekly (#230)
 
 ### Changed
 
