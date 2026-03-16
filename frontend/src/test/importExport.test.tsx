@@ -95,9 +95,12 @@ describe('ImportBoardModal', () => {
     const user = userEvent.setup()
     render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
 
-    // Create a file that reports > 10 MB
-    const largeContent = 'x'.repeat(11 * 1024 * 1024)
-    const file = new File([largeContent], 'huge.json', { type: 'application/json' })
+    // Use a tiny file with a mocked size property — avoids allocating 11 MB in CI
+    const file = Object.defineProperty(
+      new File(['x'], 'huge.json', { type: 'application/json' }),
+      'size',
+      { value: 11 * 1024 * 1024 },
+    )
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
 
     await user.upload(fileInput, file)

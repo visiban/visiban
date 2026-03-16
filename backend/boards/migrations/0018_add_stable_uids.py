@@ -14,6 +14,8 @@ import secrets
 
 from django.db import migrations, models
 
+from boards.models import _generate_uid
+
 
 def _token():
     return secrets.token_hex(8)
@@ -131,30 +133,30 @@ class Migration(migrations.Migration):
         # ── Phase 2: backfill ─────────────────────────────────────────────────
         migrations.RunPython(backfill_uids, migrations.RunPython.noop),
         migrations.RunPython(backfill_movement_uids, migrations.RunPython.noop),
-        # ── Phase 3: apply unique=True and null=False ─────────────────────────
+        # ── Phase 3: apply unique=True, null=False, and default ───────────────
         migrations.AlterField(
             model_name="board",
             name="uid",
-            field=models.CharField(editable=False, max_length=16, unique=True),
+            field=models.CharField(default=_generate_uid, editable=False, max_length=16, unique=True),
         ),
         migrations.AlterField(
             model_name="column",
             name="uid",
-            field=models.CharField(editable=False, max_length=16, unique=True),
+            field=models.CharField(default=_generate_uid, editable=False, max_length=16, unique=True),
         ),
         migrations.AlterField(
             model_name="swimlane",
             name="uid",
-            field=models.CharField(editable=False, max_length=16, unique=True),
+            field=models.CharField(default=_generate_uid, editable=False, max_length=16, unique=True),
         ),
         migrations.AlterField(
             model_name="label",
             name="uid",
-            field=models.CharField(editable=False, max_length=16, unique=True),
+            field=models.CharField(default=_generate_uid, editable=False, max_length=16, unique=True),
         ),
         migrations.AlterField(
             model_name="card",
             name="uid",
-            field=models.CharField(editable=False, max_length=16, unique=True),
+            field=models.CharField(default=_generate_uid, editable=False, max_length=16, unique=True),
         ),
     ]
