@@ -38,6 +38,8 @@ Or uncheck `Is site admin` in the Django admin panel.
 
 ## Restricting registration (invite-only mode)
 
+> **Added in v1.0.0-rc.6**
+
 By default, anyone can create an account on a Visiban instance. You can restrict this so that only users created directly by a site admin can log in.
 
 **To enable invite-only mode:**

@@ -1,5 +1,7 @@
 # Secret Rotation
 
+> **Added in v1.0.0-rc.6** — startup guard for insecure `DJANGO_SECRET_KEY` values and IP restriction on `/admin/`.
+
 This guide covers rotating the three most critical secrets in a Visiban deployment: `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS`.
 
 ---
