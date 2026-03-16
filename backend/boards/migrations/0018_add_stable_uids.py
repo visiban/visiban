@@ -10,15 +10,9 @@ they have no unique constraint. The backfill copies the uid from the FK object
 where available; rows where the FK was already NULL remain "" — this is
 intentional and mirrors the behaviour of the *_name fields added in 0016.
 """
-import secrets
-
 from django.db import migrations, models
 
-
-def _generate_uid():
-    # Self-contained copy — migrations must not import from models.py because
-    # a future rename/removal would break fresh-DB applies permanently.
-    return secrets.token_hex(8)
+from boards.uid import _generate_uid  # stable contract module — never imported from models.py
 
 
 def backfill_uids(apps, schema_editor):

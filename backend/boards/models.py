@@ -1,17 +1,7 @@
-import secrets
-
 from django.db import models
 from django.conf import settings
 
-
-def _generate_uid():
-    """Return a 16-character lowercase hex string (64-bit random).
-
-    Used as the default for all stable-UID fields on board objects.
-    A module-level named function is required here — Django's migration
-    serializer cannot serialize lambdas.
-    """
-    return secrets.token_hex(8)
+from boards.uid import _generate_uid
 
 
 class Board(models.Model):
