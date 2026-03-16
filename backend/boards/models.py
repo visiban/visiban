@@ -290,10 +290,39 @@ class CardAttachment(models.Model):
 
 
 class Notification(models.Model):
-    """An in-app notification delivered to a user about a card or board event."""
+    """An in-app notification delivered to a user about a card or board event.
+
+    The ``verb`` field stores a human-readable summary assembled from
+    system-controlled templates; it is displayed via React text content (never
+    innerHTML) so user-supplied substrings are escaped by the framework.
+
+    ``actor`` and ``action_type`` provide structured data for future use cases
+    such as notification grouping, i18n, or programmatic filtering. They are
+    intentionally separate from ``verb`` so callers can render a localized
+    message without re-parsing a free-form string.
+    """
+
+    class ActionType(models.TextChoices):
+        ASSIGNED = "assigned", "assigned"
+        MENTIONED = "mentioned", "mentioned"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
+    )
+    # actor is the user who triggered the notification; stored as a FK so we
+    # can look up display names without embedding them directly in ``verb``.
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="triggered_notifications",
+    )
+    action_type = models.CharField(
+        max_length=32,
+        choices=ActionType.choices,
+        blank=True,
+        default="",
     )
     verb = models.CharField(max_length=500)
     card = models.ForeignKey(Card, on_delete=models.CASCADE, null=True, blank=True)

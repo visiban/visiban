@@ -1,8 +1,19 @@
+import logging
 import uuid
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+
+# Maximum depth used when walking group hierarchies.  This cap prevents
+# unbounded query chains on deep or accidentally cyclic group trees.
+# Six levels covers all realistic organizational structures; hierarchies
+# deeper than this are unusual and likely indicate a data modelling issue.
+# If the cap is reached during a traversal a warning is emitted (see below)
+# so operators can detect and address overly deep trees.
+_GROUP_TRAVERSAL_MAX_DEPTH = 6
 
 
 def get_accessible_group_ids(user):
@@ -10,6 +21,9 @@ def get_accessible_group_ids(user):
     Return all group IDs accessible to user: groups where they are a direct
     member/owner, plus all descendant sub-groups of those groups.
     Site admins have access to all groups.
+
+    Descendant discovery is capped at _GROUP_TRAVERSAL_MAX_DEPTH iterations.
+    Groups nested deeper than this limit will not appear in the result set.
     """
     if getattr(user, "is_site_admin", False):
         return set(Group.objects.values_list("id", flat=True))
@@ -20,7 +34,7 @@ def get_accessible_group_ids(user):
     )
     all_ids = set(direct_ids)
     frontier = set(direct_ids)
-    for _ in range(6):  # cap recursion depth
+    for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH):
         if not frontier:
             break
         children = set(
@@ -30,6 +44,16 @@ def get_accessible_group_ids(user):
         )
         all_ids |= children
         frontier = children
+    else:
+        # The for-loop completed all iterations without the frontier emptying,
+        # meaning the group tree may extend beyond the traversal cap.
+        if frontier:
+            logger.warning(
+                "Group descendant traversal capped at depth %d for user %s. "
+                "Groups nested deeper than this limit are not included in the accessible set.",
+                _GROUP_TRAVERSAL_MAX_DEPTH,
+                getattr(user, "pk", user),
+            )
     return all_ids
 
 
@@ -71,8 +95,14 @@ class Group(models.Model):
             return self.allowed_priorities
         return ["low", "medium", "high", "urgent"]
 
-    def ancestors(self, max_depth=6):
-        """Return list of ancestor groups from immediate parent up to root."""
+    def ancestors(self, max_depth=_GROUP_TRAVERSAL_MAX_DEPTH):
+        """Return list of ancestor groups from immediate parent up to root.
+
+        The traversal is capped at *max_depth* levels (default:
+        _GROUP_TRAVERSAL_MAX_DEPTH) to guard against runaway queries on
+        unexpectedly deep or cyclic trees.  A warning is emitted if the cap
+        is hit so operators can detect the truncation.
+        """
         chain = []
         node = self.parent
         depth = 0
@@ -80,6 +110,16 @@ class Group(models.Model):
             chain.append(node)
             node = node.parent
             depth += 1
+        if node is not None:
+            # Loop exited because of the depth cap, not because we reached the
+            # root.  Remaining ancestors were silently omitted.
+            logger.warning(
+                "Group ancestor traversal capped at depth %d for group %s (id=%s). "
+                "Ancestors at deeper levels were not returned.",
+                max_depth,
+                self.name,
+                self.pk,
+            )
         return chain
 
 
