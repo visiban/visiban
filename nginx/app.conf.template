@@ -76,8 +76,16 @@ server {
         proxy_read_timeout     86400s;
     }
 
-    # Django admin
+    # Django admin — restricted to loopback only at the Nginx layer.
+    # The Django AdminIPRestrictionMiddleware provides a second layer of defence,
+    # but blocking at Nginx is preferable because it avoids hitting Django at all.
+    # To access admin from outside loopback, SSH-tunnel to the server:
+    #   ssh -L 8443:127.0.0.1:443 user@yourserver  then visit https://localhost:8443/admin/
     location /admin/ {
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+
         proxy_pass       http://backend:8000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;

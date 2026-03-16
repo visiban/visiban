@@ -2,28 +2,47 @@
 
 ## Automatic admin bootstrap
 
-On the very first startup — when no site admin exists — Visiban creates an admin account and prints a one-time password to stdout:
+On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (`/tmp/visiban_admin_password` by default). The password is **not** printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.
+
+The stdout output looks like this:
 
 ```
 ============================================================
   VISIBAN INITIAL ADMIN CREDENTIALS
 ============================================================
   Created site admin: admin
-  Password:           X7kR9mNpQs2wLvYt
+  Password:           [REDACTED — written to /tmp/visiban_admin_password]
 ============================================================
-  You will be required to change this password on first login.
+  Retrieve the password, then delete the file.
+  You will be required to change it on first login.
 ============================================================
 ```
 
-### Docker
+### Retrieving the password
+
+**Docker Compose (development):**
 
 ```bash
-docker compose logs backend | grep -A6 "INITIAL ADMIN"
+docker compose exec backend cat /tmp/visiban_admin_password
 ```
 
-### Local
+**Docker Compose (production):**
 
-The password is printed directly in the terminal where you ran `python manage.py ensure_site_admin`.
+```bash
+docker compose -f docker-compose.prod.yml exec backend cat /tmp/visiban_admin_password
+```
+
+Delete the file after retrieving it:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend rm /tmp/visiban_admin_password
+```
+
+**Local development:**
+
+```bash
+cat /tmp/visiban_admin_password
+```
 
 ### Kubernetes / Helm
 

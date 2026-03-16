@@ -6,3 +6,4 @@ Guides for running and maintaining a Visiban instance.
 |---|---|
 | [Site Admins](site-admins.md) | What site admins can do, how to grant and revoke site admin access |
 | [Django Admin](django-admin.md) | Using the built-in `/admin` panel for direct data management |
+| [Secret Rotation](secret-rotation.md) | How to rotate `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `CORS_ALLOWED_ORIGINS`; admin IP restriction |
