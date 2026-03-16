@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardFull, Card, Column, Swimlane, Label } from "../../types";
+import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../../types";
 import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
@@ -48,6 +48,13 @@ interface Props {
   onSwimlaneDeleted: (swimlaneId: number) => void;
   onSwimlanesReordered: (orderedIds: number[]) => void;
   onLabelAdded: (label: Label) => void;
+  onLabelUpdated: (label: Label) => void;
+  onLabelDeleted: (labelId: number) => void;
+  onMemberAdded: (membership: BoardMembership) => void;
+  onMemberUpdated: (membership: BoardMembership) => void;
+  onMemberRemoved: (userId: number) => void;
+  onColumnOrderApplied: (columns: Column[]) => void;
+  onSwimlaneOrderApplied: (swimlanes: Swimlane[]) => void;
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
   onBoardDeleted?: () => void;
   userTimezone?: string;
@@ -104,7 +111,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onBoardSettingsChanged, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardSettingsChanged, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -139,14 +146,30 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       onColumnUpdated(event as unknown as Column);
     } else if (event.type === "column.deleted") {
       onColumnDeleted(event.column_id as number);
+    } else if (event.type === "columns.reordered") {
+      onColumnOrderApplied((event as unknown as { columns: Column[] }).columns);
     } else if (event.type === "swimlane.created") {
       onSwimlaneAdded(event as unknown as Swimlane);
     } else if (event.type === "swimlane.updated") {
       onSwimlaneUpdated(event as unknown as Swimlane);
     } else if (event.type === "swimlane.deleted") {
       onSwimlaneDeleted(event.swimlane_id as number);
+    } else if (event.type === "swimlanes.reordered") {
+      onSwimlaneOrderApplied((event as unknown as { swimlanes: Swimlane[] }).swimlanes);
+    } else if (event.type === "label.created") {
+      onLabelAdded(event as unknown as Label);
+    } else if (event.type === "label.updated") {
+      onLabelUpdated(event as unknown as Label);
+    } else if (event.type === "label.deleted") {
+      onLabelDeleted((event as unknown as { label_id: number }).label_id);
+    } else if (event.type === "member.added") {
+      onMemberAdded(event as unknown as BoardMembership);
+    } else if (event.type === "member.updated") {
+      onMemberUpdated(event as unknown as BoardMembership);
+    } else if (event.type === "member.removed") {
+      onMemberRemoved((event as unknown as { user_id: number }).user_id);
     }
-  }, [onCardAdded, onCardUpdated, onCardDeleted, onColumnAdded, onColumnUpdated, onColumnDeleted, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted]);
+  }, [onCardAdded, onCardUpdated, onCardDeleted, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved]);
 
   const { connected } = useBoardSocket(board.id, handleSocketEvent);
 

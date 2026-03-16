@@ -931,7 +931,11 @@ class BoardViewSet(viewsets.ModelViewSet):
         if not created:
             membership.role = member_role
             membership.save()
-        return Response(BoardMembershipSerializer(membership).data, status=status.HTTP_201_CREATED)
+        membership_data = BoardMembershipSerializer(membership).data
+        board_id = board.id
+        ws_event = "member.added" if created else "member.updated"
+        transaction.on_commit(lambda: broadcast_board_event(board_id, ws_event, membership_data))
+        return Response(membership_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
     def remove_member(self, request, pk=None, user_id=None):
@@ -942,7 +946,10 @@ class BoardViewSet(viewsets.ModelViewSet):
         target_user = get_object_or_404(User, pk=user_id)
         if target_user.is_site_admin and role != SITE_ADMIN:
             raise PermissionDenied("Cannot remove a site admin from a board.")
+        board_id = board.id
+        removed_user_id = target_user.id
         BoardMembership.objects.filter(board=board, user=target_user).delete()
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "member.removed", {"user_id": removed_user_id}))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -972,14 +979,18 @@ class ColumnViewSet(viewsets.ModelViewSet):
         _max = board.columns.aggregate(m=Max("position"))["m"]
         max_pos = 0 if _max is None else _max + 1
         column = serializer.save(board=board, position=max_pos)
-        broadcast_board_event(board.id, "column.created", ColumnSerializer(column).data)
+        column_data = ColumnSerializer(column).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "column.created", column_data))
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         column = serializer.save()
-        broadcast_board_event(column.board_id, "column.updated", ColumnSerializer(column).data)
+        column_data = ColumnSerializer(column).data
+        board_id = column.board_id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "column.updated", column_data))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -988,7 +999,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
         board_id = instance.board_id
         column_id = instance.id
         instance.delete()
-        broadcast_board_event(board_id, "column.deleted", {"column_id": column_id})
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "column.deleted", {"column_id": column_id}))
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
@@ -1006,7 +1017,10 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # Second pass: assign final positions.
             for pos, col_id in enumerate(order):
                 Column.objects.filter(board=board, pk=col_id).update(position=pos)
-        return Response(ColumnSerializer(board.columns.all(), many=True).data)
+        cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "columns.reordered", {"columns": list(cols_data)}))
+        return Response(cols_data)
 
 
 # ---------------------------------------------------------------------------
@@ -1035,14 +1049,18 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         _max = board.swimlanes.aggregate(m=Max("position"))["m"]
         max_pos = 0 if _max is None else _max + 1
         swimlane = serializer.save(board=board, position=max_pos)
-        broadcast_board_event(board.id, "swimlane.created", SwimlaneSerializer(swimlane).data)
+        swimlane_data = SwimlaneSerializer(swimlane).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "swimlane.created", swimlane_data))
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         swimlane = serializer.save()
-        broadcast_board_event(swimlane.board_id, "swimlane.updated", SwimlaneSerializer(swimlane).data)
+        swimlane_data = SwimlaneSerializer(swimlane).data
+        board_id = swimlane.board_id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "swimlane.updated", swimlane_data))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -1051,7 +1069,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         board_id = instance.board_id
         swimlane_id = instance.id
         instance.delete()
-        broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_id": swimlane_id})
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_id": swimlane_id}))
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
@@ -1063,7 +1081,10 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             for pos, swimlane_id in enumerate(order):
                 Swimlane.objects.filter(board=board, pk=swimlane_id).update(position=pos)
-        return Response(SwimlaneSerializer(board.swimlanes.all(), many=True).data)
+        lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "swimlanes.reordered", {"swimlanes": list(lanes_data)}))
+        return Response(lanes_data)
 
 
 # ---------------------------------------------------------------------------
@@ -1089,19 +1110,28 @@ class LabelViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        serializer.save(board=board)
+        label = serializer.save(board=board)
+        label_data = LabelSerializer(label).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "label.created", label_data))
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        serializer.save()
+        label = serializer.save()
+        label_data = LabelSerializer(label).data
+        board_id = label.board_id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "label.updated", label_data))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
+        board_id = instance.board_id
+        label_id = instance.id
         instance.delete()
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "label.deleted", {"label_id": label_id}))
 
 
 # ---------------------------------------------------------------------------
@@ -1192,7 +1222,7 @@ class CardViewSet(viewsets.ModelViewSet):
         board_id = instance.board_id
         card_id = instance.id
         instance.delete()
-        broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.deleted", {"card_id": card_id}))
 
     def update(self, request, *args, **kwargs):
         """Update card fields and record a CardActivity entry for each changed field.
@@ -1283,7 +1313,9 @@ class CardViewSet(viewsets.ModelViewSet):
         if activities:
             CardActivity.objects.bulk_create(activities)
 
-        broadcast_board_event(card.board_id, "card.updated", serializer.data)
+        board_id = card.board_id
+        card_data = serializer.data
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
@@ -1395,6 +1427,9 @@ class CardViewSet(viewsets.ModelViewSet):
             card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
             from_value="", to_value="", actor=request.user,
         )
+        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         # Parse @username mentions and notify each mentioned board member
         mentioned_usernames = set(re.findall(r"@(\w+)", comment.body))
         if mentioned_usernames:
@@ -1463,6 +1498,10 @@ class CardViewSet(viewsets.ModelViewSet):
             size=file.size,
             uploaded_by=request.user,
         )
+        card.refresh_from_db()
+        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         serializer = CardAttachmentSerializer(attachment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1474,6 +1513,9 @@ class CardViewSet(viewsets.ModelViewSet):
         attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
         attachment.file.delete(save=False)
         attachment.delete()
+        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get", "post"], url_path="checklist")
@@ -1492,6 +1534,9 @@ class CardViewSet(viewsets.ModelViewSet):
             card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
             from_value="", to_value=item.text, actor=request.user,
         )
+        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
@@ -1506,21 +1551,27 @@ class CardViewSet(viewsets.ModelViewSet):
                 from_value=item.text, to_value="", actor=request.user,
             )
             item.delete()
+            card_data = CardSerializer(card, context={"request": request, "board": board}).data
+            board_id = board.id
+            transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
             return Response(status=status.HTTP_204_NO_CONTENT)
         old_checked = item.is_checked
         serializer = CardChecklistSerializer(item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         if "is_checked" in request.data and request.data["is_checked"] != old_checked:
-            event_type = (
+            checklist_event_type = (
                 CardActivity.EventType.CHECKLIST_ITEM_CHECKED
                 if item.is_checked
                 else CardActivity.EventType.CHECKLIST_ITEM_UNCHECKED
             )
             CardActivity.objects.create(
-                card=card, event_type=event_type,
+                card=card, event_type=checklist_event_type,
                 from_value="", to_value=item.text, actor=request.user,
             )
+        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(serializer.data)
 
 

@@ -91,7 +91,9 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 }) {
   const navigate = useNavigate();
   const { board, loading, error, moveCard, addCard, removeCard, addColumn, removeColumn,
-    addSwimlane, updateCard, updateColumn, addLabel, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane,
+    addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel,
+    addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder,
+    reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane,
     updateBoardSettings,
   } = useBoard();
 
@@ -162,6 +164,13 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onSwimlaneDeleted={removeSwimlane}
             onSwimlanesReordered={reorderSwimlanes}
             onLabelAdded={addLabel}
+            onLabelUpdated={updateLabel}
+            onLabelDeleted={removeLabel}
+            onMemberAdded={addMember}
+            onMemberUpdated={updateMember}
+            onMemberRemoved={removeMember}
+            onColumnOrderApplied={applyColumnOrder}
+            onSwimlaneOrderApplied={applySwimlaneOrder}
             onBoardSettingsChanged={updateBoardSettings}
             onBoardDeleted={handleBack}
             userTimezone={user.timezone ?? ""}
