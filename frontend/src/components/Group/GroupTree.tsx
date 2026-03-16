@@ -8,6 +8,7 @@ interface TreeNode {
   children: TreeNode[];
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, used by tests and co-located with the component for cohesion
 export function buildGroupTree(groups: Group[]): TreeNode[] {
   const ids = new Set(groups.map((g) => g.id));
   const map = new Map<number, TreeNode>();

@@ -21,6 +21,7 @@ interface Props {
   userTimeFormat?: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, used by tests and co-located with the component for cohesion
 export function formatCommentTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);

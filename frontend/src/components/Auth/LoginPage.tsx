@@ -32,6 +32,7 @@ export default function LoginPage({ onLogin }: Props) {
     setError(null);
 
     if (mode === "register") {
+      // eslint-disable-next-line security/detect-possible-timing-attacks -- client-side UI validation only, not a cryptographic comparison
       if (password !== confirm) { setError("Passwords do not match."); return; } // nosemgrep
       if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     }

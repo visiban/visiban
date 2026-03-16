@@ -11,6 +11,7 @@ export interface FilterState {
   dueDate: "overdue" | "today" | "this_week" | "none" | null;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
 export const EMPTY_FILTER: FilterState = {
   search: "",
   assigneeIds: [],
@@ -19,6 +20,7 @@ export const EMPTY_FILTER: FilterState = {
   dueDate: null,
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
 export function countActiveFilters(f: FilterState): number {
   return [
     f.search !== "",

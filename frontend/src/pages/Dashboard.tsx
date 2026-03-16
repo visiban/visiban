@@ -116,17 +116,28 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white text-lg font-semibold">My Boards</h2>
-            <button
-              onClick={() => setImportingBoard(true)}
-              className="text-sm text-blue-400 hover:text-blue-300 transition"
-            >
-              Import
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setImportingBoard(true)}
+                className="text-sm text-slate-400 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Import
+              </button>
+              <button
+                onClick={() => setCreatingBoard(true)}
+                className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                + New board
+              </button>
+            </div>
           </div>
           {loadingBoards ? (
             <p className="text-slate-500 text-sm">Loading…</p>
           ) : (
             <div className="flex flex-col gap-2">
+              {personalBoards.length === 0 && (
+                <p className="text-slate-600 text-sm">No personal boards yet.</p>
+              )}
               {personalBoards.map((b) => (
                 <div key={b.id} className="group relative">
                   <button
@@ -139,7 +150,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                     <button
                       onClick={(e) => { e.stopPropagation(); setMovingBoard(b); }}
-                      className="text-gray-500 hover:text-blue-400 p-1"
+                      className="text-slate-500 hover:text-blue-400 p-1"
                       title="Move to group"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -150,7 +161,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                     {b.owner.id === user.id && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-                        className="text-gray-500 hover:text-red-400 p-1"
+                        className="text-slate-500 hover:text-red-400 p-1"
                         title="Delete board"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -161,15 +172,6 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                   </div>
                 </div>
               ))}
-              {personalBoards.length === 0 && !creatingBoard && (
-                <p className="text-slate-600 text-sm">No personal boards yet.</p>
-              )}
-              <button
-                onClick={() => setCreatingBoard(true)}
-                className="w-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 py-3 rounded-xl text-sm transition"
-              >
-                + New board
-              </button>
             </div>
           )}
         </section>

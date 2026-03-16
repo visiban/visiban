@@ -119,10 +119,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.id]);
 
-  const hiddenColumnIds = new Set(viewPrefs.hiddenColumnIds);
-  const hiddenSwimlaneIds = new Set(viewPrefs.hiddenSwimlaneIds);
+  // Wrap in useMemo so downstream memos don't re-run on every render due to new Set instances
+  const hiddenColumnIds = useMemo(() => new Set(viewPrefs.hiddenColumnIds), [viewPrefs.hiddenColumnIds]);
+  const hiddenSwimlaneIds = useMemo(() => new Set(viewPrefs.hiddenSwimlaneIds), [viewPrefs.hiddenSwimlaneIds]);
   // Collapsed = not in expandedColumnIds (compact by default; user expands explicitly)
-  const expandedColumnIds = new Set(viewPrefs.expandedColumnIds);
+  const expandedColumnIds = useMemo(() => new Set(viewPrefs.expandedColumnIds), [viewPrefs.expandedColumnIds]);
   const allColumnsExpanded = board.columns.every((c) => expandedColumnIds.has(c.id));
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {

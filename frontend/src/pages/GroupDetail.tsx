@@ -89,7 +89,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         }
       })
       .finally(() => setLoading(false));
-  }, [groupId]);
+  }, [groupId, navigate]);
 
   useEffect(() => {
     if (!showSubgroupBoards || subgroups.length === 0) return;

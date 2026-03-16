@@ -97,6 +97,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 
   const [isStarred, setIsStarred] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are specific fields; including the full board object causes spurious re-runs
   useEffect(() => { if (board) setIsStarred(board.is_starred); }, [board?.id, board?.is_starred]);
 
   const handleStarToggle = async () => {
