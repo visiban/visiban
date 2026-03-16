@@ -118,6 +118,11 @@ class DeletedFkUidPersistenceTests(TestCase):
         mv = CardMovement.objects.filter(card=self.card).exclude(notes="Card created").first()
         self.assertEqual(mv.to_column_uid, target_uid)
 
+        # Move the card back to col so it is no longer in target_col.
+        # Card.column uses CASCADE, so deleting target_col while the card is
+        # still there would cascade-delete the card and then the movement.
+        self._move_card(self.col)
+
         self.target_col.delete()
         mv.refresh_from_db()
 
