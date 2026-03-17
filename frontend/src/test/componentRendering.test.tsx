@@ -63,6 +63,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     checklist_total: 0,
     checklist_done: 0,
     is_stale: false,
+    archived_at: null,
     ...overrides,
   }
 }

@@ -710,7 +710,9 @@ class BoardViewSet(viewsets.ModelViewSet):
                     if not col_name:
                         continue
                     entry = mv.moved_at
-                    exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else now
+                    # For archived cards use archived_at as the terminal timestamp so
+                    # dwell time covers only the active period, not time since archiving.
+                    exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else (card.archived_at or now)
                     dwell_days = (exit_ - entry).total_seconds() / 86400
                     col_dwells[col_name].append(dwell_days)
                     all_col_dwells[col_name].append(dwell_days)
@@ -718,7 +720,9 @@ class BoardViewSet(viewsets.ModelViewSet):
                     deal_velocity_days.append(
                         (movements[-1].moved_at - movements[0].moved_at).total_seconds() / 86400
                     )
-                if movements[-1].moved_at < stall_cutoff:
+                # Archived cards are excluded from stalled detection — they are no
+                # longer in-flight, so flagging them as stalled would be misleading.
+                if card.archived_at is None and movements[-1].moved_at < stall_cutoff:
                     stalled_cards.append({
                         "id": card.id,
                         "title": card.title,
@@ -1177,7 +1181,9 @@ class CardViewSet(viewsets.ModelViewSet):
         return self._board_and_role()[0]
 
     def get_queryset(self):
-        return Card.objects.filter(board=self._board()).prefetch_related("labels", "movements")
+        # Exclude archived cards from all standard list/detail endpoints.
+        # Archived cards are accessible via the separate /archived/ action.
+        return Card.objects.filter(board=self._board(), archived_at__isnull=True).prefetch_related("labels", "movements")
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -1223,6 +1229,71 @@ class CardViewSet(viewsets.ModelViewSet):
         card_id = instance.id
         instance.delete()
         transaction.on_commit(lambda: broadcast_board_event(board_id, "card.deleted", {"card_id": card_id}))
+
+    @action(detail=True, methods=["post"])
+    def archive(self, request, board_pk=None, pk=None):
+        """Soft-delete a card by setting archived_at to now.
+
+        Member+ role required — same boundary as edit/delete. The card is
+        removed from the active board view; analytics counts it only for the
+        period it was active (entry → archive timestamp).
+        """
+        board, role = self._board_and_role()
+        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+            raise PermissionDenied
+        # Use the unfiltered manager so archiving an already-archived card is
+        # a no-op rather than a 404.
+        card = get_object_or_404(Card, pk=pk, board=board)
+        if card.archived_at is None:
+            board_id = card.board_id
+            card_id = card.id
+            with transaction.atomic():
+                card.archived_at = timezone.now()
+                card.save(update_fields=["archived_at"])
+            transaction.on_commit(lambda: broadcast_board_event(board_id, "card.archived", {"card_id": card_id}))
+        return Response(CardSerializer(card, context={"request": request, "board": card.board}).data)
+
+    @action(detail=True, methods=["post"])
+    def unarchive(self, request, board_pk=None, pk=None):
+        """Restore a card by clearing archived_at.
+
+        The card re-enters its original column/swimlane position. Because
+        get_queryset() filters out archived cards, we bypass it here and
+        query the raw manager directly.
+        """
+        board, role = self._board_and_role()
+        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+            raise PermissionDenied
+        card = get_object_or_404(Card, pk=pk, board=board)
+        if card.archived_at is not None:
+            board_id = card.board_id
+            card_data_fn = lambda: CardSerializer(
+                Card.objects.prefetch_related("labels", "movements").get(pk=card.id),
+                context={"request": request, "board": card.board},
+            ).data
+            with transaction.atomic():
+                card.archived_at = None
+                card.save(update_fields=["archived_at"])
+            transaction.on_commit(lambda: broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
+        return Response(CardSerializer(card, context={"request": request, "board": card.board}).data)
+
+    @action(detail=False, methods=["get"], url_path="archived")
+    def archived(self, request, board_pk=None):
+        """List archived cards for this board, newest first.
+
+        Read access is intentionally open to all board members including
+        viewers — listing archived cards is a read operation, consistent with
+        viewer access to all other read endpoints. Only archive/unarchive
+        (write operations) are restricted to member+.
+        """
+        board = self._board()
+        qs = (
+            Card.objects.filter(board=board, archived_at__isnull=False)
+            .prefetch_related("labels", "movements")
+            .order_by("-archived_at")
+        )
+        serializer = CardSerializer(qs, many=True, context={"request": request, "board": board})
+        return Response(serializer.data)
 
     def update(self, request, *args, **kwargs):
         """Update card fields and record a CardActivity entry for each changed field.

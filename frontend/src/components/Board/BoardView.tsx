@@ -30,6 +30,7 @@ import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
 import type { FilterState } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
+import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { todayInTimezone } from "../../utils/date";
 
@@ -55,6 +56,8 @@ interface Props {
   onMemberRemoved: (userId: number) => void;
   onColumnOrderApplied: (columns: Column[]) => void;
   onSwimlaneOrderApplied: (swimlanes: Swimlane[]) => void;
+  onCardArchived: (cardId: number) => void;
+  onCardUnarchived: (card: Card) => void;
   onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
   onBoardDeleted?: () => void;
   userTimezone?: string;
@@ -111,7 +114,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardSettingsChanged, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardSettingsChanged, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -140,6 +143,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       onCardUpdated(event as unknown as Card);
     } else if (event.type === "card.deleted") {
       onCardDeleted(event.card_id as number);
+    } else if (event.type === "card.archived") {
+      onCardArchived((event as unknown as { card_id: number }).card_id);
+    } else if (event.type === "card.unarchived") {
+      onCardUnarchived(event as unknown as Card);
     } else if (event.type === "column.created") {
       onColumnAdded(event as unknown as Column);
     } else if (event.type === "column.updated") {
@@ -169,7 +176,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     } else if (event.type === "member.removed") {
       onMemberRemoved((event as unknown as { user_id: number }).user_id);
     }
-  }, [onCardAdded, onCardUpdated, onCardDeleted, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved]);
+  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved]);
 
   const { connected } = useBoardSocket(board.id, handleSocketEvent);
 
@@ -207,6 +214,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   const [view, setView] = useState<"board" | "summary" | "analytics">("board");
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
@@ -565,6 +573,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
         <div className="w-px h-4 bg-slate-700 self-center shrink-0 ml-auto" />
         <button
+          onClick={() => setShowArchived((v) => !v)}
+          className={`text-xs px-2 py-1 rounded transition shrink-0 ${showArchived ? "text-amber-400 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+          title="View archived cards"
+        >
+          Archived
+        </button>
+        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
+        <button
           onClick={() => setShowShortcuts((v) => !v)}
           className="text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 px-2 py-1 rounded transition font-mono shrink-0"
           title="Keyboard shortcuts (?)"
@@ -815,6 +831,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onClose={() => setSelectedCard(null)}
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
           onUpdated={onCardUpdated}
+          onArchived={(id) => { onCardArchived(id); setSelectedCard(null); }}
           onLabelAdded={onLabelAdded}
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
@@ -853,6 +870,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
       {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
 
+      {showArchived && (
+        <ArchivedCardsPanel
+          board={board}
+          onClose={() => setShowArchived(false)}
+          onUnarchived={(card) => { onCardUnarchived(card); }}
+        />
+      )}
+
       {confirmDeleteColumn && (() => {
         const cardCount = board.cards.filter((c) => c.column === confirmDeleteColumn.id).length;
         return (
@@ -864,9 +889,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
               </p>
               {cardCount > 0 && (
                 <p className="text-red-400 text-sm mb-1">
-                  {cardCount} card{cardCount !== 1 ? "s" : ""} in this column will also be deleted.
+                  {cardCount} active card{cardCount !== 1 ? "s" : ""} in this column will also be deleted.
                 </p>
               )}
+              <p className="text-red-400 text-sm mb-1">
+                Any archived cards in this column will also be permanently deleted.
+              </p>
               <p className="text-slate-500 text-sm mb-5">This cannot be undone.</p>
               <div className="flex gap-3 justify-end">
                 <button

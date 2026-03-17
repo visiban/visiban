@@ -87,6 +87,7 @@ function makeCard(overrides: Partial<Card> & { id: number; title: string }): Car
     checklist_total: 0,
     checklist_done: 0,
     is_stale: false,
+    archived_at: null,
     ...overrides,
   }
 }
