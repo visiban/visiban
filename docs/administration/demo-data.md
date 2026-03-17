@@ -97,6 +97,42 @@ with transaction.atomic():
     User.objects.filter(username__startswith="demo", email__endswith="@visiban.example").delete()
 ```
 
+## GitLab CI setup for automated demo refresh
+
+The `seed-demo-data` GitLab CI job refreshes the demo board on a weekly schedule and can also be triggered manually from the GitLab pipeline UI. It requires three GitLab CI/CD variables and a pipeline schedule to be configured before it will work.
+
+### Required GitLab CI/CD variables
+
+In your GitLab project, go to **Settings → CI/CD → Variables** and add the following. All three must be **Protected** and **Masked**, scoped to the `demo` environment.
+
+| Variable | Description |
+|---|---|
+| `DEMO_SECRET_KEY` | Django secret key for the demo environment. Generate with: `python -c "import secrets; print(secrets.token_hex(50))"` |
+| `DEMO_DATABASE_URL` | PostgreSQL connection string for the demo environment's database, e.g. `postgres://user:pass@host:5432/dbname` |
+| `DEMO_REDIS_URL` | Redis connection string for the demo environment, e.g. `redis://host:6379/0` |
+
+!!! warning
+    If any of these variables are missing or empty, the GitLab CI job fails immediately with `ImproperlyConfigured: DJANGO_SECRET_KEY must be set`. The job appears in all pipelines as a manual trigger — if you see this error after clicking **Run**, check that all three variables are set and scoped correctly to the `demo` environment in **Settings → CI/CD → Variables**.
+
+### Setting up the weekly GitLab CI schedule
+
+1. In your GitLab project, go to **CI/CD → Schedules** and click **New schedule**.
+2. Set the cron to `0 4 * * 1` (Mondays at 04:00 UTC).
+3. Set the target branch to `main`.
+4. Add a schedule variable: `SEED_SCHEDULE` = `true`.
+5. Save the schedule.
+
+The schedule variable `SEED_SCHEDULE=true` is what activates the job — without it the scheduled GitLab pipeline runs but `seed-demo-data` is skipped.
+
+### Optional: custom random seed
+
+The job uses today's date (`YYYYMMDD`) as the random seed by default, so each weekly refresh produces a naturally varied board while remaining reproducible within the same day. To override this, set `SEED_VALUE` to any integer when triggering the job manually via the GitLab pipeline UI:
+
+| Variable | Example value | Effect |
+|---|---|---|
+| `SEED_VALUE` | `42` | Uses seed 42 — same board layout every time |
+| *(unset)* | — | Uses today's date — varies weekly |
+
 ## Import files and test data
 
 The board import endpoint (`POST /api/boards/import/`) accepts the same JSON and CSV format produced by the board export. If someone uploads a hand-crafted file to simulate a board import (for automation testing, template validation, etc.):
