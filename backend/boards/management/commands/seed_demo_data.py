@@ -12,14 +12,19 @@ Pass --seed N to override (e.g. for generating alternate datasets in CI).
 Usage:
     python manage.py seed_demo_data
         Create the demo board (skip silently if it already exists).
+        Requires DEBUG=True or --force to prevent accidental runs on production.
 
     python manage.py seed_demo_data --wipe
         Delete the existing demo board and recreate from scratch.
-        Requires DEBUG=True to prevent accidental use on production data.
+        Requires DEBUG=True or --force to prevent accidental use on production data.
 
     python manage.py seed_demo_data --wipe --force
         Override the DEBUG=True guard. Intended for CI/CD pipelines where
         DEBUG=False but you still need a clean board refresh.
+
+    python manage.py seed_demo_data --force
+        Run on a production-like environment where DEBUG=False.
+        Only safe on dedicated demo environments — never on a live database.
 
     python manage.py seed_demo_data --export
         After seeding, write canonical JSON and CSV snapshots to
@@ -393,7 +398,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--force",
             action="store_true",
-            help="Override the DEBUG=True guard when using --wipe (CI use only).",
+            help=(
+                "Override the DEBUG=True guard (CI / dedicated demo environments only). "
+                "Applies to both plain runs and --wipe."
+            ),
         )
         parser.add_argument(
             "--export",
@@ -410,12 +418,17 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         random.seed(options["seed"])
 
+        # Production guard: refuse to run on any non-DEBUG environment unless
+        # --force is explicitly passed. This applies to both plain runs (which
+        # create demo users and a demo board) and --wipe runs (which delete
+        # existing data). Running against a live database would corrupt it.
+        if not settings.DEBUG and not options["force"]:
+            raise CommandError(
+                "Refusing to seed: DEBUG is False. "
+                "Pass --force to override (only safe on dedicated demo environments)."
+            )
+
         if options["wipe"]:
-            if not settings.DEBUG and not options["force"]:
-                raise CommandError(
-                    "Refusing to --wipe: DEBUG is False. "
-                    "Pass --force to override (only safe on dedicated demo environments)."
-                )
             deleted, _ = Board.objects.filter(name=BOARD_NAME).delete()
             if deleted:
                 self.stdout.write(f"Deleted existing '{BOARD_NAME}' and all related data.")
@@ -435,12 +448,14 @@ class Command(BaseCommand):
         labels = self._create_labels(board)
         self._add_members(board, users)
         cards = self._create_cards(board, columns, swimlanes, labels, users)
+        n_archived = self._archive_some_cards(cards)
 
         self.stdout.write(
             self.style.SUCCESS(
                 f"Seeded '{BOARD_NAME}': "
                 f"{len(columns)} columns, {len(swimlanes)} swimlanes, "
-                f"{len(labels)} labels, {len(cards)} cards."
+                f"{len(labels)} labels, {len(cards)} cards "
+                f"({n_archived} archived)."
             )
         )
 
@@ -648,6 +663,22 @@ class Command(BaseCommand):
                 actor=actor,
             )
 
+    def _archive_some_cards(self, cards):
+        """
+        Archive 7–10 randomly selected cards to populate the Archived panel on
+        the demo board. Archived dates are back-filled between 3 and 45 days ago
+        so the panel shows a realistic spread of recently-archived work.
+        """
+        n = random.randint(7, 10)
+        to_archive = random.sample(cards, min(n, len(cards)))
+        now = timezone.now()
+        for card in to_archive:
+            days_ago = random.randint(3, 45)
+            archived_at = now - datetime.timedelta(days=days_ago)
+            Card.objects.filter(pk=card.pk).update(archived_at=archived_at)
+            card.archived_at = archived_at  # keep in-memory object consistent
+        return len(to_archive)
+
     # ── Export ─────────────────────────────────────────────────────────────────
 
     def _export(self, board, columns, swimlanes, labels, cards):
@@ -662,7 +693,9 @@ class Command(BaseCommand):
         # Re-fetch cards with all related data prefetched so that _export_json
         # and _export_csv don't issue N+1 queries for labels, checklist items,
         # comments, column, swimlane, and assignee.
-        card_ids = [c.pk for c in cards]
+        # Export only active (non-archived) cards — the snapshot represents the
+        # live board view, not the archived history.
+        card_ids = [c.pk for c in cards if c.archived_at is None]
         cards = (
             board.cards
             .filter(pk__in=card_ids)

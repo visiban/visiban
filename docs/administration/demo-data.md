@@ -1,6 +1,6 @@
 # Demo Data
 
-> **Warning: development and staging only.** Running the seed command against a production database will create demo boards, demo users, and dummy cards that are indistinguishable from real data. There is no system-level `is_demo` flag and no automated cleanup. See [Cleaning up accidental seeding](#cleaning-up-accidental-seeding) if this happens.
+> **Warning: development and staging only.** The command is guarded against running when `DEBUG=False` without `--force`, but `--force` must never be used on a live database. Demo boards, demo users, and dummy cards are indistinguishable from real data at the database level — there is no `is_demo` flag and no automated cleanup. See [Cleaning up accidental seeding](#cleaning-up-accidental-seeding) if this happens.
 
 ## Overview
 
@@ -13,13 +13,14 @@ The `seed_demo_data` management command creates a "Visiban Demo Board" populated
 ## Running the command
 
 ```bash
-# Create the demo board (skip silently if it already exists)
+# Create the demo board (skip if it already exists). Requires DEBUG=True or --force.
 python manage.py seed_demo_data
 
-# Wipe and recreate from scratch (requires DEBUG=True)
+# Wipe and recreate from scratch. Requires DEBUG=True or --force.
 python manage.py seed_demo_data --wipe
 
-# Wipe in a CI environment where DEBUG=False
+# Run on a staging/CI environment where DEBUG=False
+python manage.py seed_demo_data --force
 python manage.py seed_demo_data --wipe --force
 
 # After seeding, write canonical JSON and CSV snapshots to scripts/seed/
@@ -27,11 +28,24 @@ python manage.py seed_demo_data --wipe --force
 python manage.py seed_demo_data --export
 ```
 
-## Production guard limitations
+## Production guard
 
-The `--wipe` flag is guarded: it raises an error if `DEBUG` is `False` and `--force` is not passed. However, **the base command (without `--wipe`) has no production guard**. Running `seed_demo_data` on a live instance will silently create a demo board and five demo user accounts.
+Both the plain run and the `--wipe` flag are guarded: the command raises an error if `DEBUG` is `False` and `--force` is not passed.
 
-To prevent this, do not expose `manage.py` on production servers in ways that allow arbitrary command execution, and ensure your deployment runbooks do not include `seed_demo_data` in any production provisioning step.
+```
+CommandError: Refusing to seed: DEBUG is False.
+Pass --force to override (only safe on dedicated demo environments).
+```
+
+Use `--force` only on dedicated demo or staging environments — never against a live database:
+
+```bash
+# Allowed on staging where DEBUG=False
+python manage.py seed_demo_data --force
+python manage.py seed_demo_data --wipe --force
+```
+
+Even with the guard in place, do not expose `manage.py` on production servers in ways that allow arbitrary command execution, and ensure your deployment runbooks do not include `seed_demo_data` in any production provisioning step.
 
 ## Demo user accounts
 

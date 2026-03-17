@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- Demo board seeded by `seed_demo_data` now includes pre-archived cards so the **Archived** panel shows populated content on a fresh seed, showcasing the card archiving feature without manual setup
 - Removed obsolete `version:` attribute from `docker-compose.yml` and `docker-compose.prod.yml`; the field has been ignored since Docker Compose v2 and produced a deprecation warning on every invocation
 - Added docstrings to complex, non-obvious backend and frontend logic: `get_board_role()` permission precedence, `CardMovement` denormalized field rationale, `BoardFullSerializer.get_members()` member resolution, `BoardViewSet` import (JSON/CSV) and analytics endpoints, `CardViewSet.update()` field-change tracking, and `useBoardSocket` WebSocket reconnection behaviour
 - CI: added `backend-sast` (bandit, medium+ severity) and `frontend-sast` (eslint-plugin-security) jobs to the security stage; both run on MR pipelines and on `main` when relevant files change
@@ -25,6 +26,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- `seed_demo_data` now refuses to run (with or without `--wipe`) when `DEBUG` is `False` and `--force` is not passed, preventing accidental demo board creation on production servers
+- `ensure_site_admin` now writes the one-time password to `/tmp/visiban_admin_password` with a trailing newline so `cat` output is not run together with the shell prompt (zsh users no longer see a spurious `%` that could be mistaken for part of the password)
+- First Boot docs now include explicit `cat` and `rm` commands for Kubernetes/Helm, and a tip callout clarifying that the `%` shown by zsh after `cat` is a shell artifact not part of the password
 - Local backend development server and management commands (`manage.py`) no longer crash on startup with a URL converter registration conflict when running outside Docker
 - WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)
 - Real-time board updates now broadcast for all remaining mutation operations: adding a comment, adding or deleting an attachment, adding, updating, or deleting a checklist item, creating, updating, or deleting a label, adding, updating, or removing a board member, and reordering columns or swimlanes — other users' boards now reflect these changes instantly without a page refresh (#203)

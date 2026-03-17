@@ -5,14 +5,12 @@ Add swimlane color picker to edit modal,To Do,Acme Corp,medium,2026-03-30,8,,dem
 Add pagination to movement history endpoint,Doing,Acme Corp,medium,2026-04-05,3,Improvement,demo2,3,2,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Set up MinIO for local dev attachments,Doing,Acme Corp,high,2026-03-29,7,Feature;Improvement,demo3,0,0,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
 Implement rate limiting on auth endpoints,Doing,Acme Corp,low,,5,Improvement,demo5,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Fix column separator drag on Firefox,Doing,Acme Corp,high,2026-04-03,7,,demo3,0,0,2,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
 Improve error messages on 403 responses,Done,Acme Corp,medium,2026-03-03,4,,demo2,0,0,3,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
 Add attachment preview for PDFs,Done,Acme Corp,high,2026-03-28,6,Bug;Feature,demo5,4,2,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
 Write API docs for /boards/{id}/full/,Done,Acme Corp,medium,,8,,,0,0,1,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Fix Google OAuth callback 500 on new user,Backlog,Beta Team,medium,2026-03-19,5,Bug;Improvement,demo1,5,0,3,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Add Prometheus metrics endpoint,Backlog,Beta Team,medium,2026-02-27,6,Bug;Improvement,demo3,3,1,3,## Goal  Allow board admins to download a CSV of all card movements for external
 Fix due-date badge color for overdue cards,Doing,Beta Team,high,,6,Feature,demo5,0,0,1,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
-Add read-only viewer role enforcement,Doing,Beta Team,urgent,2026-02-28,1,,demo3,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Fix XSS via card title in notifications,Review,Beta Team,low,2026-03-27,7,Bug;Feature,demo2,0,0,1,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
 Set up weekly demo data refresh job,Done,Beta Team,low,,6,Improvement,,3,0,1,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Write integration test for card move API,Backlog,Cloudstride Ltd,high,,6,Improvement,demo4,4,2,1,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
@@ -23,7 +21,6 @@ Add card duplication action,Doing,Cloudstride Ltd,medium,2026-04-06,6,Improvemen
 Update Python dependencies to latest patch,Doing,Cloudstride Ltd,urgent,2026-03-28,5,Bug;Feature,demo2,0,0,2,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Integrate Sentry for frontend error tracking,Doing,Cloudstride Ltd,high,2026-03-18,8,,demo1,3,2,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Investigate flaky test in test_concurrent_moves,Done,Cloudstride Ltd,medium,,8,Bug;Improvement,,0,0,2,## Problem  The login flow redirects to `/dashboard` even when the user came fro
-Fix empty state not showing on fresh board,Backlog,DevOps Guild,medium,,6,Improvement,demo1,4,1,1,Dark-mode email templates should match the app's dark theme (`bg-gray-900` palet
 Fix checklist item delete losing position,Backlog,DevOps Guild,medium,2026-03-21,8,,demo3,5,3,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
 Improve onboarding empty state copy,Backlog,DevOps Guild,urgent,2026-03-18,5,,demo2,0,0,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
 Support @mentions in card descriptions,To Do,DevOps Guild,high,2026-04-06,8,,,4,1,1,## Background  Users frequently miss due dates because there is no proactive not
@@ -31,7 +28,6 @@ Fix stale WebSocket after board rename,To Do,DevOps Guild,high,2026-03-31,2,,,0,
 Create Helm chart for staging deployment,Doing,DevOps Guild,low,2026-04-04,4,,demo4,0,0,3,## Background  Users frequently miss due dates because there is no proactive not
 Add invite-only registration toggle,Review,DevOps Guild,urgent,2026-02-24,4,Feature,demo5,0,0,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Add offline mode banner,Done,DevOps Guild,medium,,2,Feature;Improvement,demo3,0,0,3,## Goal  Allow board admins to download a CSV of all card movements for external
-Implement card template system,Done,DevOps Guild,high,2026-03-13,5,Feature,demo4,4,4,0,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Investigate slow card load on large boards,Backlog,Ember Studio,high,2026-03-29,6,Improvement,demo4,0,0,2,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Benchmark board load with 1000+ cards,Backlog,Ember Studio,medium,2026-03-28,3,,demo4,0,0,3,Dark-mode email templates should match the app's dark theme (`bg-gray-900` palet
 Add read receipt to comments,To Do,Ember Studio,medium,2026-03-09,8,Feature,demo5,0,0,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
@@ -66,7 +62,6 @@ Audit all endpoints for IDOR vulnerabilities,Backlog,Hardrock Systems,urgent,202
 Fix notification bell count mismatch,To Do,Hardrock Systems,high,2026-03-03,7,Bug,demo5,4,0,0,## Goal  Allow board admins to download a CSV of all card movements for external
 Write performance test for /boards/{id}/full/,Doing,Hardrock Systems,urgent,2026-04-10,1,Bug;Improvement,demo2,0,0,1,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Implement card weight rollup per swimlane,Review,Hardrock Systems,low,,7,,demo1,0,0,0,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
-Add group-level board visibility setting,Done,Hardrock Systems,low,,3,Bug,demo5,0,0,1,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
 Support emoji in card titles,Backlog,Indigo Labs,high,2026-03-25,4,Feature;Improvement,demo2,0,0,3,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Refactor swimlane reorder endpoint,To Do,Indigo Labs,high,2026-03-17,4,,,5,3,0,## Goal  Allow board admins to download a CSV of all card movements for external
 Increase test coverage for CardMovement,To Do,Indigo Labs,high,2026-02-28,6,Bug;Feature,,4,2,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
@@ -77,12 +72,10 @@ Add board activity feed,Done,Indigo Labs,medium,2026-03-26,8,Feature;Improvement
 Optimise full-board query with select_related,Done,Indigo Labs,medium,2026-03-18,6,Feature,demo2,0,0,0,Dark-mode email templates should match the app's dark theme (`bg-gray-900` palet
 Implement board-level search,Done,Indigo Labs,medium,2026-03-30,3,Bug;Feature,demo4,4,3,1,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Migrate CI from Docker-in-Docker to kaniko,Backlog,Just Ship It,medium,2026-03-31,8,,demo3,4,2,1,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
-Add card quick-add shortcut to swimlane,Backlog,Just Ship It,medium,,4,Bug,,4,2,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
 Add pagination to movement history endpoint,Backlog,Just Ship It,high,,7,,demo4,5,2,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
 Implement due-date reminder notifications,To Do,Just Ship It,medium,2026-03-13,7,Bug;Feature,demo3,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
 Set up staging environment seed job,Doing,Just Ship It,low,,6,,demo1,0,0,2,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
 Set up MinIO for local dev attachments,Doing,Just Ship It,medium,2026-03-25,6,Feature,,0,0,0,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
 Implement rate limiting on auth endpoints,Doing,Just Ship It,high,2026-04-03,7,Bug;Improvement,demo4,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Improve error messages on 403 responses,Review,Just Ship It,high,,1,Improvement,demo3,4,2,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Add attachment preview for PDFs,Review,Just Ship It,high,2026-04-07,8,Improvement,demo2,5,3,3,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
 Fix CSV import skipping blank description,Done,Just Ship It,urgent,,1,,,0,0,3,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
