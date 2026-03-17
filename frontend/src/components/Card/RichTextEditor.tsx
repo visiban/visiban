@@ -16,6 +16,8 @@ interface Props {
   placeholder?: string;
   members?: BoardMembership[];
   minHeight?: string;
+  /** When true, shows explicit Save + Cancel buttons instead of blur-to-save */
+  showActions?: boolean;
 }
 
 // A small set of readable text colors for the dark theme.
@@ -135,9 +137,13 @@ export default function RichTextEditor({
   readOnly = false,
   placeholder = "Add a description…",
   minHeight = "min-h-32",
+  showActions = false,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Captures the committed value at the moment the user clicks to edit,
+  // so Cancel can restore it without calling onSave.
+  const originalValueRef = useRef(value);
 
   const editor = useEditor({
     extensions: [
@@ -155,8 +161,11 @@ export default function RichTextEditor({
     content: value,
     editable: true,
     onBlur: ({ event }) => {
-      // Don't save if focus moved to a toolbar button or color picker
+      // Don't save if focus moved to a toolbar button, color picker, or action button —
+      // all of these are inside containerRef
       if (containerRef.current?.contains(event.relatedTarget as Node)) return;
+      // When showActions is true the Save button is the only save trigger — blur does nothing
+      if (showActions) return;
       const md = editor?.storage.markdown?.getMarkdown() ?? "";
       onSave(md);
       setIsEditing(false);
@@ -174,9 +183,21 @@ export default function RichTextEditor({
 
   const enterEdit = useCallback(() => {
     if (readOnly) return;
+    originalValueRef.current = value;
     setIsEditing(true);
     setTimeout(() => editor?.commands.focus("end"), 0);
-  }, [readOnly, editor]);
+  }, [readOnly, editor, value]);
+
+  const handleSave = useCallback(() => {
+    const md = editor?.storage.markdown?.getMarkdown() ?? "";
+    onSave(md);
+    setIsEditing(false);
+  }, [editor, onSave]);
+
+  const handleCancel = useCallback(() => {
+    editor?.commands.setContent(originalValueRef.current);
+    setIsEditing(false);
+  }, [editor]);
 
   const currentColor = (editor?.getAttributes("textStyle").color as string) ?? "";
 
@@ -240,7 +261,8 @@ export default function RichTextEditor({
     );
   }
 
-  // Edit mode
+  // Edit mode — containerRef wraps everything (toolbar + editor + actions) so
+  // the blur-check correctly covers all child elements including Save/Cancel.
   return (
     <div ref={containerRef} className="flex flex-col gap-1">
       {/* Toolbar */}
@@ -337,6 +359,28 @@ export default function RichTextEditor({
           "[&_.tiptap_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_.is-editor-empty:first-child::before]:text-slate-500 [&_.tiptap_.is-editor-empty:first-child::before]:italic [&_.tiptap_.is-editor-empty:first-child::before]:float-left [&_.tiptap_.is-editor-empty:first-child::before]:pointer-events-none",
         ].join(" ")}
       />
+
+      {/* Save / Cancel — only shown when showActions is true.
+          onMouseDown with preventDefault keeps editor focus so we can read the
+          final content via getMarkdown() before the blur event fires. */}
+      {showActions && (
+        <div className="flex justify-end items-center gap-2 pt-1">
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
+            className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition rounded"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
+            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition font-medium"
+          >
+            Save
+          </button>
+        </div>
+      )}
     </div>
   );
 }

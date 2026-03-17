@@ -40,6 +40,22 @@ export function formatCommentTime(iso: string): string {
   });
 }
 
+// Deterministic avatar color per user — cycles through a fixed palette so each
+// person's initials always appear in the same color regardless of where they show up.
+const AVATAR_PALETTE = [
+  { bg: "bg-teal-700",    text: "text-teal-100"    },
+  { bg: "bg-amber-700",   text: "text-amber-100"   },
+  { bg: "bg-violet-700",  text: "text-violet-100"  },
+  { bg: "bg-rose-700",    text: "text-rose-100"    },
+  { bg: "bg-blue-700",    text: "text-blue-100"    },
+  { bg: "bg-emerald-700", text: "text-emerald-100" },
+  { bg: "bg-orange-700",  text: "text-orange-100"  },
+  { bg: "bg-pink-700",    text: "text-pink-100"    },
+];
+function avatarColor(userId: number) {
+  return AVATAR_PALETTE[userId % AVATAR_PALETTE.length];
+}
+
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "low",    label: "Low",    color: PRIORITY_COLORS.low },
   { value: "medium", label: "Medium", color: PRIORITY_COLORS.medium },
@@ -91,17 +107,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     onUpdated(updated);
   };
 
-  const handleTitleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const trimmed = localCard.title.trim();
-      if (trimmed) {
-        await save({ title: trimmed });
-        onClose();
-      }
+      (e.target as HTMLInputElement).blur(); // blur triggers save
     } else if (e.key === "Escape") {
       setLocalCard((c) => ({ ...c, title: card.title }));
       (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  const handleTitleBlur = async () => {
+    const trimmed = localCard.title.trim();
+    if (!trimmed) {
+      // Restore if user cleared the title entirely
+      setLocalCard((c) => ({ ...c, title: card.title }));
+    } else if (trimmed !== card.title) {
+      await save({ title: trimmed });
     }
   };
 
@@ -243,6 +265,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               value={localCard.title}
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}
+              onBlur={handleTitleBlur}
               className="text-base font-semibold text-white w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-blue-400 focus:bg-blue-900/20 bg-transparent transition"
             />
             <p className="text-[11px] text-slate-500 mt-1 px-1">
@@ -286,6 +309,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     save({ description: md });
                   }}
                   readOnly={!canEdit}
+                  showActions={canEdit}
                   placeholder="Add a description…"
                   minHeight="min-h-32"
                 />
@@ -597,9 +621,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   {comments.map((c) => {
                     const authorName = c.author ? userDisplayName(c.author) : "Unknown";
                     const authorInitials = authorName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+                    const avatarCls = avatarColor(c.author?.id ?? 0);
                     return (
                       <div key={c.id} className="flex gap-2.5">
-                        <span className="w-7 h-7 rounded-full bg-indigo-900/50 text-indigo-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        <span className={`w-7 h-7 rounded-full ${avatarCls.bg} ${avatarCls.text} text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5`}>
                           {authorInitials}
                         </span>
                         <div className="flex-1 min-w-0">

@@ -16,9 +16,13 @@ vi.mock('@tiptap/starter-kit', () => ({ default: {} }))
 vi.mock('@tiptap/extension-placeholder', () => ({
   default: { configure: vi.fn(() => ({})) },
 }))
+vi.mock('@tiptap/extension-text-style', () => ({ default: {} }))
+vi.mock('@tiptap/extension-color', () => ({ Color: {} }))
 vi.mock('tiptap-markdown', () => ({
   Markdown: { configure: vi.fn(() => ({})) },
 }))
+// rehype-raw must be a function (unified plugin) — an empty object causes react-markdown to throw
+vi.mock('rehype-raw', () => ({ default: () => {} }))
 
 describe('RichTextEditor', () => {
   const onSave = vi.fn()
@@ -78,6 +82,28 @@ describe('RichTextEditor', () => {
       fireEvent.click(container.firstChild as Element)
       // Should remain in view mode — tiptap editor not rendered
       expect(screen.queryByTestId('tiptap-editor')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('showActions', () => {
+    it('shows Save and Cancel buttons in edit mode when showActions is true', () => {
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} showActions />)
+      fireEvent.click(container.firstChild as Element)
+      expect(screen.getByText('Save')).toBeInTheDocument()
+      expect(screen.getByText('Cancel')).toBeInTheDocument()
+    })
+
+    it('does not show Save/Cancel buttons when showActions is false', () => {
+      const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
+      fireEvent.click(container.firstChild as Element)
+      expect(screen.queryByText('Save')).not.toBeInTheDocument()
+      expect(screen.queryByText('Cancel')).not.toBeInTheDocument()
+    })
+
+    it('does not show Save/Cancel in view mode even when showActions is true', () => {
+      render(<RichTextEditor value="text" onSave={onSave} showActions />)
+      expect(screen.queryByText('Save')).not.toBeInTheDocument()
+      expect(screen.queryByText('Cancel')).not.toBeInTheDocument()
     })
   })
 
