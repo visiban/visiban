@@ -24,7 +24,8 @@ function stripMarkdown(md: string): string {
     .replace(/^>\s*/gm, "")             // > blockquotes
     .replace(/^[-*+]\s+/gm, "")         // - bullet items
     .replace(/^\d+\.\s+/gm, "")         // 1. ordered items
-    .replace(/\s+/g, " ")               // collapse whitespace
+    .replace(/[^\S\n]+/g, " ")           // collapse horizontal whitespace (preserve newlines)
+    .replace(/\n{3,}/g, "\n\n")         // cap consecutive blank lines to one
     .trim();
 }
 
@@ -112,7 +113,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
         {/* Description — revealed on hover */}
         {card.description && (
           <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-150 ease-out">
-            <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-slate-700 pt-1.5">
+            <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-slate-700 pt-1.5 whitespace-pre-line">
               {stripMarkdown(card.description)}
             </p>
           </div>
