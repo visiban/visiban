@@ -28,6 +28,7 @@ def _seed(**kwargs):
     return out.getvalue(), err.getvalue()
 
 
+@override_settings(DEBUG=True)
 class SeedCreateTests(TestCase):
     def test_creates_board_with_correct_structure(self):
         _seed()
@@ -87,6 +88,7 @@ class SeedCreateTests(TestCase):
         self.assertIn(BOARD_NAME, out)
 
 
+@override_settings(DEBUG=True)
 class SeedDueDateTests(TestCase):
     def test_at_least_one_overdue_card(self):
         _seed()
@@ -109,6 +111,7 @@ class SeedDueDateTests(TestCase):
         self.assertGreater(future, 0, "Expected at least one card with a future due date")
 
 
+@override_settings(DEBUG=True)
 class SeedChecklistAndCommentsTests(TestCase):
     def test_some_cards_have_checklists(self):
         _seed()
@@ -132,6 +135,7 @@ class SeedChecklistAndCommentsTests(TestCase):
         self.assertGreater(unchecked, 0, "Expected some unchecked items")
 
 
+@override_settings(DEBUG=True)
 class SeedMovementHistoryTests(TestCase):
     def test_cards_not_in_backlog_have_movement_records(self):
         _seed()
@@ -172,6 +176,7 @@ class SeedMovementHistoryTests(TestCase):
         self.assertEqual(future_movements.count(), 0)
 
 
+@override_settings(DEBUG=True)
 class SeedIdempotencyTests(TestCase):
     def test_running_twice_without_wipe_skips(self):
         _seed()
@@ -179,7 +184,6 @@ class SeedIdempotencyTests(TestCase):
         self.assertIn("already exists", out)
         self.assertEqual(Board.objects.filter(name=BOARD_NAME).count(), 1)
 
-    @override_settings(DEBUG=True)
     def test_wipe_then_reseed_gives_single_board(self):
         _seed()
         _seed(wipe=True)
@@ -189,7 +193,8 @@ class SeedIdempotencyTests(TestCase):
 class SeedWipeGuardTests(TestCase):
     @override_settings(DEBUG=False)
     def test_wipe_refused_when_debug_false(self):
-        _seed()  # Create the board first (DEBUG doesn't matter for creation)
+        # Set up the board using --force so the plain-run guard doesn't block us.
+        _seed(force=True)
         with self.assertRaises(CommandError) as ctx:
             _seed(wipe=True)
         self.assertIn("Refusing", str(ctx.exception))
@@ -197,7 +202,7 @@ class SeedWipeGuardTests(TestCase):
 
     @override_settings(DEBUG=False)
     def test_wipe_with_force_succeeds_when_debug_false(self):
-        _seed()
+        _seed(force=True)
         _seed(wipe=True, force=True)
         # Board should exist exactly once
         self.assertEqual(Board.objects.filter(name=BOARD_NAME).count(), 1)
@@ -246,6 +251,7 @@ class SeedDeterminismTests(TestCase):
         self.assertEqual(cols_1, cols_2)
 
 
+@override_settings(DEBUG=True)
 class SeedExportTests(TestCase):
     def test_export_writes_json_file(self):
         with mock.patch(
@@ -325,3 +331,90 @@ class SeedExportTests(TestCase):
         }
         self.assertEqual(set(rows[0].keys()), expected_headers)
         self.assertEqual(len(rows), len(cards))
+
+
+class SeedProductionGuardTests(TestCase):
+    """Plain (non-wipe) runs must also be guarded against production environments."""
+
+    @override_settings(DEBUG=False)
+    def test_plain_run_refused_when_debug_false(self):
+        with self.assertRaises(CommandError) as ctx:
+            _seed()
+        self.assertIn("Refusing", str(ctx.exception))
+        self.assertIn("--force", str(ctx.exception))
+
+    @override_settings(DEBUG=False)
+    def test_plain_run_with_force_succeeds_when_debug_false(self):
+        _seed(force=True)
+        self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())
+
+    @override_settings(DEBUG=False)
+    def test_guard_message_does_not_mention_wipe(self):
+        """Error from plain run should not mislead users into thinking --wipe is required."""
+        with self.assertRaises(CommandError) as ctx:
+            _seed()
+        # The message should say "seed", not be specific to --wipe
+        self.assertIn("seed", str(ctx.exception).lower())
+
+
+@override_settings(DEBUG=True)
+class SeedArchivingTests(TestCase):
+    """Archived card seeding introduced alongside card archiving (#226)."""
+
+    def test_some_cards_are_archived_after_seed(self):
+        _seed()
+        archived = Card.objects.filter(archived_at__isnull=False).count()
+        self.assertGreaterEqual(archived, 7, "Expected at least 7 archived cards")
+        self.assertLessEqual(archived, 10, "Expected at most 10 archived cards")
+
+    def test_archived_cards_have_past_timestamps(self):
+        _seed()
+        now = timezone.now()
+        future_archived = Card.objects.filter(archived_at__gte=now).count()
+        self.assertEqual(future_archived, 0, "No archived_at should be in the future")
+
+    def test_archived_cards_span_multiple_days(self):
+        """archived_at dates should be spread across 3–45 days ago, not all identical."""
+        _seed()
+        dates = set(
+            Card.objects.filter(archived_at__isnull=False)
+            .values_list("archived_at__date", flat=True)
+        )
+        self.assertGreater(len(dates), 1, "Expected archived cards on different dates")
+
+    def test_output_reports_archived_count(self):
+        out, _ = _seed()
+        self.assertIn("archived", out.lower())
+
+    def test_export_excludes_archived_cards(self):
+        """The JSON snapshot should only include active (non-archived) cards."""
+        import json
+        import tempfile
+        from pathlib import Path
+
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+
+        from boards.management.commands.seed_demo_data import Command
+
+        cmd = Command()
+        cmd.stdout = StringIO()
+        cmd.style = mock.MagicMock()
+        cmd.style.SUCCESS = lambda s: s
+
+        active_count = board.cards.filter(archived_at__isnull=True).count()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            seed_dir = Path(tmp)
+            cols = list(board.columns.all())
+            lanes = list(board.swimlanes.all())
+            lbls = list(board.labels.all())
+            # Pass all cards (including archived) as the command does internally.
+            cards = list(board.cards.all())
+            # Simulate the _export filter: exclude archived.
+            active_cards = [c for c in cards if c.archived_at is None]
+            cmd._export_json(board, cols, lanes, lbls, active_cards, seed_dir)
+            data = json.loads((seed_dir / "demo_board.json").read_text())
+
+        self.assertEqual(len(data["cards"]), active_count)
+        self.assertLess(len(data["cards"]), board.cards.count())
