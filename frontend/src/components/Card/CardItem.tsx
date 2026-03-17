@@ -10,7 +10,8 @@ import { formatDueDate } from "../../utils/date";
 function stripMarkdown(md: string): string {
   return md
     .replace(/<[^>]+>/g, "")             // remove HTML tags (color spans, etc.)
-    .replace(/\\\s*/g, " ")              // remove backslash continuations tiptap-markdown adds before HTML
+    .replace(/\\\n/g, "\n")             // backslash-newline (tiptap hard line break before HTML) → preserve as newline
+    .replace(/\\/g, "")                 // remove remaining lone backslashes
     .replace(/\*\*\*(.+?)\*\*\*/g, "$1") // ***bold italic***
     .replace(/___(.+?)___/g, "$1")       // ___bold italic___
     .replace(/\*\*(.+?)\*\*/g, "$1")     // **bold**

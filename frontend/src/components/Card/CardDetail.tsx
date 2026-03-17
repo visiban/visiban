@@ -340,10 +340,42 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Due date</p>
-                  <div className="flex items-center gap-1.5">
+                  {/* The native <input type="date"> always displays in the browser's locale
+                      format (e.g. mm/dd/yyyy on en-US) regardless of user settings.
+                      When a date is already set, overlay an invisible native input over a
+                      styled display so the user always sees their chosen format. */}
+                  {localCard.due_date ? (() => {
+                    const info = formatDueDate(localCard.due_date, userTimezone, userDateFormat);
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative flex-1">
+                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full cursor-pointer select-none ${info.overdue ? "bg-red-950/40 border-red-700/60 text-red-300" : "bg-slate-700 border-slate-500 text-slate-100"}`}>
+                            {formatDateStr(localCard.due_date, userDateFormat)}
+                          </div>
+                          <input
+                            type="date"
+                            value={localCard.due_date}
+                            onChange={(e) => {
+                              const v = e.target.value || null;
+                              setLocalCard((c) => ({ ...c, due_date: v }));
+                              save({ due_date: v });
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </div>
+                        <button
+                          onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }); }}
+                          className="text-slate-600 hover:text-red-400 transition text-xs shrink-0"
+                          title="Clear due date"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })() : (
                     <input
                       type="date"
-                      value={localCard.due_date ?? ""}
+                      value=""
                       min={new Date().toISOString().slice(0, 10)}
                       onChange={(e) => {
                         const v = e.target.value || null;
@@ -352,27 +384,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       }}
                       className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400 w-full text-slate-100 [&::-webkit-datetime-edit]:text-slate-100 [&::-webkit-datetime-edit-fields-wrapper]:text-slate-100 [&::-webkit-datetime-edit-text]:text-slate-400 [&::-webkit-datetime-edit-month-field]:text-slate-100 [&::-webkit-datetime-edit-day-field]:text-slate-100 [&::-webkit-datetime-edit-year-field]:text-slate-100 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-70 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                     />
-                    {localCard.due_date && (
-                      <button
-                        onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }); }}
-                        className="text-slate-600 hover:text-red-400 transition text-xs shrink-0"
-                        title="Clear due date"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                  {/* Formatted date label — browsers always display the native date input in
-                      their locale format (mm/dd/yyyy). Show the date in the user's chosen
-                      format below the picker so it is always visible regardless of locale. */}
-                  {localCard.due_date && (() => {
-                    const info = formatDueDate(localCard.due_date, userTimezone, userDateFormat);
-                    return (
-                      <p className={`text-xs mt-1 ${info.overdue ? "text-red-400" : "text-slate-500"}`}>
-                        {info.label}
-                      </p>
-                    );
-                  })()}
+                  )}
                 </div>
               </div>
 
