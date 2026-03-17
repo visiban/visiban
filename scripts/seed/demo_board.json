@@ -252,27 +252,6 @@
       "comments": []
     },
     {
-      "title": "Fix column separator drag on Firefox",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "high",
-      "column": "Doing",
-      "swimlane": "Acme Corp",
-      "due_date": "2026-04-03",
-      "weight": 7,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "The Helm chart change needs a review from DevOps before we ship this.",
-          "author": "demo1"
-        },
-        {
-          "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
       "title": "Improve error messages on 403 responses",
       "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
       "priority": "medium",
@@ -454,18 +433,6 @@
           "author": "demo4"
         }
       ]
-    },
-    {
-      "title": "Add read-only viewer role enforcement",
-      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
-      "priority": "urgent",
-      "column": "Doing",
-      "swimlane": "Beta Team",
-      "due_date": "2026-02-28",
-      "weight": 1,
-      "labels": [],
-      "checklist": [],
-      "comments": []
     },
     {
       "title": "Fix XSS via card title in notifications",
@@ -745,42 +712,6 @@
       ]
     },
     {
-      "title": "Fix empty state not showing on fresh board",
-      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "DevOps Guild",
-      "due_date": null,
-      "weight": 6,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Profile query performance",
-          "is_checked": true
-        },
-        {
-          "text": "Add select_related / prefetch",
-          "is_checked": false
-        },
-        {
-          "text": "Measure improvement",
-          "is_checked": false
-        },
-        {
-          "text": "Add comment explaining why",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Yes, same root cause. Fixing both in the same MR.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
       "title": "Fix checklist item delete losing position",
       "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
       "priority": "medium",
@@ -950,37 +881,6 @@
           "author": "demo4"
         }
       ]
-    },
-    {
-      "title": "Implement card template system",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "high",
-      "column": "Done",
-      "swimlane": "DevOps Guild",
-      "due_date": "2026-03-13",
-      "weight": 5,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Read existing code and write notes",
-          "is_checked": true
-        },
-        {
-          "text": "Identify all affected tests",
-          "is_checked": true
-        },
-        {
-          "text": "Implement fix",
-          "is_checked": true
-        },
-        {
-          "text": "Update docs",
-          "is_checked": true
-        }
-      ],
-      "comments": []
     },
     {
       "title": "Investigate slow card load on large boards",
@@ -1895,25 +1795,6 @@
       "comments": []
     },
     {
-      "title": "Add group-level board visibility setting",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "low",
-      "column": "Done",
-      "swimlane": "Hardrock Systems",
-      "due_date": null,
-      "weight": 3,
-      "labels": [
-        "Bug"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Yes, same root cause. Fixing both in the same MR.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
       "title": "Support emoji in card titles",
       "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
       "priority": "high",
@@ -2214,37 +2095,6 @@
       ]
     },
     {
-      "title": "Add card quick-add shortcut to swimlane",
-      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Just Ship It",
-      "due_date": null,
-      "weight": 4,
-      "labels": [
-        "Bug"
-      ],
-      "checklist": [
-        {
-          "text": "Identify affected endpoints",
-          "is_checked": true
-        },
-        {
-          "text": "Add permission check",
-          "is_checked": false
-        },
-        {
-          "text": "Write test",
-          "is_checked": false
-        },
-        {
-          "text": "Security review",
-          "is_checked": true
-        }
-      ],
-      "comments": []
-    },
-    {
       "title": "Add pagination to movement history endpoint",
       "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
       "priority": "high",
@@ -2350,50 +2200,6 @@
       ],
       "checklist": [],
       "comments": []
-    },
-    {
-      "title": "Improve error messages on 403 responses",
-      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
-      "priority": "high",
-      "column": "Review",
-      "swimlane": "Just Ship It",
-      "due_date": null,
-      "weight": 1,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Identify affected endpoints",
-          "is_checked": true
-        },
-        {
-          "text": "Add permission check",
-          "is_checked": false
-        },
-        {
-          "text": "Write test",
-          "is_checked": true
-        },
-        {
-          "text": "Security review",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
-          "author": "demo3"
-        },
-        {
-          "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
-          "author": "demo5"
-        },
-        {
-          "body": "Filed a hotfix MR. ETA 2h.",
-          "author": "demo4"
-        }
-      ]
     },
     {
       "title": "Add attachment preview for PDFs",
