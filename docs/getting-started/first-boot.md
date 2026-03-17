@@ -40,11 +40,14 @@ Delete the file after retrieving it:
 docker compose -f docker-compose.prod.yml exec backend rm /tmp/visiban_admin_password
 ```
 
-**Local development:**
+**Local development (bare metal / venv):**
 
 ```bash
 cat /tmp/visiban_admin_password
 ```
+
+!!! tip
+    The password is on its own line. If your shell displays a `%` immediately after it, that is a zsh prompt indicator — it is **not** part of the password. Copy only the characters before the `%`.
 
 ### Kubernetes / Helm
 
@@ -52,6 +55,18 @@ The init container only runs `migrate` — `ensure_site_admin` must be run manua
 
 ```bash
 kubectl exec -it -n visiban <backend-pod> -- python manage.py ensure_site_admin
+```
+
+Then retrieve the password from the file inside the pod:
+
+```bash
+kubectl exec -n visiban <backend-pod> -- cat /tmp/visiban_admin_password
+```
+
+Delete it once you have it:
+
+```bash
+kubectl exec -n visiban <backend-pod> -- rm /tmp/visiban_admin_password
 ```
 
 If the admin already exists (e.g. the pod restarted before you retrieved the password), reset the password with:

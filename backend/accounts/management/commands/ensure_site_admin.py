@@ -51,7 +51,7 @@ class Command(BaseCommand):
         # retrieved immediately then deleted.
         try:
             with open(_PASSWORD_FILE, "w") as fh:
-                fh.write(password)
+                fh.write(password + "\n")
             os.chmod(_PASSWORD_FILE, 0o600)
             password_location = f"written to {_PASSWORD_FILE}"
         except OSError as exc:
