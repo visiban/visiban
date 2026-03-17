@@ -283,6 +283,16 @@ describe('CardDetail', () => {
     expect(screen.getByText('Due date')).toBeInTheDocument()
   })
 
+  it('shows user date format as placeholder when no due date is set', () => {
+    render(<CardDetail {...defaultProps()} userDateFormat="DD/MM/YYYY" />)
+    expect(screen.getByText('dd/mm/yyyy')).toBeInTheDocument()
+  })
+
+  it('shows ISO format as placeholder when userDateFormat is YYYY-MM-DD', () => {
+    render(<CardDetail {...defaultProps()} userDateFormat="YYYY-MM-DD" />)
+    expect(screen.getByText('yyyy-mm-dd')).toBeInTheDocument()
+  })
+
   it('shows due date in ISO format when userDateFormat is YYYY-MM-DD', () => {
     const props = defaultProps()
     props.card = makeCard({ due_date: '2099-06-15' })

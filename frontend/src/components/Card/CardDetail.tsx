@@ -373,17 +373,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     );
                   })() : (
-                    <input
-                      type="date"
-                      value=""
-                      min={new Date().toISOString().slice(0, 10)}
-                      onChange={(e) => {
-                        const v = e.target.value || null;
-                        setLocalCard((c) => ({ ...c, due_date: v }));
-                        save({ due_date: v });
-                      }}
-                      className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-400 w-full text-slate-100 [&::-webkit-datetime-edit]:text-slate-100 [&::-webkit-datetime-edit-fields-wrapper]:text-slate-100 [&::-webkit-datetime-edit-text]:text-slate-400 [&::-webkit-datetime-edit-month-field]:text-slate-100 [&::-webkit-datetime-edit-day-field]:text-slate-100 [&::-webkit-datetime-edit-year-field]:text-slate-100 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-70 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
-                    />
+                    <div className="relative">
+                      <div className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 text-slate-500 cursor-pointer select-none">
+                        {userDateFormat.toLowerCase()}
+                      </div>
+                      <input
+                        type="date"
+                        value=""
+                        min={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => {
+                          const v = e.target.value || null;
+                          setLocalCard((c) => ({ ...c, due_date: v }));
+                          save({ due_date: v });
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
                   )}
                 </div>
               </div>
