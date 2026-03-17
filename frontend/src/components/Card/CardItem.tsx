@@ -5,6 +5,29 @@ import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
 import { formatDueDate } from "../../utils/date";
 
+// Strip markdown syntax and HTML tags from a description so the compact card
+// preview shows readable plain text rather than raw markup.
+function stripMarkdown(md: string): string {
+  return md
+    .replace(/<[^>]+>/g, "")             // remove HTML tags (color spans, etc.)
+    .replace(/\\\s*/g, " ")              // remove backslash continuations tiptap-markdown adds before HTML
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1") // ***bold italic***
+    .replace(/___(.+?)___/g, "$1")       // ___bold italic___
+    .replace(/\*\*(.+?)\*\*/g, "$1")     // **bold**
+    .replace(/__(.+?)__/g, "$1")         // __bold__
+    .replace(/\*(.+?)\*/g, "$1")         // *italic*
+    .replace(/_([^_]+)_/g, "$1")         // _italic_
+    .replace(/~~(.+?)~~/g, "$1")         // ~~strikethrough~~
+    .replace(/```[\s\S]*?```/g, "")       // fenced code blocks (drop entirely — too long for preview)
+    .replace(/`([^`]+)`/g, "$1")         // inline code → preserve text
+    .replace(/^#{1,6}\s+/gm, "")        // # headings
+    .replace(/^>\s*/gm, "")             // > blockquotes
+    .replace(/^[-*+]\s+/gm, "")         // - bullet items
+    .replace(/^\d+\.\s+/gm, "")         // 1. ordered items
+    .replace(/\s+/g, " ")               // collapse whitespace
+    .trim();
+}
+
 
 interface Props {
   card: Card;
@@ -90,7 +113,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
         {card.description && (
           <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-150 ease-out">
             <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-slate-700 pt-1.5">
-              {card.description}
+              {stripMarkdown(card.description)}
             </p>
           </div>
         )}
