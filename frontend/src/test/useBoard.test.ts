@@ -47,7 +47,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
       id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium',
       assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1,
       created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
-      last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false,
+      last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
     }],
     labels: [],
     members: [],
@@ -117,7 +117,7 @@ describe('useBoard', () => {
       id: 200, uid: 'carduid00002', column: 10, swimlane: 20, title: 'New Card', description: '', priority: 'low',
       assignee: null, labels: [], due_date: null, weight: 1, position: 1, created_by: 1,
       created_at: '2026-01-01', updated_at: '2026-01-01', last_moved_at: null,
-      attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false,
+      attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
     }
 
     act(() => { result.current.addCard(newCard) })

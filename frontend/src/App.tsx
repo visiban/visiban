@@ -155,6 +155,8 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onCardAdded={addCard}
             onCardDeleted={removeCard}
             onCardUpdated={updateCard}
+            onCardArchived={removeCard}
+            onCardUnarchived={addCard}
             onColumnAdded={addColumn}
             onColumnUpdated={updateColumn}
             onColumnDeleted={removeColumn}

@@ -100,9 +100,9 @@ class CardSerializer(serializers.ModelSerializer):
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
-            "is_stale",
+            "is_stale", "archived_at",
         ]
-        read_only_fields = ["uid", "created_by", "created_at", "updated_at"]
+        read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at"]
 
     def get_last_moved_at(self, obj):
         movement = obj.movements.first()
@@ -169,7 +169,7 @@ class BoardSerializer(serializers.ModelSerializer):
 class BoardFullSerializer(serializers.ModelSerializer):
     columns = ColumnSerializer(many=True, read_only=True)
     swimlanes = SwimlaneSerializer(many=True, read_only=True)
-    cards = CardSerializer(many=True, read_only=True)
+    cards = serializers.SerializerMethodField()
     labels = LabelSerializer(many=True, read_only=True)
     members = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
@@ -184,6 +184,15 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "allowed_priorities", "created_at", "updated_at", "current_user_role", "is_starred",
         ]
         read_only_fields = ["uid"]
+
+    def get_cards(self, obj):
+        """Return only active (non-archived) cards for the board view.
+
+        Archived cards are excluded here; they are fetched separately via the
+        /cards/archived/ action when the user opens the archived panel.
+        """
+        qs = obj.cards.filter(archived_at__isnull=True).prefetch_related("labels", "movements")
+        return CardSerializer(qs, many=True, context=self.context).data
 
     def get_members(self, obj):
         """Return the effective member list for @mention autocomplete and the members panel.

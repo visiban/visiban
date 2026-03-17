@@ -60,6 +60,15 @@ export const uploadCardAttachment = (boardId: number, cardId: number, file: File
 export const deleteCardAttachment = (boardId: number, cardId: number, attachmentId: number) =>
   client.delete(`/api/boards/${boardId}/cards/${cardId}/attachments/${attachmentId}/`);
 
+export const archiveCard = (boardId: number, cardId: number) =>
+  client.post<Card>(`/api/boards/${boardId}/cards/${cardId}/archive/`).then((r) => r.data);
+
+export const unarchiveCard = (boardId: number, cardId: number) =>
+  client.post<Card>(`/api/boards/${boardId}/cards/${cardId}/unarchive/`).then((r) => r.data);
+
+export const getArchivedCards = (boardId: number) =>
+  client.get<Card[]>(`/api/boards/${boardId}/cards/archived/`).then((r) => r.data);
+
 // Checklists
 export const getChecklist = (boardId: number, cardId: number) =>
   client.get<CardChecklistItem[]>(`/api/boards/${boardId}/cards/${cardId}/checklist/`).then((r) => r.data);

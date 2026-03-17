@@ -32,9 +32,17 @@ A table with swimlanes as rows and columns (stages) as columns. Each cell shows 
 
 Switch between **7 days**, **30 days**, and **90 days** to control which card movements are included in the calculation.
 
+### Dwell time and archived cards
+
+Analytics includes archived cards as part of the historical record. When a card is archived, its dwell time in the most recent stage is calculated using the **archive timestamp** as the exit time — not the current date. This means archived cards accurately reflect how long they were actively worked on, and dwell times stop accumulating at the moment of archiving.
+
+Active cards continue to accumulate dwell time in their current stage until they move again.
+
 ### Stalled cards
 
 Below the heatmap, cards that haven't moved in more than the configured stalled-days threshold are listed with their swimlane, column, assignee, and days since last movement.
+
+Archived cards are excluded from stalled card detection — they are no longer in-flight and flagging them as stalled would be misleading.
 
 ### CSV export
 

@@ -129,6 +129,8 @@ function makeProps(overrides: Record<string, unknown> = {}) {
     onSwimlaneUpdated: vi.fn(),
     onSwimlaneDeleted: vi.fn(),
     onSwimlanesReordered: vi.fn(),
+    onCardArchived: vi.fn(),
+    onCardUnarchived: vi.fn(),
     onLabelAdded: vi.fn(),
     onLabelUpdated: vi.fn(),
     onLabelDeleted: vi.fn(),

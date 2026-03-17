@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
-import { deleteCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
+import { deleteCard, archiveCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
@@ -16,6 +16,7 @@ interface Props {
   onClose: () => void;
   onDeleted: (id: number) => void;
   onUpdated: (card: Card) => void;
+  onArchived: (cardId: number) => void;
   onLabelAdded: (label: Label) => void;
   userDateFormat?: string;
   userTimeFormat?: string;
@@ -45,7 +46,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [commentBody, setCommentBody] = useState("");
@@ -211,6 +212,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (!confirm("Delete this card?")) return;
     await deleteCard(board.id, card.id);
     onDeleted(card.id);
+  };
+
+  const handleArchive = async () => {
+    if (!confirm("Archive this card? It will be hidden from the board but can be restored later.")) return;
+    await archiveCard(board.id, card.id);
+    onArchived(card.id);
+    onClose();
   };
 
   const column = board.columns.find((c) => c.id === localCard.column);
@@ -646,7 +654,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
         {/* Footer */}
         {canEdit && (
-          <div className="px-5 py-3 border-t border-slate-700 flex items-center justify-end">
+          <div className="px-5 py-3 border-t border-slate-700 flex items-center justify-between">
+            <button onClick={handleArchive} className="text-xs text-slate-500 hover:text-amber-400 transition">
+              Archive card
+            </button>
             <button onClick={handleDelete} className="text-xs text-slate-600 hover:text-red-400 transition">
               Delete card
             </button>

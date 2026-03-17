@@ -167,6 +167,10 @@ class Card(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Soft-delete: set when a card is archived; null for active cards.
+    # Analytics uses this as the terminal timestamp so dwell time reflects
+    # only the active period, not the time since archiving.
+    archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         db_table = "cards"

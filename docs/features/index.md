@@ -54,6 +54,14 @@ Export your board as CSV or JSON for backup or analysis, or import a previously 
 
 ---
 
+## Card archiving
+
+Cards can be archived instead of deleted — removing them from the active board view while preserving their full history and movement audit trail. Archived cards can be restored at any time from the **Archived** panel in the board toolbar.
+
+→ [Card Archiving](card-archiving.md)
+
+---
+
 ## Analytics & visibility
 
 Three views are available from the board toolbar:
