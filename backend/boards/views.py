@@ -1267,10 +1267,13 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
         if card.archived_at is not None:
             board_id = card.board_id
-            card_data_fn = lambda: CardSerializer(
-                Card.objects.prefetch_related("labels", "movements").get(pk=card.id),
-                context={"request": request, "board": card.board},
-            ).data
+
+            def card_data_fn():
+                return CardSerializer(
+                    Card.objects.prefetch_related("labels", "movements").get(pk=card.id),
+                    context={"request": request, "board": card.board},
+                ).data
+
             with transaction.atomic():
                 card.archived_at = None
                 card.save(update_fields=["archived_at"])
