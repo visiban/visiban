@@ -13,6 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Site admins can now restrict self-registration to invite-only via a toggle in the admin panel; the login page shows a clear message when registration is closed (#173)
 - `seed_demo_data` management command generates a realistic "Visiban Demo Board" (5 columns, 10 swimlanes, 87 cards with checklists, comments, movement history, and varied priorities/due dates) for demos and integration testing; supports `--wipe` (board-scoped, refuses on non-debug environments without `--force`) and `--export` to regenerate `scripts/seed/demo_board.json` and `scripts/seed/demo_board.csv`; a GitLab CI scheduled job refreshes the demo environment weekly (#230)
 - Boards, columns, swimlanes, labels, and cards now each carry a stable 16-character hex UID (`uid`) that is unique, read-only, and never reused — providing a reliable external reference for integrations and webhooks that remains valid across renames and deletions; card movement history also records the UID of the source and destination column and swimlane (#202)
+- Cards can now be archived instead of deleted — archived cards are hidden from the board view and drag-and-drop but can be restored at any time from the new **Archived** panel in the board toolbar; analytics counts archived cards only for the period they were active (#226)
+- Added `docs/administration/demo-data.md` covering `seed_demo_data` usage, production risks, cleanup procedures, and how imported test data behaves; corrected `docs/features/stable-uids.md` (exports do not include UIDs) and added a "UIDs on import" section explaining that all imported objects receive fresh UIDs regardless of the source file
 
 ### Changed
 
