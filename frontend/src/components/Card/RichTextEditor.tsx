@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import TextStyle from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import type { BoardMembership } from "../../types";
 
 interface Props {
@@ -14,6 +17,20 @@ interface Props {
   members?: BoardMembership[];
   minHeight?: string;
 }
+
+// A small set of readable text colors for the dark theme.
+// Stored as inline HTML spans in markdown: <span style="color: #hex">text</span>
+const TEXT_COLORS: { label: string; value: string }[] = [
+  { label: "Default",  value: ""        },
+  { label: "White",    value: "#f1f5f9" },
+  { label: "Red",      value: "#f87171" },
+  { label: "Orange",   value: "#fb923c" },
+  { label: "Yellow",   value: "#fbbf24" },
+  { label: "Green",    value: "#4ade80" },
+  { label: "Blue",     value: "#60a5fa" },
+  { label: "Purple",   value: "#c084fc" },
+  { label: "Pink",     value: "#f472b6" },
+];
 
 // Toolbar button: icon-only variant per design system
 function ToolbarButton({
@@ -47,6 +64,71 @@ function ToolbarButton({
   );
 }
 
+// Color swatch picker rendered in the toolbar
+function ColorPicker({
+  currentColor,
+  onSelect,
+}: {
+  currentColor: string;
+  onSelect: (color: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
+  }, [open]);
+
+  const active = currentColor !== "" && currentColor !== "#f1f5f9";
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); }}
+        title="Text color"
+        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1 ${
+          active ? "bg-slate-600 text-white" : "text-slate-400 hover:bg-slate-700 hover:text-white"
+        }`}
+      >
+        <span style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-2 flex flex-wrap gap-1.5 w-36">
+          {TEXT_COLORS.map((c) => (
+            <button
+              key={c.label}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(c.value);
+                setOpen(false);
+              }}
+              title={c.label}
+              className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 ${
+                currentColor === c.value ? "border-white" : "border-slate-600"
+              }`}
+              style={{ backgroundColor: c.value || "#94a3b8" }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RichTextEditor({
   value,
   onSave,
@@ -60,8 +142,12 @@ export default function RichTextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit,
+      TextStyle,
+      Color,
       Placeholder.configure({ placeholder }),
       Markdown.configure({
+        // html: true (default) allows <span style="color:..."> to round-trip
+        // through the markdown serializer so text colors are preserved on save.
         transformPastedText: true,
         transformCopiedText: false,
       }),
@@ -69,8 +155,7 @@ export default function RichTextEditor({
     content: value,
     editable: true,
     onBlur: ({ event }) => {
-      // Don't save if focus moved to a toolbar button (mousedown prevents blur there,
-      // but guard against any other child of the container receiving focus)
+      // Don't save if focus moved to a toolbar button or color picker
       if (containerRef.current?.contains(event.relatedTarget as Node)) return;
       const md = editor?.storage.markdown?.getMarkdown() ?? "";
       onSave(md);
@@ -90,9 +175,10 @@ export default function RichTextEditor({
   const enterEdit = useCallback(() => {
     if (readOnly) return;
     setIsEditing(true);
-    // Focus the editor on next tick so the DOM is ready
     setTimeout(() => editor?.commands.focus("end"), 0);
   }, [readOnly, editor]);
+
+  const currentColor = (editor?.getAttributes("textStyle").color as string) ?? "";
 
   if (!isEditing) {
     return (
@@ -123,23 +209,26 @@ export default function RichTextEditor({
           }`}
         >
           {value.trim() ? (
-            // Wrap in div — react-markdown v9 removed the className prop
-            // Slate token overrides prevent gray/warm bleed from prose-invert defaults
+            // prose prose-sm provides spacing/layout; explicit [&_el]: selectors
+            // override colors — more reliable than prose-p:text-* modifiers across
+            // Tailwind JIT scan contexts. rehypeRaw renders <span style="color:...">
+            // from the Color extension.
             <div className={[
-              "prose prose-invert prose-sm max-w-none",
-              "prose-headings:text-slate-200 prose-headings:font-semibold",
-              "prose-p:text-slate-300 prose-p:leading-relaxed",
-              "prose-strong:text-slate-200",
-              "prose-em:text-slate-300",
-              "prose-li:text-slate-300",
-              "prose-ul:text-slate-300 prose-ol:text-slate-300",
-              "prose-code:text-slate-200 prose-code:bg-slate-700 prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:before:content-none prose-code:after:content-none",
-              "prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700 prose-pre:rounded-lg",
-              "prose-blockquote:border-slate-600 prose-blockquote:text-slate-400",
-              "prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline",
-              "prose-hr:border-slate-700",
+              "prose prose-sm max-w-none text-slate-300",
+              "[&_h1]:text-slate-200 [&_h1]:font-semibold",
+              "[&_h2]:text-slate-200 [&_h2]:font-semibold",
+              "[&_h3]:text-slate-200 [&_h3]:font-semibold",
+              "[&_p]:text-slate-300 [&_p]:leading-relaxed",
+              "[&_strong]:text-slate-200",
+              "[&_em]:text-slate-300",
+              "[&_li]:text-slate-300",
+              "[&_a]:text-blue-400 [&_a]:no-underline hover:[&_a]:underline",
+              "[&_code]:text-slate-200 [&_code]:bg-slate-700 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs",
+              "[&_pre]:bg-slate-900 [&_pre]:border [&_pre]:border-slate-700 [&_pre]:rounded-lg",
+              "[&_blockquote]:border-l-4 [&_blockquote]:border-slate-600 [&_blockquote]:pl-4 [&_blockquote]:text-slate-400",
+              "[&_hr]:border-slate-700",
             ].join(" ")}>
-              <ReactMarkdown>{value}</ReactMarkdown>
+              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{value}</ReactMarkdown>
             </div>
           ) : (
             !readOnly && (
@@ -154,8 +243,8 @@ export default function RichTextEditor({
   // Edit mode
   return (
     <div ref={containerRef} className="flex flex-col gap-1">
-      {/* Minimal toolbar */}
-      <div className="flex items-center gap-0.5 px-1 py-0.5 bg-slate-700 rounded-t-lg border border-slate-600 border-b-0">
+      {/* Toolbar */}
+      <div className="flex items-center gap-0.5 px-1 py-0.5 bg-slate-700 rounded-t-lg border border-slate-600 border-b-0 flex-wrap">
         <ToolbarButton
           onClick={() => editor?.chain().focus().toggleBold().run()}
           active={editor?.isActive("bold")}
@@ -207,19 +296,36 @@ export default function RichTextEditor({
         >
           "
         </ToolbarButton>
+        <div className="w-px h-4 bg-slate-600 mx-0.5" />
+        <ColorPicker
+          currentColor={currentColor}
+          onSelect={(color) => {
+            if (color === "") {
+              editor?.chain().focus().unsetColor().run();
+            } else {
+              editor?.chain().focus().setColor(color).run();
+            }
+          }}
+        />
       </div>
 
-      {/* Editor area */}
+      {/* Editor area.
+          onKeyDown stopPropagation prevents board-level single-key shortcuts
+          (e.g. "f" for filter) from firing while the user is typing here. */}
       <EditorContent
         editor={editor}
+        onKeyDown={(e) => e.stopPropagation()}
         className={[
           "w-full text-sm bg-slate-900 border border-blue-400 rounded-b-lg px-3 py-2",
-          "outline-none text-slate-200",
+          "outline-none",
           minHeight,
           "overflow-y-auto resize-y",
-          // Prose styles inside the editor mirror the view-mode rendering
+          // Base text color on the root tiptap element — prevents browser-default
+          // black text from showing against the dark bg-slate-900 background
           "[&_.tiptap]:outline-none",
           "[&_.tiptap]:min-h-full",
+          "[&_.tiptap]:text-slate-300",
+          "[&_.tiptap]:caret-white",
           "[&_.tiptap_p]:text-slate-300 [&_.tiptap_p]:leading-relaxed [&_.tiptap_p]:mb-2",
           "[&_.tiptap_h2]:text-slate-200 [&_.tiptap_h2]:font-semibold [&_.tiptap_h2]:text-base [&_.tiptap_h2]:mb-1",
           "[&_.tiptap_h3]:text-slate-200 [&_.tiptap_h3]:font-semibold [&_.tiptap_h3]:text-sm [&_.tiptap_h3]:mb-1",
