@@ -1,13 +1,18 @@
 from django.urls import path, include
 from rest_framework_nested import routers
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from .views import (
     BoardViewSet, ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
     NotificationListView, NotificationMarkReadView, NotificationUnreadCountView,
     VersionView,
 )
 
-router = DefaultRouter()
+# Use SimpleRouter (not DefaultRouter) for the parent router to avoid a
+# ValueError on startup. DefaultRouter calls format_suffix_patterns() when its
+# .urls property is accessed, and NestedDefaultRouter does too — registering
+# the same drf_format_suffix converter twice raises ValueError on any
+# manage.py invocation.
+router = SimpleRouter()
 router.register(r"boards", BoardViewSet, basename="board")
 
 boards_router = routers.NestedDefaultRouter(router, r"boards", lookup="board")

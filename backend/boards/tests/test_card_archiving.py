@@ -15,7 +15,7 @@ from rest_framework.test import APIClient
 from django.test import TestCase
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Card, CardMovement, Column, Swimlane, Label
+from boards.models import Board, BoardMembership, Card, CardMovement, Column, Swimlane
 
 
 class CardArchivingSetup(TestCase):
