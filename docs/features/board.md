@@ -76,7 +76,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Field | Description |
 |---|---|
 | Title | Required |
-| Description | Markdown-friendly text |
+| Description | Rich text with a toolbar (bold, italic, code, lists, heading, blockquote); stored as markdown. See [Card Descriptions](card-descriptions.md). |
 | Priority | `low` / `medium` / `high` / `urgent` — shown as a full colored border and a filled badge on the card face (low is unmarked) |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |

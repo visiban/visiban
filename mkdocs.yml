@@ -51,6 +51,7 @@ nav:
   - Features:
     - features/index.md
     - Board & Cards: features/board.md
+    - Card Descriptions: features/card-descriptions.md
     - Analytics: features/analytics.md
     - Notifications: features/notifications.md
     - Real-time Updates: features/realtime.md
