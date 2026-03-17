@@ -54,9 +54,9 @@ const fakeUser: User = {
   has_usable_password: true,
 }
 
-function renderSettings(user: User = fakeUser) {
+function renderSettings(user: User = fakeUser, locationState?: object) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[{ pathname: '/settings', state: locationState }]}>
       <SettingsPage user={user} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
     </MemoryRouter>,
   )
@@ -182,7 +182,34 @@ describe('ProfileTab', () => {
     act(() => {
       vi.advanceTimersByTime(1500)
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/')
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+  })
+
+  it('navigates back to "from" location state after save', async () => {
+    vi.useFakeTimers()
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    const fromLocation = { pathname: '/boards/1', search: '', hash: '', state: null, key: 'abc' }
+    renderSettings(fakeUser, { from: fromLocation })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    act(() => { vi.advanceTimersByTime(1500) })
+    expect(mockNavigate).toHaveBeenCalledWith(fromLocation, { replace: true })
+  })
+
+  it('falls back to "/" when no "from" state is present', async () => {
+    vi.useFakeTimers()
+    mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
+    renderSettings(fakeUser) // no location state
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    act(() => { vi.advanceTimersByTime(1500) })
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
   })
 
   it('shows error message on save failure', async () => {

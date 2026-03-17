@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- Saving profile settings now returns you to the page you were on before opening Settings; opening Settings via a direct link falls back to the dashboard (#241)
 - Pressing Enter in the card title no longer closes the detail panel — the title is saved and the panel stays open so you can continue editing other fields
 - Comment author avatars now each display a distinct color per user, making it easy to tell multiple participants apart at a glance
 - Demo board seeded by `seed_demo_data` now includes pre-archived cards so the **Archived** panel shows populated content on a fresh seed, showcasing the card archiving feature without manual setup
