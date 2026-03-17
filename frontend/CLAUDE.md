@@ -176,6 +176,21 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - Surface the version string in **Settings → About** only, where users can find it when filing support requests
 - Style: inline `font-mono text-xs text-slate-500`, no badge/pill wrapper
 
+## Rich text editor
+
+- **`RichTextEditor` is the only editor component** — never add a second Tiptap instance or markdown editor
+- View mode uses `react-markdown` with `prose prose-invert prose-sm` — **never `dangerouslySetInnerHTML`**
+- All `react-markdown` output must apply these slate token overrides to prevent gray/warm bleed from the default prose theme:
+  ```
+  prose-headings:text-slate-200 prose-p:text-slate-300
+  prose-strong:text-slate-200 prose-em:text-slate-300
+  prose-li:text-slate-300 prose-code:text-slate-200 prose-code:bg-slate-700
+  prose-pre:bg-slate-900 prose-blockquote:text-slate-400 prose-blockquote:border-slate-600
+  prose-a:text-blue-400
+  ```
+- **View/edit toggle pattern:** hover shows `border-slate-600 cursor-text` + ✎ icon (`group-hover:opacity-100 opacity-0`); click enters edit mode with `border-blue-400 bg-slate-900`. Apply this pattern to all future rich editable fields.
+- `readOnly` prop must be wired to `!canEdit` at every call site — viewers see rendered markdown only, no hover affordance
+
 ## Long URL display fields
 
 - Truncate long URLs in read-only display inputs: `truncate overflow-hidden text-ellipsis whitespace-nowrap`
