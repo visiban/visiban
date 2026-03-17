@@ -171,7 +171,8 @@ backend-test:
   needs: []
   image: python:3.12-slim
   rules:
-    - changes:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
         - backend/**/*
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -287,7 +288,8 @@ frontend-test:
     # Match frontend-lint: cap below available RAM so V8 GCs before OOM-kill.
     NODE_OPTIONS: "--max-old-space-size=512"
   rules:
-    - changes:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
         - frontend/**/*
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
