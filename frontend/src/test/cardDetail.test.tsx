@@ -37,6 +37,18 @@ vi.mock('../components/Card/MentionTextarea', () => ({
   ),
 }))
 
+vi.mock('../components/Card/RichTextEditor', () => ({
+  default: ({ value, onSave, placeholder, readOnly }: { value: string; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) => (
+    <textarea
+      data-testid="rich-text-editor"
+      defaultValue={value}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      onBlur={(e) => onSave(e.target.value)}
+    />
+  ),
+}))
+
 import { updateCard, getCardComments, getCardAttachments, getChecklist } from '../api/cards'
 
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
@@ -125,19 +137,22 @@ describe('CardDetail', () => {
     expect(screen.getByTestId('movement-timeline')).toBeInTheDocument()
   })
 
-  it('renders description textarea', () => {
+  it('renders the rich text editor for description', () => {
     render(<CardDetail {...defaultProps()} />)
-    expect(screen.getByPlaceholderText('Add a description…')).toBeInTheDocument()
+    const editor = screen.getByTestId('rich-text-editor')
+    expect(editor).toBeInTheDocument()
+    expect(editor).toHaveValue('A test card')
   })
 
-  it('saves description on blur', async () => {
+  it('saves description when editor blurs', async () => {
+    mockUpdateCard.mockResolvedValue(makeCard({ description: 'A test card updated' }))
     render(<CardDetail {...defaultProps()} />)
-    const textarea = screen.getByPlaceholderText('Add a description…')
-    await userEvent.setup().click(textarea)
-    await userEvent.setup().type(textarea, ' updated')
-    textarea.blur()
+    const editor = screen.getByTestId('rich-text-editor')
+    await userEvent.setup().clear(editor)
+    await userEvent.setup().type(editor, 'A test card updated')
+    editor.blur()
     await waitFor(() => {
-      expect(mockUpdateCard).toHaveBeenCalled()
+      expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { description: 'A test card updated' })
     })
   })
 

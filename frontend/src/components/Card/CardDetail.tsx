@@ -9,6 +9,7 @@ import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import CardMovementTimeline from "./CardMovementTimeline";
 import { formatDateStr } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
+import RichTextEditor from "./RichTextEditor";
 
 interface Props {
   card: Card;
@@ -102,10 +103,6 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       setLocalCard((c) => ({ ...c, title: card.title }));
       (e.target as HTMLInputElement).blur();
     }
-  };
-
-  const handleDescriptionBlur = () => {
-    save({ description: localCard.description });
   };
 
   const toggleLabel = async (label: Label) => {
@@ -282,13 +279,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {/* Description */}
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Description</p>
-                <textarea
+                <RichTextEditor
                   value={localCard.description ?? ""}
-                  onChange={(e) => setLocalCard((c) => ({ ...c, description: e.target.value }))}
-                  onBlur={handleDescriptionBlur}
+                  onSave={(md) => {
+                    setLocalCard((c) => ({ ...c, description: md }));
+                    save({ description: md });
+                  }}
+                  readOnly={!canEdit}
                   placeholder="Add a description…"
-                  rows={3}
-                  className="w-full text-sm bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none text-slate-200 placeholder-slate-600"
+                  minHeight="min-h-32"
                 />
               </div>
 
