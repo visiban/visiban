@@ -15,10 +15,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Boards, columns, swimlanes, labels, and cards now each carry a stable 16-character hex UID (`uid`) that is unique, read-only, and never reused — providing a reliable external reference for integrations and webhooks that remains valid across renames and deletions; card movement history also records the UID of the source and destination column and swimlane (#202)
 - Cards can now be archived instead of deleted — archived cards are hidden from the board view and drag-and-drop but can be restored at any time from the new **Archived** panel in the board toolbar; analytics dwell-time uses `archived_at` as the terminal timestamp so only the active period is counted, and archived cards are excluded from stalled-card detection (#226)
 - Added `docs/administration/demo-data.md` covering `seed_demo_data` usage, production risks, cleanup procedures, and how imported test data behaves; corrected `docs/features/stable-uids.md` (exports do not include UIDs) and added a "UIDs on import" section explaining that all imported objects receive fresh UIDs regardless of the source file
-- Card descriptions now support rich text formatting via a Tiptap-based markdown editor — click to edit with a minimal toolbar (bold, italic, code, lists, heading, blockquote), blur to save; descriptions render formatted markdown in view mode and are stored as markdown in the existing plain-text field with no migration required (#239)
+- Card descriptions now support rich text formatting via a Tiptap-based markdown editor — click to edit with a minimal toolbar (bold, italic, code, lists, heading, blockquote, text color); click **Save** to commit or **Cancel** to discard; descriptions render formatted markdown in view mode and are stored as markdown in the existing plain-text field with no migration required (#239)
 
 ### Changed
 
+- Pressing Enter in the card title no longer closes the detail panel — the title is saved and the panel stays open so you can continue editing other fields
+- Comment author avatars now each display a distinct color per user, making it easy to tell multiple participants apart at a glance
 - Demo board seeded by `seed_demo_data` now includes pre-archived cards so the **Archived** panel shows populated content on a fresh seed, showcasing the card archiving feature without manual setup
 - Removed obsolete `version:` attribute from `docker-compose.yml` and `docker-compose.prod.yml`; the field has been ignored since Docker Compose v2 and produced a deprecation warning on every invocation
 - Added docstrings to complex, non-obvious backend and frontend logic: `get_board_role()` permission precedence, `CardMovement` denormalized field rationale, `BoardFullSerializer.get_members()` member resolution, `BoardViewSet` import (JSON/CSV) and analytics endpoints, `CardViewSet.update()` field-change tracking, and `useBoardSocket` WebSocket reconnection behaviour
@@ -27,6 +29,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Card descriptions now render with correct light text in view mode — the previous release showed black text on a dark background; color overrides now use explicit arbitrary variant selectors that are reliably detected by the Tailwind JIT scanner
+- Text colors applied in the description editor (red, blue, green, etc.) are now correctly saved and restored — the previous release stripped color spans from the serialized markdown output
+- Typing in the description editor no longer triggers board keyboard shortcuts such as `f` for filter
 - `seed_demo_data` now refuses to run (with or without `--wipe`) when `DEBUG` is `False` and `--force` is not passed, preventing accidental demo board creation on production servers
 - `ensure_site_admin` now writes the one-time password to `/tmp/visiban_admin_password` with a trailing newline so `cat` output is not run together with the shell prompt (zsh users no longer see a spurious `%` that could be mistaken for part of the password)
 - First Boot docs now include explicit `cat` and `rm` commands for Kubernetes/Helm, and a tip callout clarifying that the `%` shown by zsh after `cat` is a shell artifact not part of the password

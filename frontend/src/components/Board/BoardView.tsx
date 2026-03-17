@@ -835,6 +835,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onLabelAdded={onLabelAdded}
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
+          userTimezone={userTimezone}
         />
       )}
 

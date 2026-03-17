@@ -38,14 +38,27 @@ vi.mock('../components/Card/MentionTextarea', () => ({
 }))
 
 vi.mock('../components/Card/RichTextEditor', () => ({
-  default: ({ value, onSave, placeholder, readOnly }: { value: string; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) => (
-    <textarea
-      data-testid="rich-text-editor"
-      defaultValue={value}
-      placeholder={placeholder}
-      readOnly={readOnly}
-      onBlur={(e) => onSave(e.target.value)}
-    />
+  default: ({ value, onSave, placeholder, readOnly, showActions }: { value: string; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean; showActions?: boolean }) => (
+    <div>
+      <textarea
+        data-testid="rich-text-editor"
+        defaultValue={value}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        onBlur={(e) => { if (!showActions) onSave(e.target.value); }}
+      />
+      {showActions && !readOnly && (
+        <button
+          data-testid="description-save"
+          onClick={() => {
+            const ta = document.querySelector<HTMLTextAreaElement>('[data-testid="rich-text-editor"]')
+            onSave(ta?.value ?? value)
+          }}
+        >
+          Save
+        </button>
+      )}
+    </div>
   ),
 }))
 
@@ -144,13 +157,13 @@ describe('CardDetail', () => {
     expect(editor).toHaveValue('A test card')
   })
 
-  it('saves description when editor blurs', async () => {
+  it('saves description when Save button is clicked', async () => {
     mockUpdateCard.mockResolvedValue(makeCard({ description: 'A test card updated' }))
     render(<CardDetail {...defaultProps()} />)
     const editor = screen.getByTestId('rich-text-editor')
     await userEvent.setup().clear(editor)
     await userEvent.setup().type(editor, 'A test card updated')
-    editor.blur()
+    await userEvent.setup().click(screen.getByTestId('description-save'))
     await waitFor(() => {
       expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { description: 'A test card updated' })
     })
@@ -268,6 +281,30 @@ describe('CardDetail', () => {
   it('renders due date input', () => {
     render(<CardDetail {...defaultProps()} />)
     expect(screen.getByText('Due date')).toBeInTheDocument()
+  })
+
+  it('shows user date format as placeholder when no due date is set', () => {
+    render(<CardDetail {...defaultProps()} userDateFormat="DD/MM/YYYY" />)
+    expect(screen.getByText('dd/mm/yyyy')).toBeInTheDocument()
+  })
+
+  it('shows ISO format as placeholder when userDateFormat is YYYY-MM-DD', () => {
+    render(<CardDetail {...defaultProps()} userDateFormat="YYYY-MM-DD" />)
+    expect(screen.getByText('yyyy-mm-dd')).toBeInTheDocument()
+  })
+
+  it('shows due date in ISO format when userDateFormat is YYYY-MM-DD', () => {
+    const props = defaultProps()
+    props.card = makeCard({ due_date: '2099-06-15' })
+    render(<CardDetail {...props} userDateFormat="YYYY-MM-DD" />)
+    expect(screen.getByText('2099-06-15')).toBeInTheDocument()
+  })
+
+  it('shows due date in DD/MM/YYYY format when userDateFormat is DD/MM/YYYY', () => {
+    const props = defaultProps()
+    props.card = makeCard({ due_date: '2099-06-15' })
+    render(<CardDetail {...props} userDateFormat="DD/MM/YYYY" />)
+    expect(screen.getByText('15/06/2099')).toBeInTheDocument()
   })
 
   it('renders comments with author initials', async () => {

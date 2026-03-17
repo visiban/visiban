@@ -264,6 +264,20 @@ describe('CardItem', () => {
     const html = container.innerHTML
     expect(html).not.toMatch(/bg-gray-|text-gray-|border-gray-/)
   })
+
+  it('strips markdown syntax from description preview', () => {
+    render(<CardItem card={makeCard({ description: '**bold** and _italic_ and `code`' })} />)
+    // Raw markdown syntax must not appear
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument()
+    // Plain words should be present
+    expect(screen.getByText('bold and italic and code')).toBeInTheDocument()
+  })
+
+  it('strips HTML tags from description preview', () => {
+    render(<CardItem card={makeCard({ description: '<span style="color:red">Test</span>' })} />)
+    expect(screen.getByText('Test')).toBeInTheDocument()
+    expect(screen.queryByText(/<span/)).not.toBeInTheDocument()
+  })
 })
 
 // ---------------------------------------------------------------------------
