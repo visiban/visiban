@@ -283,6 +283,20 @@ describe('CardDetail', () => {
     expect(screen.getByText('Due date')).toBeInTheDocument()
   })
 
+  it('shows formatted due date label respecting userDateFormat', () => {
+    const props = defaultProps()
+    props.card = makeCard({ due_date: '2099-06-15' })
+    render(<CardDetail {...props} userDateFormat="YYYY-MM-DD" />)
+    expect(screen.getByText('Due 2099-06-15')).toBeInTheDocument()
+  })
+
+  it('shows formatted due date label in DD/MM/YYYY format', () => {
+    const props = defaultProps()
+    props.card = makeCard({ due_date: '2099-06-15' })
+    render(<CardDetail {...props} userDateFormat="DD/MM/YYYY" />)
+    expect(screen.getByText('Due 15/06/2099')).toBeInTheDocument()
+  })
+
   it('renders comments with author initials', async () => {
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([

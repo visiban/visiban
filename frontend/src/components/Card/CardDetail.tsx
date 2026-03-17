@@ -7,7 +7,7 @@ import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import CardMovementTimeline from "./CardMovementTimeline";
-import { formatDateStr } from "../../utils/date";
+import { formatDateStr, formatDueDate } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
 
@@ -21,6 +21,7 @@ interface Props {
   onLabelAdded: (label: Label) => void;
   userDateFormat?: string;
   userTimeFormat?: string;
+  userTimezone?: string;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, used by tests and co-located with the component for cohesion
@@ -63,7 +64,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "" }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [commentBody, setCommentBody] = useState("");
@@ -361,6 +362,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </button>
                     )}
                   </div>
+                  {/* Formatted date label — browsers always display the native date input in
+                      their locale format (mm/dd/yyyy). Show the date in the user's chosen
+                      format below the picker so it is always visible regardless of locale. */}
+                  {localCard.due_date && (() => {
+                    const info = formatDueDate(localCard.due_date, userTimezone, userDateFormat);
+                    return (
+                      <p className={`text-xs mt-1 ${info.overdue ? "text-red-400" : "text-slate-500"}`}>
+                        {info.label}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
 
