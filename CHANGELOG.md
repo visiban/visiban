@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Local backend development server and management commands (`manage.py`) no longer crash on startup with a URL converter registration conflict when running outside Docker
 - WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)
 - Real-time board updates now broadcast for all remaining mutation operations: adding a comment, adding or deleting an attachment, adding, updating, or deleting a checklist item, creating, updating, or deleting a label, adding, updating, or removing a board member, and reordering columns or swimlanes — other users' boards now reflect these changes instantly without a page refresh (#203)
 - Card delete and card field-update broadcasts are now also deferred to transaction commit (fixing two previously-bare calls that matched the pattern of #204)
