@@ -78,7 +78,19 @@ Numeric `id` values are local to each Visiban installation. UIDs are the correct
 
 ## UIDs in export files
 
-The JSON export (`GET /api/boards/{id}/export/?format=json`) includes `uid` on every board, column, swimlane, label, and card object. This allows exported snapshots to be re-imported or diffed while preserving identity across rename cycles.
+The JSON and CSV exports (`GET /api/boards/{id}/export/`) serialize objects **by name, not by UID**. UIDs are not included in export files. This is intentional: the export format is designed for portability — columns and swimlanes are referenced by name so the file can be imported into a different board or a different Visiban installation without carrying over identifiers that are meaningless in the new context.
+
+## UIDs on import
+
+When a board is imported via `POST /api/boards/import/`, **every object receives a brand new UID** regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.
+
+- If the source file was produced by the Visiban export endpoint, the original UIDs are not preserved — the imported board is a new entity with new identities.
+- If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any `uid` field present in the JSON is silently ignored.
+
+This means you cannot use UIDs to correlate an imported board with its export source. If you need to track which records came from a specific import, use the board name or a naming convention, then delete those boards explicitly after use.
+
+!!! warning "Imported test data is indistinguishable from real data"
+    Records created via import carry no provenance marker. An imported test card looks identical to a real card — same UID format, same `archived_at` behavior, same appearance in movement history. Clean up test imports explicitly; there is no automated way to find and remove them after the fact. See [Demo Data](../administration/demo-data.md) for cleanup guidance.
 
 ## API response examples
 
