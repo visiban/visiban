@@ -329,11 +329,8 @@ describe('BulkActionToolbar', () => {
         onClearSelection={onClearSelection}
       />
     )
-    // Open confirmation modal
     await user.click(screen.getByText('Delete'))
-    // Modal's confirm Delete button is inside the dialog — use the red confirm button
     const deleteButtons = screen.getAllByRole('button', { name: 'Delete' })
-    // The confirm button is the last/second Delete button (modal's confirm)
     await user.click(deleteButtons[deleteButtons.length - 1])
 
     await waitFor(() => expect(onCardsDeleted).toHaveBeenCalledWith([100]))
@@ -426,7 +423,6 @@ describe('BulkActionToolbar', () => {
 
   it('shows Working... indicator while busy', async () => {
     const user = userEvent.setup()
-    // Mock a slow delete to observe busy state
     let resolveDelete!: () => void
     mockDeleteCard.mockReturnValue(new Promise<void>((res) => { resolveDelete = res }))
 
