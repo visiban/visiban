@@ -31,6 +31,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Typing `@username` (with the `@` prefix) in the Board Settings invite search field now returns matching users — previously the leading `@` was passed to the search API verbatim, silently returning no results (#244)
 - Card descriptions now render with correct light text in view mode — the previous release showed black text on a dark background; color overrides now use explicit arbitrary variant selectors that are reliably detected by the Tailwind JIT scanner
 - Text colors applied in the description editor (red, blue, green, etc.) are now correctly saved and restored — the previous release stripped color spans from the serialized markdown output
 - Typing in the description editor no longer triggers board keyboard shortcuts such as `f` for filter

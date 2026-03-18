@@ -116,10 +116,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (inviteQuery.trim().length < 2) { setSuggestions([]); return; }
+    // Strip a leading @ so users can type "@alice" and get the same results as "alice"
+    const q = inviteQuery.trim().replace(/^@/, "");
+    if (q.length < 2) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await searchUsers(inviteQuery.trim());
+        const results = await searchUsers(q);
         const memberIds = new Set(members.map((m) => m.user.id));
         const stagedIds = new Set(staged.map((s) => s.user.id));
         const filtered = results.filter((u) => !memberIds.has(u.id) && !stagedIds.has(u.id));
