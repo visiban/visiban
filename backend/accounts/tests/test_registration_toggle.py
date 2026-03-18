@@ -50,7 +50,9 @@ class RegistrationAdapterTests(TestCase):
 
     def setUp(self):
         from django.test import RequestFactory
-        from accounts.adapter import RegistrationAdapter
+        from accounts.adapter import RegistrationAdapter, invalidate_registration_mode_cache
+        # Clear any cache left by a prior test so mode defaults to 'open'.
+        invalidate_registration_mode_cache()
         self.adapter = RegistrationAdapter()
         self.request = RequestFactory().get("/")
 
