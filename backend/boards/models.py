@@ -20,7 +20,6 @@ class Board(models.Model):
         "groups.Group", null=True, blank=True, on_delete=models.SET_NULL, related_name="boards"
     )
     staleness_threshold_days = models.PositiveIntegerField(default=7)
-    close_editor_on_enter = models.BooleanField(default=True)
     allowed_priorities = models.JSONField(
         default=list,
         help_text="Allowed card priorities on this board. Empty list means all priorities are allowed.",

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -22,6 +23,7 @@ interface Props {
   userDateFormat?: string;
   userTimeFormat?: string;
   userTimezone?: string;
+  closeEditorOnEnter?: boolean;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, used by tests and co-located with the component for cohesion
@@ -64,7 +66,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "" }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", closeEditorOnEnter = false }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [commentBody, setCommentBody] = useState("");
@@ -96,11 +98,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     });
   }, [board.id, card.id]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useEscapeStack(onClose, 30);
 
   const save = async (patch: CardPatch) => {
     const updated = await updateCard(board.id, localCard.id, patch);
@@ -112,6 +110,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (e.key === "Enter") {
       e.preventDefault();
       (e.target as HTMLInputElement).blur(); // blur triggers save
+      if (closeEditorOnEnter) onClose();
     } else if (e.key === "Escape") {
       setLocalCard((c) => ({ ...c, title: card.title }));
       (e.target as HTMLInputElement).blur();

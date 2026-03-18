@@ -24,8 +24,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- "Close editor on Enter" is now a personal preference in **Settings → Appearance** rather than a per-board setting — each user controls whether pressing Enter in the new-card input submits the card and closes the card panel; the setting defaults to off
+- Pressing Escape now navigates back to the referring page: from a board to whatever page you came from, from a group page to whatever you came from; falls back to the semantic parent (board → group → dashboard) when no history entry exists. Within the board the key remains layered — it closes the card detail panel or any open modal first, then clears a multi-card selection, and only navigates when nothing else is open. All modals now consistently close on Escape regardless of where focus is within them.
 - Saving profile settings now returns you to the page you were on before opening Settings; opening Settings via a direct link falls back to the dashboard (#241)
-- Pressing Enter in the card title no longer closes the detail panel — the title is saved and the panel stays open so you can continue editing other fields
 - Comment author avatars now each display a distinct color per user, making it easy to tell multiple participants apart at a glance
 - Demo board seeded by `seed_demo_data` now includes pre-archived cards so the **Archived** panel shows populated content on a fresh seed, showcasing the card archiving feature without manual setup
 - Removed obsolete `version:` attribute from `docker-compose.yml` and `docker-compose.prod.yml`; the field has been ignored since Docker Compose v2 and produced a deprecation warning on every invocation
