@@ -103,7 +103,6 @@ const defaultProps = () => ({
   onDeleted: vi.fn(),
   onUpdated: vi.fn(),
   onArchived: vi.fn(),
-  onLabelAdded: vi.fn(),
 })
 
 describe('CardDetail', () => {
