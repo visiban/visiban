@@ -171,6 +171,11 @@ class Card(models.Model):
     # Analytics uses this as the terminal timestamp so dwell time reflects
     # only the active period, not the time since archiving.
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Re-notification guard for description @mentions.
+    # Stores the PKs of users already notified for a mention in this card's
+    # description; prevents duplicate notifications when the description is
+    # edited without removing an existing @username.
+    mentioned_user_ids = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = "cards"
