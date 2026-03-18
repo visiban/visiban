@@ -489,13 +489,14 @@ class BoardViewSet(viewsets.ModelViewSet):
             "due_date": "DueDate",
         }
         rows = [
-            {_HEADER_MAP.get(k.strip().lower(), k.strip()): v for k, v in row.items()}
+            {_HEADER_MAP.get(k.strip().lower(), k.strip()): v for k, v in row.items() if k is not None}
             for row in rows
         ]
         # Rebuild fieldnames from the normalized first row so header validation works.
+        # Filter None entries — DictReader produces None keys for trailing commas in headers.
         if reader.fieldnames is not None:
             reader.fieldnames = [
-                _HEADER_MAP.get(f.strip().lower(), f.strip()) for f in reader.fieldnames
+                _HEADER_MAP.get(f.strip().lower(), f.strip()) for f in reader.fieldnames if f is not None
             ]
 
         # Enforce row (card) ceiling early — before scanning for columns/swimlanes —

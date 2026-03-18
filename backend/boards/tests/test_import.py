@@ -262,6 +262,11 @@ class BoardImportEdgeCaseTests(TestCase):
         self.user = User.objects.create_user(username="importer", password="pass")
         self.client.force_authenticate(self.user)
 
+    def _make_csv_file(self, content, filename="board.csv"):
+        f = io.BytesIO(content.encode("utf-8"))
+        f.name = filename
+        return f
+
     def _make_json_file(self, data, filename="board.json"):
         content = json.dumps(data).encode("utf-8")
         f = io.BytesIO(content)
