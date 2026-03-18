@@ -792,6 +792,20 @@ seed-demo-data:
     # random seed. Leave unset to use the default (42).
     SEED_VALUE: ""
   before_script:
+    # Fail fast with a clear message if the required CI/CD variables are missing.
+    # Without these the job dies mid-pip-install with an unhelpful Django traceback.
+    # Setup instructions: docs/administration/demo-data.md#required-gitlab-cicd-variables
+    - |
+      missing=""
+      [ -z "$DJANGO_SECRET_KEY" ] && missing="$missing DEMO_SECRET_KEY"
+      [ -z "$DATABASE_URL" ]      && missing="$missing DEMO_DATABASE_URL"
+      [ -z "$REDIS_URL" ]         && missing="$missing DEMO_REDIS_URL"
+      if [ -n "$missing" ]; then
+        echo "ERROR: Required CI/CD variable(s) not set:$missing"
+        echo "Add them at Settings → CI/CD → Variables (Protected + Masked, scoped to the 'demo' environment)."
+        echo "See docs/administration/demo-data.md for full setup instructions."
+        exit 1
+      fi
     - pip install --quiet -r backend/requirements.txt
   script:
     - cd backend
