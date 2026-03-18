@@ -1,5 +1,11 @@
 # Visiban
 
+!!! warning "Under active development"
+    Visiban is under active development. Features and APIs may change between releases.
+    Always check the [latest release](https://gitlab.com/visiban/visiban/-/releases) before deploying or upgrading.
+    **rc.6 is the first release candidate considered stable for production use.**
+    Earlier release candidates (rc.1–rc.5) are development previews and should not be used in production.
+
 A self-hosted Kanban board with swimlane rows and automatic card movement tracking. Lightweight alternative to Trello/Smartsheet focused on pipeline visibility per customer or project, with a full audit trail of every card movement between stages.
 
 ## Highlights
