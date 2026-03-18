@@ -262,6 +262,11 @@ class BoardImportEdgeCaseTests(TestCase):
         self.user = User.objects.create_user(username="importer", password="pass")
         self.client.force_authenticate(self.user)
 
+    def _make_csv_file(self, content, filename="board.csv"):
+        f = io.BytesIO(content.encode("utf-8"))
+        f.name = filename
+        return f
+
     def _make_json_file(self, data, filename="board.json"):
         content = json.dumps(data).encode("utf-8")
         f = io.BytesIO(content)
@@ -323,6 +328,53 @@ class BoardImportEdgeCaseTests(TestCase):
         f.name = "empty.csv"
         resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_csv_import_accepts_lowercase_headers(self):
+        """Lowercase headers (e.g. from external tools or the seed CSV) should import successfully."""
+        csv_content = (
+            "title,column,swimlane,priority,description\n"
+            "Fix login,To Do,General,high,Login is broken\n"
+        )
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_csv_file(csv_content), "name": "Lowercase CSV"},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        self.assertTrue(Card.objects.filter(board_id=board_id, title="Fix login").exists())
+
+    def test_csv_import_accepts_due_date_snake_case(self):
+        """due_date header (snake_case variant) should be treated as DueDate."""
+        csv_content = (
+            "title,column,swimlane,due_date\n"
+            "Fix login,To Do,General,2026-06-01\n"
+        )
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_csv_file(csv_content), "name": "Snake Date CSV"},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Fix login")
+        self.assertIsNotNone(card.due_date)
+
+    def test_csv_import_accepts_seed_csv_format(self):
+        """The seed demo_board.csv uses lowercase snake_case headers — must import without error."""
+        import os
+        seed_path = os.path.join(
+            os.path.dirname(__file__), "..", "..", "scripts", "seed", "demo_board.csv"
+        )
+        if not os.path.exists(seed_path):
+            self.skipTest("demo_board.csv not present in this environment")
+        with open(seed_path, "rb") as f:
+            resp = self.client.post(
+                "/api/boards/import/",
+                {"file": f, "name": "Seed Import"},
+                format="multipart",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
     def test_non_group_member_cannot_import_into_group(self):
         """A user who is not a member of a group cannot import a board into it."""

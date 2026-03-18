@@ -42,6 +42,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- CSV import now accepts lowercase and snake_case headers (e.g. `title`, `column`, `swimlane`, `due_date`) in addition to the canonical title-case form — external tools and the seed `demo_board.csv` use these variants and previously triggered a false "missing required headers" error
 - The Import Board modal now displays the size limits (500 cards, 50 columns, 100 swimlanes) as an informational notice so users know before they attempt a large import; `docs/features/board.md` updated with a full limits table and a note on splitting oversized boards
 - Typing `@username` (with the `@` prefix) in the Board Settings invite search field now returns matching users — previously the leading `@` was passed to the search API verbatim, silently returning no results (#244)
 - Card descriptions now render with correct light text in view mode — the previous release showed black text on a dark background; color overrides now use explicit arbitrary variant selectors that are reliably detected by the Tailwind JIT scanner
