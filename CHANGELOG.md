@@ -69,6 +69,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Security [Low] #220** — Group and board permission traversals now emit a `logger.warning()` when the 6-level depth cap is hit, surfacing overly deep trees to operators
 - **Security [Low] #220** — Version endpoint (`GET /api/version/`) now requires authentication
 - Switching templates in the board creation modal no longer causes layout shifts — the column preview strip stays visible for all templates (Blank Board shows a "No preset columns" note), the swimlane name is preserved when changing templates, and the default-board checkbox hint text no longer shifts surrounding content (#159)
+- Blank Board in the board creation modal now appears as a full-width row below a separator line, visually distinct from the named template grid — the previous layout left an orphan cell and the card appeared visually thin without column color dots (#159)
 
 ---
 
