@@ -31,6 +31,7 @@ function makeBoard(): BoardFull {
     members: [
       { id: 1, user: { id: 1, username: 'jdoe', email: '', first_name: 'Jane', last_name: 'Doe', avatar_url: '', display_name: 'Jane Doe', is_site_admin: false, must_change_password: false }, role: 'admin', joined_at: '' },
     ],
+    staleness_threshold_days: 7, allowed_priorities: [],
     is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
   }
 }

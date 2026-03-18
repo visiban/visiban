@@ -21,6 +21,7 @@ const fakeBoard: BoardFull = {
     { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
     { id: 2, user: { ...fakeUser, id: 2, username: 'bob', display_name: 'Bob Smith', email: 'bob@test.com' }, role: 'member', joined_at: '' },
   ],
+  staleness_threshold_days: 7, allowed_priorities: [],
   is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
 }
 
