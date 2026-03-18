@@ -2,19 +2,20 @@ import { useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, Column } from "../../types";
 import { userDisplayName } from "../../types";
-import { moveCard, updateCard, deleteCard } from "../../api/cards";
+import { moveCard, updateCard, deleteCard, archiveCard } from "../../api/cards";
 
 interface Props {
   board: BoardFull;
   selectedCardIds: Set<number>;
   onCardsUpdated: (cards: Card[]) => void;
   onCardsDeleted: (cardIds: number[]) => void;
+  onCardsArchived: (cardIds: number[]) => void;
   onClearSelection: () => void;
 }
 
 type Dropdown = "move" | "assign" | "priority" | null;
 
-export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdated, onCardsDeleted, onClearSelection }: Props) {
+export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdated, onCardsDeleted, onCardsArchived, onClearSelection }: Props) {
   const [dropdown, setDropdown] = useState<Dropdown>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -80,6 +81,19 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
       .filter((r): r is PromiseFulfilledResult<Card> => r.status === "fulfilled")
       .map((r) => r.value);
     if (updated.length > 0) onCardsUpdated(updated);
+    onClearSelection();
+    setBusy(false);
+  };
+
+  const handleArchive = async () => {
+    setBusy(true);
+    const results = await Promise.allSettled(
+      selectedCards.map((card) => archiveCard(board.id, card.id).then(() => card.id))
+    );
+    const archivedIds = results
+      .filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled")
+      .map((r) => r.value);
+    if (archivedIds.length > 0) onCardsArchived(archivedIds);
     onClearSelection();
     setBusy(false);
   };
@@ -195,6 +209,15 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         </div>
 
         <span className="w-px h-5 bg-slate-600" />
+
+        {/* Archive — amber: meaningful but reversible (cards move to Archived panel) */}
+        <button
+          onClick={handleArchive}
+          disabled={busy}
+          className="text-xs px-2.5 py-1.5 rounded-lg text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-40"
+        >
+          Archive
+        </button>
 
         {/* Delete */}
         <button
