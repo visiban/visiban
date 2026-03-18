@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card } from "../../types";
 import { getArchivedCards, unarchiveCard } from "../../api/cards";
 
@@ -12,6 +13,8 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Pro
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<number | null>(null);
+
+  useEscapeStack(onClose, 30);
 
   useEffect(() => {
     setLoading(true);

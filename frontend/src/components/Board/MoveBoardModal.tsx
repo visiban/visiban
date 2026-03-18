@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { listGroups } from "../../api/groups";
 import { moveBoardToGroup } from "../../api/boards";
 import { buildGroupTree } from "../Group/GroupTree";
@@ -25,13 +26,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
     listGroups().then(setGroups).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useEscapeStack(onClose, 40);
 
   const handleMove = async () => {
     if (selected === board.group) { onClose(); return; }

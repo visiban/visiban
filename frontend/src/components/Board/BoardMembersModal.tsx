@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, BoardMembership } from "../../types";
 import { userDisplayName } from "../../types";
 import { setBoardMember, removeBoardMember } from "../../api/boards";
@@ -57,13 +58,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
     }
   };
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useEscapeStack(onClose, 40);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

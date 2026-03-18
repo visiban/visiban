@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 
 interface Props {
   onImport: (file: File, name?: string) => Promise<void>;
@@ -21,6 +22,7 @@ function detectFormat(file: File): "JSON" | "CSV" | "Unknown" {
 }
 
 export default function ImportBoardModal({ onImport, onCancel }: Props) {
+  useEscapeStack(onCancel, 40);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 
 interface Props {
   onClose: () => void;
@@ -8,17 +8,11 @@ const SHORTCUTS = [
   { key: "f", description: "Toggle filter bar" },
   { key: "/", description: "Open filters and focus search" },
   { key: "?", description: "Show this help" },
-  { key: "Esc", description: "Deselect cards / close dialogs" },
+  { key: "Esc", description: "Close card or dialog; go back when nothing is open" },
 ];
 
 export default function KeyboardShortcutsOverlay({ onClose }: Props) {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useEscapeStack(onClose, 40);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>

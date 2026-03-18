@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { updateCurrentUser } from "../../api/auth";
 import type { User } from "../../types";
 
@@ -16,13 +17,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
     email: user.email ?? "",
     username: user.username ?? "",
   });
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useEscapeStack(onClose, 40);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
