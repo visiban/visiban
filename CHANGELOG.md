@@ -26,6 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Site admin user management: `GET /api/admin/users/` (paginated, searchable), `POST /api/admin/users/` (create account with optional force-password-reset), and `PATCH /api/admin/users/{id}/` (toggle active/site_admin/must_change_password) — self-deactivation and last-admin demotion are rejected (#212)
 - `/admin` page accessible to site admins: Settings tab with registration mode radio group wired to the API, and Users tab with searchable table, Add User modal, per-row deactivate/reactivate/promote/demote/force-reset actions, and confirm dialogs for destructive actions (#211, #212)
 - Superuser bootstrap signal: creating a superuser via `createsuperuser` or management commands automatically sets `is_site_admin=True` so the admin UI is accessible from first login (#211)
+- Selecting multiple cards now shows an **Archive** option in the bulk action toolbar — archived cards are removed from the board view and can be restored at any time from the Archived panel
 
 ### Changed
 

@@ -101,6 +101,7 @@ Select multiple cards by clicking the checkbox that appears in the top-right cor
 | **Move to...** | Move all selected cards to a target column (each card stays in its current swimlane) |
 | **Assign to...** | Set or clear the assignee on all selected cards |
 | **Priority...** | Set priority on all selected cards |
+| **Archive** | Archive all selected cards — they are removed from the board view and can be restored from the **Archived** panel in the toolbar |
 | **Delete** | Delete all selected cards (with confirmation) |
 
 Press **Escape** or click the **×** button to clear the selection. Selection is also cleared when starting a drag or opening a card detail panel. Bulk operations are only available to users with the **member** role or above.
