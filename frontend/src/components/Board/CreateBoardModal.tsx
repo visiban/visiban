@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { listBoardTemplates } from "../../api/boards";
-import { updateDefaultBoard } from "../../api/auth";
 import type { BoardTemplate, User } from "../../types";
 
 // ---------------------------------------------------------------------------
