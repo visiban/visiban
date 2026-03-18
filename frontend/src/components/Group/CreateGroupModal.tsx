@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { createGroup } from "../../api/groups";
 import type { Group } from "../../types";
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Props) {
+  useEscapeStack(onClose, 40);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

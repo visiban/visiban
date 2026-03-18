@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { createSwimlane } from "../../api/boards";
 import type { Swimlane } from "../../types";
 import { PALETTE_COLORS } from "../../constants/colors";
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
+  useEscapeStack(onClose, 40);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [color, setColor] = useState(PALETTE_COLORS[0]);

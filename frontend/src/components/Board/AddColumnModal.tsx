@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { createColumn } from "../../api/boards";
 import type { Column } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
+  useEscapeStack(onClose, 40);
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLUMN_COLORS[0]);
   const [wipLimit, setWipLimit] = useState("");

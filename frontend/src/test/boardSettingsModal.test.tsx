@@ -66,7 +66,6 @@ const fakeBoard: BoardFull = {
     { id: 11, user: fakeMember2, role: 'member', joined_at: '' },
   ],
   staleness_threshold_days: 7,
-  close_editor_on_enter: false,
   allowed_priorities: [],
   is_starred: false,
   created_at: '',

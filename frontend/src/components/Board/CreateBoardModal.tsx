@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 
 interface TemplateDefinition {
   key: string;
@@ -172,6 +173,7 @@ interface Props {
 }
 
 export default function CreateBoardModal({ onConfirm, onCancel }: Props) {
+  useEscapeStack(onCancel, 40);
   const [name, setName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("simple_kanban");
   const [submitting, setSubmitting] = useState(false);

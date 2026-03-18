@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { createPortal } from "react-dom";
 import SelectDropdown from "../Common/SelectDropdown";
 import type { BoardFull, BoardMembership, User } from "../../types";
@@ -24,8 +25,7 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "general" | "members" | "invite" | "data" | "display";
-  onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
+  initialTab?: "members" | "invite" | "display" | "data";
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -33,7 +33,7 @@ interface Props {
   onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority", value: boolean) => void;
 }
 
-type Tab = "general" | "members" | "invite" | "data" | "display";
+type Tab = "members" | "invite" | "display" | "data";
 
 interface StagedInvite {
   user: User;
@@ -87,13 +87,11 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardSettingsChanged, onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
-  const [closeEditorOnEnter, setCloseEditorOnEnter] = useState(board.close_editor_on_enter);
-  const [savingGeneral, setSavingGeneral] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
 
   const [inviteQuery, setInviteQuery] = useState("");
@@ -108,11 +106,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useEscapeStack(onClose, 40);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -214,15 +208,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 px-6 gap-1">
-          {(["general", "members", "invite", "data", "display"] as Tab[]).map((t) => {
+          {(["members", "invite", "display", "data"] as Tab[]).map((t) => {
             if (t === "invite" && !isAdmin) return null;
-            if (t === "general" && !isAdmin) return null;
             const label =
-              t === "general" ? "General"
-              : t === "members" ? `Members (${members.length})`
+              t === "members" ? `Members (${members.length})`
               : t === "invite" ? "Invite"
-              : t === "data" ? "Data"
-              : "Display";
+              : t === "display" ? "Display"
+              : "Data";
             return (
               <button
                 key={t}
@@ -239,46 +231,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Content */}
         <div className="overflow-y-auto flex-1 px-6 py-4">
-
-          {/* ── General tab ── */}
-          {tab === "general" && isAdmin && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between py-3 border-b border-slate-700">
-                <div>
-                  <p className="text-sm font-medium text-slate-200">Close editor on Enter</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    When on, pressing Enter in the new-card input submits the card. Shift+Enter always inserts a newline.
-                  </p>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={closeEditorOnEnter}
-                  onClick={async () => {
-                    const next = !closeEditorOnEnter;
-                    setCloseEditorOnEnter(next);
-                    setSavingGeneral(true);
-                    try {
-                      await onBoardSettingsChanged?.({ close_editor_on_enter: next });
-                    } catch {
-                      setCloseEditorOnEnter(!next);
-                    } finally {
-                      setSavingGeneral(false);
-                    }
-                  }}
-                  disabled={savingGeneral}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
-                    closeEditorOnEnter ? "bg-blue-600" : "bg-slate-600"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                      closeEditorOnEnter ? "translate-x-4" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* ── Members tab ── */}
           {tab === "members" && (

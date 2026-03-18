@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useEscapeStack } from "../hooks/useEscapeStack";
 import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
@@ -33,6 +34,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const joinedGroupName: string | null = (location.state as { joinedGroup?: string } | null)?.joinedGroup ?? null;
   const [joinToast, setJoinToast] = useState(joinedGroupName);
+
+  useEscapeStack(() => {
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    if (window.history.length > 1) { navigate(-1); return; }
+    navigate("/");
+  }, 0);
 
   const [group, setGroup] = useState<Group | null>(null);
   const [subgroups, setSubgroups] = useState<Group[]>([]);

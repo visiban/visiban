@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
 import {
   DndContext,
@@ -58,11 +59,11 @@ interface Props {
   onSwimlaneOrderApplied: (swimlanes: Swimlane[]) => void;
   onCardArchived: (cardId: number) => void;
   onCardUnarchived: (card: Card) => void;
-  onBoardSettingsChanged?: (patch: Record<string, unknown>) => Promise<void>;
   onBoardDeleted?: () => void;
   userTimezone?: string;
   userDateFormat?: string;
   userTimeFormat?: string;
+  closeEditorOnEnter?: boolean;
 }
 
 function ColumnTrashZone() {
@@ -114,7 +115,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardSettingsChanged, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -236,9 +237,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "Escape") {
-        if (selectedCardIds.size > 0) { clearSelection(); return; }
-      } else if (e.key === "f") {
+      if (e.key === "f") {
         e.preventDefault();
         setShowFilters((v) => !v);
       } else if (e.key === "/") {
@@ -252,7 +251,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [selectedCardIds, clearSelection]);
+  }, []);
+
+  useEscapeStack(() => {
+    if (selectedCardIds.size === 0) return false;
+    clearSelection();
+  }, 10);
 
   // Prune selection when cards are removed (e.g. by another user via WebSocket)
   useEffect(() => {
@@ -739,7 +743,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       boardId={board.id}
                       isAdmin={isAdmin}
                       canEdit={canEdit}
-                      closeEditorOnEnter={board.close_editor_on_enter}
+                      closeEditorOnEnter={closeEditorOnEnter}
                       collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
                       hiddenColumnIds={hiddenColumnIds}
                       filteredCardIds={filteredCardIds}
@@ -836,6 +840,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
           userTimezone={userTimezone}
+          closeEditorOnEnter={closeEditorOnEnter}
         />
       )}
 
@@ -864,7 +869,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onSetCardFieldPref={setCardFieldPref}
-          onBoardSettingsChanged={onBoardSettingsChanged}
           onBoardDeleted={onBoardDeleted}
         />
       )}

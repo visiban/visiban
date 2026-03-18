@@ -35,6 +35,7 @@ export interface User {
   notif_due_soon?: boolean;
   notif_card_moved?: boolean;
   notif_comment_added?: boolean;
+  close_editor_on_enter?: boolean;
 }
 
 export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {
@@ -212,7 +213,6 @@ export interface BoardFull {
   labels: Label[];
   members: BoardMembership[];
   staleness_threshold_days: number;
-  close_editor_on_enter: boolean;
   allowed_priorities: Priority[];
   is_starred: boolean;
   created_at: string;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Location } from "react-router-dom";
 import { updateCurrentUser, changePassword } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
@@ -355,12 +356,12 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
               aria-checked={prefs[key]}
               disabled={saving === key}
               onClick={() => toggle(key)}
-              className={`relative w-10 h-6 rounded-full transition shrink-0 ${
-                prefs[key] ? "bg-blue-600" : "bg-slate-700"
-              } disabled:opacity-50`}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                prefs[key] ? "bg-blue-600" : "bg-slate-600"
+              }`}
             >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
-                prefs[key] ? "left-5" : "left-1"
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                prefs[key] ? "translate-x-4" : "translate-x-1"
               }`} />
             </button>
           </label>
@@ -376,8 +377,24 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; description: strin
   { value: "dark",   label: "Dark",   description: "Always use dark mode" },
 ];
 
-function AppearanceTab() {
+function AppearanceTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
   const { preference, setPreference } = useTheme();
+  const [savingEditor, setSavingEditor] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+
+  const toggleCloseOnEnter = async () => {
+    const newVal = !(user.close_editor_on_enter ?? false);
+    setSavingEditor(true);
+    setEditorError(null);
+    try {
+      const updated = await updateCurrentUser({ close_editor_on_enter: newVal });
+      onUserUpdated(updated);
+    } catch {
+      setEditorError("Failed to save. Please try again.");
+    } finally {
+      setSavingEditor(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
@@ -420,6 +437,30 @@ function AppearanceTab() {
           </div>
         </div>
       </div>
+
+      <div>
+        <p className="text-sm text-slate-400 mb-3">Editor behavior</p>
+        <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <span>
+            <span className="block text-sm text-white">Close editor on Enter</span>
+            <span className="block text-xs text-slate-500">When on, pressing Enter in the new card input submits the card and closes the card panel.</span>
+          </span>
+          <button
+            role="switch"
+            aria-checked={user.close_editor_on_enter ?? false}
+            disabled={savingEditor}
+            onClick={toggleCloseOnEnter}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+              (user.close_editor_on_enter ?? false) ? "bg-blue-600" : "bg-slate-600"
+            }`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+              (user.close_editor_on_enter ?? false) ? "translate-x-4" : "translate-x-1"
+            }`} />
+          </button>
+        </label>
+        {editorError && <p className="text-sm text-red-400 mt-2">{editorError}</p>}
+      </div>
     </div>
   );
 }
@@ -432,9 +473,17 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
+  const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: Location } | null)?.from;
   const [activeTab, setActiveTab] = useState<Tab>("profile");
+
+  useEscapeStack(() => {
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    if (window.history.length > 1) { navigate(-1); return; }
+    navigate(from ?? "/", { replace: true });
+  }, 0);
 
   return (
     <div className="h-full bg-slate-900 flex flex-col">
@@ -469,7 +518,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} />}
             {activeTab === "security" && <SecurityTab user={user} />}
             {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
-            {activeTab === "appearance" && <AppearanceTab />}
+            {activeTab === "appearance" && <AppearanceTab user={user} onUserUpdated={onUserUpdated} />}
           </div>
         </div>
       </main>

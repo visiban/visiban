@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useEscapeStack } from "./hooks/useEscapeStack";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useBoard } from "./hooks/useBoard";
@@ -96,7 +97,6 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
     addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel,
     addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder,
     reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane,
-    updateBoardSettings,
   } = useBoard();
 
   const [isStarred, setIsStarred] = useState(false);
@@ -123,6 +123,15 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
       navigate("/");
     }
   };
+
+  useEscapeStack(() => {
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    // navigate(-1) is referrer-based; fall back to semantic parent if there is
+    // no history entry to go back to (e.g. board opened directly via URL).
+    if (window.history.length > 1) { navigate(-1); return; }
+    handleBack();
+  }, 0);
 
   const starButton = board ? (
     <button
@@ -175,11 +184,11 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onMemberRemoved={removeMember}
             onColumnOrderApplied={applyColumnOrder}
             onSwimlaneOrderApplied={applySwimlaneOrder}
-            onBoardSettingsChanged={updateBoardSettings}
             onBoardDeleted={handleBack}
             userTimezone={user.timezone ?? ""}
             userDateFormat={user.date_format ?? "MM/DD/YYYY"}
             userTimeFormat={user.time_format ?? "12h"}
+            closeEditorOnEnter={user.close_editor_on_enter ?? false}
           />
         )}
       </div>

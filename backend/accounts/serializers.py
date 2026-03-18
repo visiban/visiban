@@ -24,5 +24,5 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "avatar_url", "display_name", "is_site_admin", "must_change_password", "has_usable_password", "timezone", "date_format", "time_format", "number_locale", "notif_card_assigned", "notif_mentioned", "notif_due_soon", "notif_card_moved", "notif_comment_added"]
+        fields = ["id", "username", "email", "first_name", "last_name", "avatar_url", "display_name", "is_site_admin", "must_change_password", "has_usable_password", "timezone", "date_format", "time_format", "number_locale", "close_editor_on_enter", "notif_card_assigned", "notif_mentioned", "notif_due_soon", "notif_card_moved", "notif_comment_added"]
         read_only_fields = ["id", "is_site_admin", "must_change_password", "has_usable_password"]

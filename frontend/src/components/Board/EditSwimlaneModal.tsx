@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { updateSwimlane, deleteSwimlane } from "../../api/boards";
 import type { Swimlane } from "../../types";
 import { COLUMN_COLORS } from "../../constants/colors";
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose }: Props) {
+  useEscapeStack(onClose, 40);
   const [name, setName] = useState(swimlane.name);
   const [color, setColor] = useState(swimlane.color);
   const [saving, setSaving] = useState(false);

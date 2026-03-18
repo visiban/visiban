@@ -105,7 +105,6 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     labels: [{ id: 100, uid: 'lbl001', name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     staleness_threshold_days: 7,
-    close_editor_on_enter: false,
     allowed_priorities: ['low', 'medium', 'high', 'urgent'],
     is_starred: false,
     created_at: '', updated_at: '',
@@ -139,7 +138,6 @@ function makeProps(overrides: Record<string, unknown> = {}) {
     onMemberRemoved: vi.fn(),
     onColumnOrderApplied: vi.fn(),
     onSwimlaneOrderApplied: vi.fn(),
-    onBoardSettingsChanged: vi.fn(),
     ...overrides,
   }
 }
