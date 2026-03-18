@@ -48,6 +48,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Typing in the description editor no longer triggers board keyboard shortcuts such as `f` for filter
 - `seed_demo_data` now refuses to run (with or without `--wipe`) when `DEBUG` is `False` and `--force` is not passed, preventing accidental demo board creation on production servers
 - `ensure_site_admin` now writes the one-time password to `/tmp/visiban_admin_password` with a trailing newline so `cat` output is not run together with the shell prompt (zsh users no longer see a spurious `%` that could be mistaken for part of the password)
+- Collapsed columns can now be dragged to reorder — previously the drag listeners were on the full column div alongside the click-to-expand handler, so initiating a drag would immediately re-expand the column after dropping
 - First Boot docs now include explicit `cat` and `rm` commands for Kubernetes/Helm, and a tip callout clarifying that the `%` shown by zsh after `cat` is a shell artifact not part of the password
 - Local backend development server and management commands (`manage.py`) no longer crash on startup with a URL converter registration conflict when running outside Docker
 - WebSocket broadcasts for card creation and card moves now fire only after the database transaction commits, preventing connected clients from receiving stale state if the transaction rolls back (#204)

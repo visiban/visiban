@@ -71,10 +71,15 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-slate-700 bg-slate-800 cursor-pointer hover:bg-slate-700 transition overflow-hidden"
         onClick={onToggleCollapse}
         title={`Expand "${column.name}"`}
-        {...attributes}
-        {...listeners}
       >
-        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+        {/* Color dot is the drag handle — same pattern as expanded header */}
+        <span
+          className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""}`}
+          style={{ backgroundColor: column.color }}
+          title={isAdmin ? "Drag to reorder" : undefined}
+          onClick={(e) => e.stopPropagation()}
+          {...(isAdmin ? { ...attributes, ...listeners } : {})}
+        />
         <span
           className={`text-xs font-medium px-1 py-0.5 rounded-full ${
             overWip ? "bg-red-900/50 text-red-400" : "bg-slate-700 text-slate-400"
