@@ -485,8 +485,8 @@ class BoardViewSet(viewsets.ModelViewSet):
             "weight": "Weight",
             "labels": "Labels",
             "assignee": "Assignee",
-            "duedate": "DueDate",
-            "due_date": "DueDate",
+            "duedate": "Due Date",
+            "due_date": "Due Date",
         }
         rows = [
             {_HEADER_MAP.get(k.strip().lower(), k.strip()): v for k, v in row.items() if k is not None}
