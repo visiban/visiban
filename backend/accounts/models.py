@@ -1,5 +1,15 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.cache import cache
 from django.db import models
+
+# Shared by models.py and adapter.py — defined here to avoid circular imports.
+REGISTRATION_MODE_CACHE_KEY = "site_setting_registration_mode"
+REGISTRATION_MODE_CACHE_TTL = 60  # seconds
+
+
+def invalidate_registration_mode_cache():
+    """Evict the cached registration_mode so the next read hits the DB."""
+    cache.delete(REGISTRATION_MODE_CACHE_KEY)
 
 
 class SiteSetting(models.Model):
@@ -24,6 +34,9 @@ class SiteSetting(models.Model):
         # Enforce singleton: the row always has pk=1.
         self.pk = 1
         super().save(*args, **kwargs)
+        # Invalidate the adapter's cache so the new mode takes effect
+        # immediately without waiting for the TTL to expire.
+        invalidate_registration_mode_cache()
 
     @classmethod
     def get(cls):

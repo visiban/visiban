@@ -2,24 +2,23 @@ from allauth.account.adapter import DefaultAccountAdapter
 from django.core.cache import cache
 from rest_framework.exceptions import PermissionDenied
 
-from .models import SiteSetting
+from .models import (
+    REGISTRATION_MODE_CACHE_KEY,
+    REGISTRATION_MODE_CACHE_TTL,
+    SiteSetting,
+    invalidate_registration_mode_cache,  # re-exported so tests can import it from here
+)
 
-_SITE_SETTING_CACHE_KEY = "site_setting_registration_mode"
-_SITE_SETTING_CACHE_TTL = 60  # seconds
+__all__ = ["RegistrationAdapter", "invalidate_registration_mode_cache"]
 
 
 def _get_registration_mode() -> str:
     """Return registration_mode, using a short-lived cache to avoid a DB hit on every OAuth redirect."""
-    mode = cache.get(_SITE_SETTING_CACHE_KEY)
+    mode = cache.get(REGISTRATION_MODE_CACHE_KEY)
     if mode is None:
         mode = SiteSetting.get().registration_mode
-        cache.set(_SITE_SETTING_CACHE_KEY, mode, _SITE_SETTING_CACHE_TTL)
+        cache.set(REGISTRATION_MODE_CACHE_KEY, mode, REGISTRATION_MODE_CACHE_TTL)
     return mode
-
-
-def invalidate_registration_mode_cache():
-    """Call this after SiteSetting is updated so the cache is refreshed promptly."""
-    cache.delete(_SITE_SETTING_CACHE_KEY)
 
 
 class RegistrationAdapter(DefaultAccountAdapter):
