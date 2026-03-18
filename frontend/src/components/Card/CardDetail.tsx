@@ -19,7 +19,6 @@ interface Props {
   onDeleted: (id: number) => void;
   onUpdated: (card: Card) => void;
   onArchived: (cardId: number) => void;
-  onLabelAdded: (label: Label) => void;
   userDateFormat?: string;
   userTimeFormat?: string;
   userTimezone?: string;
@@ -66,7 +65,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onLabelAdded, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", closeEditorOnEnter = false }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", closeEditorOnEnter = false }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [commentBody, setCommentBody] = useState("");
@@ -149,7 +148,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     const color = colorOverride ?? newLabelColor;
     try {
       const label = await createLabel(board.id, { name: newLabelName.trim(), color });
-      onLabelAdded(label);
+      // Do not call onLabelAdded here — the WebSocket label.created broadcast is
+      // the source of truth for board.labels and will add it once. Calling it here
+      // too produces a duplicate label in the board's label list.
       const updatedLabelIds = [...localCard.labels.map((l) => l.id), label.id];
       const updated = await updateCard(board.id, localCard.id, { label_ids: updatedLabelIds });
       setLocalCard(updated);

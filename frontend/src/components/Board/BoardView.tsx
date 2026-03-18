@@ -837,7 +837,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
           onUpdated={onCardUpdated}
           onArchived={(id) => { onCardArchived(id); setSelectedCard(null); }}
-          onLabelAdded={onLabelAdded}
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
           userTimezone={userTimezone}
