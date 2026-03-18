@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CreateBoardModal from '../components/Board/CreateBoardModal'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
@@ -21,6 +21,42 @@ vi.mock('../api/boards', () => ({
   updateSwimlane: vi.fn(),
   deleteSwimlane: vi.fn(),
   createSwimlane: vi.fn(),
+  listBoardTemplates: vi.fn().mockResolvedValue([
+    {
+      id: '1', name: 'Simple Kanban', slug: 'simple_kanban',
+      description: 'General task tracking for any team',
+      icon: 'columns', lane_label: 'Team', lane_placeholder: 'e.g. Engineering',
+      columns_json: [
+        { name: 'Backlog', color: '#6B7280', position: 0 },
+        { name: 'To Do', color: '#3B82F6', position: 1 },
+        { name: 'In Progress', color: '#F59E0B', position: 2 },
+        { name: 'In Review', color: '#8B5CF6', position: 3 },
+        { name: 'Done', color: '#10B981', position: 4 },
+      ],
+      sort_order: 40,
+    },
+    {
+      id: '2', name: 'Sales Pipeline', slug: 'sales_pipeline',
+      description: 'Track deals per account from lead to close',
+      icon: 'chart-up', lane_label: 'Account', lane_placeholder: 'e.g. Acme Corp',
+      columns_json: [
+        { name: 'Lead', color: '#6B7280', position: 0 },
+        { name: 'Qualified', color: '#3B82F6', position: 1 },
+        { name: 'Proposal Sent', color: '#F59E0B', position: 2 },
+        { name: 'Negotiation', color: '#F97316', position: 3 },
+        { name: 'Closed Won', color: '#10B981', position: 4 },
+        { name: 'Closed Lost', color: '#9CA3AF', position: 5 },
+      ],
+      sort_order: 10,
+    },
+    {
+      id: '7', name: 'Blank Board', slug: 'blank',
+      description: 'Start empty and add columns and swimlanes yourself',
+      icon: 'blank', lane_label: '', lane_placeholder: 'e.g. General',
+      columns_json: [],
+      sort_order: 70,
+    },
+  ]),
 }))
 
 vi.mock('../api/groups', () => ({
@@ -60,13 +96,14 @@ const fakeSwimlane: Swimlane = {
 }
 
 describe('CreateBoardModal', () => {
-  it('renders modal with template picker', () => {
+  it('renders modal with template picker after loading', async () => {
     render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
     expect(screen.getByText('New Board')).toBeInTheDocument()
-    expect(screen.getByText('Simple Kanban')).toBeInTheDocument()
+    expect(screen.getByText('Create Board')).toBeInTheDocument()
+    // Templates are fetched asynchronously
+    await waitFor(() => expect(screen.getByText('Simple Kanban')).toBeInTheDocument())
     expect(screen.getByText('Sales Pipeline')).toBeInTheDocument()
     expect(screen.getByText('Blank Board')).toBeInTheDocument()
-    expect(screen.getByText('Create Board')).toBeInTheDocument()
   })
 
   it('disables create button when name is empty', () => {
@@ -79,6 +116,55 @@ describe('CreateBoardModal', () => {
     render(<CreateBoardModal onConfirm={vi.fn()} onCancel={onCancel} />)
     await userEvent.setup().click(screen.getByText('Cancel'))
     expect(onCancel).toHaveBeenCalledOnce()
+  })
+
+  it('shows swimlane prompt with template lane_label after template load', async () => {
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('Simple Kanban')).toBeInTheDocument())
+    // Simple Kanban has lane_label "Team"
+    expect(screen.getByText(/First Team \(swimlane\)/i)).toBeInTheDocument()
+  })
+
+  it('shows default-board checkbox', async () => {
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    await waitFor(() => expect(screen.getByLabelText('Set as my default board')).toBeInTheDocument())
+  })
+
+  it('shows default board tip when user has no default', async () => {
+    const userWithNoDefault = { ...fakeUser, default_board_id: null }
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} user={userWithNoDefault} />)
+    await waitFor(() => expect(screen.getByText(/Tip: Set a default to skip/i)).toBeInTheDocument())
+  })
+
+  it('does not show tip when user already has a default', async () => {
+    const userWithDefault = { ...fakeUser, default_board_id: 5 }
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} user={userWithDefault} />)
+    await waitFor(() => screen.getByLabelText('Set as my default board'))
+    expect(screen.queryByText(/Tip: Set a default to skip/i)).not.toBeInTheDocument()
+  })
+
+  it('passes setAsDefault=true when checkbox is checked', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined)
+    render(<CreateBoardModal onConfirm={onConfirm} onCancel={vi.fn()} />)
+    const user = userEvent.setup()
+    // Wait for templates to load
+    await waitFor(() => expect(screen.getByLabelText('Set as my default board')).toBeInTheDocument())
+    const nameInput = screen.getByPlaceholderText(/e.g. Q3 Pipeline/i)
+    await user.type(nameInput, 'My Board')
+    await user.click(screen.getByLabelText('Set as my default board'))
+    await user.click(screen.getByText('Create Board'))
+    expect(onConfirm).toHaveBeenCalledWith('My Board', 'simple_kanban', '', true)
+  })
+
+  it('passes setAsDefault=false by default', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined)
+    render(<CreateBoardModal onConfirm={onConfirm} onCancel={vi.fn()} />)
+    const user = userEvent.setup()
+    await waitFor(() => expect(screen.getByLabelText('Set as my default board')).toBeInTheDocument())
+    const nameInput = screen.getByPlaceholderText(/e.g. Q3 Pipeline/i)
+    await user.type(nameInput, 'My Board')
+    await user.click(screen.getByText('Create Board'))
+    expect(onConfirm).toHaveBeenCalledWith('My Board', 'simple_kanban', '', false)
   })
 })
 

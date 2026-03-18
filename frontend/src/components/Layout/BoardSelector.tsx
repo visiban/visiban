@@ -31,8 +31,8 @@ export default function BoardSelector({ user, onSelect }: Props) {
     }
   };
 
-  const handleCreate = async (name: string, template: string) => {
-    const board = await createBoard({ name, template });
+  const handleCreate = async (name: string, template: string, swimlaneName: string, _setAsDefault: boolean) => {
+    const board = await createBoard({ name, template, swimlane_name: swimlaneName });
     setBoards((prev) => [board, ...prev]);
     setCreating(false);
     onSelect(board);

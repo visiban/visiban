@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardMembership, Column, Swimlane, Label } from "../types";
+import type { Board, BoardFull, BoardMembership, BoardTemplate, Column, Swimlane, Label } from "../types";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -12,7 +12,10 @@ export const removeBoardMember = (boardId: number, userId: number) =>
 export const listBoards = () =>
   client.get<{ results: Board[] }>("/api/boards/").then((r) => r.data.results);
 
-export const createBoard = (data: { name: string; description?: string; template?: string }) =>
+export const listBoardTemplates = () =>
+  client.get<BoardTemplate[]>("/api/boards/templates/").then((r) => r.data);
+
+export const createBoard = (data: { name: string; description?: string; template?: string; swimlane_name?: string }) =>
   client.post<Board>("/api/boards/", data).then((r) => r.data);
 
 export const getBoard = (id: number) =>

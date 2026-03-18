@@ -10,6 +10,7 @@ vi.mock('../api/boards', () => ({
   createBoard: vi.fn(),
   deleteBoard: vi.fn(),
   importBoard: vi.fn(),
+  listBoardTemplates: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('../api/groups', () => ({

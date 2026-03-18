@@ -47,12 +47,13 @@ vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
   createBoard: vi.fn(),
+  listBoardTemplates: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('../components/Board/CreateBoardModal', () => ({
-  default: ({ onConfirm, onCancel }: { onConfirm: (n: string, t: string) => void; onCancel: () => void }) => (
+  default: ({ onConfirm, onCancel }: { onConfirm: (n: string, t: string, s: string, d: boolean) => void; onCancel: () => void }) => (
     <div data-testid="create-board-modal">
-      <button onClick={() => onConfirm('New Board', 'simple_kanban')}>Confirm create board</button>
+      <button onClick={() => onConfirm('New Board', 'simple_kanban', '', false)}>Confirm create board</button>
       <button onClick={onCancel}>Cancel create board</button>
     </div>
   ),

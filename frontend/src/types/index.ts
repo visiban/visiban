@@ -36,6 +36,26 @@ export interface User {
   notif_card_moved?: boolean;
   notif_comment_added?: boolean;
   close_editor_on_enter?: boolean;
+  /** PK of the board to open automatically on login, or null if not set. */
+  default_board_id?: number | null;
+}
+
+export interface BoardTemplateColumn {
+  name: string;
+  color: string;
+  position: number;
+}
+
+export interface BoardTemplate {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  lane_label: string;
+  lane_placeholder: string;
+  columns_json: BoardTemplateColumn[];
+  sort_order: number;
 }
 
 export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {

@@ -28,6 +28,15 @@ export default function App() {
     if (returnTo) {
       sessionStorage.removeItem("returnTo");
       navigate(returnTo);
+      return;
+    }
+    // If the user has a default board set, navigate there directly instead of
+    // landing on the board picker. The board access check in BoardView will
+    // redirect back to "/" if the board is no longer accessible (deleted or
+    // membership revoked), so there is no IDOR risk — we only use the ID to
+    // construct the URL, not to bypass any authorization.
+    if (loggedInUser.default_board_id) {
+      navigate(`/boards/${loggedInUser.default_board_id}`);
     }
   };
 

@@ -7,9 +7,19 @@ from accounts.models import User
 from accounts.serializers import UserSerializer
 
 from .models import (
-    Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
+    Board, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card, CardMovement,
     CardComment, CardActivity, CardAttachment, CardChecklist,
 )
+
+
+class BoardTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BoardTemplate
+        fields = [
+            "id", "name", "slug", "description", "icon",
+            "lane_label", "lane_placeholder", "columns_json",
+            "sort_order",
+        ]
 
 
 class BoardMembershipSerializer(serializers.ModelSerializer):
