@@ -158,9 +158,12 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm text-slate-400">
-            Password
+          <div className="flex flex-col gap-1">
+            <label htmlFor="new-user-password" className="text-sm text-slate-400">
+              Password
+            </label>
             <input
+              id="new-user-password"
               type="password"
               value={form.password}
               onChange={set("password")}
@@ -170,7 +173,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
               className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             />
             <span className="text-xs text-slate-500">Minimum 12 characters</span>
-          </label>
+          </div>
 
           <label className="flex items-center gap-3 cursor-pointer text-sm text-slate-300">
             <input

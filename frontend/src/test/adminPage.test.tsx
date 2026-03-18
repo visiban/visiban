@@ -200,7 +200,8 @@ describe('AdminPage — Users tab', () => {
     renderAdminPage()
     fireEvent.click(screen.getByText('Users'))
     await waitFor(() => {
-      expect(screen.getByText('alice')).toBeInTheDocument()
+      // username rendered as "@alice" in the table row
+      expect(screen.getByText('@alice')).toBeInTheDocument()
     })
   })
 
@@ -243,7 +244,7 @@ describe('AdminPage — Users tab', () => {
 
     fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'newguy' } })
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'newguy@example.com' } })
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'SecurePass123!' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
     fireEvent.click(screen.getByText('Create user'))
 
     await waitFor(() => {
@@ -264,7 +265,7 @@ describe('AdminPage — Users tab', () => {
 
     fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'newguy' } })
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'newguy@example.com' } })
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'short' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'short' } })
     fireEvent.click(screen.getByText('Create user'))
 
     await waitFor(() => {
