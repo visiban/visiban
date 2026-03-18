@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0008_site_setting'),
+        ('accounts', '0009_sitesetting_registration_mode'),
     ]
 
     operations = [
