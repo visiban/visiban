@@ -86,6 +86,12 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
+          {/* Size limit notice */}
+          <div className="flex gap-2.5 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2.5 text-xs text-slate-300">
+            <span className="shrink-0 text-slate-400 mt-px">ℹ</span>
+            <span>Imports are limited to <strong className="text-slate-200">500 cards</strong>, <strong className="text-slate-200">50 columns</strong>, and <strong className="text-slate-200">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
+          </div>
+
           {/* File input */}
           <div>
             <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5">

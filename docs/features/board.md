@@ -166,7 +166,20 @@ Export is available to all board members (viewer and above). The export endpoint
 
 Click **Import** on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards (including comments and checklist items for JSON imports). An optional board name override can be specified.
 
-> **Limitation:** Card assignees are not preserved on import — all cards are imported as unassigned. Reassign cards manually after import, or use the bulk assign action.
+!!! warning "Import limits"
+    To prevent runaway server load, imports are rejected if the file exceeds any of these limits:
+
+    | Resource | Limit |
+    |----------|-------|
+    | Cards | 500 |
+    | Columns | 50 |
+    | Swimlanes | 100 |
+    | File size | 10 MB |
+
+    Boards exported from Visiban stay well within these limits in normal use. If you are migrating from an external tool and your board exceeds a limit, split it into smaller boards before importing.
+
+!!! note "Assignees not preserved"
+    Card assignees are not carried over on import — all cards are imported as unassigned. Reassign cards manually after import, or use the bulk assign action.
 
 - `POST /api/boards/import/` — multipart file upload
 
