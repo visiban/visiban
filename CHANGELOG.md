@@ -67,6 +67,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - **Security [Low] #220** — `Notification` model gains structured `actor` (FK) and `action_type` (choice field) columns; notification links in the frontend use `.textContent` rendering, never `innerHTML`
 - **Security [Low] #220** — Group and board permission traversals now emit a `logger.warning()` when the 6-level depth cap is hit, surfacing overly deep trees to operators
 - **Security [Low] #220** — Version endpoint (`GET /api/version/`) now requires authentication
+- Switching templates in the board creation modal no longer causes layout shifts — the column preview strip stays visible for all templates (Blank Board shows a "No preset columns" note), the swimlane name is preserved when changing templates, and the default-board checkbox hint text no longer shifts surrounding content (#159)
 
 ---
 
