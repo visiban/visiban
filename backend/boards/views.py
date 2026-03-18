@@ -473,6 +473,31 @@ class BoardViewSet(viewsets.ModelViewSet):
         if not rows:
             return Response({"detail": "CSV file is empty."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Normalize headers to canonical casing so that exports from external tools
+        # (which commonly use lowercase or snake_case) import cleanly.  Unknown
+        # headers are preserved as-is and simply ignored during card creation.
+        _HEADER_MAP = {
+            "title": "Title",
+            "column": "Column",
+            "swimlane": "Swimlane",
+            "description": "Description",
+            "priority": "Priority",
+            "weight": "Weight",
+            "labels": "Labels",
+            "assignee": "Assignee",
+            "duedate": "DueDate",
+            "due_date": "DueDate",
+        }
+        rows = [
+            {_HEADER_MAP.get(k.strip().lower(), k.strip()): v for k, v in row.items()}
+            for row in rows
+        ]
+        # Rebuild fieldnames from the normalized first row so header validation works.
+        if reader.fieldnames is not None:
+            reader.fieldnames = [
+                _HEADER_MAP.get(f.strip().lower(), f.strip()) for f in reader.fieldnames
+            ]
+
         # Enforce row (card) ceiling early — before scanning for columns/swimlanes —
         # so that oversized imports are rejected without building intermediate data
         # structures.  Column and swimlane counts are validated after the first
