@@ -5,12 +5,16 @@ from django.db import models
 class SiteSetting(models.Model):
     """Singleton model for instance-wide configuration. Always access via SiteSetting.get()."""
 
-    require_invite_for_registration = models.BooleanField(
-        default=False,
-        help_text=(
-            "When enabled, self-registration is blocked. "
-            "New accounts can only be created by site admins via the admin panel."
-        ),
+    class RegistrationMode(models.TextChoices):
+        OPEN = "open", "Open — anyone can register"
+        INVITE_ONLY = "invite_only", "Invite-only — only users with a valid invite link can register"
+        CLOSED = "closed", "Closed — self-registration is disabled; admins create accounts manually"
+
+    registration_mode = models.CharField(
+        max_length=16,
+        choices=RegistrationMode.choices,
+        default=RegistrationMode.OPEN,
+        help_text="Controls who can self-register. 'open' = anyone; 'invite_only' = valid invite link required; 'closed' = admin-created accounts only.",
     )
 
     class Meta:
@@ -25,6 +29,11 @@ class SiteSetting(models.Model):
     def get(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+    @property
+    def require_invite_for_registration(self):
+        """Backward-compat shim: returns True when registration is not open."""
+        return self.registration_mode != self.RegistrationMode.OPEN
 
 
 class User(AbstractUser):
