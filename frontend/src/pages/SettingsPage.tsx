@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import type { Location } from "react-router-dom";
 import { updateCurrentUser, changePassword } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
 import type { User } from "../types";
@@ -34,7 +35,7 @@ const NUMBER_LOCALE_OPTIONS = [
   { value: "hi-IN", label: "1,23,456.78 — Indian" },
 ];
 
-function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
+function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: (u: User) => void; from?: Location }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     display_name: user.display_name ?? "",
@@ -69,7 +70,7 @@ function ProfileTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: Us
       });
       onUserUpdated(updated);
       setSaved(true);
-      setTimeout(() => navigate("/"), 1500);
+      setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
     } catch {
       setError("Failed to save changes. Please try again.");
     } finally {
@@ -431,6 +432,8 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
+  const location = useLocation();
+  const from = (location.state as { from?: Location } | null)?.from;
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   return (
@@ -463,7 +466,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} />}
+            {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} />}
             {activeTab === "security" && <SecurityTab user={user} />}
             {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "appearance" && <AppearanceTab />}

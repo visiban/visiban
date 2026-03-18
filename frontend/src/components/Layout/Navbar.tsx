@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import type { User, Notification } from "../../types";
 import { userDisplayName } from "../../types";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
@@ -25,6 +25,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const [version, setVersion] = useState<string | null>(null);
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => {});
@@ -156,7 +157,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           </div>
 
           <button
-            onClick={() => navigate("/settings")}
+            onClick={() => navigate("/settings", { state: { from: location } })}
             className="text-slate-200 text-sm hover:text-white transition"
           >
             {userDisplayName(user)}
