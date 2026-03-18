@@ -8,6 +8,9 @@ The navbar shows a bell icon with an unread count badge. Clicking it opens a dro
 
 Click **Mark all read** to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.
 
+!!! note "Notification limit"
+    The dropdown shows at most **50 unread notifications**. Older unread notifications beyond the 50 most recent are not shown in the UI, though they are still marked read when you click **Mark all read**.
+
 ## Notification preferences
 
 Each user can enable or disable individual notification triggers in **Settings → Notifications**. Preferences are saved immediately on toggle. Available toggles:

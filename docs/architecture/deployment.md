@@ -158,3 +158,19 @@ The bundled PostgreSQL subchart does not perform in-place major version upgrades
    ```bash
    kubectl rollout restart deployment -n visiban visiban-backend
    ```
+
+## Rate limiting
+
+In production (`DEBUG=False`), the API enforces the following request rate limits per client. In development (`DEBUG=True`), throttling is effectively disabled (9999/hour for all scopes).
+
+| Scope | Limit | Notes |
+|---|---|---|
+| Anonymous requests | 300 / hour | Applies to unauthenticated API calls |
+| Authenticated users | 5000 / hour | Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user easily uses 500+ per hour |
+| User search (`/api/users/search/`) | 30 / minute | Tighter limit to prevent username enumeration |
+| Invite link redemption (`/api/groups/.../join/`) | 10 / hour | Low ceiling to prevent invite token brute-force scanning |
+
+Clients that exceed a limit receive `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set — clients should implement exponential backoff.
+
+!!! note
+    These limits are generous for normal interactive use. If you run a very large team or integrate Visiban with automation that makes frequent API calls, monitor your request volume and raise the `user` limit in `DEFAULT_THROTTLE_RATES` in `settings.py` if needed.
