@@ -370,12 +370,13 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
 
       {showCreateBoard && (
         <CreateBoardModal
-          onConfirm={async (name, template) => {
-            const board = await createBoard({ name, template });
+          onConfirm={async (name, template, swimlaneName) => {
+            const board = await createBoard({ name, template, swimlane_name: swimlaneName });
             setShowCreateBoard(false);
             navigate(`/boards/${board.id}`);
           }}
           onCancel={() => setShowCreateBoard(false)}
+          user={_user}
         />
       )}
 

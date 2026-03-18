@@ -31,7 +31,7 @@ export const getSubgroups = (id: number) =>
 export const getGroupBoards = (id: number) =>
   client.get<Board[]>(`/api/groups/${id}/boards/`).then((r) => r.data);
 
-export const createGroupBoard = (id: number, data: { name: string; description?: string; template?: string }) =>
+export const createGroupBoard = (id: number, data: { name: string; description?: string; template?: string; swimlane_name?: string }) =>
   client.post<Board>(`/api/groups/${id}/boards/`, data).then((r) => r.data);
 
 export const listInviteLinks = (groupId: number) =>

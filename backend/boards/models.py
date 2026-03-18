@@ -1,7 +1,44 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 
 from boards.uid import _generate_uid
+
+
+class BoardTemplate(models.Model):
+    """
+    A pre-configured board layout that users can select at board creation time.
+    Templates are seeded via a data migration and are not user-editable —
+    they are applied once at board creation to create columns and a first swimlane.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.CharField(max_length=120)
+    icon = models.CharField(max_length=32, blank=True)
+    lane_label = models.CharField(
+        max_length=50, blank=True,
+        help_text="Label shown in the swimlane prompt (e.g. 'Account', 'Project').",
+    )
+    lane_placeholder = models.CharField(
+        max_length=100, blank=True,
+        help_text="Placeholder text in the first-swimlane name input.",
+    )
+    columns_json = models.JSONField(
+        default=list,
+        help_text="Ordered list of column dicts: [{name, color, position}].",
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "board_templates"
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
 
 
 class Board(models.Model):

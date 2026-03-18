@@ -127,8 +127,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }
   };
 
-  const handleCreateBoard = async (name: string, template: string) => {
-    const board = await createGroupBoard(groupId, { name, template });
+  const handleCreateBoard = async (name: string, template: string, swimlaneName: string, _setAsDefault: boolean) => {
+    const board = await createGroupBoard(groupId, { name, template, swimlane_name: swimlaneName });
     setBoards((prev) => [...prev, board]);
     setCreatingBoard(false);
     navigate(`/boards/${board.id}`);

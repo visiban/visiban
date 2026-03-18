@@ -61,6 +61,5 @@ export function useEscapeStack(fn: EscapeHandler, priority: number): void {
       }
     };
   // priority is the only dep — fn stays current via fnRef.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priority]);
 }

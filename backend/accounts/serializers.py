@@ -18,11 +18,35 @@ class RegistrationSerializer(RegisterSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
+    # default_board_id is injected as a writable PrimaryKeyRelatedField in
+    # __init__ rather than at class level to avoid a premature import of
+    # boards.models during test collection (app registry may not be ready when
+    # this module is first imported in some Django startup orderings).
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # After super().__init__ the fields BindingDict is built; we can now
+        # replace the auto-generated read-only FK field with a writable one.
+        from boards.models import Board  # deferred to avoid startup ordering issues
+        self.fields["default_board_id"] = serializers.PrimaryKeyRelatedField(
+            source="default_board",
+            queryset=Board.objects.all(),
+            allow_null=True,
+            required=False,
+        )
 
     def get_has_usable_password(self, obj):
         return obj.has_usable_password()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "avatar_url", "display_name", "is_site_admin", "must_change_password", "has_usable_password", "timezone", "date_format", "time_format", "number_locale", "close_editor_on_enter", "notif_card_assigned", "notif_mentioned", "notif_due_soon", "notif_card_moved", "notif_comment_added"]
+        fields = [
+            "id", "username", "email", "first_name", "last_name", "avatar_url",
+            "display_name", "is_site_admin", "must_change_password", "has_usable_password",
+            "timezone", "date_format", "time_format", "number_locale",
+            "close_editor_on_enter",
+            "notif_card_assigned", "notif_mentioned", "notif_due_soon",
+            "notif_card_moved", "notif_comment_added",
+            "default_board_id",
+        ]
         read_only_fields = ["id", "is_site_admin", "must_change_password", "has_usable_password"]

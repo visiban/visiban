@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework_nested import routers
 from rest_framework.routers import SimpleRouter
 from .views import (
-    BoardViewSet, ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
+    BoardViewSet, BoardTemplateListView,
+    ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
     NotificationListView, NotificationMarkReadView, NotificationUnreadCountView,
     VersionView,
 )
@@ -22,6 +23,10 @@ boards_router.register(r"labels", LabelViewSet, basename="board-label")
 boards_router.register(r"cards", CardViewSet, basename="board-card")
 
 urlpatterns = [
+    # The templates endpoint must come before include(router.urls) so Django
+    # matches it before the router's boards/<pk>/ pattern can claim "templates"
+    # as a board PK.
+    path("boards/templates/", BoardTemplateListView.as_view()),
     path("", include(router.urls)),
     path("", include(boards_router.urls)),
     path("notifications/", NotificationListView.as_view()),

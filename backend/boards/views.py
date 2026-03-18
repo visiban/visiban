@@ -26,13 +26,14 @@ from groups.models import Group, GroupMembership, get_accessible_group_ids
 from .broadcast import broadcast_board_event
 from .utils import extract_mentions, _get_effective_member_ids, notify_new_mentions
 from .models import (
-    Board, BoardFavorite, BoardMembership, Column, Swimlane, Label,
+    Board, BoardFavorite, BoardMembership, BoardTemplate, Column, Swimlane, Label,
     Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment,
     Notification,
 )
 from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
+    BoardTemplateSerializer,
     ColumnSerializer, SwimlaneSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
@@ -185,8 +186,13 @@ class BoardViewSet(viewsets.ModelViewSet):
                 for i, col in enumerate(template["columns"])
             ])
 
-        if template["default_swimlane"]:
-            Swimlane.objects.create(board=board, name=template["default_swimlane"], position=0, color="#6B7280")
+        # Prefer the user-supplied swimlane name from the modal prompt;
+        # fall back to the legacy static default for backwards compatibility.
+        swimlane_name = (self.request.data.get("swimlane_name") or "").strip()
+        if not swimlane_name:
+            swimlane_name = template.get("default_swimlane") or ""
+        if swimlane_name:
+            Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
@@ -1748,3 +1754,23 @@ class ReadinessView(APIView):
         if errors:
             return Response({"status": "error", "errors": errors}, status=503)
         return Response({"status": "ok"})
+
+
+# ---------------------------------------------------------------------------
+# Board templates
+# ---------------------------------------------------------------------------
+
+class BoardTemplateListView(APIView):
+    """Return the list of active board templates for the board creation modal.
+
+    Only active templates are returned, ordered by sort_order.
+    Authentication is required — the templates contain no sensitive data, but
+    an unauthed caller has no reason to query this endpoint and requiring auth
+    aligns with the rest of the boards API.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        templates = BoardTemplate.objects.filter(is_active=True).order_by("sort_order", "name")
+        return Response(BoardTemplateSerializer(templates, many=True).data)

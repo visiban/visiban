@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listBoards, createBoard, deleteBoard, importBoard } from "../api/boards";
+import { updateDefaultBoard } from "../api/auth";
 import { listGroups } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
@@ -39,10 +40,16 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     listGroups().then(setGroups).finally(() => setLoadingGroups(false));
   }, []);
 
-  const handleCreateBoard = async (name: string, template: string) => {
-    const board = await createBoard({ name, template });
+  const handleCreateBoard = async (name: string, template: string, swimlaneName: string, setAsDefault: boolean) => {
+    const board = await createBoard({ name, template, swimlane_name: swimlaneName });
     setBoards((prev) => [board, ...prev]);
     setCreatingBoard(false);
+    if (setAsDefault) {
+      // Best-effort: patch the default board preference. Failure is non-fatal.
+      updateDefaultBoard(board.id)
+        .then((updatedUser) => onUserUpdated(updatedUser))
+        .catch(() => undefined);
+    }
     navigate(`/boards/${board.id}`);
   };
 
@@ -181,6 +188,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         <CreateBoardModal
           onConfirm={handleCreateBoard}
           onCancel={() => setCreatingBoard(false)}
+          user={user}
         />
       )}
 
