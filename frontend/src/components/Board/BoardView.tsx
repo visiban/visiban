@@ -824,6 +824,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           selectedCardIds={selectedCardIds}
           onCardsUpdated={(cards) => cards.forEach(onCardUpdated)}
           onCardsDeleted={(ids) => ids.forEach(onCardDeleted)}
+          onCardsArchived={(ids) => ids.forEach(onCardArchived)}
           onClearSelection={clearSelection}
         />
       )}
