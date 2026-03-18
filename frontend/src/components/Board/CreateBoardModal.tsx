@@ -188,52 +188,82 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
             </label>
             {templatesLoading ? (
               <div className="text-slate-500 text-sm py-4 text-center">Loading templates…</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2.5">
-                {templates.map((t) => {
-                  const isSelected = t.slug === selectedSlug;
-                  return (
-                    <button
-                      key={t.slug}
-                      onClick={() => handleSelectTemplate(t.slug)}
-                      className={[
-                        "text-left rounded-xl p-3.5 border transition-all",
-                        isSelected
-                          ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
-                          : "border-slate-700 bg-slate-800 hover:border-slate-500",
-                      ].join(" ")}
-                    >
-                      {/* Icon + name row */}
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={isSelected ? "text-blue-400" : "text-slate-400"}>
-                          {ICONS[t.slug] ?? FALLBACK_ICON}
-                        </span>
-                        <span className="text-white text-sm font-medium leading-tight">{t.name}</span>
+            ) : (() => {
+              const namedTemplates = templates.filter((t) => t.slug !== "blank");
+              const blankTemplate = templates.find((t) => t.slug === "blank") ?? null;
+              return (
+                <>
+                  {/* Named templates — 2-column grid */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {namedTemplates.map((t) => {
+                      const isSelected = t.slug === selectedSlug;
+                      return (
+                        <button
+                          key={t.slug}
+                          onClick={() => handleSelectTemplate(t.slug)}
+                          className={[
+                            "text-left rounded-xl p-3.5 border transition-all",
+                            isSelected
+                              ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
+                              : "border-slate-700 bg-slate-800 hover:border-slate-500",
+                          ].join(" ")}
+                        >
+                          {/* Icon + name row */}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={isSelected ? "text-blue-400" : "text-slate-400"}>
+                              {ICONS[t.slug] ?? FALLBACK_ICON}
+                            </span>
+                            <span className="text-white text-sm font-medium leading-tight">{t.name}</span>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-slate-400 text-xs leading-snug mb-2.5">{t.description}</p>
+
+                          {/* Column color dots */}
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {t.columns_json.map((col) => (
+                              <span
+                                key={col.name}
+                                title={col.name}
+                                className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: col.color }}
+                              />
+                            ))}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Blank Board — full-width row below a separator, visually distinct as the opt-out */}
+                  {blankTemplate && (() => {
+                    const isSelected = blankTemplate.slug === selectedSlug;
+                    return (
+                      <div className="border-t border-slate-700 pt-3 mt-1">
+                        <button
+                          onClick={() => handleSelectTemplate(blankTemplate.slug)}
+                          className={[
+                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4",
+                            isSelected
+                              ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
+                              : "border-slate-700 bg-slate-800 hover:border-slate-500",
+                          ].join(" ")}
+                        >
+                          <span className={`flex-shrink-0 ${isSelected ? "text-blue-400" : "text-slate-400"}`}>
+                            {ICONS.blank}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-white text-sm font-medium">{blankTemplate.name}</span>
+                            <p className="text-slate-400 text-xs leading-snug mt-0.5">{blankTemplate.description}</p>
+                          </div>
+                          <span className="text-slate-600 text-xs flex-shrink-0">No preset columns</span>
+                        </button>
                       </div>
-
-                      {/* Description */}
-                      <p className="text-slate-400 text-xs leading-snug mb-2.5">{t.description}</p>
-
-                      {/* Column color dots */}
-                      {t.columns_json.length > 0 ? (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {t.columns_json.map((col) => (
-                            <span
-                              key={col.name}
-                              title={col.name}
-                              className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: col.color }}
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 text-xs">No columns</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })()}
+                </>
+              );
+            })()}
           </div>
 
           {/* Column preview strip — always rendered after load to prevent layout jump on template switch */}
