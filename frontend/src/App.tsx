@@ -97,7 +97,6 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
     addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel,
     addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder,
     reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane,
-    updateBoardSettings,
   } = useBoard();
 
   const [isStarred, setIsStarred] = useState(false);
@@ -185,7 +184,6 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onMemberRemoved={removeMember}
             onColumnOrderApplied={applyColumnOrder}
             onSwimlaneOrderApplied={applySwimlaneOrder}
-            onBoardSettingsChanged={updateBoardSettings}
             onBoardDeleted={handleBack}
             userTimezone={user.timezone ?? ""}
             userDateFormat={user.date_format ?? "MM/DD/YYYY"}

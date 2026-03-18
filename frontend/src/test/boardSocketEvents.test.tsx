@@ -138,7 +138,6 @@ function makeProps(overrides: Record<string, unknown> = {}) {
     onMemberRemoved: vi.fn(),
     onColumnOrderApplied: vi.fn(),
     onSwimlaneOrderApplied: vi.fn(),
-    onBoardSettingsChanged: vi.fn(),
     ...overrides,
   }
 }

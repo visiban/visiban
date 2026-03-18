@@ -138,7 +138,6 @@ const defaultProps = () => ({
   onMemberRemoved: vi.fn(),
   onColumnOrderApplied: vi.fn(),
   onSwimlaneOrderApplied: vi.fn(),
-  onBoardSettingsChanged: vi.fn(),
 })
 
 describe('BoardView', () => {
