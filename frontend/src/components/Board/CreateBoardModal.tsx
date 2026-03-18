@@ -123,13 +123,11 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
 
   const selected = templates.find((t) => t.slug === selectedSlug) ?? null;
 
-  // When the template changes, reset the swimlane name so the user sees the
-  // new placeholder and re-enters a context-appropriate value.
   const handleSelectTemplate = (slug: string) => {
     setSelectedSlug(slug);
-    setSwimlaneName("");
-    // Let the swimlane input focus after state update.
-    setTimeout(() => swimlaneRef.current?.focus(), 0);
+    // Do not clear the swimlane name or steal focus — the user may have already
+    // typed a name, and focus theft after every template click breaks the
+    // locus-of-control expectation.
   };
 
   // Close on backdrop click.
@@ -159,7 +157,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-slate-800">
           <h2 className="text-white text-lg font-semibold">New Board</h2>
-          <p className="text-slate-400 text-sm mt-0.5">Choose a template, name your board, then add your first swimlane.</p>
+          <p className="text-slate-400 text-sm mt-0.5">Name your board, pick a template, then optionally add a swimlane.</p>
         </div>
 
         {/* Body — scrollable */}
@@ -238,24 +236,28 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
             )}
           </div>
 
-          {/* Column preview strip */}
-          {selected && selected.columns_json.length > 0 && (
+          {/* Column preview strip — always rendered after load to prevent layout jump on template switch */}
+          {!templatesLoading && (
             <div className="bg-slate-800 rounded-xl px-4 py-3">
               <p className="text-slate-500 text-xs mb-2 uppercase tracking-wide">Columns created</p>
-              <div className="flex gap-2 flex-wrap">
-                {selected.columns_json.map((col) => (
-                  <span
-                    key={col.name}
-                    className="inline-flex items-center gap-1.5 text-xs text-white bg-slate-700 rounded-lg px-2.5 py-1"
-                  >
+              {selected && selected.columns_json.length > 0 ? (
+                <div className="flex gap-2 flex-wrap">
+                  {selected.columns_json.map((col) => (
                     <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: col.color }}
-                    />
-                    {col.name}
-                  </span>
-                ))}
-              </div>
+                      key={col.name}
+                      className="inline-flex items-center gap-1.5 text-xs text-white bg-slate-700 rounded-lg px-2.5 py-1"
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: col.color }}
+                      />
+                      {col.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-600 text-xs">No preset columns — add your own after creating the board.</p>
+              )}
             </div>
           )}
 
@@ -295,16 +297,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               <label htmlFor="set-default-board" className="text-sm text-slate-300 cursor-pointer">
                 Set as my default board
               </label>
-              {userHasNoDefault && !setAsDefault && (
-                <p className="text-slate-500 text-xs mt-0.5">
-                  Tip: Set a default to skip the board picker on login.
-                </p>
-              )}
-              {setAsDefault && (
-                <p className="text-slate-400 text-xs mt-0.5">
-                  This board will open on login.
-                </p>
-              )}
+              {/* Always render the hint line to prevent layout shift on check/uncheck */}
+              <p className="text-xs mt-0.5 min-h-[1rem]">
+                {setAsDefault ? (
+                  <span className="text-slate-400">This board will open on login.</span>
+                ) : userHasNoDefault ? (
+                  <span className="text-slate-500">Tip: Set a default to skip the board picker on login.</span>
+                ) : null}
+              </p>
             </div>
           </div>
         </div>
