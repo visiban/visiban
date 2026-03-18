@@ -251,6 +251,26 @@ export interface GroupMembership {
   inherited_from: string | null;
 }
 
+export type RegistrationMode = "open" | "invite_only" | "closed";
+
+export interface SiteSettings {
+  registration_mode: RegistrationMode;
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  display_name: string;
+  first_name: string;
+  last_name: string;
+  avatar_url: string;
+  is_active: boolean;
+  is_site_admin: boolean;
+  must_change_password: boolean;
+  date_joined: string;
+}
+
 export interface GroupInviteLink {
   id: number;
   token: string;

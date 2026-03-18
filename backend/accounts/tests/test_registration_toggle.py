@@ -1,4 +1,4 @@
-"""Tests for #173: site-wide registration toggle (require_invite_for_registration)."""
+"""Tests for #173: site-wide registration toggle (now registration_mode)."""
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -15,13 +15,26 @@ class SiteConfigViewTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertTrue(r.json()["registration_open"])
 
-    def test_registration_closed_when_toggle_on(self):
+    def test_registration_closed_when_mode_is_closed(self):
         s = SiteSetting.get()
-        s.require_invite_for_registration = True
+        s.registration_mode = SiteSetting.RegistrationMode.CLOSED
         s.save()
         r = self.client.get("/api/auth/site-config/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertFalse(r.json()["registration_open"])
+
+    def test_registration_closed_when_mode_is_invite_only(self):
+        s = SiteSetting.get()
+        s.registration_mode = SiteSetting.RegistrationMode.INVITE_ONLY
+        s.save()
+        r = self.client.get("/api/auth/site-config/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(r.json()["registration_open"])
+
+    def test_registration_mode_returned_in_response(self):
+        r = self.client.get("/api/auth/site-config/")
+        self.assertIn("registration_mode", r.json())
+        self.assertEqual(r.json()["registration_mode"], "open")
 
     def test_unauthenticated_can_reach_site_config(self):
         """Endpoint must be reachable before login so the frontend can check it."""
@@ -37,25 +50,33 @@ class RegistrationAdapterTests(TestCase):
 
     def setUp(self):
         from django.test import RequestFactory
-        from accounts.adapter import RegistrationAdapter
+        from accounts.adapter import RegistrationAdapter, invalidate_registration_mode_cache
+        # Clear any cache left by a prior test so mode defaults to 'open'.
+        invalidate_registration_mode_cache()
         self.adapter = RegistrationAdapter()
         self.request = RequestFactory().get("/")
 
     def test_open_by_default(self):
         self.assertTrue(self.adapter.is_open_for_signup(self.request))
 
-    def test_closed_when_toggle_on(self):
+    def test_closed_mode_blocks_signup(self):
         s = SiteSetting.get()
-        s.require_invite_for_registration = True
+        s.registration_mode = SiteSetting.RegistrationMode.CLOSED
         s.save()
         self.assertFalse(self.adapter.is_open_for_signup(self.request))
 
-    def test_reopened_after_toggle_off(self):
+    def test_invite_only_blocks_oauth_signup(self):
         s = SiteSetting.get()
-        s.require_invite_for_registration = True
+        s.registration_mode = SiteSetting.RegistrationMode.INVITE_ONLY
         s.save()
         self.assertFalse(self.adapter.is_open_for_signup(self.request))
-        s.require_invite_for_registration = False
+
+    def test_reopened_after_closed(self):
+        s = SiteSetting.get()
+        s.registration_mode = SiteSetting.RegistrationMode.CLOSED
+        s.save()
+        self.assertFalse(self.adapter.is_open_for_signup(self.request))
+        s.registration_mode = SiteSetting.RegistrationMode.OPEN
         s.save()
         self.assertTrue(self.adapter.is_open_for_signup(self.request))
 
@@ -63,8 +84,8 @@ class RegistrationAdapterTests(TestCase):
 class RegistrationEndpointToggleTests(TestCase):
     """
     Integration tests for the dj-rest-auth registration endpoint.
-    When invite-only mode is on, the endpoint must return 403 before creating
-    any user. When off, a valid payload must create the user.
+    When closed mode is on, the endpoint must return 403 before creating
+    any user. When open, a valid payload must create the user.
     """
 
     def setUp(self):
@@ -72,7 +93,7 @@ class RegistrationEndpointToggleTests(TestCase):
 
     def test_registration_blocked_when_closed(self):
         s = SiteSetting.get()
-        s.require_invite_for_registration = True
+        s.registration_mode = SiteSetting.RegistrationMode.CLOSED
         s.save()
 
         r = self.client.post("/api/auth/registration/", {
@@ -99,7 +120,7 @@ class SiteSettingSingletonTests(TestCase):
         self.assertEqual(SiteSetting.objects.count(), 0)
         s = SiteSetting.get()
         self.assertEqual(SiteSetting.objects.count(), 1)
-        self.assertFalse(s.require_invite_for_registration)
+        self.assertEqual(s.registration_mode, SiteSetting.RegistrationMode.OPEN)
 
     def test_get_returns_same_object(self):
         s1 = SiteSetting.get()
@@ -109,7 +130,7 @@ class SiteSettingSingletonTests(TestCase):
 
     def test_save_enforces_singleton(self):
         SiteSetting.get()
-        duplicate = SiteSetting(require_invite_for_registration=True)
+        duplicate = SiteSetting(registration_mode=SiteSetting.RegistrationMode.CLOSED)
         duplicate.save()
         self.assertEqual(SiteSetting.objects.count(), 1)
-        self.assertTrue(SiteSetting.objects.get(pk=1).require_invite_for_registration)
+        self.assertEqual(SiteSetting.objects.get(pk=1).registration_mode, "closed")

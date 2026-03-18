@@ -113,4 +113,7 @@ class SiteConfigView(APIView):
 
     def get(self, request):
         setting = SiteSetting.get()
-        return Response({"registration_open": not setting.require_invite_for_registration})
+        return Response({
+            "registration_open": setting.registration_mode == "open",
+            "registration_mode": setting.registration_mode,
+        })

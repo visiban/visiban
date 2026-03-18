@@ -54,6 +54,10 @@ vi.mock('../pages/SettingsPage', () => ({
   default: () => <div data-testid="settings-page">Settings</div>,
 }))
 
+vi.mock('../pages/AdminPage', () => ({
+  default: () => <div data-testid="admin-page">Admin</div>,
+}))
+
 import { useAuth } from '../hooks/useAuth'
 import { useBoard } from '../hooks/useBoard'
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>

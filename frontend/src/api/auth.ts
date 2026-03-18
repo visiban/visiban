@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User } from "../types";
+import type { User, SiteSettings, AdminUser } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/auth/user/").then((r) => r.data);
@@ -29,3 +29,31 @@ export const changePassword = (current_password: string, new_password: string) =
 
 export const searchUsers = (query: string) =>
   client.get<User[]>(`/api/users/?search=${encodeURIComponent(query)}`).then((r) => r.data);
+
+// Admin API
+
+export const getAdminSettings = () =>
+  client.get<SiteSettings>("/api/admin/settings/").then((r) => r.data);
+
+export const patchAdminSettings = (data: Partial<SiteSettings>) =>
+  client.patch<SiteSettings>("/api/admin/settings/", data).then((r) => r.data);
+
+export const getAdminUsers = (params?: { search?: string; page?: number }) =>
+  client.get<{ count: number; next: string | null; previous: string | null; results: AdminUser[] }>(
+    "/api/admin/users/",
+    { params }
+  ).then((r) => r.data);
+
+export const createAdminUser = (data: {
+  username: string;
+  email: string;
+  password: string;
+  force_password_reset: boolean;
+}) =>
+  client.post<AdminUser>("/api/admin/users/", data).then((r) => r.data);
+
+export const patchAdminUser = (
+  id: number,
+  data: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "must_change_password">>
+) =>
+  client.patch<AdminUser>(`/api/admin/users/${id}/`, data).then((r) => r.data);
