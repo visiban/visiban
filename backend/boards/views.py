@@ -2,7 +2,6 @@ import csv
 import datetime
 import io
 import json
-import re
 import statistics
 
 import django_filters
@@ -25,6 +24,7 @@ from accounts.models import User
 from groups.models import Group, GroupMembership, get_accessible_group_ids
 
 from .broadcast import broadcast_board_event
+from .utils import extract_mentions, _get_effective_member_ids, notify_new_mentions
 from .models import (
     Board, BoardFavorite, BoardMembership, Column, Swimlane, Label,
     Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment,
@@ -1220,6 +1220,11 @@ class CardViewSet(viewsets.ModelViewSet):
             )
         card_data = CardSerializer(card, context={"request": self.request, "board": board}).data
         transaction.on_commit(lambda: broadcast_board_event(board.id, "card.created", card_data))
+        if card.description:
+            # Notify any @mentioned board members in the initial description.
+            # Captured in local vars to avoid closure mutation after the lambda is registered.
+            _card, _actor, _desc = card, self.request.user, card.description
+            transaction.on_commit(lambda: notify_new_mentions(_card, _actor, "", _desc))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -1368,6 +1373,10 @@ class CardViewSet(viewsets.ModelViewSet):
                 card=card, event_type=ET.DESCRIPTION_CHANGE,
                 from_value="", to_value="", actor=request.user,
             ))
+            # Notify newly @mentioned board members; deferred so the updated
+            # description is already committed when notifications are created.
+            _card, _actor, _old, _new = card, request.user, old_description, card.description
+            transaction.on_commit(lambda: notify_new_mentions(_card, _actor, _old, _new))
         new_label_ids = set(card.labels.values_list("id", flat=True))
         if old_label_ids != new_label_ids:
             added = new_label_ids - old_label_ids
@@ -1504,20 +1513,11 @@ class CardViewSet(viewsets.ModelViewSet):
         card_data = CardSerializer(card, context={"request": request, "board": board}).data
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
-        # Parse @username mentions and notify each mentioned board member
-        mentioned_usernames = set(re.findall(r"@(\w+)", comment.body))
+        # Parse @username mentions and notify each mentioned board member.
+        # Comments don't need a re-notification guard — each comment is a new event.
+        mentioned_usernames = extract_mentions(comment.body)
         if mentioned_usernames:
-            # Collect effective member IDs: direct memberships + owner + group-inherited + site admins
-            eff_ids = set(board.memberships.values_list("user_id", flat=True))
-            eff_ids.add(board.owner_id)
-            eff_ids.update(User.objects.filter(is_site_admin=True).values_list("id", flat=True))
-            if board.group_id:
-                node = board.group
-                depth = 0
-                while node and depth < 6:
-                    eff_ids.update(node.memberships.values_list("user_id", flat=True))
-                    node = node.parent
-                    depth += 1
+            eff_ids = _get_effective_member_ids(board)
             member_users = User.objects.filter(
                 username__in=mentioned_usernames,
                 pk__in=eff_ids,

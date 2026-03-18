@@ -10,6 +10,7 @@ vi.mock('@tiptap/react', () => ({
   EditorContent: ({ className }: { className?: string }) => (
     <div data-testid="tiptap-editor" className={className} />
   ),
+  ReactRenderer: vi.fn(),
 }))
 
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }))
@@ -18,6 +19,12 @@ vi.mock('@tiptap/extension-placeholder', () => ({
 }))
 vi.mock('@tiptap/extension-text-style', () => ({ default: {} }))
 vi.mock('@tiptap/extension-color', () => ({ Color: {} }))
+vi.mock('@tiptap/extension-mention', () => ({
+  default: {
+    extend: vi.fn((spec) => ({ ...spec, configure: vi.fn(() => ({})) })),
+    configure: vi.fn(() => ({})),
+  },
+}))
 vi.mock('tiptap-markdown', () => ({
   Markdown: { configure: vi.fn(() => ({})) },
 }))

@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import Placeholder from "@tiptap/extension-placeholder";
+import MentionExtension from "@tiptap/extension-mention";
 import { Markdown } from "tiptap-markdown";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import type { BoardMembership } from "../../types";
+import type { BoardMembership, User } from "../../types";
+import { userDisplayName } from "../../types";
+import MentionList from "./MentionList";
+import type { MentionListRef } from "./MentionList";
 
 interface Props {
   value: string;
@@ -131,11 +135,28 @@ function ColorPicker({
   );
 }
 
+// Extend the Mention node with a markdown serializer so @username round-trips
+// through tiptap-markdown's getMarkdown() as plain @username text.
+const MentionWithMarkdown = MentionExtension.extend({
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      markdown: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        serialize(state: any, node: any) {
+          state.write(`@${node.attrs.id}`);
+        },
+      },
+    };
+  },
+});
+
 export default function RichTextEditor({
   value,
   onSave,
   readOnly = false,
   placeholder = "Add a description…",
+  members,
   minHeight = "min-h-32",
   showActions = false,
 }: Props) {
@@ -144,6 +165,12 @@ export default function RichTextEditor({
   // Captures the committed value at the moment the user clicks to edit,
   // so Cancel can restore it without calling onSave.
   const originalValueRef = useRef(value);
+  // Keep the latest members list accessible in the suggestion closure without
+  // recreating the Tiptap editor whenever the members prop changes.
+  const membersRef = useRef<BoardMembership[] | undefined>(members);
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
 
   const editor = useEditor({
     extensions: [
@@ -156,6 +183,70 @@ export default function RichTextEditor({
         // through the markdown serializer so text colors are preserved on save.
         transformPastedText: true,
         transformCopiedText: false,
+      }),
+      MentionWithMarkdown.configure({
+        HTMLAttributes: { class: "mention" },
+        // Serialize the mention node to @username when copying as plain text.
+        renderText: ({ node }) => `@${node.attrs.id}`,
+        suggestion: {
+          items: ({ query }: { query: string }): User[] => {
+            if (!membersRef.current?.length) return [];
+            return membersRef.current
+              .map((m) => m.user)
+              .filter((u) => {
+                const q = query.toLowerCase();
+                return (
+                  u.username.toLowerCase().startsWith(q) ||
+                  userDisplayName(u).toLowerCase().startsWith(q)
+                );
+              })
+              .slice(0, 6);
+          },
+          render: () => {
+            let component: ReactRenderer<MentionListRef>;
+            let popup: HTMLDivElement;
+
+            return {
+              onStart(props) {
+                component = new ReactRenderer(MentionList, {
+                  props,
+                  editor: props.editor,
+                });
+                if (!props.clientRect) return;
+                popup = document.createElement("div");
+                popup.style.position = "fixed";
+                popup.style.zIndex = "9999";
+                const rect = props.clientRect();
+                if (rect) {
+                  popup.style.left = `${rect.left}px`;
+                  popup.style.top = `${rect.bottom + 4}px`;
+                }
+                document.body.appendChild(popup);
+                popup.appendChild(component.element);
+              },
+              onUpdate(props) {
+                component.updateProps(props);
+                if (!props.clientRect || !popup) return;
+                const rect = props.clientRect();
+                if (rect) {
+                  popup.style.left = `${rect.left}px`;
+                  popup.style.top = `${rect.bottom + 4}px`;
+                }
+              },
+              onKeyDown({ event }) {
+                if (event.key === "Escape") {
+                  popup?.remove();
+                  return true;
+                }
+                return component.ref?.onKeyDown({ event }) ?? false;
+              },
+              onExit() {
+                popup?.remove();
+                component?.destroy();
+              },
+            };
+          },
+        },
       }),
     ],
     content: value,
@@ -357,6 +448,8 @@ export default function RichTextEditor({
           "[&_.tiptap_pre]:bg-slate-800 [&_.tiptap_pre]:border [&_.tiptap_pre]:border-slate-700 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:p-2 [&_.tiptap_pre]:mb-2",
           "[&_.tiptap_blockquote]:border-l-2 [&_.tiptap_blockquote]:border-slate-600 [&_.tiptap_blockquote]:pl-3 [&_.tiptap_blockquote]:text-slate-400 [&_.tiptap_blockquote]:mb-2",
           "[&_.tiptap_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_.is-editor-empty:first-child::before]:text-slate-500 [&_.tiptap_.is-editor-empty:first-child::before]:italic [&_.tiptap_.is-editor-empty:first-child::before]:float-left [&_.tiptap_.is-editor-empty:first-child::before]:pointer-events-none",
+          // Mention chips in the editor
+          "[&_.mention]:bg-blue-500/20 [&_.mention]:text-blue-400 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium",
         ].join(" ")}
       />
 

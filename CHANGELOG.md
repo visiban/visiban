@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Cards can now be archived instead of deleted — archived cards are hidden from the board view and drag-and-drop but can be restored at any time from the new **Archived** panel in the board toolbar; analytics dwell-time uses `archived_at` as the terminal timestamp so only the active period is counted, and archived cards are excluded from stalled-card detection (#226)
 - Added `docs/administration/demo-data.md` covering `seed_demo_data` usage, production risks, cleanup procedures, and how imported test data behaves; corrected `docs/features/stable-uids.md` (exports do not include UIDs) and added a "UIDs on import" section explaining that all imported objects receive fresh UIDs regardless of the source file
 - Card descriptions now support rich text formatting via a Tiptap-based markdown editor — click to edit with a minimal toolbar (bold, italic, code, lists, heading, blockquote, text color); click **Save** to commit or **Cancel** to discard; descriptions render formatted markdown in view mode and are stored as markdown in the existing plain-text field with no migration required (#239)
+- Typing `@username` in the card description editor now shows a member picker; selecting a member inserts the mention and sends that board member a notification — a re-notification guard ensures editing an existing mention does not send duplicate notifications (#228)
 
 ### Changed
 

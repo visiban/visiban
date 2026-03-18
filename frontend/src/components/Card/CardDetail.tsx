@@ -313,6 +313,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   showActions={canEdit}
                   placeholder="Add a description…"
                   minHeight="min-h-32"
+                  members={board.members}
                 />
               </div>
 
