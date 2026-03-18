@@ -8,12 +8,14 @@ vi.mock('../api/cards', () => ({
   moveCard: vi.fn(),
   updateCard: vi.fn(),
   deleteCard: vi.fn(),
+  archiveCard: vi.fn(),
 }))
 
-import { moveCard, updateCard, deleteCard } from '../api/cards'
+import { moveCard, updateCard, deleteCard, archiveCard } from '../api/cards'
 const mockMoveCard = moveCard as ReturnType<typeof vi.fn>
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
 const mockDeleteCard = deleteCard as ReturnType<typeof vi.fn>
+const mockArchiveCard = archiveCard as ReturnType<typeof vi.fn>
 
 function makeBoard(): BoardFull {
   return {
@@ -48,6 +50,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -61,12 +64,14 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
     expect(screen.getByText('Move to...')).toBeInTheDocument()
     expect(screen.getByText('Assign to...')).toBeInTheDocument()
     expect(screen.getByText('Priority...')).toBeInTheDocument()
+    expect(screen.getByText('Archive')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
   })
 
@@ -77,6 +82,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -92,6 +98,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -107,6 +114,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -124,6 +132,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -139,6 +148,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={onClear}
       />
     )
@@ -154,6 +164,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -171,6 +182,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100])}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -192,6 +204,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100])}
         onCardsUpdated={onCardsUpdated}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={onClearSelection}
       />
     )
@@ -221,6 +234,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100, 101])}
         onCardsUpdated={onCardsUpdated}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -242,6 +256,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100])}
         onCardsUpdated={onCardsUpdated}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -264,6 +279,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100])}
         onCardsUpdated={onCardsUpdated}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -286,6 +302,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100])}
         onCardsUpdated={onCardsUpdated}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -308,6 +325,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100])}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={onCardsDeleted}
+        onCardsArchived={vi.fn()}
         onClearSelection={onClearSelection}
       />
     )
@@ -322,6 +340,52 @@ describe('BulkActionToolbar', () => {
     expect(onClearSelection).toHaveBeenCalled()
   })
 
+  it('calls onCardsArchived and onClearSelection when Archive is clicked', async () => {
+    const user = userEvent.setup()
+    mockArchiveCard.mockResolvedValue(undefined)
+    const onCardsArchived = vi.fn()
+    const onClearSelection = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={onCardsArchived}
+        onClearSelection={onClearSelection}
+      />
+    )
+    await user.click(screen.getByText('Archive'))
+
+    await waitFor(() => expect(onCardsArchived).toHaveBeenCalledWith([100, 101]))
+    expect(onClearSelection).toHaveBeenCalled()
+    expect(mockArchiveCard).toHaveBeenCalledWith(1, 100)
+    expect(mockArchiveCard).toHaveBeenCalledWith(1, 101)
+  })
+
+  it('archives only successful cards when some archive calls fail', async () => {
+    const user = userEvent.setup()
+    mockArchiveCard
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('network error'))
+    const onCardsArchived = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={onCardsArchived}
+        onClearSelection={vi.fn()}
+      />
+    )
+    await user.click(screen.getByText('Archive'))
+
+    await waitFor(() => expect(onCardsArchived).toHaveBeenCalledWith([100]))
+  })
+
   it('toggles move dropdown closed when clicked twice', async () => {
     const user = userEvent.setup()
     render(
@@ -330,6 +394,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -347,6 +412,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={selectedIds}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -370,6 +436,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100])}
         onCardsUpdated={vi.fn()}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
@@ -393,6 +460,7 @@ describe('BulkActionToolbar', () => {
         selectedCardIds={new Set([100, 101])}
         onCardsUpdated={onCardsUpdated}
         onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
         onClearSelection={vi.fn()}
       />
     )
