@@ -30,6 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- Creating a group or subgroup no longer navigates to the newly created group — the modal stays open so multiple groups can be created back-to-back; close the modal manually when done
 - "Close editor on Enter" is now a personal preference in **Settings → Appearance** rather than a per-board setting — each user controls whether pressing Enter in the new-card input submits the card and closes the card panel; the setting defaults to off
 - Pressing Escape now navigates back to the referring page: from a board to whatever page you came from, from a group page to whatever you came from; falls back to the semantic parent (board → group → dashboard) when no history entry exists. Within the board the key remains layered — it closes the card detail panel or any open modal first, then clears a multi-card selection, and only navigates when nothing else is open. All modals now consistently close on Escape regardless of where focus is within them.
 - Saving profile settings now returns you to the page you were on before opening Settings; opening Settings via a direct link falls back to the dashboard (#241)
@@ -74,6 +75,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Switching templates in the board creation modal no longer causes layout shifts — the column preview strip stays visible for all templates (Blank Board shows a "No preset columns" note), the swimlane name is preserved when changing templates, and the default-board checkbox hint text no longer shifts surrounding content (#159)
 - Blank Board in the board creation modal now appears as a full-width row below a separator line, visually distinct from the named template grid — the previous layout left an orphan cell and the card appeared visually thin without column color dots (#159)
 - Creating a new label from the card detail panel no longer shows it twice — the label was being added to the board immediately from the API response and again when the real-time broadcast arrived
+- `CardViewSet.get_queryset()` now uses `select_related("board", "assignee")` and `prefetch_related("attachments", "checklist_items")` — eliminates 4–5 N+1 queries per card that the serializer previously issued via `.count()` and `.filter(is_checked=True).count()`; a new `assertNumQueries` test asserts the card list endpoint for a 10-card board completes in ≤ 12 queries (#252)
+- `WHITENOISE_USE_FINDERS` is now `DEBUG` rather than hard-coded `True` — prevents WhiteNoise from scanning the source tree with `FINDERS` backend in production builds (#252)
+- Single-card archive from the card detail panel and bulk archive from the bulk action toolbar now both show a toast notification: "Card archived — view in Archived panel"; clicking the link in the toast opens the Archived panel directly (#252)
+- CSV import `_import_csv` docstring updated to say `Due Date (YYYY-MM-DD)` instead of `DueDate (YYYY-MM-DD)` to match the actual normalized header key (#252)
+- CSV import `_HEADER_MAP` now includes a defensive `"due date": "Due Date"` entry handling the key with a space and lowercase, ensuring the roundtrip (export → import) preserves `due_date` without manual header correction; a new roundtrip test exercises this path (#252)
 
 ---
 

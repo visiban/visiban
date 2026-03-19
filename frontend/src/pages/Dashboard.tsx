@@ -215,7 +215,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
 
       {showCreateGroup && (
         <CreateGroupModal
-          onCreated={(g) => { setGroups((prev) => [g, ...prev]); navigate(`/groups/${g.id}`); }}
+          onCreated={(g) => { setGroups((prev) => [g, ...prev]); }}
           onClose={() => setShowCreateGroup(false)}
         />
       )}
