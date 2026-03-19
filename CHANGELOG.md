@@ -75,7 +75,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Switching templates in the board creation modal no longer causes layout shifts — the column preview strip stays visible for all templates (Blank Board shows a "No preset columns" note), the swimlane name is preserved when changing templates, and the default-board checkbox hint text no longer shifts surrounding content (#159)
 - Blank Board in the board creation modal now appears as a full-width row below a separator line, visually distinct from the named template grid — the previous layout left an orphan cell and the card appeared visually thin without column color dots (#159)
 - Creating a new label from the card detail panel no longer shows it twice — the label was being added to the board immediately from the API response and again when the real-time broadcast arrived
-- Viewer role is now strictly read-only: posting comments, uploading attachments, and modifying checklist items now require Collaborator role or above; the code previously allowed all board members to perform these write operations regardless of role (#248)
+- Viewer role is now strictly read-only: posting comments, uploading/deleting attachments, and adding/patching/deleting checklist items now return 403 for viewer-role members — these write operations require Collaborator role or above (#248)
+- Collaborators may delete only their own comments; attempting to delete another user's comment returns 403 (#248)
 
 ---
 
