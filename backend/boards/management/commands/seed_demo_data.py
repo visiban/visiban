@@ -604,70 +604,22 @@ class Command(BaseCommand):
     def _add_movement_history(self, card, current_col, pipeline, users):
         """
         Simulate the card having progressed through pipeline stages to reach its
-        current column. Every card gets at least a "card created" movement record
-        (from_column=None) so the History tab is never empty.
+        current column. Cards in Backlog (index 0) are new and get no history.
+        Each stage transition gets a backdated CardMovement record.
 
         auto_now_add=True ignores explicit values at create time, so moved_at is
         back-filled with update() after creation.
-
-        Date anchoring: movements are calculated relative to SEED_ANCHOR_DATE (not
-        timezone.now()) so that regenerated exports are git-stable across run dates.
-
-        Spread: each stage occupies 5–18 days so that:
-          - cards in mid-pipeline show realistic dwell times across a 30–90 day window
-          - ~half the active cards have their last movement >7 days ago, populating
-            the stalled-cards list in the analytics endpoint
         """
         col_idx = pipeline.index(current_col)
+        if col_idx == 0:
+            return
 
-        # Anchor to SEED_ANCHOR_DATE so regenerated exports are deterministic.
-        anchor = datetime.datetime(
-            SEED_ANCHOR_DATE.year,
-            SEED_ANCHOR_DATE.month,
-            SEED_ANCHOR_DATE.day,
-            tzinfo=datetime.timezone.utc,
-        )
-        # Build cumulative days_ago from the anchor working backwards through stages.
-        # Each stage takes 5–18 days; the most-recent transition lands 3–10 days
-        # before the anchor so roughly half of active cards appear stalled.
-        cumulative_days = random.randint(3, 10)
-        stage_offsets = []
-        for _ in range(col_idx):
-            stage_offsets.append(cumulative_days)
-            cumulative_days += random.randint(5, 18)
-        # stage_offsets[0] = days_ago for the most recent transition, so reverse
-        # so that i=0 corresponds to the earliest (largest days_ago) transition.
-        stage_offsets.reverse()
-
-        # Creation record — always present so History tab is never empty.
-        # For Backlog cards: this is the only record (created directly in Backlog).
-        # For cards further along: created_at sits before the first pipeline transition.
-        created_days_ago = cumulative_days + random.randint(5, 15) if col_idx > 0 else random.randint(10, 60)
-        created_at = anchor - datetime.timedelta(days=created_days_ago)
-        mv = CardMovement.objects.create(
-            card=card,
-            from_column=None,
-            to_column=pipeline[0],
-            from_swimlane=None,
-            to_swimlane=card.swimlane,
-            from_column_name="",
-            to_column_name=pipeline[0].name,
-            from_column_uid="",
-            to_column_uid=pipeline[0].uid,
-            from_swimlane_name="",
-            to_swimlane_name=card.swimlane.name,
-            from_swimlane_uid="",
-            to_swimlane_uid=card.swimlane.uid,
-            moved_by=random.choice(users),
-            notes="",
-        )
-        CardMovement.objects.filter(pk=mv.pk).update(moved_at=created_at)
-
-        # Pipeline transitions for cards that have advanced past Backlog.
+        now = timezone.now()
         for i in range(col_idx):
             from_col = pipeline[i]
             to_col = pipeline[i + 1]
-            moved_at = anchor - datetime.timedelta(days=stage_offsets[i])
+            days_ago = (col_idx - i) * random.randint(1, 5)
+            moved_at = now - datetime.timedelta(days=days_ago)
 
             mv = CardMovement.objects.create(
                 card=card,
@@ -677,12 +629,8 @@ class Command(BaseCommand):
                 to_swimlane=card.swimlane,
                 from_column_name=from_col.name,
                 to_column_name=to_col.name,
-                from_column_uid=from_col.uid,
-                to_column_uid=to_col.uid,
                 from_swimlane_name=card.swimlane.name,
                 to_swimlane_name=card.swimlane.name,
-                from_swimlane_uid=card.swimlane.uid,
-                to_swimlane_uid=card.swimlane.uid,
                 moved_by=random.choice(users),
                 notes="",
             )
