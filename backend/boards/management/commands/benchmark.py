@@ -26,7 +26,6 @@ from boards.models import (
     Card, CardMovement, CardAttachment, CardChecklist,
 )
 from boards.serializers import BoardFullSerializer
-from boards.views import BoardViewSet, CardViewSet
 
 User = get_user_model()
 
@@ -129,11 +128,8 @@ class Command(BaseCommand):
         request = factory.get("/")
         request.user = user
 
-        now_str = "2099-01-01"  # far future — doesn't affect counts
-
         reset_queries()
         # Call the view directly via test request
-        from django.test import RequestFactory as RF
         from rest_framework.test import APIRequestFactory
         rf = APIRequestFactory()
         req = rf.get(f"/api/boards/{board.pk}/summary/")
@@ -150,11 +146,10 @@ class Command(BaseCommand):
         cutoff_7d = now - datetime.timedelta(days=7)
         cutoff_30d = now - datetime.timedelta(days=30)
         columns = list(board.columns.order_by("position"))
-        swimlanes = list(board.swimlanes.order_by("position"))
         last_col = columns[-1] if columns else None
 
         reset_queries()
-        card_counts = list(
+        list(
             board.cards.filter(archived_at__isnull=True)
             .values("swimlane_id", "column_id")
             .annotate(cnt=Count("id"))
@@ -187,8 +182,6 @@ class Command(BaseCommand):
 
     def _seed(self):
         """Create a throw-away board with COLUMNS × SWIMLANES × CARDS_PER_CELL cards."""
-        from django.db.models import Q as _Q
-
         user = User.objects.create_user(
             username="bench_user",
             email="bench@example.com",
