@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Documentation: board role permissions matrix (Admin, Member, Collaborator, Viewer) in `docs/features/permissions.md`, covering all card, collaboration, board-structure, and membership actions; includes a note on the Viewer read-only boundary enforced since 1.0 (#248)
 - Board creation modal now fetches templates from a new `GET /api/boards/templates/` endpoint; the template set has been replaced with six purposeful templates (Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery) plus a Blank Board option — each with the correct columns, a lane label, and a swimlane placeholder; deferred/placeholder templates have been removed (#159)
 - Board creation now includes a **First Swimlane** step: after choosing a template the user is prompted for a swimlane name using the template's lane label (e.g. "Account") and placeholder; the field is optional and blank boards skip it gracefully (#159)
 - New **Set as my default board** checkbox in the board creation modal; when checked, the newly created board is saved as the user's login destination; a tip is shown to users who have not yet set a default (#159)
