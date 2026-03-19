@@ -39,27 +39,27 @@ export default function BoardSelector({ user, onSelect }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
       <div className="w-full max-w-md">
         <h2 className="text-white text-2xl font-bold mb-6 text-center">Your Boards</h2>
 
         {loading ? (
-          <p className="text-gray-400 text-center">Loading…</p>
+          <p className="text-slate-400 text-center">Loading…</p>
         ) : (
           <div className="flex flex-col gap-2 mb-4">
             {boards.map((b) => (
               <div key={b.id} className="group relative">
                 <button
                   onClick={() => onSelect(b)}
-                  className="w-full bg-gray-800 hover:bg-gray-700 text-white text-left px-4 py-3 rounded-xl transition"
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded-xl transition"
                 >
                   <p className="font-medium">{b.name}</p>
-                  {b.description && <p className="text-sm text-gray-400 mt-0.5">{b.description}</p>}
+                  {b.description && <p className="text-sm text-slate-400 mt-0.5">{b.description}</p>}
                 </button>
                 {b.owner.id === user.id && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition text-gray-500 hover:text-red-400 p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-red-400 p-1"
                     title="Delete board"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -70,14 +70,14 @@ export default function BoardSelector({ user, onSelect }: Props) {
               </div>
             ))}
             {boards.length === 0 && !creating && (
-              <p className="text-gray-500 text-center text-sm">No boards yet.</p>
+              <p className="text-slate-500 text-center text-sm">No boards yet.</p>
             )}
           </div>
         )}
 
         <button
           onClick={() => setCreating(true)}
-          className="w-full border border-dashed border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 py-3 rounded-xl text-sm transition"
+          className="w-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 py-3 rounded-xl text-sm transition"
         >
           + New board
         </button>

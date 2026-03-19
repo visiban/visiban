@@ -83,12 +83,12 @@ export default function SummaryView({ boardId, columns }: Props) {
                   </div>
                 </td>
                 <td className="py-2 pr-4 text-right font-mono">
-                  <span className={row.velocity_7d > 0 ? "text-green-600 font-semibold" : "text-gray-400"}>
+                  <span className={row.velocity_7d > 0 ? "text-green-400 font-semibold" : "text-slate-400"}>
                     {row.velocity_7d}
                   </span>
                 </td>
                 <td className="py-2 text-right font-mono">
-                  <span className={row.velocity_30d > 0 ? "text-green-600 font-semibold" : "text-gray-400"}>
+                  <span className={row.velocity_30d > 0 ? "text-green-400 font-semibold" : "text-slate-400"}>
                     {row.velocity_30d}
                   </span>
                 </td>

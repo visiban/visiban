@@ -59,13 +59,13 @@ function GroupNode({
     <div className="relative">
       {/* Row */}
       <div
-        className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-700/50 transition cursor-pointer group/row"
+        className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-700/50 transition cursor-pointer group/row"
         onClick={() => navigate(`/groups/${group.id}`)}
       >
         {/* Chevron — reserves space for leaf nodes to keep alignment */}
         <button
           onClick={(e) => { e.stopPropagation(); if (hasChildren) setExpanded((v) => !v); }}
-          className={`shrink-0 w-4 h-4 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 transition-transform duration-150 ${expanded && hasChildren ? "rotate-90" : ""} ${!hasChildren ? "opacity-0 pointer-events-none" : ""}`}
+          className={`shrink-0 w-4 h-4 flex items-center justify-center rounded text-slate-500 hover:text-slate-300 transition-transform duration-150 ${expanded && hasChildren ? "rotate-90" : ""} ${!hasChildren ? "opacity-0 pointer-events-none" : ""}`}
         >
           <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -76,7 +76,7 @@ function GroupNode({
         <span className="text-white text-sm font-medium flex-1 min-w-0 truncate">{group.name}</span>
 
         {/* Stats */}
-        <span className="text-gray-500 text-xs shrink-0 tabular-nums">
+        <span className="text-slate-500 text-xs shrink-0 tabular-nums">
           {group.board_count} board{group.board_count !== 1 ? "s" : ""}
           {" · "}
           {group.member_count} member{group.member_count !== 1 ? "s" : ""}
@@ -86,7 +86,7 @@ function GroupNode({
         <button
           onClick={(e) => { e.stopPropagation(); setAddingSubgroup(true); }}
           title={`Add subgroup to ${group.name}`}
-          className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-600 hover:text-blue-400 hover:bg-gray-600 opacity-0 group-hover/row:opacity-100 transition"
+          className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:text-blue-400 hover:bg-slate-600 opacity-0 group-hover/row:opacity-100 transition"
         >
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -94,7 +94,7 @@ function GroupNode({
         </button>
 
         {/* Navigate arrow */}
-        <svg className="w-3.5 h-3.5 text-gray-600 group-hover/row:text-gray-400 shrink-0 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-3.5 h-3.5 text-slate-600 group-hover/row:text-slate-400 shrink-0 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </div>
@@ -108,11 +108,11 @@ function GroupNode({
               <div key={child.group.id} className="relative pl-[16px]">
                 {/* Vertical line — full height for non-last, half height for last */}
                 <div
-                  className="absolute left-0 w-px bg-gray-600"
+                  className="absolute left-0 w-px bg-slate-600"
                   style={{ top: 0, height: childIsLast ? "50%" : "100%" }}
                 />
                 {/* Horizontal connector at row midpoint */}
-                <div className="absolute left-0 top-[50%] h-px w-[16px] bg-gray-600 -translate-y-px" />
+                <div className="absolute left-0 top-[50%] h-px w-[16px] bg-slate-600 -translate-y-px" />
 
                 <GroupNode
                   node={child}

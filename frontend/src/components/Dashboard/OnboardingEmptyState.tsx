@@ -18,7 +18,7 @@ export default function OnboardingEmptyState({ onCreateBoard, onJoinGroup }: Pro
       </div>
 
       <h1 className="text-white text-2xl font-bold mb-2">Welcome to Visiban</h1>
-      <p className="text-gray-400 text-sm max-w-sm mb-8 leading-relaxed">
+      <p className="text-slate-400 text-sm max-w-sm mb-8 leading-relaxed">
         Your team's kanban workspace. Create a board to start tracking work, or join an existing group to collaborate.
       </p>
 
@@ -31,7 +31,7 @@ export default function OnboardingEmptyState({ onCreateBoard, onJoinGroup }: Pro
         </button>
         <button
           onClick={onJoinGroup}
-          className="px-6 py-2.5 border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white text-sm font-medium rounded-lg transition"
+          className="px-6 py-2.5 border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white text-sm font-medium rounded-lg transition"
         >
           Join a group with an invite link
         </button>
