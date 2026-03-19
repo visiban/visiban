@@ -176,6 +176,35 @@ describe('AppSidebar', () => {
     expect(screen.getByTitle('Dashboard')).toBeInTheDocument()
   })
 
+  it('does not show Site Admin link for non-admin users', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Site Admin')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Site Admin')).not.toBeInTheDocument()
+  })
+
+  it('shows Site Admin link for site admin users', async () => {
+    const adminUser: typeof fakeUser = { ...fakeUser, is_site_admin: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={adminUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    const link = screen.getByText('Site Admin').closest('a')
+    expect(link?.getAttribute('href')).toBe('/admin')
+  })
+
+  it('shows Site Admin icon in collapsed mode for site admins', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const adminUser: typeof fakeUser = { ...fakeUser, is_site_admin: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={adminUser} />)
+    const link = screen.getByTitle('Site Admin').closest('a')
+    expect(link?.getAttribute('href')).toBe('/admin')
+  })
+
   it('shows starred boards as star icons in collapsed mode', async () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }

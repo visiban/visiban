@@ -17,6 +17,7 @@ import ImportBoardModal from "../components/Board/ImportBoardModal";
 import { importBoard } from "../api/boards";
 import type { Board, Group, GroupLabel, GroupMembership, Priority, User } from "../types";
 import SelectDropdown from "../components/Common/SelectDropdown";
+import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
 
 interface Props {
   user: User;
@@ -501,6 +502,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ]}
                           size="xs"
                         />
+                        {m.role === "admin" && (
+                          <RoleInfoTooltip label="Group Admin info">
+                            <p className="text-xs font-semibold text-slate-100 mb-1">Group Admin</p>
+                            <p className="text-xs text-slate-400">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>
+                          </RoleInfoTooltip>
+                        )}
                         <button
                           onClick={() => handleRemoveMember(m.user.id)}
                           className="text-gray-600 hover:text-red-400 transition text-xs"

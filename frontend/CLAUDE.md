@@ -196,6 +196,11 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - **View/edit toggle pattern:** hover shows `border-slate-600 cursor-text` + ✎ icon (`group-hover:opacity-100 opacity-0`); click enters edit mode with `border-blue-400 bg-slate-900`. Apply this pattern to all future rich editable fields.
 - `readOnly` prop must be wired to `!canEdit` at every call site — viewers see rendered markdown only, no hover affordance
 
+## Conditional admin-only elements
+
+- Admin-only nav items and UI elements must be **hidden entirely** for non-admin users — never greyed out or rendered with reduced opacity. Use `{user.is_site_admin && ...}` (or the equivalent condition) to omit the element from the DOM entirely.
+- Never use `disabled` or `opacity-50` to signal lack of permission for a navigation link — if the user cannot access it, it should not be visible at all.
+
 ## Long URL display fields
 
 - Truncate long URLs in read-only display inputs: `truncate overflow-hidden text-ellipsis whitespace-nowrap`
