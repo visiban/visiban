@@ -49,6 +49,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card descriptions now render with correct light text in view mode — the previous release showed black text on a dark background; color overrides now use explicit arbitrary variant selectors that are reliably detected by the Tailwind JIT scanner
 - Text colors applied in the description editor (red, blue, green, etc.) are now correctly saved and restored — the previous release stripped color spans from the serialized markdown output
 - Typing in the description editor no longer triggers board keyboard shortcuts such as `f` for filter
+- `seed_demo_data` card History tab no longer shows "No activity yet" — every seeded card now gets a "Created in Backlog" movement record; cards further along the pipeline also get backdated stage-transition records with UIDs populated
 - `seed_demo_data` now refuses to run (with or without `--wipe`) when `DEBUG` is `False` and `--force` is not passed, preventing accidental demo board creation on production servers
 - `ensure_site_admin` now writes the one-time password to `/tmp/visiban_admin_password` with a trailing newline so `cat` output is not run together with the shell prompt (zsh users no longer see a spurious `%` that could be mistaken for part of the password)
 - Collapsed columns can now be dragged to reorder — previously the drag listeners were on the full column div alongside the click-to-expand handler, so initiating a drag would immediately re-expand the column after dropping
