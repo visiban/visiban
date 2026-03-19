@@ -1,5 +1,6 @@
 import datetime
 
+from django.db.models import Prefetch
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -88,6 +89,29 @@ class CardChecklistSerializer(serializers.ModelSerializer):
         fields = ["id", "text", "is_checked", "position"]
 
 
+def _card_queryset(qs):
+    """Apply the standard prefetch chain required by CardSerializer.
+
+    Centralised here so CardViewSet, BoardFullSerializer, and the archived
+    action all use identical prefetches — avoids drift that reintroduces N+1s.
+
+    Movements are prefetched ordered by -moved_at so that serializer methods
+    that need the most-recent movement can use movements.all()[0] without
+    issuing an additional ORDER BY + LIMIT 1 query per card.
+    """
+    from .models import CardMovement as _CM
+    return (
+        qs
+        .select_related("board", "assignee")
+        .prefetch_related(
+            "labels",
+            "attachments",
+            "checklist_items",
+            Prefetch("movements", queryset=_CM.objects.order_by("-moved_at")),
+        )
+    )
+
+
 class CardSerializer(serializers.ModelSerializer):
     labels = LabelSerializer(many=True, read_only=True)
     label_ids = serializers.PrimaryKeyRelatedField(
@@ -115,28 +139,29 @@ class CardSerializer(serializers.ModelSerializer):
         read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at"]
 
     def get_last_moved_at(self, obj):
-        movement = obj.movements.first()
-        return movement.moved_at if movement else None
+        # Use .all() not .first() — .first() bypasses the prefetch cache and
+        # issues a new query with ORDER BY + LIMIT 1 for every card.
+        movements = obj.movements.all()
+        return movements[0].moved_at if movements else None
 
     def get_attachment_count(self, obj):
-        # Use the prefetch cache populated by CardViewSet.get_queryset() to avoid
-        # an extra COUNT query per card when listing the board.
-        return len([a for a in obj.attachments.all()])
+        # len() on a prefetched relation uses the in-memory cache; .count() does not.
+        return len(obj.attachments.all())
 
     def get_checklist_total(self, obj):
-        # Use the prefetch cache to avoid an extra COUNT query per card.
-        return len([i for i in obj.checklist_items.all()])
+        return len(obj.checklist_items.all())
 
     def get_checklist_done(self, obj):
-        # Use the prefetch cache to avoid an extra filtered COUNT query per card.
-        return len([i for i in obj.checklist_items.all() if i.is_checked])
+        return sum(1 for item in obj.checklist_items.all() if item.is_checked)
 
     def get_is_stale(self, obj):
+        # obj.board requires select_related("board") on the queryset.
+        # obj.movements.all() uses the prefetch cache (ordered by -moved_at).
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        last_mv = obj.movements.first()  # ordered by -moved_at
-        if last_mv:
-            return last_mv.moved_at < cutoff
+        movements = obj.movements.all()
+        if movements:
+            return movements[0].moved_at < cutoff
         return (timezone.now() - obj.created_at).days >= threshold
 
 
@@ -205,7 +230,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         Archived cards are excluded here; they are fetched separately via the
         /cards/archived/ action when the user opens the archived panel.
         """
-        qs = obj.cards.filter(archived_at__isnull=True).prefetch_related("labels", "movements")
+        qs = _card_queryset(obj.cards.filter(archived_at__isnull=True))
         return CardSerializer(qs, many=True, context=self.context).data
 
     def get_members(self, obj):

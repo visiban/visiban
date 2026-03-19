@@ -37,6 +37,7 @@ from .serializers import (
     ColumnSerializer, SwimlaneSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
+    _card_queryset,
 )
 from .templates import BOARD_TEMPLATES
 
@@ -665,36 +666,57 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):
-        """Per-swimlane card counts, stage distribution, and velocity."""
+        """Per-swimlane card counts, stage distribution, and velocity.
+
+        Uses three aggregate queries regardless of board size instead of the
+        previous S×(C+4) loop (one filter per swimlane×column cell).
+        """
+        from django.db.models import Count
         board, _ = get_board_for_user(pk, request.user)
         now = timezone.now()
         cutoff_7d = now - datetime.timedelta(days=7)
         cutoff_30d = now - datetime.timedelta(days=30)
 
         columns = list(board.columns.order_by("position"))
+        swimlanes = list(board.swimlanes.order_by("position"))
         last_column = columns[-1] if columns else None
 
-        result = []
-        for swimlane in board.swimlanes.order_by("position"):
-            cards = board.cards.filter(swimlane=swimlane)
-            stage_dist = {col.name: cards.filter(column=col).count() for col in columns}
+        # Query 1: card count per (swimlane, column) in one shot.
+        raw_counts = (
+            board.cards.filter(archived_at__isnull=True)
+            .values("swimlane_id", "column_id")
+            .annotate(cnt=Count("id"))
+        )
+        counts: dict[int, dict[int, int]] = {}
+        for row in raw_counts:
+            counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
 
-            vel_7d = vel_30d = 0
-            if last_column:
-                base_qs = CardMovement.objects.filter(
-                    card__board=board, card__swimlane=swimlane, to_column=last_column
+        # Query 2: velocity per swimlane — conditional COUNT avoids two round-trips.
+        vel_by_swimlane: dict[int, dict] = {}
+        if last_column:
+            vel_qs = (
+                CardMovement.objects
+                .filter(card__board=board, to_column=last_column)
+                .values("card__swimlane_id")
+                .annotate(
+                    vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),
+                    vel_30d=Count("id", filter=Q(moved_at__gte=cutoff_30d)),
                 )
-                vel_7d = base_qs.filter(moved_at__gte=cutoff_7d).count()
-                vel_30d = base_qs.filter(moved_at__gte=cutoff_30d).count()
+            )
+            vel_by_swimlane = {r["card__swimlane_id"]: r for r in vel_qs}
 
+        result = []
+        for swimlane in swimlanes:
+            col_counts = counts.get(swimlane.id, {})
+            vel = vel_by_swimlane.get(swimlane.id, {})
             result.append({
                 "id": swimlane.id,
                 "name": swimlane.name,
                 "color": swimlane.color,
-                "total_cards": cards.count(),
-                "stage_distribution": stage_dist,
-                "velocity_7d": vel_7d,
-                "velocity_30d": vel_30d,
+                "total_cards": sum(col_counts.values()),
+                "stage_distribution": {col.name: col_counts.get(col.id, 0) for col in columns},
+                "velocity_7d": vel.get("vel_7d", 0),
+                "velocity_30d": vel.get("vel_30d", 0),
             })
 
         return Response({"swimlanes": result})
@@ -1216,15 +1238,7 @@ class CardViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Exclude archived cards from all standard list/detail endpoints.
         # Archived cards are accessible via the separate /archived/ action.
-        # select_related("board", "assignee") avoids per-card queries from
-        # get_is_stale (board.staleness_threshold_days) and the assignee field.
-        # Prefetching attachments and checklist_items avoids the 3 extra queries
-        # per card that the serializer methods previously issued via .count()/.filter().
-        return (
-            Card.objects.filter(board=self._board(), archived_at__isnull=True)
-            .select_related("board", "assignee")
-            .prefetch_related("labels", "movements", "attachments", "checklist_items")
-        )
+        return _card_queryset(Card.objects.filter(board=self._board(), archived_at__isnull=True))
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -1316,7 +1330,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
             def card_data_fn():
                 return CardSerializer(
-                    Card.objects.prefetch_related("labels", "movements").get(pk=card.id),
+                    _card_queryset(Card.objects.filter(pk=card.id)).get(),
                     context={"request": request, "board": card.board},
                 ).data
 
@@ -1336,11 +1350,7 @@ class CardViewSet(viewsets.ModelViewSet):
         (write operations) are restricted to member+.
         """
         board = self._board()
-        qs = (
-            Card.objects.filter(board=board, archived_at__isnull=False)
-            .prefetch_related("labels", "movements")
-            .order_by("-archived_at")
-        )
+        qs = _card_queryset(Card.objects.filter(board=board, archived_at__isnull=False)).order_by("-archived_at")
         serializer = CardSerializer(qs, many=True, context={"request": request, "board": board})
         return Response(serializer.data)
 
