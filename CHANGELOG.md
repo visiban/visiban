@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [v1.0.0-rc.6] — 2026-03-19
+
 ### Added
 
 - Documentation: added Hardware requirements section to `docs/getting-started/installation.md` — minimum (2 vCPU / 4 GB RAM / 40 GB SSD), recommended (4 vCPU / 8 GB RAM / 80 GB SSD), and development tiers with a note on the OOM risk at 1 GB and the attachment storage caveat
