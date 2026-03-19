@@ -151,21 +151,30 @@ class SeedMovementHistoryTests(TestCase):
 
     def test_movement_denormalized_names_are_populated(self):
         _seed()
-        mv = CardMovement.objects.first()
+        # Filter to a transition movement (from_column is set) since creation
+        # movements legitimately have an empty from_column_name.
+        mv = CardMovement.objects.filter(from_column__isnull=False).first()
         if mv:
             self.assertTrue(mv.from_column_name)
             self.assertTrue(mv.to_column_name)
 
-    def test_backlog_cards_have_no_movements(self):
+    def test_backlog_cards_have_creation_movement(self):
+        """Every card — including Backlog cards — must have a creation movement
+        (from_column=None) so the History tab is never empty."""
         _seed()
         board = Board.objects.get(name=BOARD_NAME)
         backlog = board.columns.get(name="Backlog")
         backlog_cards = board.cards.filter(column=backlog)
         for card in backlog_cards:
+            creation = CardMovement.objects.filter(card=card, from_column__isnull=True)
+            self.assertTrue(
+                creation.exists(),
+                f"Backlog card '{card.title}' is missing its creation movement",
+            )
             self.assertEqual(
                 CardMovement.objects.filter(card=card).count(),
-                0,
-                f"Backlog card '{card.title}' unexpectedly has movements",
+                1,
+                f"Backlog card '{card.title}' should have exactly 1 movement (creation only)",
             )
 
     def test_movements_are_backdated(self):

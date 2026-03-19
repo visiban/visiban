@@ -619,8 +619,6 @@ class Command(BaseCommand):
             the stalled-cards list in the analytics endpoint
         """
         col_idx = pipeline.index(current_col)
-        if col_idx == 0:
-            return
 
         # Anchor to SEED_ANCHOR_DATE so regenerated exports are deterministic.
         anchor = datetime.datetime(
@@ -641,6 +639,31 @@ class Command(BaseCommand):
         # so that i=0 corresponds to the earliest (largest days_ago) transition.
         stage_offsets.reverse()
 
+        # Always create a "card created" movement (from_column=None) so that
+        # the History tab is never empty — even for cards still in Backlog.
+        created_days_ago = (
+            cumulative_days + random.randint(5, 15) if col_idx > 0 else random.randint(10, 60)
+        )
+        created_at = anchor - datetime.timedelta(days=created_days_ago)
+        mv = CardMovement.objects.create(
+            card=card,
+            from_column=None,
+            to_column=pipeline[0],
+            from_swimlane=None,
+            to_swimlane=card.swimlane,
+            from_column_name="",
+            to_column_name=pipeline[0].name,
+            from_column_uid="",
+            to_column_uid=pipeline[0].uid,
+            from_swimlane_name="",
+            to_swimlane_name=card.swimlane.name,
+            from_swimlane_uid="",
+            to_swimlane_uid=card.swimlane.uid,
+            moved_by=random.choice(users),
+            notes="",
+        )
+        CardMovement.objects.filter(pk=mv.pk).update(moved_at=created_at)
+
         for i in range(col_idx):
             from_col = pipeline[i]
             to_col = pipeline[i + 1]
@@ -654,8 +677,12 @@ class Command(BaseCommand):
                 to_swimlane=card.swimlane,
                 from_column_name=from_col.name,
                 to_column_name=to_col.name,
+                from_column_uid=from_col.uid,
+                to_column_uid=to_col.uid,
                 from_swimlane_name=card.swimlane.name,
                 to_swimlane_name=card.swimlane.name,
+                from_swimlane_uid=card.swimlane.uid,
+                to_swimlane_uid=card.swimlane.uid,
                 moved_by=random.choice(users),
                 notes="",
             )
