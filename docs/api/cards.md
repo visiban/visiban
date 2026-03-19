@@ -94,9 +94,12 @@ Activity log (field changes, comments, attachments, checklist events).
 List comments. Requires board member or above.
 
 ### `POST /api/boards/{board_id}/cards/{id}/comments/`
-Add a comment. Requires collaborator or above.
+Add a comment. **Minimum role: Collaborator.**
 
 **Request** `{ "body": "Looking into this now." }`
+
+### `DELETE /api/boards/{board_id}/cards/{id}/comments/{comment_id}/`
+Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete their own comments; members and above may delete any comment.
 
 ---
 
@@ -106,7 +109,7 @@ Add a comment. Requires collaborator or above.
 List attachments.
 
 ### `POST /api/boards/{board_id}/cards/{id}/attachments/`
-Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB.
+Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB. **Minimum role: Collaborator.**
 
 **Allowed file types**
 
@@ -133,7 +136,7 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 ```
 
 ### `DELETE /api/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
-Delete an attachment.
+Delete an attachment. **Minimum role: Collaborator.**
 
 ---
 
@@ -143,14 +146,14 @@ Delete an attachment.
 List checklist items.
 
 ### `POST /api/boards/{board_id}/cards/{id}/checklist/`
-Add a checklist item.
+Add a checklist item. **Minimum role: Collaborator.**
 
 **Request** `{ "text": "Write tests" }`
 
 ### `PATCH /api/boards/{board_id}/cards/{id}/checklist/{item_id}/`
-Update an item (e.g. check/uncheck).
+Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 
 **Request** `{ "is_checked": true }`
 
 ### `DELETE /api/boards/{board_id}/cards/{id}/checklist/{item_id}/`
-Delete a checklist item.
+Delete a checklist item. **Minimum role: Collaborator.**

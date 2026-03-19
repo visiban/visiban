@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Documentation: board role permissions matrix (Admin, Member, Collaborator, Viewer) in `docs/features/permissions.md`, covering all card, collaboration, board-structure, and membership actions; includes a note on the Viewer read-only boundary enforced since 1.0 (#248)
 - Board creation modal now fetches templates from a new `GET /api/boards/templates/` endpoint; the template set has been replaced with six purposeful templates (Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery) plus a Blank Board option — each with the correct columns, a lane label, and a swimlane placeholder; deferred/placeholder templates have been removed (#159)
 - Board creation now includes a **First Swimlane** step: after choosing a template the user is prompted for a swimlane name using the template's lane label (e.g. "Account") and placeholder; the field is optional and blank boards skip it gracefully (#159)
 - New **Set as my default board** checkbox in the board creation modal; when checked, the newly created board is saved as the user's login destination; a tip is shown to users who have not yet set a default (#159)
@@ -81,6 +82,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Single-card archive from the card detail panel and bulk archive from the bulk action toolbar now both show a toast notification: "Card archived — view in Archived panel"; clicking the link in the toast opens the Archived panel directly (#252)
 - CSV import `_import_csv` docstring updated to say `Due Date (YYYY-MM-DD)` instead of `DueDate (YYYY-MM-DD)` to match the actual normalized header key (#252)
 - CSV import `_HEADER_MAP` now includes a defensive `"due date": "Due Date"` entry handling the key with a space and lowercase, ensuring the roundtrip (export → import) preserves `due_date` without manual header correction; a new roundtrip test exercises this path (#252)
+- Viewer role is now strictly read-only: posting comments, uploading/deleting attachments, and adding/patching/deleting checklist items now return 403 for viewer-role members — these write operations require Collaborator role or above (#248)
+- Collaborators may delete only their own comments; attempting to delete another user's comment returns 403 (#248)
 
 ---
 
