@@ -456,7 +456,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         Required headers: Title, Column, Swimlane.
         Optional headers: Description, Priority, Weight, Labels (comma-separated),
-                          Assignee (username), DueDate (YYYY-MM-DD).
+                          Assignee (username), Due Date (YYYY-MM-DD).
 
         Columns, swimlanes, and labels are auto-created from the values seen in
         the file. Their order matches their first appearance in the CSV so that
@@ -487,6 +487,7 @@ class BoardViewSet(viewsets.ModelViewSet):
             "assignee": "Assignee",
             "duedate": "Due Date",
             "due_date": "Due Date",
+            "due date": "Due Date",  # defensive: handles pre-normalized header with space and lowercase
         }
         rows = [
             {_HEADER_MAP.get(k.strip().lower(), k.strip()): v for k, v in row.items() if k is not None}
@@ -1215,7 +1216,15 @@ class CardViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Exclude archived cards from all standard list/detail endpoints.
         # Archived cards are accessible via the separate /archived/ action.
-        return Card.objects.filter(board=self._board(), archived_at__isnull=True).prefetch_related("labels", "movements")
+        # select_related("board", "assignee") avoids per-card queries from
+        # get_is_stale (board.staleness_threshold_days) and the assignee field.
+        # Prefetching attachments and checklist_items avoids the 3 extra queries
+        # per card that the serializer methods previously issued via .count()/.filter().
+        return (
+            Card.objects.filter(board=self._board(), archived_at__isnull=True)
+            .select_related("board", "assignee")
+            .prefetch_related("labels", "movements", "attachments", "checklist_items")
+        )
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
