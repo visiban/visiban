@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import type { User, Notification } from "../../types";
 import { userDisplayName } from "../../types";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
-import { getVersion } from "../../api/auth";
 
 interface BreadcrumbItem {
   label: string;
@@ -22,14 +21,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showBell, setShowBell] = useState(false);
-  const [version, setVersion] = useState<string | null>(null);
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    getVersion().then(setVersion).catch(() => {});
-  }, []);
 
   useEffect(() => {
     const fetchCount = () => getUnreadCount().then(setUnreadCount).catch(() => {});
@@ -93,9 +87,6 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
         <Link to="/" className="flex items-center hover:opacity-80 transition">
           <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>
-        {version === "dev" && (
-          <span className="text-slate-400 text-[11px] font-mono select-none bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5">{version}</span>
-        )}
         {breadcrumb?.map((item, i) => (
           <span key={i} className="flex items-center gap-2">
             <span className="text-slate-500">/</span>
@@ -132,7 +123,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                   <span className="text-xs font-semibold text-slate-300">Notifications</span>
                   <button
                     onClick={handleMarkAll}
-                    className="text-xs text-accent hover:text-accent/80"
+                    className="text-xs text-blue-400 hover:text-blue-300"
                   >
                     Mark all read
                   </button>

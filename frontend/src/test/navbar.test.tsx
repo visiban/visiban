@@ -12,15 +12,9 @@ vi.mock('../api/notifications', () => ({
   markRead: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('../api/auth', () => ({
-  getVersion: vi.fn().mockResolvedValue('0.3.0'),
-}))
-
 import { getUnreadCount } from '../api/notifications'
-import { getVersion } from '../api/auth'
 
 const mockGetUnreadCount = getUnreadCount as ReturnType<typeof vi.fn>
-const mockGetVersion = getVersion as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -98,14 +92,11 @@ describe('Navbar', () => {
     expect(await screen.findByText('9+')).toBeInTheDocument()
   })
 
-  it('shows version badge for dev builds only', async () => {
-    mockGetVersion.mockResolvedValue('dev')
+  it('does not show version badge in navbar (version lives in Settings only)', () => {
     renderNavbar()
-    expect(await screen.findByText('dev')).toBeInTheDocument()
-  })
-
-  it('hides version badge for versioned builds', async () => {
-    renderNavbar()
-    expect(screen.queryByText('0.3.0')).not.toBeInTheDocument()
+    // Version strings must not appear in the navbar per design system rules.
+    // They are surfaced exclusively in Settings → About.
+    expect(screen.queryByText('dev')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^\d+\.\d+/)).not.toBeInTheDocument()
   })
 })

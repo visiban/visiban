@@ -74,7 +74,7 @@ export default function LoginPage({ onLogin }: Props) {
             placeholder={mode === "login" ? "Username or email" : "Email address"}
             value={loginField}
             onChange={(e) => setLoginField(e.target.value)}
-            className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
           <input
             type="password"
@@ -82,7 +82,7 @@ export default function LoginPage({ onLogin }: Props) {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
           {mode === "register" && (
             <input
@@ -91,7 +91,7 @@ export default function LoginPage({ onLogin }: Props) {
               placeholder="Confirm password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              className="w-full bg-slate-700 text-white placeholder-slate-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             />
           )}
           {mode === "register" && !registrationOpen && (
@@ -103,7 +103,7 @@ export default function LoginPage({ onLogin }: Props) {
           <button
             type="submit"
             disabled={submitting || (mode === "register" && !registrationOpen)}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </button>
@@ -115,7 +115,7 @@ export default function LoginPage({ onLogin }: Props) {
               <button
                 type="button"
                 onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
-                className="text-accent hover:text-accent/80 underline"
+                className="text-blue-400 hover:text-blue-300 underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
               >
                 {mode === "login" ? "Create one" : "Sign in"}
               </button>
@@ -135,7 +135,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.google && (
                 <a
                   href={`${API}/accounts/google/login/?process=login`}
-                  className="flex items-center justify-center gap-3 bg-white text-gray-900 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 transition"
+                  className="flex items-center justify-center gap-3 bg-white text-slate-900 font-medium py-2.5 px-4 rounded-lg hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GoogleIcon />
                   Continue with Google

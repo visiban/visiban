@@ -41,41 +41,41 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-8 w-full max-w-md shadow-xl">
-        <h2 className="text-white text-xl font-bold mb-1">Change your password</h2>
-        <p className="text-gray-400 text-sm mb-6">
+      <div className="bg-slate-800 rounded-xl p-8 w-full max-w-md shadow-xl" role="dialog" aria-labelledby="force-pw-title">
+        <h2 id="force-pw-title" className="text-white text-xl font-bold mb-1">Change your password</h2>
+        <p className="text-slate-400 text-sm mb-6">
           Your account was set up with a temporary password. You must set a new password before continuing.
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-gray-400 text-xs mb-1">Temporary password</label>
+            <label className="block text-slate-400 text-xs mb-1">Temporary password</label>
             <input
               type="password"
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
-              className="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:outline-none focus:border-blue-500"
               required
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-gray-400 text-xs mb-1">New password <span className="text-gray-500">(min 12 characters)</span></label>
+            <label className="block text-slate-400 text-xs mb-1">New password <span className="text-slate-500">(min 12 characters)</span></label>
             <input
               type="password"
               value={next}
               onChange={(e) => setNext(e.target.value)}
-              className="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:outline-none focus:border-blue-500"
               required
             />
           </div>
           <div>
-            <label className="block text-gray-400 text-xs mb-1">Confirm new password</label>
+            <label className="block text-slate-400 text-xs mb-1">Confirm new password</label>
             <input
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-700 text-white rounded px-3 py-2 text-sm border border-slate-600 focus:outline-none focus:border-blue-500"
               required
             />
           </div>
@@ -85,7 +85,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
           <button
             type="submit"
             disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-4 py-2 text-sm font-medium transition mt-2"
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {saving ? "Saving…" : "Set new password"}
           </button>
