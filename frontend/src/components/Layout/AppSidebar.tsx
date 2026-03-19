@@ -382,7 +382,7 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
 
       {showCreateGroup && (
         <CreateGroupModal
-          onCreated={() => {}}
+          onCreated={(g) => setGroups((prev) => [g, ...prev])}
           onClose={() => setShowCreateGroup(false)}
         />
       )}
