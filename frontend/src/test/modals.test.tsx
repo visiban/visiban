@@ -261,6 +261,48 @@ describe('CreateGroupModal', () => {
 
     expect(mockCreateGroup).toHaveBeenCalledWith({ name: 'Engineering', parent: null })
   })
+
+  it('shows success message after creation', async () => {
+    const group = { id: 1, name: 'Engineering' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
+    await user.click(screen.getByText('Create'))
+
+    expect(await screen.findByText('✓ "Engineering" created')).toBeInTheDocument()
+    expect(screen.getByText('✓ "Engineering" created')).toHaveClass('text-green-400')
+  })
+
+  it('clears success message after 2 seconds', async () => {
+    const group = { id: 2, name: 'Design' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Design')
+    await user.click(screen.getByText('Create'))
+
+    expect(await screen.findByText('✓ "Design" created')).toBeInTheDocument()
+    // Message should disappear after 2 seconds (allow up to 3s for the async timer).
+    await waitFor(() => expect(screen.queryByText('✓ "Design" created')).not.toBeInTheDocument(), { timeout: 3000 })
+  })
+
+  it('focuses the input after successful creation', async () => {
+    const group = { id: 3, name: 'QA' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    const input = screen.getByPlaceholderText('e.g. Engineering')
+    await user.type(input, 'QA')
+    await user.click(screen.getByText('Create'))
+
+    // Wait for the success message to confirm the async operation completed.
+    await screen.findByText('✓ "QA" created')
+    await waitFor(() => expect(input).toHaveFocus())
+  })
 })
 
 describe('AddColumnModal', () => {

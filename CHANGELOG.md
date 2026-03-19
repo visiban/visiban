@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - Docs: Card Archiving, Demo Data, and Secret Rotation pages now appear in the docs sidebar — they existed but were missing from the mkdocs nav; fix broken `../administration/` link in the features index
+- CreateGroupModal: after a group is created the modal now shows a brief `✓ "Name" created` confirmation in green below the input, clears it after 2 seconds, and returns focus to the name field so the user can immediately type the next group name (#253)
 
 ---
 
