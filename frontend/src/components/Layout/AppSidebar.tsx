@@ -382,10 +382,7 @@ export default function AppSidebar({ user: _user, starVersion = 0 }: Props) {
 
       {showCreateGroup && (
         <CreateGroupModal
-          onCreated={(group) => {
-            setShowCreateGroup(false);
-            navigate(`/groups/${group.id}`);
-          }}
+          onCreated={(g) => setGroups((prev) => [g, ...prev])}
           onClose={() => setShowCreateGroup(false)}
         />
       )}

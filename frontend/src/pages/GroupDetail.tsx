@@ -691,7 +691,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       {showCreateSubgroup && (
         <CreateGroupModal
           parentGroup={group}
-          onCreated={(sg) => { setSubgroups((prev) => [...prev, sg]); navigate(`/groups/${sg.id}`); }}
+          onCreated={(sg) => { setSubgroups((prev) => [...prev, sg]); }}
           onClose={() => setShowCreateSubgroup(false)}
         />
       )}
