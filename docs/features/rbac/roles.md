@@ -9,7 +9,7 @@ Visiban has five roles that control access at both the group and board level.
 | `site_admin` | Site-wide | Full access to everything. Cannot be removed or demoted by any other admin. |
 | `admin` | Group or Board | Manages the group/board: members, structure, settings. |
 | `member` | Group or Board | Standard contributor — creates and moves cards. |
-| `collaborator` | Group or Board | Can comment on cards but cannot create, edit, move, or delete them. |
+| `collaborator` | Group or Board | Can comment on cards, upload attachments, and manage checklist items but cannot create, edit, move, or delete cards. |
 | `viewer` | Group or Board | Read-only access to cards and movement history. |
 
 ## Permission table
@@ -34,6 +34,10 @@ Visiban has five roles that control access at both the group and board level.
 | **Cards** | | | | | |
 | Create / edit / move / delete card | ✓ | ✓ | ✓ | — | — |
 | Comment on cards | ✓ | ✓ | ✓ | ✓ | — |
+| Delete own comment | ✓ | ✓ | ✓ | ✓ | — |
+| Delete any comment | ✓ | ✓ | ✓ | — | — |
+| Upload / delete attachments | ✓ | ✓ | ✓ | ✓ | — |
+| Add / edit / delete checklist items | ✓ | ✓ | ✓ | ✓ | — |
 | View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Bulk card operations (move, assign, priority, delete) | ✓ | ✓ | ✓ | — | — |
 | **Export & Import** | | | | | |

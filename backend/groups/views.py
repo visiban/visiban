@@ -213,7 +213,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             Column(board=board, name=name, position=i, color=color, allow_card_creation=(i == 0))
             for i, (name, color) in enumerate(default_columns)
         ])
-        swimlane_name = (request.data.get("swimlane_name") or "").strip() or "General"
+        swimlane_name = ((request.data.get("swimlane_name") or "").strip() or "General")[:255]
         Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
         # Apply group defaults: copy shared labels and allowed priorities

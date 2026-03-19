@@ -59,6 +59,7 @@ nav:
     - Stable UIDs: features/stable-uids.md
     - Groups: features/groups.md
     - Navigation: features/navigation.md
+    - Board Permissions: features/permissions.md
     - Roles & Permissions:
       - features/rbac/index.md
       - Overview: features/rbac/roles.md

@@ -235,13 +235,14 @@ describe('AppSidebar', () => {
     expect(screen.getByTestId('create-group-modal')).toBeInTheDocument()
   })
 
-  it('New group modal confirm navigates to new group', async () => {
+  it('New group modal confirm does not navigate', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
     await userEvent.setup().click(screen.getByText('New group'))
     await userEvent.setup().click(screen.getByText('Confirm create group'))
-    expect(mockNavigate).toHaveBeenCalledWith('/groups/99')
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(screen.getByTestId('create-group-modal')).toBeInTheDocument()
   })
 })

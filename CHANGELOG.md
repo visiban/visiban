@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Documentation: board role permissions matrix (Admin, Member, Collaborator, Viewer) in `docs/features/permissions.md`, covering all card, collaboration, board-structure, and membership actions; includes a note on the Viewer read-only boundary enforced since 1.0 (#248)
 - Board creation modal now fetches templates from a new `GET /api/boards/templates/` endpoint; the template set has been replaced with six purposeful templates (Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery) plus a Blank Board option — each with the correct columns, a lane label, and a swimlane placeholder; deferred/placeholder templates have been removed (#159)
 - Board creation now includes a **First Swimlane** step: after choosing a template the user is prompted for a swimlane name using the template's lane label (e.g. "Account") and placeholder; the field is optional and blank boards skip it gracefully (#159)
 - New **Set as my default board** checkbox in the board creation modal; when checked, the newly created board is saved as the user's login destination; a tip is shown to users who have not yet set a default (#159)
@@ -30,6 +31,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- Creating a group or subgroup no longer navigates to the newly created group — the modal stays open so multiple groups can be created back-to-back; close the modal manually when done
 - "Close editor on Enter" is now a personal preference in **Settings → Appearance** rather than a per-board setting — each user controls whether pressing Enter in the new-card input submits the card and closes the card panel; the setting defaults to off
 - Pressing Escape now navigates back to the referring page: from a board to whatever page you came from, from a group page to whatever you came from; falls back to the semantic parent (board → group → dashboard) when no history entry exists. Within the board the key remains layered — it closes the card detail panel or any open modal first, then clears a multi-card selection, and only navigates when nothing else is open. All modals now consistently close on Escape regardless of where focus is within them.
 - Saving profile settings now returns you to the page you were on before opening Settings; opening Settings via a direct link falls back to the dashboard (#241)
@@ -53,6 +55,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card descriptions now render with correct light text in view mode — the previous release showed black text on a dark background; color overrides now use explicit arbitrary variant selectors that are reliably detected by the Tailwind JIT scanner
 - Text colors applied in the description editor (red, blue, green, etc.) are now correctly saved and restored — the previous release stripped color spans from the serialized markdown output
 - Typing in the description editor no longer triggers board keyboard shortcuts such as `f` for filter
+- `seed_demo_data` card History tab no longer shows "No activity yet" — every seeded card now gets a "Created in Backlog" movement record; cards further along the pipeline also get backdated stage-transition records with UIDs populated
 - `seed_demo_data` now refuses to run (with or without `--wipe`) when `DEBUG` is `False` and `--force` is not passed, preventing accidental demo board creation on production servers
 - `ensure_site_admin` now writes the one-time password to `/tmp/visiban_admin_password` with a trailing newline so `cat` output is not run together with the shell prompt (zsh users no longer see a spurious `%` that could be mistaken for part of the password)
 - Collapsed columns can now be dragged to reorder — previously the drag listeners were on the full column div alongside the click-to-expand handler, so initiating a drag would immediately re-expand the column after dropping
@@ -82,6 +85,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Seed CSV export now uses comma-separated labels (was semicolon) so `demo_board.csv` imports cleanly via the board import flow without triggering a "missing required headers" error
 - Seed movement history is now spread across a 30–90 day window (was 1–5 days per stage) so the analytics endpoint shows realistic dwell times, stalled cards, and a meaningful 30-day velocity window on a fresh seed
 - Regenerated `scripts/seed/demo_board.json` and `scripts/seed/demo_board.csv` with the corrected label separator and wider movement date spread
+- `CardViewSet.get_queryset()` now uses `select_related("board", "assignee")` and `prefetch_related("attachments", "checklist_items")` — eliminates 4–5 N+1 queries per card that the serializer previously issued via `.count()` and `.filter(is_checked=True).count()`; a new `assertNumQueries` test asserts the card list endpoint for a 10-card board completes in ≤ 12 queries (#252)
+- `WHITENOISE_USE_FINDERS` is now `DEBUG` rather than hard-coded `True` — prevents WhiteNoise from scanning the source tree with `FINDERS` backend in production builds (#252)
+- Single-card archive from the card detail panel and bulk archive from the bulk action toolbar now both show a toast notification: "Card archived — view in Archived panel"; clicking the link in the toast opens the Archived panel directly (#252)
+- CSV import `_import_csv` docstring updated to say `Due Date (YYYY-MM-DD)` instead of `DueDate (YYYY-MM-DD)` to match the actual normalized header key (#252)
+- CSV import `_HEADER_MAP` now includes a defensive `"due date": "Due Date"` entry handling the key with a space and lowercase, ensuring the roundtrip (export → import) preserves `due_date` without manual header correction; a new roundtrip test exercises this path (#252)
+- Viewer role is now strictly read-only: posting comments, uploading/deleting attachments, and adding/patching/deleting checklist items now return 403 for viewer-role members — these write operations require Collaborator role or above (#248)
+- Collaborators may delete only their own comments; attempting to delete another user's comment returns 403 (#248)
 
 ---
 

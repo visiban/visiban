@@ -1556,10 +1556,15 @@ class CardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post", "get"])
     def comments(self, request, board_pk=None, pk=None):
         """List or add comments on a card; POST also handles @mention notifications."""
-        board = self._board()
+        board, role = self._board_and_role()
         card = get_object_or_404(Card, pk=pk, board=board)
         if request.method == "GET":
             return Response(CardCommentSerializer(card.comments.all(), many=True).data)
+        if role == BoardMembership.Role.VIEWER:
+            return Response(
+                {"detail": "Viewers cannot perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         comment = serializer.save(card=card, author=request.user)
@@ -1592,10 +1597,33 @@ class CardViewSet(viewsets.ModelViewSet):
             ])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["delete"], url_path="comments/(?P<comment_pk>[^/.]+)")
+    def delete_comment(self, request, board_pk=None, pk=None, comment_pk=None):
+        """Delete a comment. Collaborators may only delete their own comments; admins/members may delete any."""
+        board, role = self._board_and_role()
+        if role == BoardMembership.Role.VIEWER:
+            return Response(
+                {"detail": "Viewers cannot perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        card = get_object_or_404(Card, pk=pk, board=board)
+        comment = get_object_or_404(CardComment, pk=comment_pk, card=card)
+        # Collaborators may only delete their own comments; member+ can delete any.
+        if role == BoardMembership.Role.COLLABORATOR and comment.author != request.user:
+            return Response(
+                {"detail": "You can only delete your own comments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        comment.delete()
+        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        board_id = board.id
+        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["get", "post"], url_path="attachments")
     def attachments(self, request, board_pk=None, pk=None):
         """List attachments on a card or upload a new one (max 10 MB)."""
-        board = self._board()
+        board, role = self._board_and_role()
         card = get_object_or_404(Card, pk=pk, board=board)
 
         if request.method == "GET":
@@ -1603,6 +1631,12 @@ class CardViewSet(viewsets.ModelViewSet):
                 card.attachments.all(), many=True, context={"request": request}
             )
             return Response(serializer.data)
+
+        if role == BoardMembership.Role.VIEWER:
+            return Response(
+                {"detail": "Viewers cannot perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         file = request.FILES.get("file")
         if not file:
@@ -1639,7 +1673,12 @@ class CardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["delete"], url_path="attachments/(?P<attachment_pk>[^/.]+)")
     def delete_attachment(self, request, board_pk=None, pk=None, attachment_pk=None):
         """Delete an attachment and its underlying file from storage."""
-        board = self._board()
+        board, role = self._board_and_role()
+        if role == BoardMembership.Role.VIEWER:
+            return Response(
+                {"detail": "Viewers cannot perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         card = get_object_or_404(Card, pk=pk, board=board)
         attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
         attachment.file.delete(save=False)
@@ -1652,11 +1691,16 @@ class CardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get", "post"], url_path="checklist")
     def checklist(self, request, board_pk=None, pk=None):
         """List checklist items on a card or add a new one."""
-        board = self._board()
+        board, role = self._board_and_role()
         card = get_object_or_404(Card, pk=pk, board=board)
         if request.method == "GET":
             items = card.checklist_items.all()
             return Response(CardChecklistSerializer(items, many=True).data)
+        if role == BoardMembership.Role.VIEWER:
+            return Response(
+                {"detail": "Viewers cannot perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = CardChecklistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         position = card.checklist_items.count()
@@ -1673,7 +1717,12 @@ class CardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
     def checklist_item(self, request, board_pk=None, pk=None, item_pk=None):
         """Update (PATCH) or delete a single checklist item."""
-        board = self._board()
+        board, role = self._board_and_role()
+        if role == BoardMembership.Role.VIEWER:
+            return Response(
+                {"detail": "Viewers cannot perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         card = get_object_or_404(Card, pk=pk, board=board)
         item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
         if request.method == "DELETE":

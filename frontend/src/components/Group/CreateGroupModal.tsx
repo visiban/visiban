@@ -22,7 +22,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
     try {
       const group = await createGroup({ name: name.trim(), parent: parentGroup?.id ?? null });
       onCreated(group);
-      onClose();
+      setName("");
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string; name?: string[] } } })?.response?.data;
       setError(detail?.detail ?? detail?.name?.[0] ?? "Failed to create group.");
