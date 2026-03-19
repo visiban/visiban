@@ -188,6 +188,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<number | null>(null);
   const [cardNotFound, setCardNotFound] = useState(false);
+  const [archiveToast, setArchiveToast] = useState(false);
+  const archiveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-open card from ?card= query param (e.g. from notification deep-link)
   useEffect(() => {
@@ -221,6 +223,21 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const showArchiveToast = useCallback(() => {
+    setArchiveToast(true);
+    if (archiveToastTimerRef.current) clearTimeout(archiveToastTimerRef.current);
+    // Auto-dismiss after 5 seconds so the toast doesn't linger indefinitely.
+    archiveToastTimerRef.current = setTimeout(() => setArchiveToast(false), 5000);
+  }, []);
+
+  // Clear the auto-dismiss timer on unmount to avoid a setState call on an
+  // unmounted component if the user navigates away while the toast is visible.
+  useEffect(() => {
+    return () => {
+      if (archiveToastTimerRef.current) clearTimeout(archiveToastTimerRef.current);
+    };
+  }, []);
 
   const toggleCardSelection = useCallback((cardId: number) => {
     setSelectedCardIds((prev) => {
@@ -621,6 +638,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           Card not found — it may have been archived or deleted.
         </div>
       )}
+      {archiveToast && (
+        <div className="flex items-center justify-between gap-3 mx-4 mt-2 px-4 py-2 bg-slate-700/80 border border-slate-600 rounded-lg text-slate-200 text-sm">
+          <span>Card archived — view in <button onClick={() => { setShowArchived(true); setArchiveToast(false); }} className="text-blue-400 hover:underline">Archived panel</button></span>
+          <button onClick={() => setArchiveToast(false)} className="text-slate-400 hover:text-white transition text-lg leading-none shrink-0">×</button>
+        </div>
+      )}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/*
           Single scroll container — header and body share the same horizontal
@@ -824,7 +847,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           selectedCardIds={selectedCardIds}
           onCardsUpdated={(cards) => cards.forEach(onCardUpdated)}
           onCardsDeleted={(ids) => ids.forEach(onCardDeleted)}
-          onCardsArchived={(ids) => ids.forEach(onCardArchived)}
+          onCardsArchived={(ids) => { ids.forEach(onCardArchived); if (ids.length > 0) showArchiveToast(); }}
           onClearSelection={clearSelection}
         />
       )}
@@ -836,7 +859,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onClose={() => setSelectedCard(null)}
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
           onUpdated={onCardUpdated}
-          onArchived={(id) => { onCardArchived(id); setSelectedCard(null); }}
+          onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
           userTimezone={userTimezone}

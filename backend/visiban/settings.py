@@ -138,7 +138,7 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
-WHITENOISE_USE_FINDERS = True  # serve un-collected files in development
+WHITENOISE_USE_FINDERS = DEBUG  # serve un-collected files in development only
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

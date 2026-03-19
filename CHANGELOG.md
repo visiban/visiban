@@ -44,6 +44,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Board creation via groups now correctly names the first swimlane from the value entered in the creation modal; previously `swimlane_name` was ignored and the lane was always named "General" (#159)
+- `CardViewSet.get_queryset()` now uses `select_related("board", "assignee")` and `prefetch_related("labels", "movements", "attachments", "checklist_items")` — eliminates the 4 extra queries per card that the serializer's attachment count, checklist count, and stale-card checks previously issued
+- `WHITENOISE_USE_FINDERS` is now only enabled in `DEBUG` mode; it was previously unconditionally `True`, which caused WhiteNoise to serve un-collected files in production
+- Archived cards now show a toast notification on the board with a link to the Archived panel so users can immediately access what they just archived
+- CSV import roundtrip: exporting a board and re-importing the CSV now preserves `due_date` values correctly
 - CSV import now accepts lowercase and snake_case headers (e.g. `title`, `column`, `swimlane`, `due_date`) in addition to the canonical title-case form — external tools and the seed `demo_board.csv` use these variants and previously triggered a false "missing required headers" error
 - The Import Board modal now displays the size limits (500 cards, 50 columns, 100 swimlanes) as an informational notice so users know before they attempt a large import; `docs/features/board.md` updated with a full limits table and a note on splitting oversized boards
 - Typing `@username` (with the `@` prefix) in the Board Settings invite search field now returns matching users — previously the leading `@` was passed to the search API verbatim, silently returning no results (#244)
@@ -77,6 +82,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Switching templates in the board creation modal no longer causes layout shifts — the column preview strip stays visible for all templates (Blank Board shows a "No preset columns" note), the swimlane name is preserved when changing templates, and the default-board checkbox hint text no longer shifts surrounding content (#159)
 - Blank Board in the board creation modal now appears as a full-width row below a separator line, visually distinct from the named template grid — the previous layout left an orphan cell and the card appeared visually thin without column color dots (#159)
 - Creating a new label from the card detail panel no longer shows it twice — the label was being added to the board immediately from the API response and again when the real-time broadcast arrived
+- Seed CSV export now uses comma-separated labels (was semicolon) so `demo_board.csv` imports cleanly via the board import flow without triggering a "missing required headers" error
+- Seed movement history is now spread across a 30–90 day window (was 1–5 days per stage) so the analytics endpoint shows realistic dwell times, stalled cards, and a meaningful 30-day velocity window on a fresh seed
+- Regenerated `scripts/seed/demo_board.json` and `scripts/seed/demo_board.csv` with the corrected label separator and wider movement date spread
 - `CardViewSet.get_queryset()` now uses `select_related("board", "assignee")` and `prefetch_related("attachments", "checklist_items")` — eliminates 4–5 N+1 queries per card that the serializer previously issued via `.count()` and `.filter(is_checked=True).count()`; a new `assertNumQueries` test asserts the card list endpoint for a 10-card board completes in ≤ 12 queries (#252)
 - `WHITENOISE_USE_FINDERS` is now `DEBUG` rather than hard-coded `True` — prevents WhiteNoise from scanning the source tree with `FINDERS` backend in production builds (#252)
 - Single-card archive from the card detail panel and bulk archive from the bulk action toolbar now both show a toast notification: "Card archived — view in Archived panel"; clicking the link in the toast opens the Archived panel directly (#252)

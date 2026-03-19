@@ -609,17 +609,42 @@ class Command(BaseCommand):
 
         auto_now_add=True ignores explicit values at create time, so moved_at is
         back-filled with update() after creation.
+
+        Date anchoring: movements are calculated relative to SEED_ANCHOR_DATE (not
+        timezone.now()) so that regenerated exports are git-stable across run dates.
+
+        Spread: each stage occupies 5–18 days so that:
+          - cards in mid-pipeline show realistic dwell times across a 30–90 day window
+          - ~half the active cards have their last movement >7 days ago, populating
+            the stalled-cards list in the analytics endpoint
         """
         col_idx = pipeline.index(current_col)
         if col_idx == 0:
             return
 
-        now = timezone.now()
+        # Anchor to SEED_ANCHOR_DATE so regenerated exports are deterministic.
+        anchor = datetime.datetime(
+            SEED_ANCHOR_DATE.year,
+            SEED_ANCHOR_DATE.month,
+            SEED_ANCHOR_DATE.day,
+            tzinfo=datetime.timezone.utc,
+        )
+        # Build cumulative days_ago from the anchor working backwards through stages.
+        # Each stage takes 5–18 days; the most-recent transition lands 3–10 days
+        # before the anchor so roughly half of active cards appear stalled.
+        cumulative_days = random.randint(3, 10)
+        stage_offsets = []
+        for _ in range(col_idx):
+            stage_offsets.append(cumulative_days)
+            cumulative_days += random.randint(5, 18)
+        # stage_offsets[0] = days_ago for the most recent transition, so reverse
+        # so that i=0 corresponds to the earliest (largest days_ago) transition.
+        stage_offsets.reverse()
+
         for i in range(col_idx):
             from_col = pipeline[i]
             to_col = pipeline[i + 1]
-            days_ago = (col_idx - i) * random.randint(1, 5)
-            moved_at = now - datetime.timedelta(days=days_ago)
+            moved_at = anchor - datetime.timedelta(days=stage_offsets[i])
 
             mv = CardMovement.objects.create(
                 card=card,
@@ -796,7 +821,7 @@ class Command(BaseCommand):
                     "priority": card.priority,
                     "due_date": card.due_date.isoformat() if card.due_date else "",
                     "weight": card.weight,
-                    "labels": ";".join(lbl.name for lbl in card.labels.order_by("name")),
+                    "labels": ",".join(lbl.name for lbl in card.labels.order_by("name")),
                     "assignee": card.assignee.username if card.assignee else "",
                     "checklist_total": len(checklist),
                     "checklist_done": sum(1 for i in checklist if i.is_checked),

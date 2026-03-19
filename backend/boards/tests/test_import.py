@@ -435,3 +435,52 @@ class BoardImportDuplicateLabelTests(TransactionTestCase):
             )
         # The atomic block ensures no board was created
         self.assertEqual(Board.objects.filter(name="Dup Labels Board").count(), 0)
+
+
+class BoardImportCSVRoundtripTests(TestCase):
+    """CSV export → import roundtrip: verify that due_date and other fields survive the cycle."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="roundtrip_user", password="pass")
+        self.client.force_authenticate(self.user)
+
+        # Create a board with a card that has a due_date set.
+        import datetime
+        from boards.models import Card as CardModel, Column as ColumnModel, Swimlane as SwimlaneModel
+
+        self.board = Board.objects.create(name="Source", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+        col = ColumnModel.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
+        swim = SwimlaneModel.objects.create(board=self.board, name="General", position=0)
+        self.due_date = datetime.date(2026, 6, 15)
+        CardModel.objects.create(
+            board=self.board, column=col, swimlane=swim,
+            title="Round-trip card", due_date=self.due_date, created_by=self.user, position=0,
+        )
+
+    def test_csv_roundtrip_preserves_due_date(self):
+        """Export a board with a due_date card, re-import the CSV, and verify due_date survives."""
+        from boards.models import Card as CardModel
+
+        # Export the board as CSV (no ?format= param to avoid DRF content-negotiation
+        # interpreting "csv" as a format suffix and routing to a missing renderer).
+        export_resp = self.client.get(f"/api/boards/{self.board.id}/export/")
+        self.assertEqual(export_resp.status_code, 200)
+
+        # Re-import the CSV.
+        csv_bytes = export_resp.content
+        f = io.BytesIO(csv_bytes)
+        f.name = "roundtrip.csv"
+        import_resp = self.client.post(
+            "/api/boards/import/",
+            {"file": f, "name": "Round-trip Import"},
+            format="multipart",
+        )
+        self.assertEqual(import_resp.status_code, 201)
+
+        # The imported card must have a populated due_date matching the original.
+        imported_board_id = import_resp.data["id"]
+        imported_card = CardModel.objects.get(board_id=imported_board_id, title="Round-trip card")
+        self.assertIsNotNone(imported_card.due_date)
+        self.assertEqual(str(imported_card.due_date), "2026-06-15")
