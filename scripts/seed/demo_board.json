@@ -126,29 +126,91 @@
   ],
   "cards": [
     {
-      "title": "Improve error messages on 403 responses",
-      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
+      "title": "Implement rate limiting on auth endpoints",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
       "priority": "urgent",
       "column": "Backlog",
       "swimlane": "Acme Corp",
-      "due_date": "2026-03-20",
-      "weight": 3,
-      "labels": [
-        "Improvement"
+      "due_date": "2026-04-14",
+      "weight": 8,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Design mockup approved",
+          "is_checked": true
+        },
+        {
+          "text": "Implement component",
+          "is_checked": false
+        },
+        {
+          "text": "Add unit test",
+          "is_checked": false
+        }
       ],
-      "checklist": [],
       "comments": [
         {
-          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
+          "body": "Yes, same root cause. Fixing both in the same MR.",
+          "author": "demo5"
+        },
+        {
+          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Fix column separator drag on Firefox",
+      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
+      "priority": "high",
+      "column": "Backlog",
+      "swimlane": "Acme Corp",
+      "due_date": "2026-03-19",
+      "weight": 6,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Identify affected endpoints",
+          "is_checked": true
         },
         {
-          "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
-          "author": "demo3"
+          "text": "Add permission check",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "The Helm chart change needs a review from DevOps before we ship this.",
+          "author": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Add swimlane color picker to edit modal",
+      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
+      "priority": "high",
+      "column": "Backlog",
+      "swimlane": "Acme Corp",
+      "due_date": "2026-03-04",
+      "weight": 8,
+      "labels": [
+        "Bug",
+        "Improvement"
+      ],
+      "checklist": [
+        {
+          "text": "Scope defined",
+          "is_checked": false
         },
         {
-          "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
-          "author": "demo4"
+          "text": "Dependencies checked",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Metadata only for the first version. We can add description as an opt-in column later.",
+          "author": "demo1"
         }
       ]
     },
@@ -168,276 +230,83 @@
       "comments": []
     },
     {
-      "title": "Add pagination to movement history endpoint",
-      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
-      "priority": "medium",
-      "column": "Doing",
-      "swimlane": "Acme Corp",
-      "due_date": "2026-04-05",
-      "weight": 3,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Create feature branch",
-          "is_checked": false
-        },
-        {
-          "text": "Implement",
-          "is_checked": true
-        },
-        {
-          "text": "Write tests",
-          "is_checked": true
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Set up MinIO for local dev attachments",
-      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "medium",
-      "column": "Doing",
-      "swimlane": "Acme Corp",
-      "due_date": "2026-03-30",
-      "weight": 1,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Implement rate limiting on auth endpoints",
-      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
-      "priority": "urgent",
-      "column": "Doing",
-      "swimlane": "Acme Corp",
-      "due_date": null,
-      "weight": 2,
-      "labels": [
-        "Bug",
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Draft API design doc",
-          "is_checked": false
-        },
-        {
-          "text": "Get team sign-off",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Yes, same root cause. Fixing both in the same MR.",
-          "author": "demo3"
-        },
-        {
-          "body": "Scope question: should this also cover the row separator?",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Add swimlane color picker to edit modal",
-      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
-      "priority": "medium",
-      "column": "Doing",
-      "swimlane": "Acme Corp",
-      "due_date": "2026-04-10",
-      "weight": 8,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Read existing code and write notes",
-          "is_checked": false
-        },
-        {
-          "text": "Identify all affected tests",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
-          "author": "demo5"
-        },
-        {
-          "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
-          "author": "demo1"
-        },
-        {
-          "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Add time-in-stage heatmap to analytics",
-      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
-      "priority": "low",
-      "column": "Doing",
-      "swimlane": "Acme Corp",
-      "due_date": "2026-02-21",
-      "weight": 6,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
-          "author": "demo3"
-        },
-        {
-          "body": "Filed a hotfix MR. ETA 2h.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
       "title": "Write API docs for /boards/{id}/full/",
-      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
-      "priority": "medium",
-      "column": "Done",
-      "swimlane": "Acme Corp",
-      "due_date": null,
-      "weight": 8,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Add card duplication action",
-      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Beta Team",
-      "due_date": "2026-03-20",
-      "weight": 3,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
-          "author": "demo4"
-        },
-        {
-          "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
-      "title": "Fix Google OAuth callback 500 on new user",
       "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "low",
+      "priority": "urgent",
       "column": "To Do",
-      "swimlane": "Beta Team",
-      "due_date": null,
-      "weight": 2,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Scope defined",
-          "is_checked": true
-        },
-        {
-          "text": "Dependencies checked",
-          "is_checked": false
-        },
-        {
-          "text": "Implementation started",
-          "is_checked": false
-        },
-        {
-          "text": "Code review done",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Add read-only viewer role enforcement",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "high",
-      "column": "To Do",
-      "swimlane": "Beta Team",
-      "due_date": "2026-03-20",
-      "weight": 5,
+      "swimlane": "Acme Corp",
+      "due_date": "2026-03-21",
+      "weight": 4,
       "labels": [
         "Bug",
         "Feature"
       ],
       "checklist": [
         {
-          "text": "Profile query performance",
-          "is_checked": true
-        },
-        {
-          "text": "Add select_related / prefetch",
+          "text": "Update CHANGELOG",
           "is_checked": false
         },
         {
-          "text": "Measure improvement",
+          "text": "Bump version",
           "is_checked": false
         },
         {
-          "text": "Add comment explaining why",
+          "text": "Tag release",
           "is_checked": true
+        },
+        {
+          "text": "Push Docker images",
+          "is_checked": false
         }
       ],
       "comments": []
     },
     {
-      "title": "Add Prometheus metrics endpoint",
-      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
-      "priority": "urgent",
-      "column": "To Do",
-      "swimlane": "Beta Team",
-      "due_date": "2026-03-24",
-      "weight": 7,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Design mockup approved",
-          "is_checked": false
-        },
-        {
-          "text": "Implement component",
-          "is_checked": false
-        },
-        {
-          "text": "Add unit test",
-          "is_checked": true
-        }
+      "title": "Add attachment preview for PDFs",
+      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
+      "priority": "low",
+      "column": "Review",
+      "swimlane": "Acme Corp",
+      "due_date": null,
+      "weight": 3,
+      "labels": [
+        "Bug"
       ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Add time-in-stage heatmap to analytics",
+      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
+      "priority": "medium",
+      "column": "Review",
+      "swimlane": "Acme Corp",
+      "due_date": "2026-03-22",
+      "weight": 4,
+      "labels": [],
+      "checklist": [],
       "comments": [
         {
-          "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
-          "author": "demo3"
+          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
+          "author": "demo1"
         },
         {
-          "body": "Scope question: should this also cover the row separator?",
+          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo4"
         }
       ]
     },
     {
-      "title": "Fix due-date badge color for overdue cards",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "title": "Set up MinIO for local dev attachments",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
       "priority": "medium",
-      "column": "Doing",
-      "swimlane": "Beta Team",
-      "due_date": "2026-04-08",
-      "weight": 5,
-      "labels": [],
+      "column": "Done",
+      "swimlane": "Acme Corp",
+      "due_date": "2026-04-12",
+      "weight": 2,
+      "labels": [
+        "Improvement"
+      ],
       "checklist": [
         {
           "text": "Design mockup approved",
@@ -445,11 +314,11 @@
         },
         {
           "text": "Implement component",
-          "is_checked": false
+          "is_checked": true
         },
         {
           "text": "Add unit test",
-          "is_checked": true
+          "is_checked": false
         },
         {
           "text": "Verify on mobile",
@@ -460,575 +329,110 @@
           "is_checked": false
         }
       ],
-      "comments": [
-        {
-          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
-          "author": "demo3"
-        },
-        {
-          "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
-          "author": "demo2"
-        }
-      ]
+      "comments": []
     },
     {
-      "title": "Write integration test for card move API",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "low",
-      "column": "Doing",
-      "swimlane": "Beta Team",
-      "due_date": null,
-      "weight": 8,
-      "labels": [
-        "Bug",
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
-          "author": "demo1"
-        },
-        {
-          "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Investigate flaky test in test_concurrent_moves",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "high",
-      "column": "Doing",
-      "swimlane": "Beta Team",
-      "due_date": "2026-04-02",
-      "weight": 7,
-      "labels": [
-        "Bug"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
-          "author": "demo3"
-        },
-        {
-          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Write migration guide from v0.9 to v1.0",
-      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "title": "Fix Google OAuth callback 500 on new user",
+      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
       "priority": "medium",
-      "column": "Review",
+      "column": "To Do",
       "swimlane": "Beta Team",
-      "due_date": "2026-04-06",
-      "weight": 5,
-      "labels": [
-        "Bug"
-      ],
-      "checklist": [
-        {
-          "text": "Profile query performance",
-          "is_checked": false
-        },
-        {
-          "text": "Add select_related / prefetch",
-          "is_checked": false
-        },
-        {
-          "text": "Measure improvement",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
-          "author": "demo2"
-        },
-        {
-          "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
-          "author": "demo1"
-        },
-        {
-          "body": "@demo3 can you take a pass at the Helm config?",
-          "author": "demo3"
-        }
-      ]
+      "due_date": "2026-04-07",
+      "weight": 1,
+      "labels": [],
+      "checklist": [],
+      "comments": []
     },
     {
       "title": "Set up weekly demo data refresh job",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "urgent",
-      "column": "Done",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "medium",
+      "column": "To Do",
       "swimlane": "Beta Team",
-      "due_date": "2026-02-19",
+      "due_date": "2026-03-30",
       "weight": 4,
-      "labels": [],
-      "checklist": [],
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Reproduce issue locally",
+          "is_checked": true
+        },
+        {
+          "text": "Add failing test",
+          "is_checked": false
+        },
+        {
+          "text": "Fix root cause",
+          "is_checked": false
+        },
+        {
+          "text": "Verify test passes",
+          "is_checked": false
+        }
+      ],
       "comments": [
         {
-          "body": "@demo3 can you take a pass at the Helm config?",
-          "author": "demo2"
+          "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
+          "author": "demo3"
         }
       ]
     },
     {
       "title": "Fix XSS via card title in notifications",
-      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
-      "priority": "urgent",
-      "column": "Done",
-      "swimlane": "Beta Team",
-      "due_date": "2026-04-08",
-      "weight": 4,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Update Python dependencies to latest patch",
-      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
-      "priority": "high",
-      "column": "Backlog",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-08",
-      "weight": 3,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Integrate Sentry for frontend error tracking",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "low",
-      "column": "Backlog",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": null,
-      "weight": 6,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "@demo3 can you take a pass at the Helm config?",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Fix empty state not showing on fresh board",
-      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
-      "priority": "high",
-      "column": "Backlog",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-11",
-      "weight": 6,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Add CSV export for board activity",
-      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
-      "priority": "low",
-      "column": "To Do",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-03",
-      "weight": 6,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Support @mentions in card descriptions",
-      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
-      "priority": "medium",
-      "column": "To Do",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": null,
-      "weight": 4,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Create feature branch",
-          "is_checked": false
-        },
-        {
-          "text": "Implement",
-          "is_checked": false
-        },
-        {
-          "text": "Write tests",
-          "is_checked": false
-        },
-        {
-          "text": "Open MR",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "@demo3 can you take a pass at the Helm config?",
-          "author": "demo2"
-        },
-        {
-          "body": "Merged the Helm review comments. Ready for QA.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
-      "title": "Implement card template system",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "high",
-      "column": "To Do",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": null,
-      "weight": 1,
-      "labels": [
-        "Bug",
-        "Feature"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "QA sign-off. Deploying to staging.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Add offline mode banner",
-      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
-      "priority": "urgent",
-      "column": "Doing",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-11",
-      "weight": 7,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Scope defined",
-          "is_checked": true
-        },
-        {
-          "text": "Dependencies checked",
-          "is_checked": false
-        },
-        {
-          "text": "Implementation started",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Yes, same root cause. Fixing both in the same MR.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Fix stale WebSocket after board rename",
-      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
-      "priority": "high",
-      "column": "Doing",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": null,
-      "weight": 7,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
-          "author": "demo2"
-        },
-        {
-          "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
-          "author": "demo3"
-        }
-      ]
-    },
-    {
-      "title": "Add SAML SSO support (enterprise)",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "urgent",
-      "column": "Review",
-      "swimlane": "Cloudstride Ltd",
-      "due_date": null,
-      "weight": 1,
-      "labels": [
-        "Bug",
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Filed a hotfix MR. ETA 2h.",
-          "author": "demo5"
-        },
-        {
-          "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Fix checklist item delete losing position",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "DevOps Guild",
-      "due_date": "2026-03-21",
-      "weight": 8,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Design mockup approved",
-          "is_checked": true
-        },
-        {
-          "text": "Implement component",
-          "is_checked": true
-        },
-        {
-          "text": "Add unit test",
-          "is_checked": true
-        },
-        {
-          "text": "Verify on mobile",
-          "is_checked": false
-        },
-        {
-          "text": "Accessibility check",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Improve onboarding empty state copy",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "urgent",
-      "column": "Backlog",
-      "swimlane": "DevOps Guild",
-      "due_date": "2026-03-18",
-      "weight": 5,
-      "labels": [],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Investigate slow card load on large boards",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "high",
-      "column": "Backlog",
-      "swimlane": "DevOps Guild",
-      "due_date": "2026-03-29",
-      "weight": 6,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Merged the Helm review comments. Ready for QA.",
-          "author": "demo3"
-        },
-        {
-          "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
-      "title": "Add read receipt to comments",
-      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
-      "priority": "urgent",
-      "column": "To Do",
-      "swimlane": "DevOps Guild",
-      "due_date": null,
-      "weight": 2,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Yes, same root cause. Fixing both in the same MR.",
-          "author": "demo5"
-        },
-        {
-          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Create Helm chart for staging deployment",
-      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
-      "priority": "low",
-      "column": "Doing",
-      "swimlane": "DevOps Guild",
-      "due_date": "2026-04-04",
-      "weight": 4,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
-          "author": "demo5"
-        },
-        {
-          "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
-          "author": "demo1"
-        },
-        {
-          "body": "QA sign-off. Deploying to staging.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Support dark mode in email notifications",
-      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
-      "priority": "medium",
-      "column": "Doing",
-      "swimlane": "DevOps Guild",
-      "due_date": null,
-      "weight": 6,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Create feature branch",
-          "is_checked": false
-        },
-        {
-          "text": "Implement",
-          "is_checked": false
-        },
-        {
-          "text": "Write tests",
-          "is_checked": false
-        },
-        {
-          "text": "Open MR",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "@demo3 can you take a pass at the Helm config?",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Fix column WIP limit badge wrapping",
       "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "low",
-      "column": "Backlog",
-      "swimlane": "Ember Studio",
-      "due_date": "2026-04-10",
-      "weight": 5,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "The Helm chart change needs a review from DevOps before we ship this.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Investigate memory leak in frontend bundle",
-      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
-      "priority": "urgent",
-      "column": "Backlog",
-      "swimlane": "Ember Studio",
+      "priority": "high",
+      "column": "To Do",
+      "swimlane": "Beta Team",
       "due_date": null,
-      "weight": 8,
-      "labels": [],
-      "checklist": [],
+      "weight": 6,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [
+        {
+          "text": "Update CHANGELOG",
+          "is_checked": false
+        },
+        {
+          "text": "Bump version",
+          "is_checked": false
+        },
+        {
+          "text": "Tag release",
+          "is_checked": false
+        },
+        {
+          "text": "Push Docker images",
+          "is_checked": true
+        },
+        {
+          "text": "Post release notes",
+          "is_checked": false
+        }
+      ],
       "comments": [
         {
           "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
-          "author": "demo2"
+          "author": "demo5"
         },
         {
-          "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
+          "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo5"
         }
       ]
     },
     {
-      "title": "Write runbook for on-call rotation",
-      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
-      "priority": "urgent",
-      "column": "To Do",
-      "swimlane": "Ember Studio",
-      "due_date": null,
-      "weight": 8,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Design mockup approved",
-          "is_checked": false
-        },
-        {
-          "text": "Implement component",
-          "is_checked": true
-        },
-        {
-          "text": "Add unit test",
-          "is_checked": true
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Add keyboard shortcut to create card",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "low",
-      "column": "To Do",
-      "swimlane": "Ember Studio",
-      "due_date": "2026-03-25",
-      "weight": 3,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Fix WebSocket reconnect on token refresh",
-      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
-      "priority": "low",
-      "column": "To Do",
-      "swimlane": "Ember Studio",
-      "due_date": null,
+      "title": "Fix due-date badge color for overdue cards",
+      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
+      "priority": "medium",
+      "column": "Doing",
+      "swimlane": "Beta Team",
+      "due_date": "2026-03-24",
       "weight": 1,
       "labels": [
-        "Bug",
-        "Improvement"
+        "Feature"
       ],
       "checklist": [
         {
@@ -1041,200 +445,746 @@
         },
         {
           "text": "Deploy to staging",
-          "is_checked": true
-        },
-        {
-          "text": "Monitor error rate",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "@demo3 can you take a pass at the Helm config?",
-          "author": "demo2"
+          "body": "Merged the Helm review comments. Ready for QA.",
+          "author": "demo1"
         },
         {
-          "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
-          "author": "demo4"
+          "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
+          "author": "demo1"
         }
       ]
     },
     {
-      "title": "Add label filter to board view",
-      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
-      "priority": "low",
-      "column": "To Do",
-      "swimlane": "Ember Studio",
-      "due_date": "2026-03-28",
-      "weight": 1,
+      "title": "Add Prometheus metrics endpoint",
+      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
+      "priority": "high",
+      "column": "Doing",
+      "swimlane": "Beta Team",
+      "due_date": null,
+      "weight": 2,
       "labels": [
+        "Bug",
         "Feature"
       ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
-          "author": "demo2"
-        },
-        {
-          "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Add card position audit log",
-      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
-      "priority": "high",
-      "column": "To Do",
-      "swimlane": "Ember Studio",
-      "due_date": null,
-      "weight": 6,
-      "labels": [],
       "checklist": [
         {
           "text": "Update CHANGELOG",
-          "is_checked": true
+          "is_checked": false
         },
         {
           "text": "Bump version",
           "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Write migration guide from v0.9 to v1.0",
+      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
+      "priority": "medium",
+      "column": "Review",
+      "swimlane": "Beta Team",
+      "due_date": "2026-02-26",
+      "weight": 6,
+      "labels": [
+        "Bug",
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Profile query performance",
+          "is_checked": true
         },
         {
-          "text": "Tag release",
+          "text": "Add select_related / prefetch",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "The Helm chart change needs a review from DevOps before we ship this.",
+          "author": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Add read-only viewer role enforcement",
+      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "Beta Team",
+      "due_date": "2026-04-10",
+      "weight": 6,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [
+        {
+          "text": "Scope defined",
+          "is_checked": false
+        },
+        {
+          "text": "Dependencies checked",
+          "is_checked": false
+        },
+        {
+          "text": "Implementation started",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
-          "author": "demo3"
+          "body": "Scope question: should this also cover the row separator?",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Write integration test for card move API",
+      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
+      "priority": "high",
+      "column": "Done",
+      "swimlane": "Beta Team",
+      "due_date": null,
+      "weight": 8,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Add CSV export for board activity",
+      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
+      "priority": "high",
+      "column": "Backlog",
+      "swimlane": "Cloudstride Ltd",
+      "due_date": "2026-04-14",
+      "weight": 1,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [
+        {
+          "text": "Update CHANGELOG",
+          "is_checked": false
         },
         {
-          "body": "Yes, same root cause. Fixing both in the same MR.",
+          "text": "Bump version",
+          "is_checked": true
+        },
+        {
+          "text": "Tag release",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Agreed. Moving to Backlog for now.",
           "author": "demo4"
         },
         {
-          "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
+          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo3"
         }
       ]
     },
     {
-      "title": "Benchmark board load with 1000+ cards",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "title": "Update Python dependencies to latest patch",
+      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
       "priority": "medium",
-      "column": "Review",
-      "swimlane": "Ember Studio",
-      "due_date": "2026-04-01",
-      "weight": 8,
-      "labels": [],
+      "column": "Backlog",
+      "swimlane": "Cloudstride Ltd",
+      "due_date": "2026-03-27",
+      "weight": 1,
+      "labels": [
+        "Bug",
+        "Improvement"
+      ],
       "checklist": [],
       "comments": [
         {
-          "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
-          "author": "demo1"
+          "body": "Filed a hotfix MR. ETA 2h.",
+          "author": "demo5"
         },
         {
-          "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
-          "author": "demo3"
-        },
-        {
-          "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
-          "author": "demo4"
+          "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
+          "author": "demo2"
         }
       ]
     },
     {
-      "title": "Add column-level WIP enforcement",
-      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
-      "priority": "low",
-      "column": "Done",
-      "swimlane": "Ember Studio",
+      "title": "Integrate Sentry for frontend error tracking",
+      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "priority": "high",
+      "column": "Backlog",
+      "swimlane": "Cloudstride Ltd",
       "due_date": "2026-04-07",
-      "weight": 7,
+      "weight": 5,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Add invite-only registration toggle",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "Cloudstride Ltd",
+      "due_date": "2026-03-24",
+      "weight": 2,
+      "labels": [
+        "Bug",
+        "Feature"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Investigate flaky test in test_concurrent_moves",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "medium",
+      "column": "Doing",
+      "swimlane": "Cloudstride Ltd",
+      "due_date": "2026-03-31",
+      "weight": 8,
       "labels": [
         "Bug"
       ],
       "checklist": [
         {
-          "text": "Create feature branch",
-          "is_checked": false
-        },
-        {
-          "text": "Implement",
-          "is_checked": false
-        },
-        {
-          "text": "Write tests",
+          "text": "Write migration",
           "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
-          "author": "demo2"
         },
         {
-          "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
-      "title": "Add priority filter to FilterBar",
-      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Frontier AI",
-      "due_date": null,
-      "weight": 7,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Identify affected endpoints",
-          "is_checked": false
-        },
-        {
-          "text": "Add permission check",
-          "is_checked": false
-        },
-        {
-          "text": "Write test",
+          "text": "Test rollback",
           "is_checked": true
         }
       ],
       "comments": []
     },
     {
-      "title": "Review and update CONTRIBUTING.md",
-      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Frontier AI",
+      "title": "Add card duplication action",
+      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "priority": "high",
+      "column": "Review",
+      "swimlane": "Cloudstride Ltd",
       "due_date": null,
-      "weight": 8,
+      "weight": 1,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Write migration",
+          "is_checked": false
+        },
+        {
+          "text": "Test rollback",
+          "is_checked": false
+        },
+        {
+          "text": "Deploy to staging",
+          "is_checked": false
+        },
+        {
+          "text": "Monitor error rate",
+          "is_checked": true
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Fix empty state not showing on fresh board",
+      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
+      "priority": "high",
+      "column": "Backlog",
+      "swimlane": "DevOps Guild",
+      "due_date": "2026-03-20",
+      "weight": 5,
       "labels": [
-        "Improvement"
+        "Bug",
+        "Feature"
       ],
       "checklist": [],
       "comments": []
     },
     {
-      "title": "Add bulk label assignment",
-      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
+      "title": "Create Helm chart for staging deployment",
+      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
+      "priority": "high",
+      "column": "Backlog",
+      "swimlane": "DevOps Guild",
+      "due_date": null,
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Design mockup approved",
+          "is_checked": true
+        },
+        {
+          "text": "Implement component",
+          "is_checked": false
+        },
+        {
+          "text": "Add unit test",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Fix stale WebSocket after board rename",
+      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "DevOps Guild",
+      "due_date": null,
+      "weight": 3,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Design mockup approved",
+          "is_checked": false
+        },
+        {
+          "text": "Implement component",
+          "is_checked": false
+        },
+        {
+          "text": "Add unit test",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "@demo3 can you take a pass at the Helm config?",
+          "author": "demo3"
+        },
+        {
+          "body": "The Helm chart change needs a review from DevOps before we ship this.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Implement card template system",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "DevOps Guild",
+      "due_date": "2026-03-29",
+      "weight": 1,
+      "labels": [
+        "Bug",
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Fix checklist item delete losing position",
+      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "DevOps Guild",
+      "due_date": null,
+      "weight": 8,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Update CHANGELOG",
+          "is_checked": false
+        },
+        {
+          "text": "Bump version",
+          "is_checked": true
+        },
+        {
+          "text": "Tag release",
+          "is_checked": true
+        },
+        {
+          "text": "Push Docker images",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Support @mentions in card descriptions",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "medium",
+      "column": "Review",
+      "swimlane": "DevOps Guild",
+      "due_date": null,
+      "weight": 6,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Reproduce issue locally",
+          "is_checked": true
+        },
+        {
+          "text": "Add failing test",
+          "is_checked": false
+        },
+        {
+          "text": "Fix root cause",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Add offline mode banner",
+      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "DevOps Guild",
+      "due_date": "2026-04-07",
+      "weight": 1,
+      "labels": [
+        "Bug",
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
+          "author": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Improve onboarding empty state copy",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "DevOps Guild",
+      "due_date": null,
+      "weight": 8,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Reproduce issue locally",
+          "is_checked": true
+        },
+        {
+          "text": "Add failing test",
+          "is_checked": false
+        },
+        {
+          "text": "Fix root cause",
+          "is_checked": true
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Investigate slow card load on large boards",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "high",
+      "column": "To Do",
+      "swimlane": "Ember Studio",
+      "due_date": "2026-03-12",
+      "weight": 6,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Design mockup approved",
+          "is_checked": false
+        },
+        {
+          "text": "Implement component",
+          "is_checked": true
+        },
+        {
+          "text": "Add unit test",
+          "is_checked": true
+        },
+        {
+          "text": "Verify on mobile",
+          "is_checked": true
+        },
+        {
+          "text": "Accessibility check",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
+          "author": "demo2"
+        },
+        {
+          "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
+          "author": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Support dark mode in email notifications",
+      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "priority": "medium",
+      "column": "Doing",
+      "swimlane": "Ember Studio",
+      "due_date": "2026-03-31",
+      "weight": 4,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Add read receipt to comments",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "Ember Studio",
+      "due_date": null,
+      "weight": 8,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Fix column WIP limit badge wrapping",
+      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
+      "priority": "urgent",
+      "column": "Done",
+      "swimlane": "Ember Studio",
+      "due_date": null,
+      "weight": 3,
+      "labels": [
+        "Bug",
+        "Feature"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Add keyboard shortcut to create card",
+      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Frontier AI",
-      "due_date": "2026-04-02",
-      "weight": 4,
+      "due_date": "2026-04-11",
+      "weight": 5,
       "labels": [
+        "Bug",
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Profile query performance",
+          "is_checked": false
+        },
+        {
+          "text": "Add select_related / prefetch",
+          "is_checked": false
+        },
+        {
+          "text": "Measure improvement",
+          "is_checked": false
+        },
+        {
+          "text": "Add comment explaining why",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
+          "author": "demo5"
+        },
+        {
+          "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Add column-level WIP enforcement",
+      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "priority": "low",
+      "column": "To Do",
+      "swimlane": "Frontier AI",
+      "due_date": "2026-04-03",
+      "weight": 5,
+      "labels": [
+        "Bug",
+        "Feature"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "QA sign-off. Deploying to staging.",
+          "author": "demo5"
+        },
+        {
+          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "author": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Add bulk archive action to card list",
+      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
+      "priority": "high",
+      "column": "To Do",
+      "swimlane": "Frontier AI",
+      "due_date": "2026-03-14",
+      "weight": 6,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Update CHANGELOG",
+          "is_checked": false
+        },
+        {
+          "text": "Bump version",
+          "is_checked": true
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Add priority filter to FilterBar",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "Frontier AI",
+      "due_date": "2026-03-26",
+      "weight": 5,
+      "labels": [
+        "Feature",
         "Improvement"
       ],
       "checklist": [
         {
-          "text": "Draft API design doc",
+          "text": "Reproduce issue locally",
+          "is_checked": true
+        },
+        {
+          "text": "Add failing test",
           "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Merged the Helm review comments. Ready for QA.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Write runbook for on-call rotation",
+      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "priority": "high",
+      "column": "Doing",
+      "swimlane": "Frontier AI",
+      "due_date": null,
+      "weight": 5,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
+          "author": "demo3"
+        },
+        {
+          "body": "QA sign-off. Deploying to staging.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Fix WebSocket reconnect on token refresh",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "urgent",
+      "column": "Doing",
+      "swimlane": "Frontier AI",
+      "due_date": "2026-03-07",
+      "weight": 6,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Identify affected endpoints",
+          "is_checked": true
+        },
+        {
+          "text": "Add permission check",
+          "is_checked": true
+        },
+        {
+          "text": "Write test",
+          "is_checked": true
+        },
+        {
+          "text": "Security review",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
+          "author": "demo5"
+        },
+        {
+          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Add label filter to board view",
+      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "priority": "urgent",
+      "column": "Doing",
+      "swimlane": "Frontier AI",
+      "due_date": "2026-04-11",
+      "weight": 5,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Add card position audit log",
+      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "priority": "urgent",
+      "column": "Doing",
+      "swimlane": "Frontier AI",
+      "due_date": "2026-04-11",
+      "weight": 4,
+      "labels": [
+        "Bug",
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Draft API design doc",
+          "is_checked": true
         },
         {
           "text": "Get team sign-off",
@@ -1245,98 +1195,787 @@
           "is_checked": true
         }
       ],
-      "comments": []
+      "comments": [
+        {
+          "body": "Agreed. Moving to Backlog for now.",
+          "author": "demo2"
+        }
+      ]
     },
     {
-      "title": "Fix drag-and-drop on touch screens",
-      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
-      "priority": "low",
-      "column": "Backlog",
+      "title": "Review and update CONTRIBUTING.md",
+      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
+      "priority": "urgent",
+      "column": "Doing",
       "swimlane": "Frontier AI",
-      "due_date": null,
+      "due_date": "2026-03-25",
       "weight": 2,
       "labels": [
-        "Feature"
+        "Bug"
       ],
       "checklist": [],
       "comments": [
         {
-          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
+          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "author": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Add card age indicator",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "urgent",
+      "column": "Done",
+      "swimlane": "Frontier AI",
+      "due_date": "2026-02-27",
+      "weight": 2,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Reproduce issue locally",
+          "is_checked": false
+        },
+        {
+          "text": "Add failing test",
+          "is_checked": true
+        },
+        {
+          "text": "Fix root cause",
+          "is_checked": true
+        },
+        {
+          "text": "Verify test passes",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo5"
         },
         {
           "body": "Deployed. Monitoring Sentry for regressions.",
           "author": "demo3"
-        },
-        {
-          "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
-          "author": "demo4"
         }
       ]
     },
     {
-      "title": "Add bulk archive action to card list",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "title": "Fix login redirect loop on mobile",
+      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
       "priority": "high",
-      "column": "Review",
-      "swimlane": "Frontier AI",
+      "column": "To Do",
+      "swimlane": "Growth Squad",
       "due_date": null,
-      "weight": 7,
-      "labels": [],
+      "weight": 3,
+      "labels": [
+        "Improvement"
+      ],
       "checklist": [],
       "comments": [
         {
-          "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
-          "author": "demo3"
-        },
-        {
-          "body": "The Helm chart change needs a review from DevOps before we ship this.",
-          "author": "demo5"
-        },
-        {
-          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo4"
         }
       ]
     },
     {
-      "title": "Clean up unused CSS utility classes",
+      "title": "Add export to Markdown option",
       "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Growth Squad",
-      "due_date": "2026-02-21",
-      "weight": 1,
+      "due_date": null,
+      "weight": 3,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Update CHANGELOG",
+          "is_checked": false
+        },
+        {
+          "text": "Bump version",
+          "is_checked": true
+        },
+        {
+          "text": "Tag release",
+          "is_checked": false
+        },
+        {
+          "text": "Push Docker images",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Filed a hotfix MR. ETA 2h.",
+          "author": "demo3"
+        },
+        {
+          "body": "Metadata only for the first version. We can add description as an opt-in column later.",
+          "author": "demo5"
+        },
+        {
+          "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Add OAuth2 PKCE flow for mobile clients",
+      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "priority": "medium",
+      "column": "Doing",
+      "swimlane": "Growth Squad",
+      "due_date": "2026-02-26",
+      "weight": 4,
+      "labels": [],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Clean up unused CSS utility classes",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "low",
+      "column": "Doing",
+      "swimlane": "Growth Squad",
+      "due_date": "2026-04-05",
+      "weight": 8,
       "labels": [
-        "Bug"
+        "Improvement"
       ],
       "checklist": [
         {
-          "text": "Identify affected endpoints",
+          "text": "Write migration",
           "is_checked": true
         },
         {
-          "text": "Add permission check",
+          "text": "Test rollback",
           "is_checked": true
         },
         {
-          "text": "Write test",
-          "is_checked": true
+          "text": "Deploy to staging",
+          "is_checked": false
         }
       ],
       "comments": []
     },
     {
       "title": "Fix swimlane collapse state not persisting",
-      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "medium",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "urgent",
       "column": "Doing",
       "swimlane": "Growth Squad",
+      "due_date": "2026-04-04",
+      "weight": 8,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "author": "demo5"
+        },
+        {
+          "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
+          "author": "demo4"
+        },
+        {
+          "body": "Agreed. Moving to Backlog for now.",
+          "author": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Improve accessibility of drag handles",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "high",
+      "column": "Doing",
+      "swimlane": "Growth Squad",
+      "due_date": null,
+      "weight": 5,
+      "labels": [],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Fix broken avatar URL for OAuth users",
+      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "priority": "urgent",
+      "column": "Review",
+      "swimlane": "Growth Squad",
+      "due_date": null,
+      "weight": 4,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Reproduce issue locally",
+          "is_checked": false
+        },
+        {
+          "text": "Add failing test",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Add bulk label assignment",
+      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
+      "priority": "high",
+      "column": "Done",
+      "swimlane": "Growth Squad",
+      "due_date": "2026-04-04",
+      "weight": 5,
+      "labels": [],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "author": "demo2"
+        },
+        {
+          "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Document card weight feature",
+      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "Growth Squad",
+      "due_date": null,
+      "weight": 1,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Draft API design doc",
+          "is_checked": true
+        },
+        {
+          "text": "Get team sign-off",
+          "is_checked": true
+        },
+        {
+          "text": "Implement endpoint",
+          "is_checked": true
+        },
+        {
+          "text": "Write tests",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
+          "author": "demo5"
+        },
+        {
+          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
+          "author": "demo3"
+        },
+        {
+          "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Remove deprecated /api/v1/ aliases",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "high",
+      "column": "To Do",
+      "swimlane": "Hardrock Systems",
+      "due_date": "2026-04-10",
+      "weight": 4,
+      "labels": [
+        "Bug",
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Create feature branch",
+          "is_checked": true
+        },
+        {
+          "text": "Implement",
+          "is_checked": true
+        },
+        {
+          "text": "Write tests",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Yes, same root cause. Fixing both in the same MR.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Fix date picker timezone offset",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "high",
+      "column": "To Do",
+      "swimlane": "Hardrock Systems",
+      "due_date": "2026-03-25",
+      "weight": 6,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
+          "author": "demo5"
+        },
+        {
+          "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
+          "author": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Fix notification bell count mismatch",
+      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "priority": "low",
+      "column": "Review",
+      "swimlane": "Hardrock Systems",
       "due_date": "2026-03-31",
+      "weight": 8,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Profile query performance",
+          "is_checked": false
+        },
+        {
+          "text": "Add select_related / prefetch",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
+          "author": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Fix Dockerfile layer caching regression",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "low",
+      "column": "Review",
+      "swimlane": "Hardrock Systems",
+      "due_date": null,
+      "weight": 6,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
+          "author": "demo1"
+        },
+        {
+          "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
+          "author": "demo3"
+        },
+        {
+          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "author": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Add archive board action",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "urgent",
+      "column": "Done",
+      "swimlane": "Hardrock Systems",
+      "due_date": "2026-04-01",
+      "weight": 2,
+      "labels": [],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
+          "author": "demo4"
+        },
+        {
+          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
+          "author": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Write performance test for /boards/{id}/full/",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "Hardrock Systems",
+      "due_date": "2026-03-24",
+      "weight": 7,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "Agreed. Moving to Backlog for now.",
+          "author": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Audit all endpoints for IDOR vulnerabilities",
+      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
+      "priority": "high",
+      "column": "Backlog",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-03-17",
+      "weight": 7,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Implement board copy feature",
+      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
+      "priority": "medium",
+      "column": "Backlog",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-03-31",
+      "weight": 2,
+      "labels": [],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Add column archival (soft delete)",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "medium",
+      "column": "Backlog",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-04-12",
+      "weight": 3,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Optimise full-board query with select_related",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "medium",
+      "column": "Backlog",
+      "swimlane": "Indigo Labs",
+      "due_date": null,
+      "weight": 8,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Read existing code and write notes",
+          "is_checked": true
+        },
+        {
+          "text": "Identify all affected tests",
+          "is_checked": false
+        },
+        {
+          "text": "Implement fix",
+          "is_checked": false
+        },
+        {
+          "text": "Update docs",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Refactor swimlane reorder endpoint",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "low",
+      "column": "To Do",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-03-18",
+      "weight": 8,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "author": "demo4"
+        },
+        {
+          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
+          "author": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Add group-level board visibility setting",
+      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
+      "priority": "medium",
+      "column": "Doing",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-03-17",
+      "weight": 8,
+      "labels": [],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "author": "demo3"
+        },
+        {
+          "body": "Metadata only for the first version. We can add description as an opt-in column later.",
+          "author": "demo2"
+        },
+        {
+          "body": "Agreed. Moving to Backlog for now.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Add board activity feed",
+      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-03-17",
+      "weight": 3,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Profile query performance",
+          "is_checked": false
+        },
+        {
+          "text": "Add select_related / prefetch",
+          "is_checked": false
+        },
+        {
+          "text": "Measure improvement",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "author": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Increase test coverage for CardMovement",
+      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
+      "priority": "high",
+      "column": "Done",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-03-13",
+      "weight": 5,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [],
+      "comments": [
+        {
+          "body": "Merged the Helm review comments. Ready for QA.",
+          "author": "demo3"
+        },
+        {
+          "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
+          "author": "demo4"
+        },
+        {
+          "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Fix pagination cursors on Safari",
+      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "Indigo Labs",
+      "due_date": "2026-03-27",
+      "weight": 6,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Reproduce issue locally",
+          "is_checked": true
+        },
+        {
+          "text": "Add failing test",
+          "is_checked": true
+        },
+        {
+          "text": "Fix root cause",
+          "is_checked": true
+        },
+        {
+          "text": "Verify test passes",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Add card quick-add shortcut to swimlane",
+      "description": "## Background\n\nUsers frequently miss due dates because there is no proactive notification. Currently they only see the overdue badge after loading the board.\n\n## Proposed solution\n\n- Daily cron job (similar to `notify_stale_cards`) that finds cards due in ≤ 24 h\n- Creates a `Notification` for the assignee and board admins\n- Idempotent: skips cards already notified today\n\n## Out of scope\n\nEmail/push notifications (follow-up issue).",
+      "priority": "medium",
+      "column": "Backlog",
+      "swimlane": "Just Ship It",
+      "due_date": "2026-04-01",
+      "weight": 1,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Implement board-level search",
+      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "Just Ship It",
+      "due_date": "2026-03-22",
+      "weight": 2,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [
+        {
+          "text": "Create feature branch",
+          "is_checked": false
+        },
+        {
+          "text": "Implement",
+          "is_checked": true
+        },
+        {
+          "text": "Write tests",
+          "is_checked": true
+        },
+        {
+          "text": "Open MR",
+          "is_checked": true
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Support emoji in card titles",
+      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
+      "priority": "low",
+      "column": "To Do",
+      "swimlane": "Just Ship It",
+      "due_date": "2026-02-20",
+      "weight": 8,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [
+        {
+          "text": "Create feature branch",
+          "is_checked": true
+        },
+        {
+          "text": "Implement",
+          "is_checked": false
+        },
+        {
+          "text": "Write tests",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
+          "author": "demo5"
+        },
+        {
+          "body": "Yes, same root cause. Fixing both in the same MR.",
+          "author": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Implement due-date reminder notifications",
+      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
+      "priority": "urgent",
+      "column": "To Do",
+      "swimlane": "Just Ship It",
+      "due_date": null,
       "weight": 5,
       "labels": [
         "Bug"
       ],
+      "checklist": [
+        {
+          "text": "Design mockup approved",
+          "is_checked": false
+        },
+        {
+          "text": "Implement component",
+          "is_checked": false
+        },
+        {
+          "text": "Add unit test",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Fix CSV import skipping blank description",
+      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
+      "priority": "medium",
+      "column": "Doing",
+      "swimlane": "Just Ship It",
+      "due_date": "2026-03-01",
+      "weight": 1,
+      "labels": [
+        "Improvement"
+      ],
+      "checklist": [],
+      "comments": []
+    },
+    {
+      "title": "Migrate CI from Docker-in-Docker to kaniko",
+      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
+      "priority": "medium",
+      "column": "Doing",
+      "swimlane": "Just Ship It",
+      "due_date": "2026-02-21",
+      "weight": 6,
+      "labels": [],
       "checklist": [
         {
           "text": "Reproduce issue locally",
@@ -1355,608 +1994,42 @@
           "is_checked": true
         }
       ],
-      "comments": [
-        {
-          "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
-          "author": "demo3"
-        },
-        {
-          "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
-          "author": "demo2"
-        },
-        {
-          "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Add OAuth2 PKCE flow for mobile clients",
-      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "high",
-      "column": "Review",
-      "swimlane": "Growth Squad",
-      "due_date": null,
-      "weight": 2,
-      "labels": [
-        "Bug",
-        "Feature"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Merged the Helm review comments. Ready for QA.",
-          "author": "demo5"
-        },
-        {
-          "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Add export to Markdown option",
-      "description": "The WebSocket connection silently dies when the Django backend rotates the JWT access token (every 15 min). `useBoardSocket` detects the close but doesn't attempt re-auth before reconnecting, so the first reconnect fails with 401 and the hook backs off for 30 s.\n\nFix: on 4401/1008 close code, call `refreshAccessToken()` first, then reconnect.",
-      "priority": "medium",
-      "column": "Review",
-      "swimlane": "Growth Squad",
-      "due_date": null,
-      "weight": 6,
-      "labels": [],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
-          "author": "demo5"
-        },
-        {
-          "body": "Agreed. Moving to Backlog for now.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
-      "title": "Fix login redirect loop on mobile",
-      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
-      "priority": "medium",
-      "column": "Done",
-      "swimlane": "Growth Squad",
-      "due_date": "2026-03-27",
-      "weight": 8,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Update CHANGELOG",
-          "is_checked": false
-        },
-        {
-          "text": "Bump version",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "QA sign-off. Deploying to staging.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Improve accessibility of drag handles",
-      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
-      "priority": "urgent",
-      "column": "Backlog",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-02-15",
-      "weight": 7,
-      "labels": [],
-      "checklist": [],
       "comments": []
-    },
-    {
-      "title": "Remove deprecated /api/v1/ aliases",
-      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-26",
-      "weight": 8,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
-      "title": "Implement card weight rollup per swimlane",
-      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
-      "priority": "urgent",
-      "column": "To Do",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-04-04",
-      "weight": 3,
-      "labels": [
-        "Bug",
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Write migration",
-          "is_checked": false
-        },
-        {
-          "text": "Test rollback",
-          "is_checked": false
-        },
-        {
-          "text": "Deploy to staging",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Write performance test for /boards/{id}/full/",
-      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "high",
-      "column": "To Do",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-19",
-      "weight": 5,
-      "labels": [
-        "Bug",
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Profile query performance",
-          "is_checked": false
-        },
-        {
-          "text": "Add select_related / prefetch",
-          "is_checked": false
-        },
-        {
-          "text": "Measure improvement",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
-          "author": "demo1"
-        },
-        {
-          "body": "Metadata only for the first version. We can add description as an opt-in column later.",
-          "author": "demo3"
-        }
-      ]
-    },
-    {
-      "title": "Add archive board action",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "medium",
-      "column": "Doing",
-      "swimlane": "Hardrock Systems",
-      "due_date": null,
-      "weight": 7,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
-          "author": "demo5"
-        },
-        {
-          "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
-          "author": "demo4"
-        },
-        {
-          "body": "Agreed. Moving to Backlog for now.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Fix broken avatar URL for OAuth users",
-      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
-      "priority": "low",
-      "column": "Review",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-04-13",
-      "weight": 3,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Draft API design doc",
-          "is_checked": false
-        },
-        {
-          "text": "Get team sign-off",
-          "is_checked": false
-        },
-        {
-          "text": "Implement endpoint",
-          "is_checked": true
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Fix notification bell count mismatch",
-      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "medium",
-      "column": "Review",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-07",
-      "weight": 3,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Update CHANGELOG",
-          "is_checked": false
-        },
-        {
-          "text": "Bump version",
-          "is_checked": true
-        },
-        {
-          "text": "Tag release",
-          "is_checked": false
-        },
-        {
-          "text": "Push Docker images",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Filed a hotfix MR. ETA 2h.",
-          "author": "demo3"
-        },
-        {
-          "body": "Metadata only for the first version. We can add description as an opt-in column later.",
-          "author": "demo5"
-        },
-        {
-          "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Fix date picker timezone offset",
-      "description": "Current coverage for `CardMovement` creation and the `from_*_name` denormalization is only at integration level (through the move endpoint). Add dedicated unit tests that:\n\n- Verify `from_column_name` and `to_column_name` are written at move time\n- Verify they are preserved if the column is later deleted\n- Verify movement ordering (`-moved_at`)",
-      "priority": "high",
-      "column": "Done",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-02-20",
-      "weight": 7,
-      "labels": [
-        "Bug",
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
-          "author": "demo3"
-        },
-        {
-          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Fix Dockerfile layer caching regression",
-      "description": "Dark-mode email templates should match the app's dark theme (`bg-gray-900` palette). Currently all transactional emails use a white background which looks jarring when the OS is in dark mode.\n\nScope: notification emails only. OAuth welcome emails are out of scope for now.",
-      "priority": "urgent",
-      "column": "Done",
-      "swimlane": "Hardrock Systems",
-      "due_date": "2026-02-21",
-      "weight": 8,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Implement board copy feature",
-      "description": "Keyboard shortcut `N` (when focus is outside an input) should open a quick-add modal pre-scoped to the last focused column/swimlane cell. This mirrors Jira's quick-add behavior and was frequently requested in the user survey.\n\nImplementation notes:\n\n- Listen for `keydown` in `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Indigo Labs",
-      "due_date": "2026-02-17",
-      "weight": 2,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Write migration",
-          "is_checked": false
-        },
-        {
-          "text": "Test rollback",
-          "is_checked": true
-        },
-        {
-          "text": "Deploy to staging",
-          "is_checked": false
-        },
-        {
-          "text": "Monitor error rate",
-          "is_checked": true
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Add column archival (soft delete)",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "low",
-      "column": "Backlog",
-      "swimlane": "Indigo Labs",
-      "due_date": "2026-03-30",
-      "weight": 1,
-      "labels": [
-        "Feature",
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Fix pagination cursors on Safari",
-      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Indigo Labs",
-      "due_date": "2026-02-19",
-      "weight": 7,
-      "labels": [],
-      "checklist": [],
-      "comments": []
-    },
-    {
-      "title": "Refactor swimlane reorder endpoint",
-      "description": "## What\n\nThe `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetches all swimlanes inside the view rather than relying on the serializer's validated data. This causes an extra query per reorder and complicates the test setup.\n\n## Refactor goal\n\nMove reorder logic into a dedicated `SwimlaneReorderSerializer` that validates positions and bulk-updates in a single query using `Case/When`.",
-      "priority": "low",
-      "column": "To Do",
-      "swimlane": "Indigo Labs",
-      "due_date": "2026-03-25",
-      "weight": 6,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Update CHANGELOG",
-          "is_checked": false
-        },
-        {
-          "text": "Bump version",
-          "is_checked": true
-        },
-        {
-          "text": "Tag release",
-          "is_checked": false
-        },
-        {
-          "text": "Push Docker images",
-          "is_checked": true
-        },
-        {
-          "text": "Post release notes",
-          "is_checked": true
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Add group-level board visibility setting",
-      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
-      "priority": "medium",
-      "column": "Doing",
-      "swimlane": "Indigo Labs",
-      "due_date": "2026-02-14",
-      "weight": 1,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Update CHANGELOG",
-          "is_checked": false
-        },
-        {
-          "text": "Bump version",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Filed a hotfix MR. ETA 2h.",
-          "author": "demo3"
-        },
-        {
-          "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
-          "author": "demo1"
-        },
-        {
-          "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
-          "author": "demo5"
-        }
-      ]
-    },
-    {
-      "title": "Audit all endpoints for IDOR vulnerabilities",
-      "description": "## Observed\n\nLoading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ cards and 15 members.\n\n## Root cause (hypothesis)\n\nThe `get_members()` method in `BoardFullSerializer` runs a separate query per member to resolve group-inherited roles. This is O(n) on member count.\n\n## Investigation needed\n\n- Profile with `django-silk` on staging\n- Check if `select_related` / `prefetch_related` is missing anywhere in `BoardFullViewSet`",
-      "priority": "low",
-      "column": "Done",
-      "swimlane": "Indigo Labs",
-      "due_date": null,
-      "weight": 3,
-      "labels": [
-        "Bug"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Yes, same root cause. Fixing both in the same MR.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Support emoji in card titles",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "high",
-      "column": "Backlog",
-      "swimlane": "Just Ship It",
-      "due_date": "2026-03-25",
-      "weight": 4,
-      "labels": [
-        "Feature",
-        "Improvement"
-      ],
-      "checklist": [],
-      "comments": [
-        {
-          "body": "Merged the Helm review comments. Ready for QA.",
-          "author": "demo3"
-        },
-        {
-          "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
-          "author": "demo5"
-        },
-        {
-          "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
-          "author": "demo5"
-        }
-      ]
     },
     {
       "title": "Set up staging environment seed job",
-      "description": "The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production but is only described in a one-liner in the README. Add a full OpenAPI-style doc block covering:\n\n- Response schema (columns, swimlanes, cards, labels, members)\n- Performance characteristics (typical payload size, query count)\n- When to use this vs incremental WebSocket updates",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "Just Ship It",
-      "due_date": "2026-03-31",
-      "weight": 7,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Identify affected endpoints",
-          "is_checked": true
-        },
-        {
-          "text": "Add permission check",
-          "is_checked": true
-        },
-        {
-          "text": "Write test",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Agreed. Moving to Backlog for now.",
-          "author": "demo4"
-        },
-        {
-          "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
-          "author": "demo2"
-        },
-        {
-          "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
-          "author": "demo3"
-        }
-      ]
-    },
-    {
-      "title": "Optimise full-board query with select_related",
-      "description": "## Goal\n\nAllow board admins to download a CSV of all card movements for external reporting.\n\n## Acceptance criteria\n\n- Columns: card ID, title, from column, to column, from swimlane, to swimlane, moved by, moved at\n- Scoped to the requesting user's visible boards\n- File name: `{board_slug}-activity-{date}.csv`\n\n## Notes\n\nReuse the existing `/api/boards/{id}/export/` infrastructure.",
-      "priority": "low",
-      "column": "Done",
-      "swimlane": "Just Ship It",
-      "due_date": "2026-03-09",
-      "weight": 2,
-      "labels": [
-        "Improvement"
-      ],
-      "checklist": [
-        {
-          "text": "Scope defined",
-          "is_checked": false
-        },
-        {
-          "text": "Dependencies checked",
-          "is_checked": false
-        },
-        {
-          "text": "Implementation started",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Implement board-level search",
-      "description": "## Problem\n\nThe login flow redirects to `/dashboard` even when the user came from a protected route like `/boards/42`.\n\n## Steps to reproduce\n\n1. Open a board URL while logged out\n2. Log in via OAuth\n3. Observe redirect goes to dashboard, not the original URL\n\n## Expected\n\nRedirect to the originally requested URL after auth.\n\n## Fix\n\nStore the pre-auth route in `sessionStorage` and restore on callback.",
-      "priority": "medium",
-      "column": "Done",
-      "swimlane": "Just Ship It",
-      "due_date": "2026-03-30",
-      "weight": 3,
-      "labels": [
-        "Bug",
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Identify affected endpoints",
-          "is_checked": true
-        },
-        {
-          "text": "Add permission check",
-          "is_checked": true
-        },
-        {
-          "text": "Write test",
-          "is_checked": false
-        },
-        {
-          "text": "Security review",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "The Helm chart change needs a review from DevOps before we ship this.",
-          "author": "demo4"
-        }
-      ]
-    },
-    {
-      "title": "Fix CSV import skipping blank description",
-      "description": "Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointer sensor requires a 250 ms press delay on touch which conflicts with iOS's native scroll.\n\nFix: configure `TouchSensor` with `activationConstraint: { delay: 250, tolerance: 5 }` and ensure the scroll lock is applied only to the dragged card's container, not the full viewport.",
+      "description": "Add a \"Archive selected\" action to the bulk action toolbar. Archived cards should be hidden from the main board view but remain accessible via a filter toggle (\"Show archived\").\n\nModel change: add `is_archived` BooleanField to `Card` (default False, db_index=True).\n\nMigration: nullable, safe to deploy without downtime.",
       "priority": "high",
       "column": "Done",
       "swimlane": "Just Ship It",
-      "due_date": "2026-03-26",
+      "due_date": null,
       "weight": 1,
-      "labels": [],
-      "checklist": [],
+      "labels": [
+        "Bug",
+        "Improvement"
+      ],
+      "checklist": [
+        {
+          "text": "Write migration",
+          "is_checked": true
+        },
+        {
+          "text": "Test rollback",
+          "is_checked": false
+        },
+        {
+          "text": "Deploy to staging",
+          "is_checked": true
+        },
+        {
+          "text": "Monitor error rate",
+          "is_checked": false
+        },
+        {
+          "text": "Deploy to prod",
+          "is_checked": false
+        }
+      ],
       "comments": []
     }
   ]

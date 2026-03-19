@@ -29,6 +29,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `/admin` page accessible to site admins: Settings tab with registration mode radio group wired to the API, and Users tab with searchable table, Add User modal, per-row deactivate/reactivate/promote/demote/force-reset actions, and confirm dialogs for destructive actions (#211, #212)
 - Superuser bootstrap signal: creating a superuser via `createsuperuser` or management commands automatically sets `is_site_admin=True` so the admin UI is accessible from first login (#211)
 - Selecting multiple cards now shows an **Archive** option in the bulk action toolbar — archived cards are removed from the board view and can be restored at any time from the Archived panel
+- Site admins now see a **Site Admin** link in the sidebar navigation that opens the admin panel directly — the link is hidden entirely for non-admin users (#246)
+- Role picker descriptions updated for accuracy: Collaborator is now clearly described as "can comment and upload files — cannot create or move cards"; Viewer is now "read-only — cannot comment or upload"; these descriptions appear in board settings and the board members panel (#246)
+- Group Admin role now shows a contextual tooltip explaining that Group Admin automatically grants board-admin rights on all boards in the group — helping team leads understand the recommended role to assign (#246)
 
 ### Changed
 

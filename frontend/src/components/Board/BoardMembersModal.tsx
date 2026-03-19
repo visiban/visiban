@@ -15,8 +15,8 @@ interface Props {
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes" },
   { value: "member",       label: "Member",        description: "Create, edit and move cards" },
-  { value: "collaborator", label: "Collaborator",  description: "Comment on cards only" },
-  { value: "viewer",       label: "Viewer",        description: "Read-only access" },
+  { value: "collaborator", label: "Collaborator",  description: "Can comment and upload files — cannot create or move cards" },
+  { value: "viewer",       label: "Viewer",        description: "Read-only — cannot comment or upload" },
 ];
 
 const ROLE_OPTIONS = ROLES.map((r) => ({

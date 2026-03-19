@@ -36,7 +36,7 @@ describe('BoardMembersModal', () => {
   it('shows role legend', () => {
     render(<BoardMembersModal board={fakeBoard} onClose={vi.fn()} onMembersChanged={vi.fn()} />)
     expect(screen.getByText(/Full access/)).toBeInTheDocument()
-    expect(screen.getByText(/Read-only access/)).toBeInTheDocument()
+    expect(screen.getByText(/Read-only/)).toBeInTheDocument()
   })
 
   it('renders role dropdowns', () => {
