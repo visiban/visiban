@@ -231,6 +231,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     archiveToastTimerRef.current = setTimeout(() => setArchiveToast(false), 5000);
   }, []);
 
+  // Clear the auto-dismiss timer on unmount to avoid a setState call on an
+  // unmounted component if the user navigates away while the toast is visible.
+  useEffect(() => {
+    return () => {
+      if (archiveToastTimerRef.current) clearTimeout(archiveToastTimerRef.current);
+    };
+  }, []);
+
   const toggleCardSelection = useCallback((cardId: number) => {
     setSelectedCardIds((prev) => {
       const next = new Set(prev);

@@ -696,7 +696,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         if last_column:
             vel_qs = (
                 CardMovement.objects
-                .filter(card__board=board, to_column=last_column)
+                .filter(card__board=board, card__archived_at__isnull=True, to_column=last_column)
                 .values("card__swimlane_id")
                 .annotate(
                     vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),
@@ -1311,7 +1311,10 @@ class CardViewSet(viewsets.ModelViewSet):
                 card.archived_at = timezone.now()
                 card.save(update_fields=["archived_at"])
             transaction.on_commit(lambda: broadcast_board_event(board_id, "card.archived", {"card_id": card_id}))
-        return Response(CardSerializer(card, context={"request": request, "board": card.board}).data)
+        return Response(CardSerializer(
+            _card_queryset(Card.objects.filter(pk=card.pk)).get(),
+            context={"request": request, "board": card.board},
+        ).data)
 
     @action(detail=True, methods=["post"])
     def unarchive(self, request, board_pk=None, pk=None):
@@ -1338,7 +1341,10 @@ class CardViewSet(viewsets.ModelViewSet):
                 card.archived_at = None
                 card.save(update_fields=["archived_at"])
             transaction.on_commit(lambda: broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
-        return Response(CardSerializer(card, context={"request": request, "board": card.board}).data)
+        return Response(CardSerializer(
+            _card_queryset(Card.objects.filter(pk=card.pk)).get(),
+            context={"request": request, "board": card.board},
+        ).data)
 
     @action(detail=False, methods=["get"], url_path="archived")
     def archived(self, request, board_pk=None):

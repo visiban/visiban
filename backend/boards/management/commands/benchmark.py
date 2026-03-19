@@ -182,6 +182,8 @@ class Command(BaseCommand):
 
     def _seed(self):
         """Create a throw-away board with COLUMNS × SWIMLANES × CARDS_PER_CELL cards."""
+        # Clean up any leftover state from a previous interrupted run before creating.
+        User.objects.filter(username="bench_user").delete()
         user = User.objects.create_user(
             username="bench_user",
             email="bench@example.com",
