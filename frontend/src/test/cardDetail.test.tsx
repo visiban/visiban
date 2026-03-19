@@ -306,24 +306,31 @@ describe('CardDetail', () => {
     expect(screen.getByText('15/06/2099')).toBeInTheDocument()
   })
 
-  it('due date display is wrapped in a <label> so clicking anywhere opens the picker', () => {
-    // The display div must be inside a <label> — this is what makes "click anywhere" work
-    // without requiring JS. A <label> natively forwards clicks to the associated input.
+  it('clicking the due date field (no date set) calls showPicker on the hidden input', async () => {
     render(<CardDetail {...defaultProps()} userDateFormat="MM/DD/YYYY" />)
     const dateInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
     expect(dateInput).not.toBeNull()
-    expect(dateInput.closest('label')).not.toBeNull()
+    // Hidden input must have pointer-events-none so container onClick fires instead of the input
+    expect(dateInput.className).toContain('pointer-events-none')
+    const showPicker = vi.fn()
+    dateInput.showPicker = showPicker
+    await userEvent.setup().click(screen.getByText('mm/dd/yyyy'))
+    expect(showPicker).toHaveBeenCalledTimes(1)
   })
 
-  it('due date display with a date set is wrapped in a <label>', () => {
+  it('clicking the due date field (date set) calls showPicker on the hidden input', async () => {
     const props = defaultProps()
     props.card = makeCard({ due_date: '2099-06-15' })
     render(<CardDetail {...props} userDateFormat="MM/DD/YYYY" />)
-    // There are two date inputs (one for set-date, one always-empty) — both must be in labels
-    const dateInputs = document.querySelectorAll<HTMLInputElement>('input[type="date"]')
-    dateInputs.forEach((el) => {
-      expect(el.closest('label')).not.toBeNull()
-    })
+    // When a date is set there are two date inputs; the one with a value is the active picker
+    const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'))
+    const activeInput = dateInputs.find((el) => el.value !== '')!
+    expect(activeInput).toBeTruthy()
+    expect(activeInput.className).toContain('pointer-events-none')
+    const showPicker = vi.fn()
+    activeInput.showPicker = showPicker
+    await userEvent.setup().click(screen.getByText('06/15/2099'))
+    expect(showPicker).toHaveBeenCalledTimes(1)
   })
 
   it('renders comments with author initials', async () => {
