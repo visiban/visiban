@@ -243,6 +243,28 @@ class GroupBoardsTests(TestCase):
         board_id = r.json()["id"]
         self.assertEqual(Column.objects.filter(board_id=board_id).count(), 4)
 
+    def test_create_board_uses_supplied_swimlane_name(self):
+        from boards.models import Swimlane
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "Roadmap", "swimlane_name": "Platform"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        lane = Swimlane.objects.get(board_id=board_id)
+        self.assertEqual(lane.name, "Platform")
+
+    def test_create_board_defaults_swimlane_to_general(self):
+        from boards.models import Swimlane
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "Sprint"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        lane = Swimlane.objects.get(board_id=board_id)
+        self.assertEqual(lane.name, "General")
+
     def test_non_admin_cannot_create_board_in_group(self):
         member = User.objects.create_user(username="member", password="pass")
         GroupMembership.objects.create(

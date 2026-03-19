@@ -213,7 +213,8 @@ class GroupViewSet(viewsets.ModelViewSet):
             Column(board=board, name=name, position=i, color=color, allow_card_creation=(i == 0))
             for i, (name, color) in enumerate(default_columns)
         ])
-        Swimlane.objects.create(board=board, name="General", position=0, color="#6B7280")
+        swimlane_name = (request.data.get("swimlane_name") or "").strip() or "General"
+        Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
         # Apply group defaults: copy shared labels and allowed priorities
         from boards.models import Label as BoardLabel
