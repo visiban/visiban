@@ -306,6 +306,44 @@ describe('CardDetail', () => {
     expect(screen.getByText('15/06/2099')).toBeInTheDocument()
   })
 
+  it('clicking the due date display div (no date set) calls showPicker on the hidden input', async () => {
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} userDateFormat="MM/DD/YYYY" />)
+    // The hidden date input is the only input[type=date] when no date is set
+    const dateInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
+    const showPicker = vi.fn()
+    dateInput.showPicker = showPicker
+    // Click the styled display div (contains the placeholder text)
+    await user.click(screen.getByText('mm/dd/yyyy'))
+    expect(showPicker).toHaveBeenCalledTimes(1)
+  })
+
+  it('clicking the due date display div (date set) calls showPicker on the hidden input', async () => {
+    const user = userEvent.setup()
+    const props = defaultProps()
+    props.card = makeCard({ due_date: '2099-06-15' })
+    render(<CardDetail {...props} userDateFormat="MM/DD/YYYY" />)
+    // The hidden date input with a value is present when a date is already set
+    const dateInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
+    const showPicker = vi.fn()
+    dateInput.showPicker = showPicker
+    // Click the styled display div (contains the formatted date text)
+    await user.click(screen.getByText('06/15/2099'))
+    expect(showPicker).toHaveBeenCalledTimes(1)
+  })
+
+  it('clicking the due date display div falls back to .click() when showPicker is not available', async () => {
+    const user = userEvent.setup()
+    render(<CardDetail {...defaultProps()} userDateFormat="MM/DD/YYYY" />)
+    const dateInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
+    // Remove showPicker to simulate browsers that don't support it
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (dateInput as any).showPicker
+    const clickSpy = vi.spyOn(dateInput, 'click')
+    await user.click(screen.getByText('mm/dd/yyyy'))
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('renders comments with author initials', async () => {
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([

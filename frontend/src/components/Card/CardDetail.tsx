@@ -77,6 +77,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dueDateInputRef = useRef<HTMLInputElement>(null);
+  const dueDateEmptyInputRef = useRef<HTMLInputElement>(null);
   const [checklist, setChecklist] = useState<CardChecklistItem[]>([]);
   const [newItemText, setNewItemText] = useState("");
   const [showBulkAdd, setShowBulkAdd] = useState(false);
@@ -350,11 +352,25 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     return (
                       <div className="flex items-center gap-1.5">
                         <div className="relative flex-1">
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full cursor-pointer select-none flex items-center justify-between ${info.overdue ? "bg-red-950/40 border-red-700/60 text-red-300" : "bg-slate-700 border-slate-500 text-slate-100"}`}>
+                          <div
+                            className={`text-sm border rounded-lg px-2.5 py-1.5 w-full cursor-pointer select-none flex items-center justify-between ${info.overdue ? "bg-red-950/40 border-red-700/60 text-red-300" : "bg-slate-700 border-slate-500 text-slate-100"}`}
+                            onClick={() => {
+                              // Open the calendar picker regardless of which part of the field is clicked.
+                              // showPicker() is the reliable cross-browser way; .click() is the fallback.
+                              const el = dueDateInputRef.current;
+                              if (!el) return;
+                              if (typeof el.showPicker === "function") {
+                                el.showPicker();
+                              } else {
+                                el.click();
+                              }
+                            }}
+                          >
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
                           <input
+                            ref={dueDateInputRef}
                             type="date"
                             value={localCard.due_date}
                             onChange={(e) => {
@@ -376,11 +392,24 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     );
                   })() : (
                     <div className="relative">
-                      <div className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 text-slate-500 cursor-pointer select-none flex items-center justify-between">
+                      <div
+                        className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 text-slate-500 cursor-pointer select-none flex items-center justify-between"
+                        onClick={() => {
+                          // Open the calendar picker regardless of which part of the field is clicked.
+                          const el = dueDateEmptyInputRef.current;
+                          if (!el) return;
+                          if (typeof el.showPicker === "function") {
+                            el.showPicker();
+                          } else {
+                            el.click();
+                          }
+                        }}
+                      >
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                       </div>
                       <input
+                        ref={dueDateEmptyInputRef}
                         type="date"
                         value=""
                         min={new Date().toISOString().slice(0, 10)}
