@@ -1,5 +1,17 @@
 # Installation
 
+## Hardware requirements
+
+| Tier | vCPU | RAM | Disk | Notes |
+|------|------|-----|------|-------|
+| Minimum (production) | 2 | 4 GB | 40 GB SSD | ≤10 users; comfortable for a first install |
+| Recommended (production) | 4 | 8 GB | 80 GB SSD | 10–50 users; room to grow |
+| Development | 4 | 8 GB | 40 GB free | Docker Desktop on Mac/Windows needs at least 6–8 GB allocated to the VM; Vite dev server spikes on hot reload |
+
+The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne workers, and ~160 MB combined for Redis, Nginx, and Docker overhead — leaving no safe margin on a 1 GB host. 4 GB is the minimum that provides headroom for startup, migrations, and WebSocket bursts without risking OOM.
+
+**Disk:** Docker image pulls and build cache alone account for ~3–4 GB. The main unbounded variable is file attachments (cards support up to 10 MB each). The figures above assume light-to-moderate attachment use. Teams with heavy attachment activity should plan for additional storage or configure object storage (S3-compatible).
+
 ## Prerequisites
 
 - Docker and Docker Compose **or** Python 3.12+ and Node.js 18+
