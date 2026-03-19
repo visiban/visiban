@@ -166,7 +166,7 @@ Site admins can manage the instance from the `/admin` panel (accessible via the 
 - **Registration mode** — open (anyone can sign up), invite-only (registration disabled; admin creates accounts), or closed
 - **User management** — create accounts, toggle active/site-admin status, and force a password reset on next login
 
-→ [Administration](../administration/)
+→ [Administration](../administration/index.md)
 
 ---
 
