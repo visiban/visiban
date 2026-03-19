@@ -2,7 +2,7 @@
 
 ## Automatic admin bootstrap
 
-> **Added in v1.0.0-rc.6** — the one-time password is now written to a file instead of stdout to prevent it appearing in container log aggregators.
+> **Added in 1.0.0-rc.6** — the one-time password is now written to a file instead of stdout to prevent it appearing in container log aggregators.
 
 On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (`/tmp/visiban_admin_password` by default). The password is **not** printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.
 
