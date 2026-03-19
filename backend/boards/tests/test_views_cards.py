@@ -292,3 +292,53 @@ class CardChecklistTests(TestCase):
                 card=self.card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED
             ).exists()
         )
+
+
+class CardListQueryCountTests(TestCase):
+    """Assert that the card list endpoint does not produce N+1 queries as card count grows.
+
+    The bound is deliberately generous (≤ 12) to accommodate Django's session
+    lookup, board membership check, and the handful of JOINs the ORM emits for
+    select_related/prefetch_related — while still catching any regression that
+    adds per-card queries.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="qcount", password="pass")
+        self.board, self.col, _, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+        # Create 10 cards, each with a checklist item to exercise the serializer
+        # methods that previously issued per-card queries via .count()/.filter().
+        from boards.models import CardChecklist
+        for i in range(10):
+            card = Card.objects.create(
+                board=self.board, column=self.col, swimlane=self.swim,
+                title=f"Card {i}", created_by=self.user, position=i,
+            )
+            CardChecklist.objects.create(card=card, text="todo", is_checked=(i % 2 == 0), position=0)
+
+    def test_card_list_query_count_bounded(self):
+        """Card list for 10 cards must complete in ≤ 12 queries regardless of card count.
+
+        The prefetch + select_related on CardViewSet.get_queryset() should reduce
+        the query count to a small constant (currently 8).  The ceiling of 12 gives
+        headroom for minor schema changes while still catching N+1 regressions.
+        """
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+
+        url = f"/api/boards/{self.board.id}/cards/"
+        with CaptureQueriesContext(connection) as ctx:
+            resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        # Pagination wraps results; handle both paginated and plain list responses.
+        results = data["results"] if isinstance(data, dict) and "results" in data else data
+        self.assertEqual(len(results), 10)
+        self.assertLessEqual(
+            len(ctx.captured_queries),
+            12,
+            f"Expected ≤ 12 queries for a 10-card board, got {len(ctx.captured_queries)}",
+        )

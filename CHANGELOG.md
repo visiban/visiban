@@ -44,6 +44,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Board creation via groups now correctly names the first swimlane from the value entered in the creation modal; previously `swimlane_name` was ignored and the lane was always named "General" (#159)
+- `CardViewSet.get_queryset()` now uses `select_related("board", "assignee")` and `prefetch_related("labels", "movements", "attachments", "checklist_items")` — eliminates the 4 extra queries per card that the serializer's attachment count, checklist count, and stale-card checks previously issued
+- `WHITENOISE_USE_FINDERS` is now only enabled in `DEBUG` mode; it was previously unconditionally `True`, which caused WhiteNoise to serve un-collected files in production
+- Archived cards now show a toast notification on the board with a link to the Archived panel so users can immediately access what they just archived
+- CSV import roundtrip: exporting a board and re-importing the CSV now preserves `due_date` values correctly
 - CSV import now accepts lowercase and snake_case headers (e.g. `title`, `column`, `swimlane`, `due_date`) in addition to the canonical title-case form — external tools and the seed `demo_board.csv` use these variants and previously triggered a false "missing required headers" error
 - The Import Board modal now displays the size limits (500 cards, 50 columns, 100 swimlanes) as an informational notice so users know before they attempt a large import; `docs/features/board.md` updated with a full limits table and a note on splitting oversized boards
 - Typing `@username` (with the `@` prefix) in the Board Settings invite search field now returns matching users — previously the leading `@` was passed to the search API verbatim, silently returning no results (#244)

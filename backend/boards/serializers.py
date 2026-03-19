@@ -119,13 +119,17 @@ class CardSerializer(serializers.ModelSerializer):
         return movement.moved_at if movement else None
 
     def get_attachment_count(self, obj):
-        return obj.attachments.count()
+        # Use the prefetch cache populated by CardViewSet.get_queryset() to avoid
+        # an extra COUNT query per card when listing the board.
+        return len([a for a in obj.attachments.all()])
 
     def get_checklist_total(self, obj):
-        return obj.checklist_items.count()
+        # Use the prefetch cache to avoid an extra COUNT query per card.
+        return len([i for i in obj.checklist_items.all()])
 
     def get_checklist_done(self, obj):
-        return obj.checklist_items.filter(is_checked=True).count()
+        # Use the prefetch cache to avoid an extra filtered COUNT query per card.
+        return len([i for i in obj.checklist_items.all() if i.is_checked])
 
     def get_is_stale(self, obj):
         threshold = obj.board.staleness_threshold_days
