@@ -79,6 +79,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Switching templates in the board creation modal no longer causes layout shifts — the column preview strip stays visible for all templates (Blank Board shows a "No preset columns" note), the swimlane name is preserved when changing templates, and the default-board checkbox hint text no longer shifts surrounding content (#159)
 - Blank Board in the board creation modal now appears as a full-width row below a separator line, visually distinct from the named template grid — the previous layout left an orphan cell and the card appeared visually thin without column color dots (#159)
 - Creating a new label from the card detail panel no longer shows it twice — the label was being added to the board immediately from the API response and again when the real-time broadcast arrived
+- Seed CSV export now uses comma-separated labels (was semicolon) so `demo_board.csv` imports cleanly via the board import flow without triggering a "missing required headers" error
+- Seed movement history is now spread across a 30–90 day window (was 1–5 days per stage) so the analytics endpoint shows realistic dwell times, stalled cards, and a meaningful 30-day velocity window on a fresh seed
+- Regenerated `scripts/seed/demo_board.json` and `scripts/seed/demo_board.csv` with the corrected label separator and wider movement date spread
 
 ---
 
