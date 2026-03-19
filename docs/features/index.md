@@ -26,6 +26,16 @@ Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` 
 
 ---
 
+## Board creation & templates
+
+When creating a new board you choose from six purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, or Project Delivery — each pre-seeded with the right columns and a swimlane placeholder. A Blank Board option is also available for fully custom setups.
+
+After choosing a template you're prompted to name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your **default board** so it opens automatically after login.
+
+→ [Board & Cards](board.md)
+
+---
+
 ## Card detail
 
 Click any card to open a side panel with full context:
@@ -37,18 +47,19 @@ Click any card to open a side panel with full context:
 - **Weight** — numeric effort estimate for WIP and capacity tracking
 - **Checklist** — sub-tasks with progress tracking
 - **Attachments** — upload files directly to a card (up to 10 MB each)
+- **Description** — rich text editor with bold, italic, code, lists, headings, blockquote, and text color; type `@username` to mention a board member and send them a notification
 - **Comments** — threaded discussion visible to collaborators and above
 - **History tab** — full movement timeline and activity log
 
-→ [Card History](card-history.md)
+→ [Card History](card-history.md) · [Card Descriptions](card-descriptions.md)
 
 ---
 
 ## Bulk operations & data portability
 
-Select multiple cards at once and apply bulk actions — move to a column, assign, set priority, or delete — all from a toolbar that appears at the bottom of the board.
+Select multiple cards at once and apply bulk actions — move to a column, assign, set priority, archive, or delete — all from a toolbar that appears at the bottom of the board.
 
-Export your board as CSV or JSON for backup or analysis, or import a previously exported board to recreate it with all its structure and cards.
+Export your board as CSV or JSON for backup or analysis, or import a previously exported board to recreate it with all its structure and cards. Import accepts lowercase and snake_case column headers (e.g. `title`, `due_date`) so files from external tools import cleanly without manual editing.
 
 → [Board & Cards](board.md#bulk-card-operations) · [Export & Import](board.md#export-import)
 
@@ -56,7 +67,7 @@ Export your board as CSV or JSON for backup or analysis, or import a previously 
 
 ## Card archiving
 
-Cards can be archived instead of deleted — removing them from the active board view while preserving their full history and movement audit trail. Archived cards can be restored at any time from the **Archived** panel in the board toolbar.
+Cards can be archived instead of deleted — removing them from the active board view while preserving their full history and movement audit trail. Archived cards can be restored at any time from the **Archived** panel in the board toolbar. Analytics dwell-time uses `archived_at` as the terminal timestamp so only the active period is counted.
 
 → [Card Archiving](card-archiving.md)
 
@@ -83,6 +94,7 @@ The **Analytics** view computes median dwell time per stage from historical move
 Visiban surfaces two types of alerts in the notification bell:
 
 - **Assignment** — you're notified when someone assigns a card to you
+- **@mentions** — you're notified when someone mentions you in a card description
 - **Staleness** — cards that haven't moved in N days (configurable per board) appear with an amber indicator and trigger a daily digest
 
 Stale cards get an ⏱ badge on the board so they're impossible to miss at a glance.
@@ -112,9 +124,26 @@ Acme Corp  ← add user here
     └── Frontend Team  ← and here
 ```
 
-Four board roles let you grant exactly the right level of access: **admin**, **member**, **collaborator** (comment-only), and **viewer** (read-only).
+Four board roles let you grant exactly the right level of access:
+
+| Role | What they can do |
+|---|---|
+| **Admin** | Full access — manage members, columns, swimlanes, and board settings |
+| **Member** | Create, edit, and move cards |
+| **Collaborator** | Comment on cards and upload files — cannot create or move cards |
+| **Viewer** | Read-only — cannot comment or upload |
+
+Assigning a user **Group Admin** automatically grants them board-admin rights on every board in that group — the recommended role for team leads.
 
 → [Groups](groups.md) · [Roles & Permissions](rbac/roles.md)
+
+---
+
+## Stable UIDs
+
+Every board, column, swimlane, label, and card carries a stable 16-character hex UID that never changes even after renames or moves. UIDs are included in JSON exports and are safe to reference in external integrations, webhooks, and scripts.
+
+→ [Stable UIDs](stable-uids.md)
 
 ---
 
@@ -122,9 +151,22 @@ Four board roles let you grant exactly the right level of access: **admin**, **m
 
 The application sidebar gives you persistent access to your full group and board hierarchy from any page. Starred boards and groups appear at the top of the sidebar in dedicated **Favorite Boards** and **Favorite Groups** sections. The sidebar collapses to a 48 px icon rail (with hover tooltips), expands back to 220 px, and remembers both states across reloads via `localStorage`.
 
+Site admins see a **Site Admin** link in the sidebar that opens the administration panel directly. The link is hidden for all other users.
+
 The sidebar is visible only on desktop (1024 px and wider). On mobile, use the top navigation bar instead.
 
 → [Navigation](navigation.md)
+
+---
+
+## Site administration
+
+Site admins can manage the instance from the `/admin` panel (accessible via the sidebar or directly):
+
+- **Registration mode** — open (anyone can sign up), invite-only (registration disabled; admin creates accounts), or closed
+- **User management** — create accounts, toggle active/site-admin status, and force a password reset on next login
+
+→ [Administration](../administration/)
 
 ---
 
