@@ -51,6 +51,7 @@ nav:
   - Features:
     - features/index.md
     - Board & Cards: features/board.md
+    - Card Archiving: features/card-archiving.md
     - Card Descriptions: features/card-descriptions.md
     - Analytics: features/analytics.md
     - Notifications: features/notifications.md
@@ -80,6 +81,8 @@ nav:
   - Administration:
     - administration/index.md
     - Site Admins: administration/site-admins.md
+    - Demo Data: administration/demo-data.md
     - Django Admin: administration/django-admin.md
     - Media Storage Security: administration/media-security.md
+    - Secret Rotation: administration/secret-rotation.md
   - Changelog: changelog.md
