@@ -55,12 +55,12 @@ fi
 RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
   | sed '/^[[:space:]]*$/d' | sed '/^---[[:space:]]*$/d')
 
-sed -i '' "s/## \[Unreleased\]/## [${TAG}] — ${TODAY}/" CHANGELOG.md
+sed -i '' "s/## \[Unreleased\]/## [${VERSION}] — ${TODAY}/" CHANGELOG.md
 
 # Prepend fresh [Unreleased] block
 TMP=$(mktemp)
-awk -v tag="$TAG" -v date="$TODAY" '
-  /^## \[v/ && !done {
+awk -v version="$VERSION" -v date="$TODAY" '
+  /^## \[[0-9]/ && !done {
     print "## [Unreleased]\n"
     print "---\n"
     done=1

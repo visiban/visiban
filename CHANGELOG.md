@@ -14,7 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v1.0.0-rc.6] — 2026-03-19
+## [1.0.0-rc.6] — 2026-03-19
 
 ### Added
 
@@ -111,7 +111,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v1.0.0-rc.5] — 2026-03-15
+## [1.0.0-rc.5] — 2026-03-15
 
 ### Added
 
@@ -184,7 +184,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v1.0.0-rc.4] — 2026-03-14
+## [1.0.0-rc.4] — 2026-03-14
 
 ### Fixed
 
@@ -219,7 +219,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v1.0.0-rc.3] — 2026-03-13
+## [1.0.0-rc.3] — 2026-03-13
 
 ### Added
 
@@ -313,7 +313,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v1.0.0-rc.2] — 2026-03-10
+## [1.0.0-rc.2] — 2026-03-10
 
 ### Added
 
@@ -393,7 +393,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v1.0.0-rc.1] — 2026-03-08
+## [1.0.0-rc.1] — 2026-03-08
 
 ### Added
 
@@ -407,7 +407,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v0.3.0-beta.1] — 2026-03-08
+## [0.3.0-beta.1] — 2026-03-08
 
 ### Added
 
@@ -442,7 +442,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
-## [v0.2.0-beta.1] — 2026-03-07
+## [0.2.0-beta.1] — 2026-03-07
 
 UX polish release — @mention comments, notification deep-links, empty state prompts, collapsed column card counts, and minor fixes.
 
@@ -461,11 +461,11 @@ UX polish release — @mention comments, notification deep-links, empty state pr
 
 - Updated `docs/features/notifications.md` with @mention notifications and corrected notification deep-link behaviour
 - Updated `docs/features/board.md` with @mention in comments and due date past-date restriction
-- Updated `docs/features/realtime.md` to document column and swimlane event types added in v0.1.0-beta.1
+- Updated `docs/features/realtime.md` to document column and swimlane event types added in 0.1.0-beta.1
 
 ---
 
-## [v0.1.0-beta.1] — 2026-03-07
+## [0.1.0-beta.1] — 2026-03-07
 
 First public beta release.
 
@@ -496,7 +496,7 @@ First public beta release.
 
 ---
 
-## [v0.2.0-alpha.1] — 2026-03-06
+## [0.2.0-alpha.1] — 2026-03-06
 
 ### Added
 
@@ -517,7 +517,7 @@ First public beta release.
 
 ---
 
-## [v0.1.0-alpha.1] — 2026-03-04
+## [0.1.0-alpha.1] — 2026-03-04
 
 ### Added
 
