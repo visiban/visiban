@@ -1228,6 +1228,10 @@ class CardViewSet(viewsets.ModelViewSet):
     filterset_class = CardFilter
     ordering_fields = ["position", "due_date", "created_at", "priority"]
     ordering = ["position"]
+    # Cards are always scoped to a single board so paginating the list endpoint
+    # would silently truncate results for busy boards. Disable pagination here;
+    # the board-full endpoint already returns all cards without pagination.
+    pagination_class = None
 
     def _board_and_role(self):
         return get_board_for_user(self.kwargs["board_pk"], self.request.user)
@@ -1539,7 +1543,10 @@ class CardViewSet(viewsets.ModelViewSet):
         if movement:
             response_data["movement"] = CardMovementSerializer(movement).data
 
-        transaction.on_commit(lambda: broadcast_board_event(board.id, "card.moved", card_data))
+        # Broadcast the same shape as the REST response so WS clients can update
+        # movement history without re-polling /movements/.
+        broadcast_data = dict(response_data)
+        transaction.on_commit(lambda: broadcast_board_event(board.id, "card.moved", broadcast_data))
         return Response(response_data)
 
     @action(detail=True, methods=["get"])

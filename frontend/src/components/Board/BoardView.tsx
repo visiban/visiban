@@ -138,44 +138,48 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const allColumnsExpanded = board.columns.every((c) => expandedColumnIds.has(c.id));
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
-    if (event.type === "card.created") {
-      onCardAdded(event as unknown as Card);
-    } else if (event.type === "card.moved" || event.type === "card.updated") {
-      onCardUpdated(event as unknown as Card);
-    } else if (event.type === "card.deleted") {
-      onCardDeleted(event.card_id as number);
-    } else if (event.type === "card.archived") {
-      onCardArchived((event as unknown as { card_id: number }).card_id);
-    } else if (event.type === "card.unarchived") {
-      onCardUnarchived(event as unknown as Card);
-    } else if (event.type === "column.created") {
-      onColumnAdded(event as unknown as Column);
-    } else if (event.type === "column.updated") {
-      onColumnUpdated(event as unknown as Column);
-    } else if (event.type === "column.deleted") {
-      onColumnDeleted(event.column_id as number);
-    } else if (event.type === "columns.reordered") {
-      onColumnOrderApplied((event as unknown as { columns: Column[] }).columns);
-    } else if (event.type === "swimlane.created") {
-      onSwimlaneAdded(event as unknown as Swimlane);
-    } else if (event.type === "swimlane.updated") {
-      onSwimlaneUpdated(event as unknown as Swimlane);
-    } else if (event.type === "swimlane.deleted") {
-      onSwimlaneDeleted(event.swimlane_id as number);
-    } else if (event.type === "swimlanes.reordered") {
-      onSwimlaneOrderApplied((event as unknown as { swimlanes: Swimlane[] }).swimlanes);
-    } else if (event.type === "label.created") {
-      onLabelAdded(event as unknown as Label);
-    } else if (event.type === "label.updated") {
-      onLabelUpdated(event as unknown as Label);
-    } else if (event.type === "label.deleted") {
-      onLabelDeleted((event as unknown as { label_id: number }).label_id);
-    } else if (event.type === "member.added") {
-      onMemberAdded(event as unknown as BoardMembership);
-    } else if (event.type === "member.updated") {
-      onMemberUpdated(event as unknown as BoardMembership);
-    } else if (event.type === "member.removed") {
-      onMemberRemoved((event as unknown as { user_id: number }).user_id);
+    const d = event.data;
+    if (event.event === "card.created") {
+      onCardAdded(d as unknown as Card);
+    } else if (event.event === "card.moved") {
+      // card.moved payload is { card, movement } — consistent with the REST response
+      onCardUpdated((d as unknown as { card: Card }).card);
+    } else if (event.event === "card.updated") {
+      onCardUpdated(d as unknown as Card);
+    } else if (event.event === "card.deleted") {
+      onCardDeleted((d as { card_id: number }).card_id);
+    } else if (event.event === "card.archived") {
+      onCardArchived((d as { card_id: number }).card_id);
+    } else if (event.event === "card.unarchived") {
+      onCardUnarchived(d as unknown as Card);
+    } else if (event.event === "column.created") {
+      onColumnAdded(d as unknown as Column);
+    } else if (event.event === "column.updated") {
+      onColumnUpdated(d as unknown as Column);
+    } else if (event.event === "column.deleted") {
+      onColumnDeleted((d as { column_id: number }).column_id);
+    } else if (event.event === "columns.reordered") {
+      onColumnOrderApplied((d as { columns: Column[] }).columns);
+    } else if (event.event === "swimlane.created") {
+      onSwimlaneAdded(d as unknown as Swimlane);
+    } else if (event.event === "swimlane.updated") {
+      onSwimlaneUpdated(d as unknown as Swimlane);
+    } else if (event.event === "swimlane.deleted") {
+      onSwimlaneDeleted((d as { swimlane_id: number }).swimlane_id);
+    } else if (event.event === "swimlanes.reordered") {
+      onSwimlaneOrderApplied((d as { swimlanes: Swimlane[] }).swimlanes);
+    } else if (event.event === "label.created") {
+      onLabelAdded(d as unknown as Label);
+    } else if (event.event === "label.updated") {
+      onLabelUpdated(d as unknown as Label);
+    } else if (event.event === "label.deleted") {
+      onLabelDeleted((d as { label_id: number }).label_id);
+    } else if (event.event === "member.added") {
+      onMemberAdded(d as unknown as BoardMembership);
+    } else if (event.event === "member.updated") {
+      onMemberUpdated(d as unknown as BoardMembership);
+    } else if (event.event === "member.removed") {
+      onMemberRemoved((d as { user_id: number }).user_id);
     }
   }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved]);
 

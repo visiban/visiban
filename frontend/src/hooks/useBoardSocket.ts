@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 export type BoardEvent = {
-  type: string;
-  [key: string]: unknown;
+  event: string;
+  data: Record<string, unknown>;
 };
 
 /**

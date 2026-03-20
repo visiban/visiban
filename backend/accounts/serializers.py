@@ -28,9 +28,17 @@ class UserSerializer(serializers.ModelSerializer):
         # After super().__init__ the fields BindingDict is built; we can now
         # replace the auto-generated read-only FK field with a writable one.
         from boards.models import Board  # deferred to avoid startup ordering issues
+        # Scope to boards the requesting user is a member of to prevent IDOR —
+        # without this a user could set any board PK as their default, confirming
+        # existence of boards they have no access to.
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            board_qs = Board.objects.filter(memberships__user=request.user)
+        else:
+            board_qs = Board.objects.none()
         self.fields["default_board_id"] = serializers.PrimaryKeyRelatedField(
             source="default_board",
-            queryset=Board.objects.all(),
+            queryset=board_qs,
             allow_null=True,
             required=False,
         )

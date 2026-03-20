@@ -1,19 +1,3 @@
-export interface NotificationPrefs {
-  card_assigned: boolean;
-  mention: boolean;
-  due_soon: boolean;
-  watched_card_moved: boolean;
-  watched_card_comment: boolean;
-}
-
-export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
-  card_assigned: true,
-  mention: true,
-  due_soon: false,
-  watched_card_moved: false,
-  watched_card_comment: false,
-};
-
 export interface User {
   id: number;
   username: string;
@@ -25,7 +9,6 @@ export interface User {
   is_site_admin: boolean;
   must_change_password: boolean;
   has_usable_password?: boolean;
-  notification_prefs?: NotificationPrefs;
   timezone?: string;
   date_format?: string;
   time_format?: string;
@@ -215,6 +198,8 @@ export interface Board {
   group_name: string | null;
   member_count: number;
   card_count: number;
+  staleness_threshold_days: number;
+  allowed_priorities: Priority[];
   is_starred: boolean;
   created_at: string;
   updated_at: string;
