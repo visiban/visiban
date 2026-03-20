@@ -234,14 +234,14 @@ Boards are organized into a group hierarchy — groups can contain subgroups to 
 
 ### Access control
 
-Five roles control what users can do:
+Four board-level roles plus a site-wide admin flag:
 
 | Role | Scope | What they can do |
 |---|---|---|
-| `site_admin` | Site-wide | Full access to everything |
+| `site_admin` | Site-wide | Full access to everything; manages users and instance settings |
 | `admin` | Group or Board | Manage structure, members, and settings |
 | `member` | Group or Board | Create, edit, and move cards |
-| `collaborator` | Board only | Comment on cards |
+| `collaborator` | Board only | Comment, upload attachments, and manage checklist items — cannot create or move cards |
 | `viewer` | Board only | Read-only access |
 
 Group membership grants board access automatically. Board admins can override the role per user from the Members panel in the board toolbar.
@@ -249,6 +249,8 @@ Group membership grants board access automatically. Board admins can override th
 ### Notifications
 
 In-app notifications for card assignment, @mentions in comments, and cards that have gone stale (not moved in a configurable number of days). The notification dropdown shows only unread notifications — clicking a notification marks it as read and navigates to the relevant card. Read notifications stay dismissed across page refreshes.
+
+> **Note:** Notifications are in-app only in v1.0. Email delivery is planned for v1.1.
 
 ---
 
@@ -266,6 +268,19 @@ In-app notifications for card assignment, @mentions in comments, and cards that 
 | Drag & drop | @dnd-kit/core + @dnd-kit/sortable |
 | CI/CD | GitLab CI (lint, test, security scan, Docker build verification) |
 | Infra | Docker Compose, Nginx, Helm (Kubernetes) |
+
+---
+
+## v1.0 scope
+
+Visiban 1.0 covers the production-ready core: boards, cards, swimlanes, groups, RBAC, real-time collaboration, import/export, analytics, and self-hosted Docker Compose deployment. The following are planned for v1.1 and later:
+
+- **Email notifications** — in-app notifications are available now; transactional email (assignments, @mentions) comes in v1.1
+- **Server-side card search** — client-side search works for boards under a few hundred cards; full-text server-side search is v1.1
+- **WIP limit enforcement** — WIP counts are displayed in column headers; hard enforcement (blocking moves when the limit is reached) is v1.1
+- **Card watchers** — beyond assignee and @mentions, explicit card subscriptions are v1.1
+
+See the [changelog](CHANGELOG.md) and [open issues](https://gitlab.com/visiban/visiban/-/issues) for what's actively being worked on.
 
 ---
 
