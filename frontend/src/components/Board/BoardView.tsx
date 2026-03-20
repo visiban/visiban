@@ -27,12 +27,13 @@ import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
-import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
-import type { FilterState } from "./FilterBar";
+import FilterBar, { countActiveFilters } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
+import { usePersistedFilters } from "../../hooks/usePersistedFilters";
+import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 
 interface Props {
@@ -219,7 +220,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
+  const { filters, setFilters } = usePersistedFilters(board.id);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -289,48 +290,65 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     });
   }, [board.cards]);
 
+  // Server-side text search — debounced 300ms, aborts stale requests.
+  // searchMatchIds is null when query is empty or on error (silent fallback → show all cards).
+  const { searchMatchIds, isSearching } = useCardSearch(board.id, filters.search);
+
   const filteredCardIds: Set<number> | null = (() => {
-    if (countActiveFilters(filters) === 0) return null;
-    // Use the user's stored timezone so that "Today" / "Overdue" boundaries
-    // are computed at midnight in their local time, not the browser's locale.
-    const todayStr = todayInTimezone(userTimezone);
-    const nextWeekMs = new Date(todayStr + "T00:00:00Z").getTime() + 7 * 86_400_000;
-    const nw = new Date(nextWeekMs);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const nextWeekStr = `${nw.getUTCFullYear()}-${pad(nw.getUTCMonth() + 1)}-${pad(nw.getUTCDate())}`;
-    const matching = board.cards.filter((card) => {
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        const matches =
-          card.title.toLowerCase().includes(q) ||
-          card.description.toLowerCase().includes(q) ||
-          (card.assignee && userDisplayName(card.assignee).toLowerCase().includes(q)) ||
-          card.labels.some((l) => l.name.toLowerCase().includes(q));
-        if (!matches) return false;
-      }
-      if (filters.assigneeIds.length > 0) {
-        const matches = filters.assigneeIds.some((id) =>
-          id === -1 ? card.assignee === null : card.assignee?.id === id
-        );
-        if (!matches) return false;
-      }
-      if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
-      if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;
-      if (filters.dueDate !== null) {
-        if (filters.dueDate === "none" && card.due_date !== null) return false;
-        if (filters.dueDate === "overdue") {
-          if (!card.due_date || card.due_date >= todayStr) return false;
+    // Client-side filter: assignee, label, priority, due date (search is server-side).
+    const clientFiltersActive = (
+      filters.assigneeIds.length > 0 ||
+      filters.labelIds.length > 0 ||
+      filters.priorities.length > 0 ||
+      filters.dueDate !== null
+    );
+
+    let clientMatchIds: Set<number> | null = null;
+    if (clientFiltersActive) {
+      // Use the user's stored timezone so that "Today" / "Overdue" boundaries
+      // are computed at midnight in their local time, not the browser's locale.
+      const todayStr = todayInTimezone(userTimezone);
+      const nextWeekMs = new Date(todayStr + "T00:00:00Z").getTime() + 7 * 86_400_000;
+      const nw = new Date(nextWeekMs);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const nextWeekStr = `${nw.getUTCFullYear()}-${pad(nw.getUTCMonth() + 1)}-${pad(nw.getUTCDate())}`;
+      const matching = board.cards.filter((card) => {
+        if (filters.assigneeIds.length > 0) {
+          const matches = filters.assigneeIds.some((id) =>
+            id === -1 ? card.assignee === null : card.assignee?.id === id
+          );
+          if (!matches) return false;
         }
-        if (filters.dueDate === "today") {
-          if (card.due_date !== todayStr) return false;
+        if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
+        if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;
+        if (filters.dueDate !== null) {
+          if (filters.dueDate === "none" && card.due_date !== null) return false;
+          if (filters.dueDate === "overdue") {
+            if (!card.due_date || card.due_date >= todayStr) return false;
+          }
+          if (filters.dueDate === "today") {
+            if (card.due_date !== todayStr) return false;
+          }
+          if (filters.dueDate === "this_week") {
+            if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
+          }
         }
-        if (filters.dueDate === "this_week") {
-          if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
-        }
-      }
-      return true;
-    });
-    return new Set(matching.map((c) => c.id));
+        return true;
+      });
+      clientMatchIds = new Set(matching.map((c) => c.id));
+    }
+
+    // Combine server search results with client filter results:
+    // - Both active → intersection
+    // - Only searchMatchIds → use that
+    // - Only clientMatchIds → use that
+    // - Neither → null (show all cards)
+    if (searchMatchIds !== null && clientMatchIds !== null) {
+      return new Set([...searchMatchIds].filter((id) => clientMatchIds!.has(id)));
+    }
+    if (searchMatchIds !== null) return searchMatchIds;
+    if (clientMatchIds !== null) return clientMatchIds;
+    return null;
   })();
 
   const handleColumnAdded = useCallback((col: Column) => {
