@@ -172,9 +172,6 @@ backend-test:
   image: python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - backend/**/*
-        - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
     - name: postgres:16-alpine
@@ -289,8 +286,6 @@ frontend-test:
     NODE_OPTIONS: "--max-old-space-size=512"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - frontend/**/*
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - cd frontend
