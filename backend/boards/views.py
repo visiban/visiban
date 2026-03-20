@@ -1238,7 +1238,14 @@ class CardViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Exclude archived cards from all standard list/detail endpoints.
         # Archived cards are accessible via the separate /archived/ action.
-        return _card_queryset(Card.objects.filter(board=self._board(), archived_at__isnull=True))
+        qs = _card_queryset(Card.objects.filter(board=self._board(), archived_at__isnull=True))
+        # Server-side text search — applied only when the ?search= param is present and non-empty.
+        # This intentionally does not use DRF SearchFilter or CardFilter so that the search param
+        # remains distinct from the django-filters params and the filter logic is easy to trace.
+        q = self.request.query_params.get("search", "").strip()
+        if q:
+            qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
+        return qs
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()

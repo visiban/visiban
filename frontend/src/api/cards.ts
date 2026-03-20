@@ -81,3 +81,7 @@ export const updateChecklistItem = (boardId: number, cardId: number, itemId: num
 
 export const deleteChecklistItem = (boardId: number, cardId: number, itemId: number) =>
   client.delete(`/api/boards/${boardId}/cards/${cardId}/checklist/${itemId}/`);
+
+export const searchCards = (boardId: number, query: string, signal?: AbortSignal): Promise<Card[]> =>
+  client.get<Card[]>(`/api/boards/${boardId}/cards/`, { params: { search: query }, signal })
+    .then((r) => r.data);

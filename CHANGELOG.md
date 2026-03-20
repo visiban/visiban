@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Server-side per-board card search: the search input in the filter bar now queries `GET /api/boards/{id}/cards/?search=<q>` (title and description, case-insensitive) debounced at 300ms with `AbortController` cancellation of stale requests; a small spinner appears inside the input while the request is in-flight; errors fall back silently to showing all cards; client-side filters (assignee, label, priority, due date) continue to run locally and are intersected with server results (#233)
+
 ### Fixed
 
 - Due date field on card detail now opens the calendar picker when clicking anywhere in the field (text area or icon), not just the calendar icon (#249)
