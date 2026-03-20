@@ -174,7 +174,7 @@ backend-test:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:16-alpine
+    - name: postgres:17-alpine
       alias: postgres
     - name: redis:7-alpine
       alias: redis
@@ -271,7 +271,10 @@ frontend-lint:
     - cd frontend
     - npm ci --prefer-offline
   script:
-    - npm run lint
+    # Scope to src/ to avoid scanning build artefacts and reduce memory pressure
+    # from eslint loading the full working tree. --max-warnings 15 matches the
+    # sast job allowance for pre-existing react-hooks/exhaustive-deps warnings.
+    - npm run lint -- src/ --max-warnings 15
     - npx tsc -p tsconfig.app.json --noEmit
 
 # ─── Frontend — test ──────────────────────────────────────────────────────────
@@ -825,7 +828,7 @@ seed-export-check:
   needs: []
   image: python:3.12-slim
   services:
-    - name: postgres:16-alpine
+    - name: postgres:17-alpine
       alias: postgres
     - name: redis:7-alpine
       alias: redis
