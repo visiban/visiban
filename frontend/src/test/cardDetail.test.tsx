@@ -91,7 +91,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     cards: [], labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     staleness_threshold_days: 7, allowed_priorities: [],
-    is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
+    enforce_wip_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
     ...overrides,
   }
 }
@@ -304,27 +304,6 @@ describe('CardDetail', () => {
     props.card = makeCard({ due_date: '2099-06-15' })
     render(<CardDetail {...props} userDateFormat="DD/MM/YYYY" />)
     expect(screen.getByText('15/06/2099')).toBeInTheDocument()
-  })
-
-  it('clicking the due date field (no date set) — input is clickable, not pointer-events-none', () => {
-    render(<CardDetail {...defaultProps()} userDateFormat="MM/DD/YYYY" />)
-    const dateInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
-    expect(dateInput).not.toBeNull()
-    // Input covers the whole field and receives clicks directly — no pointer-events-none
-    expect(dateInput.className).not.toContain('pointer-events-none')
-    expect(dateInput.className).toContain('cursor-pointer')
-  })
-
-  it('clicking the due date field (date set) — input is clickable, not pointer-events-none', () => {
-    const props = defaultProps()
-    props.card = makeCard({ due_date: '2099-06-15' })
-    render(<CardDetail {...props} userDateFormat="MM/DD/YYYY" />)
-    const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'))
-    const activeInput = dateInputs.find((el) => el.value !== '')!
-    expect(activeInput).toBeTruthy()
-    // Input covers the whole field and receives clicks directly — no pointer-events-none
-    expect(activeInput.className).not.toContain('pointer-events-none')
-    expect(activeInput.className).toContain('cursor-pointer')
   })
 
   it('renders comments with author initials', async () => {

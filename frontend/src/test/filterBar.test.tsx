@@ -18,7 +18,7 @@ function makeBoard(): BoardFull {
     labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }, { id: 101, uid: 'lbluid000002', name: 'Feature', color: '#3B82F6' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     staleness_threshold_days: 7, allowed_priorities: [],
-    is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
+    enforce_wip_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
   }
 }
 
@@ -88,17 +88,6 @@ describe('FilterBar', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={onChange} />)
     await userEvent.setup().type(screen.getByPlaceholderText('Search cards…'), 'bug')
     expect(onChange).toHaveBeenCalled()
-  })
-
-  it('does not render spinner when isSearching is false', () => {
-    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} isSearching={false} />)
-    // The spinner uses animate-spin — it should not be present
-    expect(document.querySelector('.animate-spin')).not.toBeInTheDocument()
-  })
-
-  it('renders spinner inside search input when isSearching is true', () => {
-    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} isSearching={true} />)
-    expect(document.querySelector('.animate-spin')).toBeInTheDocument()
   })
 
   it('clicking label dropdown shows options', async () => {

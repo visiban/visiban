@@ -61,6 +61,10 @@ class Board(models.Model):
         default=list,
         help_text="Allowed card priorities on this board. Empty list means all priorities are allowed.",
     )
+    enforce_wip_limits = models.BooleanField(
+        default=False,
+        help_text="When enabled, card moves into a column at or over its WIP limit are blocked with a 409 response. Board admins can override with ?force=true.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -216,6 +220,12 @@ class Card(models.Model):
     class Meta:
         db_table = "cards"
         ordering = ["position"]
+        indexes = [
+            # Composite index to speed up WIP count queries: filter by board + column,
+            # then filter active cards (archived_at IS NULL). Avoids a full table scan
+            # when enforcement is enabled and card moves are frequent.
+            models.Index(fields=["board", "column", "archived_at"], name="card_board_col_archived_idx"),
+        ]
 
     def __str__(self):
         return self.title

@@ -200,6 +200,7 @@ export interface Board {
   card_count: number;
   staleness_threshold_days: number;
   allowed_priorities: Priority[];
+  enforce_wip_limits: boolean;
   is_starred: boolean;
   created_at: string;
   updated_at: string;
@@ -219,6 +220,7 @@ export interface BoardFull {
   members: BoardMembership[];
   staleness_threshold_days: number;
   allowed_priorities: Priority[];
+  enforce_wip_limits: boolean;
   is_starred: boolean;
   created_at: string;
   updated_at: string;

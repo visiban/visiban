@@ -60,6 +60,7 @@ interface Props {
   onCardArchived: (cardId: number) => void;
   onCardUnarchived: (card: Card) => void;
   onBoardDeleted?: () => void;
+  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
   userTimezone?: string;
   userDateFormat?: string;
   userTimeFormat?: string;
@@ -115,7 +116,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, onUpdateBoardSettings, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -290,7 +291,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   // Server-side text search — debounced 300ms, aborts stale requests.
   // searchMatchIds is null when query is empty or on error (silent fallback → show all cards).
-  const { searchMatchIds, isSearching } = useCardSearch(board.id, filters.search);
+  const { searchMatchIds } = useCardSearch(board.id, filters.search);
 
   const filteredCardIds: Set<number> | null = (() => {
     // Client-side filter: assignee, label, priority, due date (search is server-side).
@@ -651,7 +652,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       {/* Filter row — own row so it doesn't compress the toolbar */}
       {showFilters && (
         <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
-          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} isSearching={isSearching} />
+          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />
         </div>
       )}
       {cardNotFound && (
@@ -914,6 +915,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onSetCardFieldPref={setCardFieldPref}
           onBoardDeleted={onBoardDeleted}
+          onUpdateBoardSettings={onUpdateBoardSettings}
         />
       )}
 

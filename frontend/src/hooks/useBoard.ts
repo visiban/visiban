@@ -4,6 +4,20 @@ import { getBoardFull, updateBoard as apiUpdateBoard, reorderColumns as apiReord
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../types";
 
+export interface WipLimitError {
+  code: "wip_limit_exceeded";
+  column_name: string;
+  current_count: number;
+  wip_limit: number;
+}
+
+interface PendingMove {
+  cardId: number;
+  columnId: number;
+  swimlaneId: number;
+  position: number;
+}
+
 export function useBoard() {
   const { id } = useParams<{ id: string }>();
   const boardId = Number(id);
@@ -11,6 +25,8 @@ export function useBoard() {
   const [board, setBoard] = useState<BoardFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<WipLimitError | null>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -28,6 +44,11 @@ export function useBoard() {
   }, [boardId, navigate]);
 
   useEffect(() => { load(); }, [load]);
+
+  const clearMoveError = useCallback(() => {
+    setMoveError(null);
+    setPendingMove(null);
+  }, []);
 
   const moveCard = useCallback(async (
     cardId: number,
@@ -57,11 +78,50 @@ export function useBoard() {
         if (!b) return b;
         return { ...b, cards: b.cards.map((c) => (c.id === cardId ? card : c)) };
       });
-    } catch {
-      // Rollback
+    } catch (err: unknown) {
+      // Roll back the optimistic update unconditionally.
       setBoard((b) => b ? { ...b, cards: prev } : b);
+      // On WIP limit exceeded (409), surface a structured error for the UI to display.
+      const axiosErr = err as { response?: { status?: number; data?: unknown } };
+      if (axiosErr?.response?.status === 409) {
+        const data = axiosErr.response.data as WipLimitError;
+        if (data?.code === "wip_limit_exceeded") {
+          setMoveError(data);
+          setPendingMove({ cardId, columnId, swimlaneId, position });
+        }
+      }
     }
   }, [board, boardId]);
+
+  // Admin-only: retry the last blocked move with force=true, bypassing the WIP limit.
+  const forceMoveCard = useCallback(async () => {
+    if (!board || !pendingMove) return;
+    const { cardId, columnId, swimlaneId, position } = pendingMove;
+    clearMoveError();
+
+    const prev = board.cards;
+    setBoard((b) => {
+      if (!b) return b;
+      return {
+        ...b,
+        cards: b.cards.map((c) =>
+          c.id === cardId
+            ? { ...c, column: columnId, swimlane: swimlaneId, position }
+            : c
+        ),
+      };
+    });
+
+    try {
+      const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position }, true);
+      setBoard((b) => {
+        if (!b) return b;
+        return { ...b, cards: b.cards.map((c) => (c.id === cardId ? card : c)) };
+      });
+    } catch {
+      setBoard((b) => b ? { ...b, cards: prev } : b);
+    }
+  }, [board, boardId, pendingMove, clearMoveError]);
 
   const addCard = useCallback((card: Card) => {
     setBoard((b) => {
@@ -207,5 +267,5 @@ export function useBoard() {
     }
   }, [board, boardId, load]);
 
-  return { board, loading, error, reload: load, moveCard, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings };
+  return { board, loading, error, reload: load, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings };
 }
