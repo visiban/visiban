@@ -90,6 +90,17 @@ describe('FilterBar', () => {
     expect(onChange).toHaveBeenCalled()
   })
 
+  it('does not render spinner when isSearching is false', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} isSearching={false} />)
+    // The spinner uses animate-spin — it should not be present
+    expect(document.querySelector('.animate-spin')).not.toBeInTheDocument()
+  })
+
+  it('renders spinner inside search input when isSearching is true', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} isSearching={true} />)
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument()
+  })
+
   it('clicking label dropdown shows options', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     await userEvent.setup().click(screen.getByText('Label'))

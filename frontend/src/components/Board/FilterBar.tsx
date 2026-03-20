@@ -176,6 +176,7 @@ interface Props {
   filters: FilterState;
   onChange: (filters: FilterState) => void;
   searchRef?: RefObject<HTMLInputElement | null>;
+  isSearching?: boolean;
 }
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
@@ -192,21 +193,26 @@ const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: str
   { value: "none", label: "No due date" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching }: Props) {
   const activeCount = countActiveFilters(filters);
 
   return (
     <>
       <span className="w-px h-4 bg-slate-600 shrink-0" />
 
-      <input
-        ref={searchRef}
-        type="text"
-        placeholder="Search cards…"
-        value={filters.search}
-        onChange={(e) => onChange({ ...filters, search: e.target.value })}
-        className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 placeholder-slate-500 w-36 outline-none focus:border-blue-400 shrink-0"
-      />
+      <div className="relative shrink-0">
+        <input
+          ref={searchRef}
+          type="text"
+          placeholder="Search cards…"
+          value={filters.search}
+          onChange={(e) => onChange({ ...filters, search: e.target.value })}
+          className="bg-slate-800 border border-slate-600 rounded px-2 py-1 pr-7 text-sm text-slate-300 placeholder-slate-500 w-36 outline-none focus:border-blue-400"
+        />
+        {isSearching && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+        )}
+      </div>
 
       <CheckboxDropdown
         label="Assignee"
