@@ -306,31 +306,25 @@ describe('CardDetail', () => {
     expect(screen.getByText('15/06/2099')).toBeInTheDocument()
   })
 
-  it('clicking the due date field (no date set) calls showPicker on the hidden input', async () => {
+  it('clicking the due date field (no date set) — input is clickable, not pointer-events-none', () => {
     render(<CardDetail {...defaultProps()} userDateFormat="MM/DD/YYYY" />)
     const dateInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
     expect(dateInput).not.toBeNull()
-    // Hidden input must have pointer-events-none so container onClick fires instead of the input
-    expect(dateInput.className).toContain('pointer-events-none')
-    const showPicker = vi.fn()
-    dateInput.showPicker = showPicker
-    await userEvent.setup().click(screen.getByText('mm/dd/yyyy'))
-    expect(showPicker).toHaveBeenCalledTimes(1)
+    // Input covers the whole field and receives clicks directly — no pointer-events-none
+    expect(dateInput.className).not.toContain('pointer-events-none')
+    expect(dateInput.className).toContain('cursor-pointer')
   })
 
-  it('clicking the due date field (date set) calls showPicker on the hidden input', async () => {
+  it('clicking the due date field (date set) — input is clickable, not pointer-events-none', () => {
     const props = defaultProps()
     props.card = makeCard({ due_date: '2099-06-15' })
     render(<CardDetail {...props} userDateFormat="MM/DD/YYYY" />)
-    // When a date is set there are two date inputs; the one with a value is the active picker
     const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'))
     const activeInput = dateInputs.find((el) => el.value !== '')!
     expect(activeInput).toBeTruthy()
-    expect(activeInput.className).toContain('pointer-events-none')
-    const showPicker = vi.fn()
-    activeInput.showPicker = showPicker
-    await userEvent.setup().click(screen.getByText('06/15/2099'))
-    expect(showPicker).toHaveBeenCalledTimes(1)
+    // Input covers the whole field and receives clicks directly — no pointer-events-none
+    expect(activeInput.className).not.toContain('pointer-events-none')
+    expect(activeInput.className).toContain('cursor-pointer')
   })
 
   it('renders comments with author initials', async () => {

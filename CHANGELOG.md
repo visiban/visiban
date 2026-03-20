@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - Due date field on card detail now opens the calendar picker when clicking anywhere in the field (text area or icon), not just the calendar icon (#249)
+- Fixed regression in due date field where the calendar only opened on the calendar icon — replaced `showPicker()` approach with a transparent `cursor-pointer` input that receives clicks directly, which works in all browsers (#249)
 - Docs: Card Archiving, Demo Data, and Secret Rotation pages now appear in the docs sidebar — they existed but were missing from the mkdocs nav; fix broken `../administration/` link in the features index
 
 ---
