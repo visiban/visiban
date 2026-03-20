@@ -26,12 +26,12 @@ import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
-import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
-import type { FilterState } from "./FilterBar";
+import FilterBar, { countActiveFilters } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
+import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 
@@ -214,7 +214,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
+  const { filters, setFilters } = usePersistedFilters(board.id);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
