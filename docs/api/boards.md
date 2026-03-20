@@ -35,10 +35,53 @@ Delete board. Requires board owner or site admin.
 ### `GET /api/boards/{id}/full/`
 Full board state — columns, swimlanes, cards, labels, members, and `current_user_role`. All objects include their `uid` field.
 
+### `POST /api/boards/{id}/star/`
+Star (favorite) a board. Returns `201 Created` on first star, `200 OK` if already starred.
+
+### `DELETE /api/boards/{id}/star/`
+Unstar a board.
+
+### `GET /api/boards/?starred=true`
+List only boards the requesting user has starred.
+
 ### `POST /api/boards/{id}/move-group/`
 Move board to a different group (or `null` for personal).
 
 **Request** `{ "group_id": 5 }` or `{ "group_id": null }`
+
+---
+
+## Templates
+
+### `GET /api/boards/templates/`
+List all active board templates. Requires authentication. Used by the board creation modal to populate the template picker.
+
+**Response**
+```json
+[
+  {
+    "id": 1,
+    "name": "Sales Pipeline",
+    "slug": "sales-pipeline",
+    "description": "Track deals through your sales stages.",
+    "icon": "💼",
+    "lane_label": "Account",
+    "lane_placeholder": "Acme Corp",
+    "columns_json": "[\"Prospect\", \"Qualified\", \"Proposal\", \"Negotiation\", \"Closed Won\"]",
+    "sort_order": 1
+  },
+  ...
+]
+```
+
+| Field | Description |
+|---|---|
+| `slug` | Stable identifier (used by integrations) |
+| `lane_label` | Label for the "first swimlane" step in board creation (e.g. "Account", "Project") |
+| `lane_placeholder` | Placeholder text shown in the swimlane name input |
+| `columns_json` | JSON array of column names that will be created |
+
+Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Blank Board**.
 
 ---
 

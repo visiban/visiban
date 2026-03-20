@@ -143,6 +143,55 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 
 ---
 
+## User search
+
+### `GET /api/users/?q=<query>`
+Search users by display name, email, or username. Requires authentication. Used internally for @mention autocomplete and the member invite typeahead.
+
+Rate-limited to 120 requests/hour per user.
+
+**Query params**
+
+| Param | Description |
+|---|---|
+| `q` | Search term (partial match on username, display name, or email) |
+
+**Response** `[{ "id": 5, "username": "alice", "display_name": "Alice Smith", "email": "alice@example.com", "avatar_url": null }, ...]`
+
+---
+
+## OAuth providers
+
+### `GET /api/auth/providers/`
+Returns the list of configured OAuth providers. No authentication required. Used by the login page to determine which social login buttons to display.
+
+**Response**
+```json
+{ "providers": ["google", "github", "gitlab"] }
+```
+
+Returns an empty list if no OAuth providers are configured.
+
+---
+
+## Change password
+
+### `POST /api/auth/change-password/`
+Change the authenticated user's password. Requires authentication.
+
+**Request**
+```json
+{ "old_password": "current-password", "new_password1": "new-password", "new_password2": "new-password" }
+```
+
+- `new_password1` and `new_password2` must match
+- Minimum length and complexity rules apply (Django password validators)
+- If `must_change_password` was set, it is cleared on success
+
+**Response** `200 OK` on success; `400 Bad Request` with field errors on failure.
+
+---
+
 ## User profile
 
 ### `GET /api/auth/me/`

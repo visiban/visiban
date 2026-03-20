@@ -58,6 +58,41 @@ If the link is invalid or expired, a countdown timer is shown and the user is au
 !!! tip
     Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one `member` link for the team and one `viewer` link for stakeholders).
 
+## Moving boards between groups
+
+Any board can be moved to a different group or back to personal boards. Use the **Move to group** option in the board settings (gear icon in the toolbar). Only board admins and site admins can move a board.
+
+**API:** `POST /api/boards/{id}/move-group/` with `{ "group_id": 5 }` or `{ "group_id": null }` for personal.
+
+## Group shared labels
+
+Group admins can define a shared label library for the group. New boards created inside the group automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.
+
+Labels are managed from the **Settings** tab on the group detail page. Changes to a group label (rename, recolor) propagate to all boards that inherited it; deletions only remove the label from the group library — boards that already have the label keep it.
+
+**API:** `GET/POST /api/groups/{id}/labels/`, `PATCH/DELETE /api/groups/{id}/labels/{label_id}/`
+
+## Group board defaults
+
+Group admins can configure defaults that apply to every new board created in the group:
+
+| Setting | Description |
+|---|---|
+| **Default member role** | Role granted to group members on new boards (`admin`, `member`, `collaborator`, `viewer`). Defaults to `member`. |
+| **Allowed priorities** | Restricts which priority values are available on new boards. `null` (default) allows all priorities. |
+
+Board defaults are configured from the **Settings** tab on the group detail page.
+
+**API:** `PATCH /api/groups/{id}/board-defaults/`
+
+## Transferring group ownership
+
+Only the **current owner** of a group can transfer ownership to another user. The recipient must already be a group **admin**. To confirm the transfer, type the group name exactly as shown.
+
+After transfer, the previous owner becomes a regular admin — they are not removed from the group.
+
+**API:** `POST /api/groups/{id}/transfer-ownership/` with `{ "new_owner_id": 42, "confirmation": "Group Name" }`
+
 ## Starring groups
 
 The star button (☆/★) in the group detail page header lets you mark frequently-visited groups as favorites. Starred groups appear in a **Favorite Groups** section at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.

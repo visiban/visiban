@@ -14,6 +14,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Docs: new `docs/api/admin.md` — complete reference for the Admin REST API (`GET/PATCH /api/admin/settings/`, `GET/POST /api/admin/users/`, `PATCH /api/admin/users/{id}/`)
+- Docs: `docs/api/authentication.md` — new sections for user search (`GET /api/users/`), OAuth providers (`GET /api/auth/providers/`), and change password (`POST /api/auth/change-password/`)
+- Docs: `docs/api/boards.md` — add board star/favorite endpoints and board templates endpoint with full response schema and template list
+- Docs: `docs/api/groups.md` — add transfer ownership, group shared labels, and board defaults endpoints
+- Docs: `docs/api/health.md` — add version endpoint (`GET /api/version/`)
+- Docs: `docs/features/groups.md` — add sections on board move-between-groups, group shared labels, board defaults, and ownership transfer
+- Docs: `docs/features/realtime.md` — add `card.archived` and `card.unarchived` WebSocket events
 - Docs: `docs/features/realtime.md` now documents the WebSocket event envelope (`{event, data}`) and the full `card.moved` payload (`{card, movement}`) (#256)
 - Docs: `docs/api/cards.md` documents that `GET /api/boards/{id}/cards/` returns all cards without pagination (#256)
 - Docs: `docs/api/authentication.md` documents `GET /api/auth/me/`, `PATCH /api/auth/me/` (including `default_board_id` validation), and `GET /api/auth/site-config/` with `registration_mode` (#256)

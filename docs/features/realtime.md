@@ -29,6 +29,17 @@ The client reconnects automatically after 3 seconds if the connection drops.
 | `card.moved` | Card dragged to a new column or swimlane |
 | `card.deleted` | Card deleted |
 
+### Card archive events
+
+| Event | Trigger |
+|---|---|
+| `card.archived` | Card archived via the Archive action |
+| `card.unarchived` | Card restored from the archived panel |
+
+`card.archived` payload: `{ "card": { "id": 101, "archived_at": "2026-03-20T10:00:00Z", ... } }`
+
+`card.unarchived` payload: `{ "card": { "id": 101, "archived_at": null, ... } }`
+
 ### Column events
 
 | Event | Trigger |
