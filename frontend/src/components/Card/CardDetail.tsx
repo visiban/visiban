@@ -77,6 +77,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dueDateRef = useRef<HTMLInputElement>(null);
+  const dueDateEmptyRef = useRef<HTMLInputElement>(null);
   const [checklist, setChecklist] = useState<CardChecklistItem[]>([]);
   const [newItemText, setNewItemText] = useState("");
   const [showBulkAdd, setShowBulkAdd] = useState(false);
@@ -349,12 +351,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     const info = formatDueDate(localCard.due_date, userTimezone, userDateFormat);
                     return (
                       <div className="flex items-center gap-1.5">
-                        <div className="relative flex-1">
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full cursor-pointer select-none flex items-center justify-between ${info.overdue ? "bg-red-950/40 border-red-700/60 text-red-300" : "bg-slate-700 border-slate-500 text-slate-100"}`}>
+                        {/* pointer-events-none on the hidden input lets the container's onClick fire.
+                            showPicker() called from a direct user-gesture handler reliably opens
+                            the picker even when the input is opacity-0. */}
+                        <div
+                          className="relative flex-1 cursor-pointer"
+                          onClick={() => dueDateRef.current?.showPicker()}
+                        >
+                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between ${info.overdue ? "bg-red-950/40 border-red-700/60 text-red-300" : "bg-slate-700 border-slate-500 text-slate-100"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
                           <input
+                            ref={dueDateRef}
                             type="date"
                             value={localCard.due_date}
                             onChange={(e) => {
@@ -362,7 +371,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               setLocalCard((c) => ({ ...c, due_date: v }));
                               save({ due_date: v });
                             }}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
                           />
                         </div>
                         <button
@@ -375,12 +384,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     );
                   })() : (
-                    <div className="relative">
-                      <div className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 text-slate-500 cursor-pointer select-none flex items-center justify-between">
+                    <div
+                      className="relative cursor-pointer"
+                      onClick={() => dueDateEmptyRef.current?.showPicker()}
+                    >
+                      <div className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 text-slate-500 select-none flex items-center justify-between">
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                       </div>
                       <input
+                        ref={dueDateEmptyRef}
                         type="date"
                         value=""
                         min={new Date().toISOString().slice(0, 10)}
@@ -389,7 +402,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           setLocalCard((c) => ({ ...c, due_date: v }));
                           save({ due_date: v });
                         }}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
                       />
                     </div>
                   )}
