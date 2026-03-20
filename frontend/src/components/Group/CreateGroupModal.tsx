@@ -74,11 +74,14 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
               className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-blue-400"
             />
           </div>
-          {error && <p className="text-red-400 text-xs">{error}</p>}
-          {successMessage && <p className="text-green-400 text-xs">{successMessage}</p>}
+          {/* Reserve fixed height so buttons don't shift when message appears/disappears. */}
+          <p className="text-xs h-4">
+            {error && <span className="text-red-400">{error}</span>}
+            {successMessage && <span className="text-green-400">{successMessage}</span>}
+          </p>
         </div>
         <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
+          <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">{successMessage ? "Close" : "Cancel"}</button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || saving}

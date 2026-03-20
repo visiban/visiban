@@ -271,8 +271,26 @@ describe('CreateGroupModal', () => {
     await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
     await user.click(screen.getByText('Create'))
 
-    expect(await screen.findByText('✓ "Engineering" created')).toBeInTheDocument()
-    expect(screen.getByText('✓ "Engineering" created')).toHaveClass('text-green-400')
+    const msg = await screen.findByText('✓ "Engineering" created')
+    expect(msg).toBeInTheDocument()
+    // Message is on a <span> inside the reserved-height <p> — check the span carries the color class.
+    expect(msg.tagName).toBe('SPAN')
+    expect(msg).toHaveClass('text-green-400')
+  })
+
+  it('relabels Cancel to Close after a successful creation', async () => {
+    const group = { id: 4, name: 'Ops' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    expect(screen.getByText('Cancel')).toBeInTheDocument()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Ops')
+    await user.click(screen.getByText('Create'))
+
+    await screen.findByText('✓ "Ops" created')
+    expect(screen.getByText('Close')).toBeInTheDocument()
+    expect(screen.queryByText('Cancel')).not.toBeInTheDocument()
   })
 
   it('clears success message after 2 seconds', async () => {
