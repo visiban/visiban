@@ -261,6 +261,66 @@ describe('CreateGroupModal', () => {
 
     expect(mockCreateGroup).toHaveBeenCalledWith({ name: 'Engineering', parent: null })
   })
+
+  it('shows success message after creation', async () => {
+    const group = { id: 1, name: 'Engineering' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
+    await user.click(screen.getByText('Create'))
+
+    const msg = await screen.findByText('✓ "Engineering" created')
+    expect(msg).toBeInTheDocument()
+    // Message is on a <span> inside the reserved-height <p> — check the span carries the color class.
+    expect(msg.tagName).toBe('SPAN')
+    expect(msg).toHaveClass('text-green-400')
+  })
+
+  it('relabels Cancel to Close after a successful creation', async () => {
+    const group = { id: 4, name: 'Ops' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    expect(screen.getByText('Cancel')).toBeInTheDocument()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Ops')
+    await user.click(screen.getByText('Create'))
+
+    await screen.findByText('✓ "Ops" created')
+    expect(screen.getByText('Close')).toBeInTheDocument()
+    expect(screen.queryByText('Cancel')).not.toBeInTheDocument()
+  })
+
+  it('clears success message after 2 seconds', async () => {
+    const group = { id: 2, name: 'Design' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Design')
+    await user.click(screen.getByText('Create'))
+
+    expect(await screen.findByText('✓ "Design" created')).toBeInTheDocument()
+    // Message should disappear after 2 seconds (allow up to 3s for the async timer).
+    await waitFor(() => expect(screen.queryByText('✓ "Design" created')).not.toBeInTheDocument(), { timeout: 3000 })
+  })
+
+  it('focuses the input after successful creation', async () => {
+    const group = { id: 3, name: 'QA' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    const input = screen.getByPlaceholderText('e.g. Engineering')
+    await user.type(input, 'QA')
+    await user.click(screen.getByText('Create'))
+
+    // Wait for the success message to confirm the async operation completed.
+    await screen.findByText('✓ "QA" created')
+    await waitFor(() => expect(input).toHaveFocus())
+  })
 })
 
 describe('AddColumnModal', () => {

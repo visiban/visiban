@@ -152,6 +152,12 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - Placement: prefer `top` for icon buttons, `bottom` for nav items
 - Style: `bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg`
 
+## Inline status messages
+
+- **Reserve vertical space unconditionally** — render the container element always (`<p className="text-xs h-4">`) and conditionally render the text content inside it. Never conditionally render the container itself; doing so causes buttons and surrounding elements to shift when messages appear or disappear.
+- Error text: `text-red-400`; success text: `text-green-400` — always on a `<span>` inside the reserved container, not directly on the `<p>`
+- **Relabel destructive-escape actions after success** — if a modal stays open after a successful action, relabel "Cancel" to "Close" once success state is set, so the button's semantics match the user's situation
+
 ## Loading and spinner states
 
 - Consistent spinner: single size per context (e.g. `w-5 h-5` inline, `w-8 h-8` full-page)
