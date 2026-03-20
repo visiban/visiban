@@ -3,7 +3,7 @@
 ## Cards
 
 ### `GET /api/boards/{board_id}/cards/`
-List all cards on the board.
+List all cards on the board. Pagination is disabled — all cards are returned in a single response. Supports `?search=<q>` (title and description), `?assignee=<id>`, `?priority=<value>`, `?label=<id>`, and `?due_date_before=<YYYY-MM-DD>`.
 
 ### `POST /api/boards/{board_id}/cards/`
 Create a card. Requires member or above. The target column must have `allow_card_creation` enabled.

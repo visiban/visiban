@@ -100,6 +100,70 @@ List only starred groups for the current user.
 
 ---
 
+## Transfer ownership
+
+### `POST /api/groups/{id}/transfer-ownership/`
+Transfer group ownership to another user. Requires the **current owner** (not just admin).
+
+**Request**
+```json
+{ "new_owner_id": 42, "confirmation": "Engineering" }
+```
+
+- `new_owner_id` — the user ID of the new owner; must already be a group **admin**
+- `confirmation` — must exactly match the group's name (case-sensitive) to prevent accidental transfers
+
+The previous owner becomes a regular admin after transfer. Returns the updated group object.
+
+**Error responses**
+- `403 Forbidden` — you are not the current owner
+- `400 Bad Request` — confirmation does not match group name, or new owner is not an admin member
+
+---
+
+## Group shared labels
+
+Group labels are a shared label library. When a new board is created inside the group, it inherits the group's labels automatically.
+
+### `GET /api/groups/{id}/labels/`
+List group shared labels. Requires group membership.
+
+**Response** `[{ "id": 1, "name": "Bug", "color": "#EF4444" }, ...]`
+
+### `POST /api/groups/{id}/labels/`
+Create a group shared label. Requires group admin.
+
+**Request** `{ "name": "Feature", "color": "#3B82F6" }`
+
+### `PATCH /api/groups/{id}/labels/{label_id}/`
+Update a group shared label name or color. Requires group admin.
+
+### `DELETE /api/groups/{id}/labels/{label_id}/`
+Delete a group shared label. Requires group admin. Does **not** remove the label from boards that already inherited it.
+
+---
+
+## Board defaults
+
+### `PATCH /api/groups/{id}/board-defaults/`
+Update the default settings applied to new boards created in this group. Requires group admin.
+
+**Patchable fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `default_board_member_role` | string | Role assigned to group members on new boards — `admin`, `member`, `collaborator`, or `viewer` |
+| `allowed_priorities` | array / null | Restricts which priorities new boards may use (e.g. `["low", "medium", "high"]`); `null` allows all |
+
+**Request**
+```json
+{ "default_board_member_role": "member", "allowed_priorities": ["low", "medium", "high"] }
+```
+
+Returns the updated group object.
+
+---
+
 ## Join (public)
 
 ### `GET /api/groups/join/{token}/`

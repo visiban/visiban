@@ -14,6 +14,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Docs: new `docs/api/admin.md` — complete reference for the Admin REST API (`GET/PATCH /api/admin/settings/`, `GET/POST /api/admin/users/`, `PATCH /api/admin/users/{id}/`)
+- Docs: `docs/api/authentication.md` — new sections for user search (`GET /api/users/`), OAuth providers (`GET /api/auth/providers/`), and change password (`POST /api/auth/change-password/`)
+- Docs: `docs/api/boards.md` — add board star/favorite endpoints and board templates endpoint with full response schema and template list
+- Docs: `docs/api/groups.md` — add transfer ownership, group shared labels, and board defaults endpoints
+- Docs: `docs/api/health.md` — add version endpoint (`GET /api/version/`)
+- Docs: `docs/features/groups.md` — add sections on board move-between-groups, group shared labels, board defaults, and ownership transfer
+- Docs: `docs/features/realtime.md` — add `card.archived` and `card.unarchived` WebSocket events
+- Docs: `docs/features/realtime.md` now documents the WebSocket event envelope (`{event, data}`) and the full `card.moved` payload (`{card, movement}`) (#256)
+- Docs: `docs/api/cards.md` documents that `GET /api/boards/{id}/cards/` returns all cards without pagination (#256)
+- Docs: `docs/api/authentication.md` documents `GET /api/auth/me/`, `PATCH /api/auth/me/` (including `default_board_id` validation), and `GET /api/auth/site-config/` with `registration_mode` (#256)
+- Docs: `docs/api/boards.md` documents `staleness_threshold_days` and `allowed_priorities` fields on Board objects (#256)
+- WebSocket event schema now uses `{event, data}` keys instead of `{type, ...spread}` — prevents payload collision when a serializer field is also named `type`; `BoardEvent` TypeScript type updated to match (#256)
+- `card.moved` WebSocket broadcast now includes the movement record (`{card, movement}`) — consistent with the REST response so clients can update movement history without re-polling `/movements/` (#256)
+- `CardViewSet` no longer paginates — cards are always board-scoped so `PAGE_SIZE: 50` would silently truncate busy boards (#256)
+- `default_board_id` on `PATCH /api/auth/me/` now validates against only the requesting user's boards, preventing IDOR enumeration of foreign board IDs (#256)
+- `BoardFullSerializer.get_members()` now uses `UserSerializer` for each member entry so inherited/implicit members stay in sync with direct members when new `User` fields are added (#256)
+- `Board` TypeScript interface now includes `staleness_threshold_days` and `allowed_priorities` — both are returned by `BoardSerializer` but were missing from the frontend type contract (#256)
+- `getSiteConfig` return type now includes `registration_mode` — the field was returned by the API but omitted from the TypeScript return type (#256)
+- Removed `NotificationPrefs` TypeScript interface and `DEFAULT_NOTIFICATION_PREFS` constant — field names did not match the backend (`card_assigned` vs `notif_card_assigned`), and `notification_prefs` was never a User field on the API (#256)
+
 - Board filter state (text search, assignee, priority, labels, due date) is now persisted to `localStorage` keyed by `board:{boardId}:filters` — navigating away from a board and returning restores the previous filters; corrupt or missing storage falls back to empty filters without error (#252)
 - Due date field on card detail now opens the calendar picker when clicking anywhere in the field (text area or icon), not just the calendar icon (#249)
 - Fixed regression in due date field where the calendar only opened on the calendar icon — replaced `showPicker()` approach with a transparent `cursor-pointer` input that receives clicks directly, which works in all browsers (#249)

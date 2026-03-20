@@ -29,6 +29,17 @@ The client reconnects automatically after 3 seconds if the connection drops.
 | `card.moved` | Card dragged to a new column or swimlane |
 | `card.deleted` | Card deleted |
 
+### Card archive events
+
+| Event | Trigger |
+|---|---|
+| `card.archived` | Card archived via the Archive action |
+| `card.unarchived` | Card restored from the archived panel |
+
+`card.archived` payload: `{ "card": { "id": 101, "archived_at": "2026-03-20T10:00:00Z", ... } }`
+
+`card.unarchived` payload: `{ "card": { "id": 101, "archived_at": null, ... } }`
+
 ### Column events
 
 | Event | Trigger |
@@ -45,7 +56,50 @@ The client reconnects automatically after 3 seconds if the connection drops.
 | `swimlane.updated` | Swimlane renamed, recolored, or collapsed state changed |
 | `swimlane.deleted` | Swimlane deleted |
 
-All events include the full serialized object (or just the ID for deletion events) so the frontend can update local state without a round-trip to the API.
+## Event payload structure
+
+Every WebSocket message has this envelope:
+
+```json
+{
+  "event": "card.moved",
+  "data": { ... }
+}
+```
+
+- **`event`** — the event type string (e.g. `card.created`, `card.moved`)
+- **`data`** — the serialized payload; contents depend on the event type
+
+For most events `data` is the full serialized object. Deletion events include only the ID:
+
+```json
+{ "event": "card.deleted", "data": { "card_id": 101 } }
+```
+
+### `card.moved` payload
+
+The `card.moved` event includes both the updated card and the movement record — the same shape returned by `POST /api/boards/{id}/cards/{id}/move/`:
+
+```json
+{
+  "event": "card.moved",
+  "data": {
+    "card": { "id": 101, "uid": "3a9f1c2d7e4b8a05", "column": 3, "swimlane": 2, ... },
+    "movement": {
+      "id": 42,
+      "from_column": 2, "from_column_name": "To Do", "from_column_uid": "a1b2c3d4e5f60718",
+      "to_column": 3,   "to_column_name": "Doing",  "to_column_uid": "9f8e7d6c5b4a3210",
+      "moved_by": { "id": 7, "username": "alice" },
+      "moved_at": "2026-03-15T09:41:22Z",
+      "notes": ""
+    }
+  }
+}
+```
+
+`movement` is `null` if only the position changed within the same column/swimlane cell (pure reorder — no column or swimlane change occurred).
+
+All other events include the full serialized object (or just the ID for deletion events) so the frontend can update local state without a round-trip to the API.
 
 ## Requirements
 

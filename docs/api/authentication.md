@@ -143,6 +143,98 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 
 ---
 
+## User search
+
+### `GET /api/users/?q=<query>`
+Search users by display name, email, or username. Requires authentication. Used internally for @mention autocomplete and the member invite typeahead.
+
+Rate-limited to 120 requests/hour per user.
+
+**Query params**
+
+| Param | Description |
+|---|---|
+| `q` | Search term (partial match on username, display name, or email) |
+
+**Response** `[{ "id": 5, "username": "alice", "display_name": "Alice Smith", "email": "alice@example.com", "avatar_url": null }, ...]`
+
+---
+
+## OAuth providers
+
+### `GET /api/auth/providers/`
+Returns the list of configured OAuth providers. No authentication required. Used by the login page to determine which social login buttons to display.
+
+**Response**
+```json
+{ "providers": ["google", "github", "gitlab"] }
+```
+
+Returns an empty list if no OAuth providers are configured.
+
+---
+
+## Change password
+
+### `POST /api/auth/change-password/`
+Change the authenticated user's password. Requires authentication.
+
+**Request**
+```json
+{ "old_password": "current-password", "new_password1": "new-password", "new_password2": "new-password" }
+```
+
+- `new_password1` and `new_password2` must match
+- Minimum length and complexity rules apply (Django password validators)
+- If `must_change_password` was set, it is cleared on success
+
+**Response** `200 OK` on success; `400 Bad Request` with field errors on failure.
+
+---
+
+## User profile
+
+### `GET /api/auth/me/`
+Returns the authenticated user's profile.
+
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `must_change_password`, `has_usable_password`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `default_board_id`.
+
+### `PATCH /api/auth/me/`
+Update the authenticated user's profile. All fields are optional.
+
+**Writable fields:** `first_name`, `last_name`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `default_board_id`.
+
+**`default_board_id`** — set the board to redirect to after login. Accepts a board `id` (integer) or `null` to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns `400 Bad Request`. This prevents enumeration of boards the user has no access to.
+
+```json
+PATCH /api/auth/me/
+{ "default_board_id": 5 }
+```
+
+---
+
+## Site configuration
+
+### `GET /api/auth/site-config/`
+Returns site-level configuration. This endpoint is public — no authentication required.
+
+**Response**
+```json
+{
+  "registration_open": true,
+  "registration_mode": "open"
+}
+```
+
+| Field | Type | Values | Description |
+|---|---|---|---|
+| `registration_open` | boolean | `true` / `false` | Whether new user registration is currently allowed |
+| `registration_mode` | string | `"open"` / `"invite_only"` / `"closed"` | The configured registration policy |
+
+Site admins can change the registration mode in **Admin → Site Settings**. See [Site Admins](../administration/site-admins.md).
+
+---
+
 ## Common errors
 
 | Status | Cause | Fix |

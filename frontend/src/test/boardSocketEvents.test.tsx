@@ -154,7 +154,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView {...props} />)
     await act(async () => {})
     const label: Label = { id: 200, uid: 'lbl002', name: 'Feature', color: '#22C55E' }
-    act(() => { getOnEvent.dispatch({ type: 'label.created', ...label } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'label.created', data: label as unknown as Record<string, unknown> }) })
     expect(props.onLabelAdded).toHaveBeenCalledWith(expect.objectContaining({ id: 200, name: 'Feature' }))
   })
 
@@ -163,7 +163,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView {...props} />)
     await act(async () => {})
     const label: Label = { id: 100, uid: 'lbl001', name: 'Bug (renamed)', color: '#EF4444' }
-    act(() => { getOnEvent.dispatch({ type: 'label.updated', ...label } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'label.updated', data: label as unknown as Record<string, unknown> }) })
     expect(props.onLabelUpdated).toHaveBeenCalledWith(expect.objectContaining({ id: 100, name: 'Bug (renamed)' }))
   })
 
@@ -171,7 +171,7 @@ describe('BoardView socket event routing — new event types', () => {
     const props = makeProps()
     render(<BoardView {...props} />)
     await act(async () => {})
-    act(() => { getOnEvent.dispatch({ type: 'label.deleted', label_id: 100 } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'label.deleted', data: { label_id: 100 } }) })
     expect(props.onLabelDeleted).toHaveBeenCalledWith(100)
   })
 
@@ -180,7 +180,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView {...props} />)
     await act(async () => {})
     const membership: BoardMembership = { id: 2, user: { ...fakeUser, id: 2, username: 'bob' }, role: 'member', joined_at: '' }
-    act(() => { getOnEvent.dispatch({ type: 'member.added', ...membership } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'member.added', data: membership as unknown as Record<string, unknown> }) })
     expect(props.onMemberAdded).toHaveBeenCalledWith(expect.objectContaining({ role: 'member' }))
   })
 
@@ -189,7 +189,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView {...props} />)
     await act(async () => {})
     const membership: BoardMembership = { id: 1, user: fakeUser, role: 'viewer', joined_at: '' }
-    act(() => { getOnEvent.dispatch({ type: 'member.updated', ...membership } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
     expect(props.onMemberUpdated).toHaveBeenCalledWith(expect.objectContaining({ role: 'viewer' }))
   })
 
@@ -197,7 +197,7 @@ describe('BoardView socket event routing — new event types', () => {
     const props = makeProps()
     render(<BoardView {...props} />)
     await act(async () => {})
-    act(() => { getOnEvent.dispatch({ type: 'member.removed', user_id: 1 } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'member.removed', data: { user_id: 1 } }) })
     expect(props.onMemberRemoved).toHaveBeenCalledWith(1)
   })
 
@@ -209,7 +209,7 @@ describe('BoardView socket event routing — new event types', () => {
       { id: 11, uid: 'col002', name: 'Done', position: 0, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
       { id: 10, uid: 'col001', name: 'To Do', position: 1, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
     ]
-    act(() => { getOnEvent.dispatch({ type: 'columns.reordered', columns } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'columns.reordered', data: { columns } }) })
     expect(props.onColumnOrderApplied).toHaveBeenCalledWith(columns)
   })
 
@@ -220,7 +220,7 @@ describe('BoardView socket event routing — new event types', () => {
     const swimlanes: Swimlane[] = [
       { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
     ]
-    act(() => { getOnEvent.dispatch({ type: 'swimlanes.reordered', swimlanes } as unknown as BoardEvent) })
+    act(() => { getOnEvent.dispatch({ event: 'swimlanes.reordered', data: { swimlanes } }) })
     expect(props.onSwimlaneOrderApplied).toHaveBeenCalledWith(swimlanes)
   })
 })

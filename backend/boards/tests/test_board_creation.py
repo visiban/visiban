@@ -235,16 +235,12 @@ class DefaultBoardTests(TestCase):
         self.assertIsNone(resp.data["default_board_id"])
 
     def test_cannot_set_another_users_board_as_default(self):
-        """
-        The serializer accepts any board PK — access control is enforced at
-        the frontend redirect step (BoardView redirects to / on 403/404).
-        This test documents that behavior explicitly so future reviewers
-        understand the deliberate design choice.
+        """Setting a foreign board PK as default must be rejected at the serializer
+        level — the queryset is scoped to boards the requesting user is a member of,
+        so a PK belonging to another user's board is not found and DRF returns 400.
+        This prevents IDOR enumeration of foreign board IDs via the me/ endpoint.
         """
         other = User.objects.create_user(username="other2", password="pass")
         other_board = Board.objects.create(name="Other Board", owner=other)
-        # Patching succeeds at the serializer level (the field only validates
-        # existence, not membership). The redirect guard in BoardView
-        # prevents actually rendering a board the user cannot access.
         resp = self.client.patch("/api/auth/me/", {"default_board_id": other_board.id})
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

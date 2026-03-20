@@ -275,16 +275,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
         result = []
         for entry in seen.values():
-            user = entry["user"]
+            # Delegate to UserSerializer so inherited/implicit member rows stay
+            # in sync with direct member rows if new User fields are added post-1.0.
             result.append({
                 "id": entry["id"],
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "display_name": getattr(user, "display_name", "") or "",
-                    "avatar_url": getattr(user, "avatar_url", "") or "",
-                },
+                "user": UserSerializer(entry["user"], context=self.context).data,
                 "role": entry["role"],
                 "joined_at": entry["joined_at"],
             })

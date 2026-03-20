@@ -17,7 +17,37 @@ These apply to all new code and to any existing code touched in a change. CI (`b
 
 ---
 
-## Release process
+## Backward compatibility — always on from 1.0
+
+Visiban 1.0 is a public API contract. Every change from this point forward must be backward compatible unless a major version bump is explicitly planned. Apply these rules by default:
+
+### REST API
+- **Never remove or rename a field** from an existing serializer response — add new fields, deprecate old ones, never delete them in a patch or minor release
+- **Never change a field's type** (e.g. string → integer, nullable → required) without a major bump
+- **Never remove an endpoint** — return `410 Gone` with a deprecation notice for at least one minor release first
+- **New optional query params only** — never add a required query param to an existing endpoint; new body fields must be optional with a sensible default
+
+### Database migrations
+- **Every new column must be nullable or have a default** — `NOT NULL` without a default requires a multi-step deploy and blocks zero-downtime upgrades
+- **Never drop a column or table** in the same migration that removes the ORM reference — add a second migration after at least one release cycle
+- **Rename = add + copy + drop** in three separate releases — never rename a column in a single migration
+
+### WebSocket event schema
+- The `{event, data}` shape is the public contract for `board_*` events. Never switch back to a flat `{type, ...spread}` schema — it collides with serializer field names
+- **Never remove an event type** — add new ones freely; mark old ones deprecated in the docs for at least one release before removing
+- **Never remove a field from an event payload** — add fields freely; removals require a major bump
+
+### TypeScript / frontend contracts
+- **`Board`, `Card`, `User`, and related interfaces must match the backend serializer fields exactly** — when a new serializer field is added, update the corresponding TypeScript interface in the same MR
+- **Never remove a field from a shared interface** without confirming it is unreferenced across the entire frontend
+
+### Settings and env vars
+- **Never rename an env var** — add the new name and keep the old one as a deprecated alias for at least one minor release
+- **Never change the default value** of an existing env var in a way that alters behavior for existing installs — document it explicitly in CHANGELOG and the upgrade guide
+
+### OSS / enterprise extension boundary
+- The OSS core must remain fully functional without the enterprise repo — do not introduce hard dependencies on enterprise hooks, signals, or settings
+- Extension points (settings includes, URL patterns, signal hooks) must remain stable — enterprise code registers against them; changing their shape is a breaking change for enterprise customers
 
 When asked to create a release, invoke `/release`. The skill handles version string suggestion, pre-flight checks, running `scripts/release.sh`, and post-release verification.
 

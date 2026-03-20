@@ -17,6 +17,9 @@ def broadcast_board_event(board_id: int, event_type: str, payload: dict) -> None
         f"board_{board_id}",
         {
             "type": "board_event",
-            "payload": {"type": event_type, **safe_payload},
+            # Use "event"/"data" keys to avoid collision with any serializer field
+            # named "type". The outer "type" key is the Django Channels routing key
+            # and is distinct from the event schema sent to WebSocket clients.
+            "payload": {"event": event_type, "data": safe_payload},
         },
     )

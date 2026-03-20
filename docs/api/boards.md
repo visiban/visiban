@@ -11,7 +11,20 @@ Create a personal board. Creates default columns (Backlog, To Do, Doing, Done) a
 **Request** `{ "name": "My Board", "description": "" }`
 
 ### `GET /api/boards/{id}/`
-Get board summary.
+Get board summary. Response includes:
+
+| Field | Type | Description |
+|---|---|---|
+| `id`, `uid` | integer, string | Database ID and stable 16-char hex UID |
+| `name`, `description` | string | Board name and description |
+| `owner` | object | Owner user object |
+| `group`, `group_name` | integer / null, string / null | Group ID and name (null for personal boards) |
+| `member_count` | integer | Number of direct board members |
+| `card_count` | integer | Number of active (non-archived) cards |
+| `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
+| `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed |
+| `is_starred` | boolean | Whether the requesting user has starred this board |
+| `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
 ### `PUT /api/boards/{id}/`
 Update board name/description. Requires board admin.
@@ -22,10 +35,53 @@ Delete board. Requires board owner or site admin.
 ### `GET /api/boards/{id}/full/`
 Full board state — columns, swimlanes, cards, labels, members, and `current_user_role`. All objects include their `uid` field.
 
+### `POST /api/boards/{id}/star/`
+Star (favorite) a board. Returns `201 Created` on first star, `200 OK` if already starred.
+
+### `DELETE /api/boards/{id}/star/`
+Unstar a board.
+
+### `GET /api/boards/?starred=true`
+List only boards the requesting user has starred.
+
 ### `POST /api/boards/{id}/move-group/`
 Move board to a different group (or `null` for personal).
 
 **Request** `{ "group_id": 5 }` or `{ "group_id": null }`
+
+---
+
+## Templates
+
+### `GET /api/boards/templates/`
+List all active board templates. Requires authentication. Used by the board creation modal to populate the template picker.
+
+**Response**
+```json
+[
+  {
+    "id": 1,
+    "name": "Sales Pipeline",
+    "slug": "sales-pipeline",
+    "description": "Track deals through your sales stages.",
+    "icon": "💼",
+    "lane_label": "Account",
+    "lane_placeholder": "Acme Corp",
+    "columns_json": "[\"Prospect\", \"Qualified\", \"Proposal\", \"Negotiation\", \"Closed Won\"]",
+    "sort_order": 1
+  },
+  ...
+]
+```
+
+| Field | Description |
+|---|---|
+| `slug` | Stable identifier (used by integrations) |
+| `lane_label` | Label for the "first swimlane" step in board creation (e.g. "Account", "Project") |
+| `lane_placeholder` | Placeholder text shown in the swimlane name input |
+| `columns_json` | JSON array of column names that will be created |
+
+Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Blank Board**.
 
 ---
 

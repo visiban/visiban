@@ -22,7 +22,7 @@ export const getAuthProviders = () =>
   client.get<{ google: boolean; github: boolean; gitlab: boolean }>("/api/auth/providers/").then((r) => r.data);
 
 export const getSiteConfig = () =>
-  client.get<{ registration_open: boolean }>("/api/auth/site-config/").then((r) => r.data);
+  client.get<{ registration_open: boolean; registration_mode: "open" | "invite_only" | "closed" }>("/api/auth/site-config/").then((r) => r.data);
 
 export const changePassword = (current_password: string, new_password: string) =>
   client.post<{ detail: string }>("/api/auth/change-password/", { current_password, new_password }).then((r) => r.data);

@@ -39,6 +39,19 @@ Only the failing subsystems appear in `errors`. Use this as a **readiness probe*
 
 ---
 
+## `GET /api/version/`
+
+Returns the running application version string. Requires authentication.
+
+**Response**
+```json
+{ "version": "1.0.0" }
+```
+
+The value is read from the `APP_VERSION` environment variable set at deploy time (see `.env.example`). Use this to confirm which version is deployed before running migrations or checking the changelog.
+
+---
+
 ## Kubernetes example
 
 ```yaml
