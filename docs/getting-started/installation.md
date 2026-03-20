@@ -22,8 +22,7 @@ The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne
 > **Tested:** The Docker Compose development setup has been verified end-to-end. If something doesn't work, open an issue.
 
 ```bash
-git clone https://gitlab.com/visiban/visiban.git
-cd visiban
+git clone https://gitlab.com/visiban/visiban.git && cd visiban
 cp .env.example .env
 # Edit .env — set DJANGO_SECRET_KEY and any OAuth credentials
 docker compose up --build
@@ -168,8 +167,7 @@ brew install gettext && brew link --force gettext
 ### Step 1 — Clone and configure
 
 ```bash
-git clone https://gitlab.com/visiban/visiban.git
-cd visiban
+git clone https://gitlab.com/visiban/visiban.git && cd visiban
 cp .env.example .env
 ```
 
