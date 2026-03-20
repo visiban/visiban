@@ -12,6 +12,10 @@ On first boot, the `ensure_site_admin` management command creates an admin accou
 
 ## Granting site admin
 
+**Admin panel (recommended)**
+
+Go to **Site Admin → Users** (`/admin`), find the user, and click **Make admin** in their row.
+
 **Management command**
 
 ```bash
@@ -21,36 +25,38 @@ python manage.py set_site_admin <username>
 docker compose run --rm backend python manage.py set_site_admin <username>
 ```
 
-**Django admin panel**
+**Django admin panel (advanced)**
 
-Go to `/admin/accounts/user/`, open the user, and enable the `Is site admin` checkbox.
+Go to `/django-admin/accounts/user/`, open the user, and enable the `Is site admin` checkbox.
 
 ## Revoking site admin
+
+**Admin panel (recommended)**
+
+Go to **Site Admin → Users** (`/admin`), find the user, and click **Remove admin** in their row.
+
+**Management command**
 
 ```bash
 python manage.py set_site_admin <username> --revoke
 ```
 
-Or uncheck `Is site admin` in the Django admin panel.
-
 !!! note
-    A site admin can revoke their own site admin status. Ensure at least one site admin remains on the instance.
+    A site admin cannot demote themselves — this prevents accidentally locking yourself out of the instance. To revoke your own status, ask another site admin to do it. The last active site admin on the instance cannot be demoted by anyone.
 
-## Restricting registration (invite-only mode)
+## Restricting registration
 
-> **Added in 1.0.0-rc.6**
+By default, anyone can create an account on a Visiban instance. The **Settings** tab in the admin panel (`/admin`) lets you change this:
 
-By default, anyone can create an account on a Visiban instance. You can restrict this so that only users created directly by a site admin can log in.
-
-**To enable invite-only mode:**
-
-1. Go to `/admin/accounts/sitesetting/1/change/`
-2. Enable **Require invite for registration**
-3. Click **Save**
+| Mode | Effect |
+|---|---|
+| **Open** | Anyone can register |
+| **Invite-only** | Only accounts created by a site admin can log in; self-registration and OAuth sign-up are blocked |
+| **Closed** | All registration is disabled |
 
 The change takes effect immediately — no restart required.
 
-**What changes when enabled:**
+**What changes when invite-only or closed is enabled:**
 
 - `POST /api/auth/registration/` returns `403 Forbidden` for new sign-ups
 - OAuth sign-up flows (Google, GitHub, GitLab) are also blocked — existing OAuth-linked accounts can still log in, but new OAuth accounts cannot be created
@@ -59,4 +65,9 @@ The change takes effect immediately — no restart required.
 
 **Creating accounts when invite-only is on:**
 
-Go to `/admin/accounts/user/add/` and create the account manually. The new user can then set a password or link an OAuth provider on first login.
+Use **Site Admin → Users → Add user** in the admin panel. Set a temporary password and enable **Force password reset** so the user is prompted to choose their own password on first login.
+
+!!! warning
+    Copy the temporary password before closing the Create User dialog — it is not shown again. Share it with the new user via a secure channel. If lost, deactivate the account and create a new one.
+
+See [Admin Panel](admin-panel.md) for a full walkthrough of the user management interface.
