@@ -11,7 +11,20 @@ Create a personal board. Creates default columns (Backlog, To Do, Doing, Done) a
 **Request** `{ "name": "My Board", "description": "" }`
 
 ### `GET /api/boards/{id}/`
-Get board summary.
+Get board summary. Response includes:
+
+| Field | Type | Description |
+|---|---|---|
+| `id`, `uid` | integer, string | Database ID and stable 16-char hex UID |
+| `name`, `description` | string | Board name and description |
+| `owner` | object | Owner user object |
+| `group`, `group_name` | integer / null, string / null | Group ID and name (null for personal boards) |
+| `member_count` | integer | Number of direct board members |
+| `card_count` | integer | Number of active (non-archived) cards |
+| `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
+| `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed |
+| `is_starred` | boolean | Whether the requesting user has starred this board |
+| `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
 ### `PUT /api/boards/{id}/`
 Update board name/description. Requires board admin.

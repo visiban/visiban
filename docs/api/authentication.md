@@ -143,6 +143,49 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 
 ---
 
+## User profile
+
+### `GET /api/auth/me/`
+Returns the authenticated user's profile.
+
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `must_change_password`, `has_usable_password`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `default_board_id`.
+
+### `PATCH /api/auth/me/`
+Update the authenticated user's profile. All fields are optional.
+
+**Writable fields:** `first_name`, `last_name`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `default_board_id`.
+
+**`default_board_id`** — set the board to redirect to after login. Accepts a board `id` (integer) or `null` to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns `400 Bad Request`. This prevents enumeration of boards the user has no access to.
+
+```json
+PATCH /api/auth/me/
+{ "default_board_id": 5 }
+```
+
+---
+
+## Site configuration
+
+### `GET /api/auth/site-config/`
+Returns site-level configuration. This endpoint is public — no authentication required.
+
+**Response**
+```json
+{
+  "registration_open": true,
+  "registration_mode": "open"
+}
+```
+
+| Field | Type | Values | Description |
+|---|---|---|---|
+| `registration_open` | boolean | `true` / `false` | Whether new user registration is currently allowed |
+| `registration_mode` | string | `"open"` / `"invite_only"` / `"closed"` | The configured registration policy |
+
+Site admins can change the registration mode in **Admin → Site Settings**. See [Site Admins](../administration/site-admins.md).
+
+---
+
 ## Common errors
 
 | Status | Cause | Fix |

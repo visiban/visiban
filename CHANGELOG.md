@@ -14,6 +14,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Docs: `docs/features/realtime.md` now documents the WebSocket event envelope (`{event, data}`) and the full `card.moved` payload (`{card, movement}`) (#256)
+- Docs: `docs/api/cards.md` documents that `GET /api/boards/{id}/cards/` returns all cards without pagination (#256)
+- Docs: `docs/api/authentication.md` documents `GET /api/auth/me/`, `PATCH /api/auth/me/` (including `default_board_id` validation), and `GET /api/auth/site-config/` with `registration_mode` (#256)
+- Docs: `docs/api/boards.md` documents `staleness_threshold_days` and `allowed_priorities` fields on Board objects (#256)
 - WebSocket event schema now uses `{event, data}` keys instead of `{type, ...spread}` — prevents payload collision when a serializer field is also named `type`; `BoardEvent` TypeScript type updated to match (#256)
 - `card.moved` WebSocket broadcast now includes the movement record (`{card, movement}`) — consistent with the REST response so clients can update movement history without re-polling `/movements/` (#256)
 - `CardViewSet` no longer paginates — cards are always board-scoped so `PAGE_SIZE: 50` would silently truncate busy boards (#256)
