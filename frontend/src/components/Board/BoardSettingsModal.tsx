@@ -31,6 +31,7 @@ interface Props {
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
   onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority", value: boolean) => void;
+  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
 }
 
 type Tab = "members" | "display" | "data";
@@ -54,7 +55,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref, onUpdateBoardSettings }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
@@ -546,6 +547,27 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </div>
                   </section>
                 </>
+              )}
+
+              {/* Board behavior — admin-only settings that affect all board members */}
+              {isAdmin && onUpdateBoardSettings && (
+                <section>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Board behavior</h3>
+                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer">
+                    <div className="min-w-0 pr-4">
+                      <span className="text-sm text-slate-200">Enforce WIP limits</span>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        When enabled, moving a card into a column that is at or over its WIP limit is blocked. Admins can override when moving a card.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={board.enforce_wip_limits}
+                      onChange={(e) => onUpdateBoardSettings({ enforce_wip_limits: e.target.checked })}
+                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                    />
+                  </label>
+                </section>
               )}
 
               {/* Staleness threshold */}

@@ -30,8 +30,8 @@ export const moveCard = (boardId: number, cardId: number, data: {
   column_id: number;
   swimlane_id: number;
   position: number;
-}) => client.post<{ card: Card; movement?: CardMovement }>(
-  `/api/boards/${boardId}/cards/${cardId}/move/`, data
+}, force?: boolean) => client.post<{ card: Card; movement?: CardMovement }>(
+  `/api/boards/${boardId}/cards/${cardId}/move/${force ? "?force=true" : ""}`, data
 ).then((r) => r.data);
 
 export const getCardMovements = (boardId: number, cardId: number) =>
@@ -81,7 +81,3 @@ export const updateChecklistItem = (boardId: number, cardId: number, itemId: num
 
 export const deleteChecklistItem = (boardId: number, cardId: number, itemId: number) =>
   client.delete(`/api/boards/${boardId}/cards/${cardId}/checklist/${itemId}/`);
-
-export const searchCards = (boardId: number, query: string, signal?: AbortSignal): Promise<Card[]> =>
-  client.get<Card[]>(`/api/boards/${boardId}/cards/`, { params: { search: query }, signal })
-    .then((r) => r.data);

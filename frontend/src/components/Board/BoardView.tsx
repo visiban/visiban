@@ -17,6 +17,7 @@ import {
 import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../../types";
+import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
@@ -26,13 +27,12 @@ import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
-import FilterBar, { countActiveFilters } from "./FilterBar";
+import FilterBar, { EMPTY_FILTER, countActiveFilters } from "./FilterBar";
+import type { FilterState } from "./FilterBar";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
-import { usePersistedFilters } from "../../hooks/usePersistedFilters";
-import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 
 interface Props {
@@ -60,6 +60,7 @@ interface Props {
   onCardArchived: (cardId: number) => void;
   onCardUnarchived: (card: Card) => void;
   onBoardDeleted?: () => void;
+  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
   userTimezone?: string;
   userDateFormat?: string;
   userTimeFormat?: string;
@@ -115,7 +116,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, onUpdateBoardSettings, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -218,7 +219,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const { filters, setFilters } = usePersistedFilters(board.id);
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTER);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -288,65 +289,48 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     });
   }, [board.cards]);
 
-  // Server-side text search — debounced 300ms, aborts stale requests.
-  // searchMatchIds is null when query is empty or on error (silent fallback → show all cards).
-  const { searchMatchIds, isSearching } = useCardSearch(board.id, filters.search);
-
   const filteredCardIds: Set<number> | null = (() => {
-    // Client-side filter: assignee, label, priority, due date (search is server-side).
-    const clientFiltersActive = (
-      filters.assigneeIds.length > 0 ||
-      filters.labelIds.length > 0 ||
-      filters.priorities.length > 0 ||
-      filters.dueDate !== null
-    );
-
-    let clientMatchIds: Set<number> | null = null;
-    if (clientFiltersActive) {
-      // Use the user's stored timezone so that "Today" / "Overdue" boundaries
-      // are computed at midnight in their local time, not the browser's locale.
-      const todayStr = todayInTimezone(userTimezone);
-      const nextWeekMs = new Date(todayStr + "T00:00:00Z").getTime() + 7 * 86_400_000;
-      const nw = new Date(nextWeekMs);
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const nextWeekStr = `${nw.getUTCFullYear()}-${pad(nw.getUTCMonth() + 1)}-${pad(nw.getUTCDate())}`;
-      const matching = board.cards.filter((card) => {
-        if (filters.assigneeIds.length > 0) {
-          const matches = filters.assigneeIds.some((id) =>
-            id === -1 ? card.assignee === null : card.assignee?.id === id
-          );
-          if (!matches) return false;
+    if (countActiveFilters(filters) === 0) return null;
+    // Use the user's stored timezone so that "Today" / "Overdue" boundaries
+    // are computed at midnight in their local time, not the browser's locale.
+    const todayStr = todayInTimezone(userTimezone);
+    const nextWeekMs = new Date(todayStr + "T00:00:00Z").getTime() + 7 * 86_400_000;
+    const nw = new Date(nextWeekMs);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const nextWeekStr = `${nw.getUTCFullYear()}-${pad(nw.getUTCMonth() + 1)}-${pad(nw.getUTCDate())}`;
+    const matching = board.cards.filter((card) => {
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        const matches =
+          card.title.toLowerCase().includes(q) ||
+          card.description.toLowerCase().includes(q) ||
+          (card.assignee && userDisplayName(card.assignee).toLowerCase().includes(q)) ||
+          card.labels.some((l) => l.name.toLowerCase().includes(q));
+        if (!matches) return false;
+      }
+      if (filters.assigneeIds.length > 0) {
+        const matches = filters.assigneeIds.some((id) =>
+          id === -1 ? card.assignee === null : card.assignee?.id === id
+        );
+        if (!matches) return false;
+      }
+      if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
+      if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;
+      if (filters.dueDate !== null) {
+        if (filters.dueDate === "none" && card.due_date !== null) return false;
+        if (filters.dueDate === "overdue") {
+          if (!card.due_date || card.due_date >= todayStr) return false;
         }
-        if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
-        if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;
-        if (filters.dueDate !== null) {
-          if (filters.dueDate === "none" && card.due_date !== null) return false;
-          if (filters.dueDate === "overdue") {
-            if (!card.due_date || card.due_date >= todayStr) return false;
-          }
-          if (filters.dueDate === "today") {
-            if (card.due_date !== todayStr) return false;
-          }
-          if (filters.dueDate === "this_week") {
-            if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
-          }
+        if (filters.dueDate === "today") {
+          if (card.due_date !== todayStr) return false;
         }
-        return true;
-      });
-      clientMatchIds = new Set(matching.map((c) => c.id));
-    }
-
-    // Combine server search results with client filter results:
-    // - Both active → intersection
-    // - Only searchMatchIds → use that
-    // - Only clientMatchIds → use that
-    // - Neither → null (show all cards)
-    if (searchMatchIds !== null && clientMatchIds !== null) {
-      return new Set([...searchMatchIds].filter((id) => clientMatchIds!.has(id)));
-    }
-    if (searchMatchIds !== null) return searchMatchIds;
-    if (clientMatchIds !== null) return clientMatchIds;
-    return null;
+        if (filters.dueDate === "this_week") {
+          if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
+        }
+      }
+      return true;
+    });
+    return new Set(matching.map((c) => c.id));
   })();
 
   const handleColumnAdded = useCallback((col: Column) => {
@@ -651,7 +635,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       {/* Filter row — own row so it doesn't compress the toolbar */}
       {showFilters && (
         <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
-          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} isSearching={isSearching} />
+          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />
         </div>
       )}
       {cardNotFound && (
@@ -914,6 +898,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onSetCardFieldPref={setCardFieldPref}
           onBoardDeleted={onBoardDeleted}
+          onUpdateBoardSettings={onUpdateBoardSettings}
         />
       )}
 

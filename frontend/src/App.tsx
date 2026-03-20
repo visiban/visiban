@@ -102,11 +102,13 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   onStarToggled: () => void;
 }) {
   const navigate = useNavigate();
-  const { board, loading, error, moveCard, addCard, removeCard, addColumn, removeColumn,
+  const { board, loading, error, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn,
     addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel,
     addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder,
-    reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane,
+    reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings,
   } = useBoard();
+
+  const isAdmin = board?.current_user_role === "admin" || board?.current_user_role === "site_admin";
 
   const [isStarred, setIsStarred] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
@@ -165,7 +167,36 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           { label: board?.name ?? "…", suffix: starButton },
         ]}
       />
-      <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
+      <div className="flex-1 flex flex-col overflow-hidden bg-slate-900 relative">
+        {/* WIP limit exceeded toast — appears at bottom of board area, dismissed on click */}
+        {moveError && (
+          <div
+            role="alert"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 bg-slate-800 border border-amber-600 text-slate-200 text-sm rounded-lg px-4 py-3 shadow-xl max-w-sm"
+          >
+            <span className="text-amber-400 shrink-0 mt-0.5">⚠</span>
+            <div className="flex-1 min-w-0">
+              <p>
+                <span className="font-medium">WIP limit reached</span> — "{moveError.column_name}" is at its limit of {moveError.wip_limit} card{moveError.wip_limit !== 1 ? "s" : ""} ({moveError.current_count} active).
+              </p>
+              {isAdmin && (
+                <button
+                  onClick={forceMoveCard}
+                  className="mt-1.5 text-xs text-amber-400 hover:text-amber-200 underline transition"
+                >
+                  Move anyway (admin override)
+                </button>
+              )}
+            </div>
+            <button
+              onClick={clearMoveError}
+              className="text-slate-500 hover:text-slate-200 transition shrink-0 text-lg leading-none"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
         {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading board…</div>}
         {error && <div className="flex items-center justify-center h-full text-red-400">{error}</div>}
         {board && (
@@ -194,6 +225,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onColumnOrderApplied={applyColumnOrder}
             onSwimlaneOrderApplied={applySwimlaneOrder}
             onBoardDeleted={handleBack}
+            onUpdateBoardSettings={updateBoardSettings}
             userTimezone={user.timezone ?? ""}
             userDateFormat={user.date_format ?? "MM/DD/YYYY"}
             userTimeFormat={user.time_format ?? "12h"}

@@ -195,6 +195,16 @@ class BoardViewSet(viewsets.ModelViewSet):
         if swimlane_name:
             Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
+    def perform_update(self, serializer):
+        """Guard board-level settings updates: only admins can write enforce_wip_limits."""
+        board = serializer.instance
+        role = get_board_role(self.request.user, board)
+        # enforce_wip_limits is an admin-only field — block non-admins from
+        # toggling it even if they somehow construct a PATCH request.
+        if "enforce_wip_limits" in self.request.data and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only board admins can change WIP limit enforcement.")
+        serializer.save()
+
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
         role = get_board_role(request.user, board)
@@ -1242,14 +1252,7 @@ class CardViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Exclude archived cards from all standard list/detail endpoints.
         # Archived cards are accessible via the separate /archived/ action.
-        qs = _card_queryset(Card.objects.filter(board=self._board(), archived_at__isnull=True))
-        # Server-side text search — applied only when the ?search= param is present and non-empty.
-        # This intentionally does not use DRF SearchFilter or CardFilter so that the search param
-        # remains distinct from the django-filters params and the filter logic is easy to trace.
-        q = self.request.query_params.get("search", "").strip()
-        if q:
-            qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
-        return qs
+        return _card_queryset(Card.objects.filter(board=self._board(), archived_at__isnull=True))
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -1487,6 +1490,39 @@ class CardViewSet(viewsets.ModelViewSet):
 
         column_changed = card.column_id != target_column.pk
         swimlane_changed = card.swimlane_id != target_swimlane.pk
+
+        # WIP limit enforcement — only checked when the card is entering a different
+        # column (pure swimlane moves within the same column also count). Pure
+        # position reorders within the same column+swimlane are exempt.
+        if board.enforce_wip_limits and column_changed and target_column.wip_limit is not None:
+            # Lock the target column row to prevent concurrent moves from racing
+            # past the limit check before any of them commits.
+            Column.objects.select_for_update().get(pk=target_column.pk)
+            wip_count = (
+                Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
+                .exclude(pk=card.pk)
+                .count()
+            )
+            if wip_count >= target_column.wip_limit:
+                force = request.query_params.get("force", "").lower() == "true"
+                if force:
+                    # Only board admins and site admins may force past the limit.
+                    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+                        return Response(
+                            {"detail": "Only board admins can override a WIP limit."},
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                    # Admin with force=true — fall through and allow the move.
+                else:
+                    return Response(
+                        {
+                            "code": "wip_limit_exceeded",
+                            "column_name": target_column.name,
+                            "current_count": wip_count,
+                            "wip_limit": target_column.wip_limit,
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
 
         movement = None
         if column_changed or swimlane_changed:

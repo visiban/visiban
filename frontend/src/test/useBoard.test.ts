@@ -52,6 +52,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     labels: [],
     members: [],
     staleness_threshold_days: 7, allowed_priorities: [],
+    enforce_wip_limits: false,
     is_starred: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
@@ -258,6 +259,85 @@ describe('useBoard', () => {
 
     // Should roll back to original column
     expect(result.current.board!.cards[0].column).toBe(10)
+  })
+
+  it('moveCard sets moveError on 409 wip_limit_exceeded and rolls back', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          code: 'wip_limit_exceeded',
+          column_name: 'In Progress',
+          current_count: 3,
+          wip_limit: 3,
+        },
+      },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    // Card must be rolled back to original column
+    expect(result.current.board!.cards[0].column).toBe(10)
+    // moveError must be populated with the server payload
+    expect(result.current.moveError).toEqual({
+      code: 'wip_limit_exceeded',
+      column_name: 'In Progress',
+      current_count: 3,
+      wip_limit: 3,
+    })
+  })
+
+  it('clearMoveError clears the moveError state', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          code: 'wip_limit_exceeded',
+          column_name: 'In Progress',
+          current_count: 2,
+          wip_limit: 2,
+        },
+      },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    expect(result.current.moveError).not.toBeNull()
+
+    act(() => { result.current.clearMoveError() })
+    expect(result.current.moveError).toBeNull()
+  })
+
+  it('moveCard rolls back on generic error without setting moveError', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    // A plain 500 error — no WIP-specific payload
+    mockMoveCard.mockRejectedValue({ response: { status: 500, data: { detail: 'Server error' } } })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    expect(result.current.board!.cards[0].column).toBe(10)
+    // moveError must not be set for non-409 errors
+    expect(result.current.moveError).toBeNull()
   })
 
   it('reorderColumns optimistically updates and applies server response', async () => {
