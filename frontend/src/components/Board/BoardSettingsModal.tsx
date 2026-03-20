@@ -4,7 +4,7 @@ import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, BoardMembership, User } from "../../types";
 import { userDisplayName } from "../../types";
-import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard } from "../../api/boards";
+import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard } from "../../api/boards";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
@@ -25,7 +25,7 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "invite" | "display" | "data";
+  initialTab?: "members" | "display" | "data";
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -33,7 +33,7 @@ interface Props {
   onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority", value: boolean) => void;
 }
 
-type Tab = "members" | "invite" | "display" | "data";
+type Tab = "members" | "display" | "data";
 
 interface StagedInvite {
   user: User;
@@ -69,6 +69,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   const [dropdownAnchor, setDropdownAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const [stalenessThreshold, setStalenessThreshold] = useState(board.staleness_threshold_days ?? 14);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -160,6 +162,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const initials = (user: User) => userDisplayName(user).slice(0, 1).toUpperCase();
 
+  const handleStalenessBlur = () => {
+    patchBoard(board.id, { staleness_threshold_days: stalenessThreshold });
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -175,11 +181,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 px-6 gap-1">
-          {(["members", "invite", "display", "data"] as Tab[]).map((t) => {
-            if (t === "invite" && !isAdmin) return null;
+          {(["members", "display", "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
-              : t === "invite" ? "Invite"
               : t === "display" ? "Display"
               : "Data";
             return (
@@ -286,94 +290,95 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               {members.length === 0 && (
                 <p className="text-sm text-slate-500 py-4 text-center">No members yet.</p>
               )}
-            </div>
-          )}
 
-          {/* ── Invite tab ── */}
-          {tab === "invite" && isAdmin && (
-            <div className="flex flex-col gap-4">
-              <div className="relative">
-                <input
-                  ref={searchInputRef}
-                  autoFocus
-                  value={inviteQuery}
-                  onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
-                  onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setDropdownAnchor(null); setInviteQuery(""); } }}
-                  placeholder="Search by name or email…"
-                  className="w-full bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 placeholder-slate-500"
-                />
-                {suggestions.length > 0 && dropdownAnchor && (
-                  <div
-                    style={{ position: "fixed", top: dropdownAnchor.top, left: dropdownAnchor.left, width: dropdownAnchor.width }}
-                    className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl z-[60] overflow-hidden"
-                  >
-                    {suggestions.map((u) => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        onMouseDown={(e) => { e.preventDefault(); addToStaged(u); }}
-                        className="w-full text-left px-3 py-2.5 hover:bg-slate-700 transition flex items-center gap-2.5"
-                      >
-                        <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-xs font-semibold text-white shrink-0">
-                          {initials(u)}
+              {isAdmin && (
+                <div className="border-t border-slate-700 pt-4 mt-2">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Add member</p>
+                  <div className="flex flex-col gap-4">
+                    <div className="relative">
+                      <input
+                        ref={searchInputRef}
+                        value={inviteQuery}
+                        onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
+                        onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setDropdownAnchor(null); setInviteQuery(""); } }}
+                        placeholder="Search by name or email…"
+                        className="w-full bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 placeholder-slate-500"
+                      />
+                      {suggestions.length > 0 && dropdownAnchor && (
+                        <div
+                          style={{ position: "fixed", top: dropdownAnchor.top, left: dropdownAnchor.left, width: dropdownAnchor.width }}
+                          className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl z-[60] overflow-hidden"
+                        >
+                          {suggestions.map((u) => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onMouseDown={(e) => { e.preventDefault(); addToStaged(u); }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-slate-700 transition flex items-center gap-2.5"
+                            >
+                              <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                                {initials(u)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-200 truncate">{userDisplayName(u)}</p>
+                                <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                              </div>
+                            </button>
+                          ))}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-200 truncate">{userDisplayName(u)}</p>
-                          <p className="text-xs text-slate-500 truncate">{u.email}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      )}
+                    </div>
 
-              {staged.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">To be added</p>
-                  <div className="flex flex-col gap-0">
-                    {staged.map((s) => (
-                      <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-slate-700/60 last:border-0">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-[10px] font-semibold text-white shrink-0">
-                            {initials(s.user)}
-                          </div>
-                          <p className="text-sm text-white truncate">{userDisplayName(s.user)}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <SelectDropdown
-                            value={s.role}
-                            onChange={(v) =>
-                              setStaged((prev) =>
-                                prev.map((x) => x.user.id === s.user.id ? { ...x, role: v } : x)
-                              )
-                            }
-                            options={ROLE_OPTIONS}
-                            size="xs"
-                          />
-                          <button
-                            onClick={() => setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id))}
-                            className="text-xs text-slate-500 hover:text-red-400 transition w-5 text-center"
-                            title="Remove from invite list"
-                          >
-                            ✕
-                          </button>
+                    {staged.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">To be added</p>
+                        <div className="flex flex-col gap-0">
+                          {staged.map((s) => (
+                            <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-slate-700/60 last:border-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-[10px] font-semibold text-white shrink-0">
+                                  {initials(s.user)}
+                                </div>
+                                <p className="text-sm text-white truncate">{userDisplayName(s.user)}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <SelectDropdown
+                                  value={s.role}
+                                  onChange={(v) =>
+                                    setStaged((prev) =>
+                                      prev.map((x) => x.user.id === s.user.id ? { ...x, role: v } : x)
+                                    )
+                                  }
+                                  options={ROLE_OPTIONS}
+                                  size="xs"
+                                />
+                                <button
+                                  onClick={() => setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id))}
+                                  className="text-xs text-slate-500 hover:text-red-400 transition w-5 text-center"
+                                  title="Remove from invite list"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    {inviteError && <p className="text-xs text-red-400">{inviteError}</p>}
+                    {inviteSuccess && <p className="text-xs text-green-400">{inviteSuccess}</p>}
+
+                    <button
+                      onClick={handleInviteSubmit}
+                      disabled={staged.length === 0 || inviting}
+                      className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {inviting ? "Adding…" : staged.length > 0 ? `Add ${staged.length} member${staged.length !== 1 ? "s" : ""} to board` : "Add to board"}
+                    </button>
                   </div>
                 </div>
               )}
-
-              {inviteError && <p className="text-xs text-red-400">{inviteError}</p>}
-              {inviteSuccess && <p className="text-xs text-green-400">{inviteSuccess}</p>}
-
-              <button
-                onClick={handleInviteSubmit}
-                disabled={staged.length === 0 || inviting}
-                className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {inviting ? "Adding…" : staged.length > 0 ? `Add ${staged.length} member${staged.length !== 1 ? "s" : ""} to board` : "Add to board"}
-              </button>
             </div>
           )}
 
@@ -438,105 +443,138 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           )}
 
           {/* ── Display tab ── */}
-          {tab === "display" && viewPrefs && onToggleHiddenColumn && onToggleHiddenSwimlane && onSetCardFieldPref && (
+          {tab === "display" && (
             <div className="flex flex-col gap-5">
-              <p className="text-xs text-slate-500">
-                These preferences are personal and stored in your browser. They do not affect what other users see.
-              </p>
+              {viewPrefs && onToggleHiddenColumn && onToggleHiddenSwimlane && onSetCardFieldPref && (
+                <>
+                  <p className="text-xs text-slate-500">
+                    These preferences are personal and stored in your browser. They do not affect what other users see.
+                  </p>
 
-              {/* Columns */}
-              {board.columns.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Columns</h3>
-                  <div className="flex flex-col gap-0">
-                    {board.columns.map((col) => {
-                      const isHidden = viewPrefs.hiddenColumnIds.includes(col.id);
-                      return (
-                        <label
-                          key={col.id}
-                          className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                            <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
-                              {col.name}
+                  {/* Columns */}
+                  {board.columns.length > 0 && (
+                    <section>
+                      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Columns</h3>
+                      <div className="flex flex-col gap-0">
+                        {board.columns.map((col) => {
+                          const isHidden = viewPrefs.hiddenColumnIds.includes(col.id);
+                          return (
+                            <label
+                              key={col.id}
+                              className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                                <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                                  {col.name}
+                                </span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={!isHidden}
+                                onChange={() => onToggleHiddenColumn(col.id)}
+                                className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Swimlanes */}
+                  {board.swimlanes.length > 0 && (
+                    <section>
+                      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Swimlanes</h3>
+                      <div className="flex flex-col gap-0">
+                        {board.swimlanes.map((lane) => {
+                          const isHidden = viewPrefs.hiddenSwimlaneIds.includes(lane.id);
+                          return (
+                            <label
+                              key={lane.id}
+                              className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: lane.color }} />
+                                <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                                  {lane.name}
+                                </span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={!isHidden}
+                                onChange={() => onToggleHiddenSwimlane(lane.id)}
+                                className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Card fields */}
+                  <section>
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Card fields</h3>
+                    <div className="flex flex-col gap-0">
+                      {(
+                        [
+                          { field: "hideLabels",   label: "Labels" },
+                          { field: "hideDueDate",  label: "Due date" },
+                          { field: "hideAssignee", label: "Assignee" },
+                          { field: "hidePriority", label: "Priority badge" },
+                        ] as { field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority"; label: string }[]
+                      ).map(({ field, label }) => {
+                        const hidden = viewPrefs[field];
+                        return (
+                          <label
+                            key={field}
+                            className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer"
+                          >
+                            <span className={`text-sm ${hidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                              {label}
                             </span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={!isHidden}
-                            onChange={() => onToggleHiddenColumn(col.id)}
-                            className="w-4 h-4 rounded accent-blue-500 shrink-0"
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                </section>
+                            <input
+                              type="checkbox"
+                              checked={!hidden}
+                              onChange={(e) => onSetCardFieldPref(field, !e.target.checked)}
+                              className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </>
               )}
 
-              {/* Swimlanes */}
-              {board.swimlanes.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Swimlanes</h3>
-                  <div className="flex flex-col gap-0">
-                    {board.swimlanes.map((lane) => {
-                      const isHidden = viewPrefs.hiddenSwimlaneIds.includes(lane.id);
-                      return (
-                        <label
-                          key={lane.id}
-                          className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: lane.color }} />
-                            <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
-                              {lane.name}
-                            </span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={!isHidden}
-                            onChange={() => onToggleHiddenSwimlane(lane.id)}
-                            className="w-4 h-4 rounded accent-blue-500 shrink-0"
-                          />
-                        </label>
-                      );
-                    })}
+              {/* Staleness threshold */}
+              <section className="border-t border-slate-700 pt-4 mt-4">
+                {isAdmin ? (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide" htmlFor="staleness-threshold">
+                      Stale card threshold
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="staleness-threshold"
+                        type="number"
+                        min="1"
+                        value={stalenessThreshold}
+                        onChange={(e) => setStalenessThreshold(Number(e.target.value))}
+                        onBlur={handleStalenessBlur}
+                        className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2 w-20 focus:border-blue-400 outline-none"
+                      />
+                      <span className="text-sm text-slate-400">days</span>
+                    </div>
+                    <p className="text-xs text-slate-500">Cards with no movement after this many days are flagged as stalled.</p>
                   </div>
-                </section>
-              )}
-
-              {/* Card fields */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Card fields</h3>
-                <div className="flex flex-col gap-0">
-                  {(
-                    [
-                      { field: "hideLabels",   label: "Labels" },
-                      { field: "hideDueDate",  label: "Due date" },
-                      { field: "hideAssignee", label: "Assignee" },
-                      { field: "hidePriority", label: "Priority badge" },
-                    ] as { field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority"; label: string }[]
-                  ).map(({ field, label }) => {
-                    const hidden = viewPrefs[field];
-                    return (
-                      <label
-                        key={field}
-                        className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer"
-                      >
-                        <span className={`text-sm ${hidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
-                          {label}
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={!hidden}
-                          onChange={(e) => onSetCardFieldPref(field, !e.target.checked)}
-                          className="w-4 h-4 rounded accent-blue-500 shrink-0"
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Stale card threshold</p>
+                    <p className="text-sm text-slate-300">{board.staleness_threshold_days ?? 14} days</p>
+                  </div>
+                )}
               </section>
             </div>
           )}

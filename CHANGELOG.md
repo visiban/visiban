@@ -33,7 +33,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `Board` TypeScript interface now includes `staleness_threshold_days` and `allowed_priorities` — both are returned by `BoardSerializer` but were missing from the frontend type contract (#256)
 - `getSiteConfig` return type now includes `registration_mode` — the field was returned by the API but omitted from the TypeScript return type (#256)
 - Removed `NotificationPrefs` TypeScript interface and `DEFAULT_NOTIFICATION_PREFS` constant — field names did not match the backend (`card_assigned` vs `notif_card_assigned`), and `notification_prefs` was never a User field on the API (#256)
-
+- Board Settings: merged the Invite tab into the Members tab — add-member search now appears at the bottom of the Members tab for admins, removing the need to switch tabs; `staleness_threshold_days` is now editable by admins (and read-only for non-admins) in the Display tab (#245)
 - Board filter state (text search, assignee, priority, labels, due date) is now persisted to `localStorage` keyed by `board:{boardId}:filters` — navigating away from a board and returning restores the previous filters; corrupt or missing storage falls back to empty filters without error (#252)
 - Due date field on card detail now opens the calendar picker when clicking anywhere in the field (text area or icon), not just the calendar icon (#249)
 - Fixed regression in due date field where the calendar only opened on the calendar icon — replaced `showPicker()` approach with a transparent `cursor-pointer` input that receives clicks directly, which works in all browsers (#249)
