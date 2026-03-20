@@ -45,7 +45,7 @@ class CardSearchTests(TestCase):
         r = self.client.get(self._url(), {"search": "login"})
 
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        titles = [c["title"] for c in r.json()]
+        titles = [c["title"] for c in r.json()["results"]]
         self.assertIn("Fix the login bug", titles)
         self.assertNotIn("Update readme", titles)
 
@@ -57,7 +57,7 @@ class CardSearchTests(TestCase):
         r = self.client.get(self._url(), {"search": "token"})
 
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        titles = [c["title"] for c in r.json()]
+        titles = [c["title"] for c in r.json()["results"]]
         self.assertIn("Card A", titles)
         self.assertNotIn("Card B", titles)
 
@@ -76,9 +76,10 @@ class CardSearchTests(TestCase):
         r = self.client.get(self._url(), {"search": "Shared keyword"})
 
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        ids = {c["id"] for c in r.json()}
+        results = r.json()["results"]
+        ids = {c["id"] for c in results}
         # Only the card belonging to self.board should appear.
-        for card_data in r.json():
+        for card_data in results:
             card = Card.objects.get(id=card_data["id"])
             self.assertEqual(card.board_id, self.board.id)
         self.assertEqual(len(ids), 1)
@@ -93,7 +94,7 @@ class CardSearchTests(TestCase):
         r = self.client.get(self._url(), {"search": ""})
 
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()), 3)
+        self.assertEqual(len(r.json()["results"]), 3)
 
     @patch(PATCH_BROADCAST)
     def test_no_search_param_returns_all_cards(self, _):
@@ -104,7 +105,7 @@ class CardSearchTests(TestCase):
         r = self.client.get(self._url())
 
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(len(r.json()["results"]), 2)
 
     @patch(PATCH_BROADCAST)
     def test_search_is_case_insensitive(self, _):
@@ -118,7 +119,7 @@ class CardSearchTests(TestCase):
 
         for r in (r_upper, r_lower, r_mixed):
             self.assertEqual(r.status_code, status.HTTP_200_OK)
-            titles = {c["title"] for c in r.json()}
+            titles = {c["title"] for c in r.json()["results"]}
             self.assertIn("OAuth Integration", titles)
             self.assertIn("Unrelated", titles)
 
@@ -134,6 +135,6 @@ class CardSearchTests(TestCase):
         r = self.client.get(self._url(), {"search": "searchable"})
 
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        titles = [c["title"] for c in r.json()]
+        titles = [c["title"] for c in r.json()["results"]]
         self.assertIn("Active searchable card", titles)
         self.assertNotIn("Archived searchable card", titles)
