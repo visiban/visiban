@@ -9,19 +9,22 @@ vi.mock('../api/boards', () => ({
   removeBoardMember: vi.fn(),
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
+  patchBoard: vi.fn(),
+  deleteBoard: vi.fn(),
 }))
 
 vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
 }))
 
-import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson } from '../api/boards'
+import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard } from '../api/boards'
 import { searchUsers } from '../api/auth'
 
 const mockSetBoardMember = setBoardMember as ReturnType<typeof vi.fn>
 const mockRemoveBoardMember = removeBoardMember as ReturnType<typeof vi.fn>
 const mockExportBoardCsv = exportBoardCsv as ReturnType<typeof vi.fn>
 const mockExportBoardJson = exportBoardJson as ReturnType<typeof vi.fn>
+const mockPatchBoard = patchBoard as ReturnType<typeof vi.fn>
 const mockSearchUsers = searchUsers as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
@@ -111,6 +114,16 @@ describe('BoardSettingsModal — modal basics', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
     await user.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('Invite tab button does NOT appear in the tab bar', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Invite' })).toBeNull()
+  })
+
+  it('Invite tab button does NOT appear for non-admins either', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Invite' })).toBeNull()
   })
 })
 
@@ -221,11 +234,28 @@ describe('BoardSettingsModal — Members tab', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     expect(screen.getByText(/inherited from group membership/i)).toBeInTheDocument()
   })
+
+  // ── Add-member section (merged from Invite tab) ──
+
+  it('Members tab shows add-member search input for admins', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getByPlaceholderText(/search by name or email/i)).toBeInTheDocument()
+  })
+
+  it('Members tab does NOT show add-member section for non-admins', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByPlaceholderText(/search by name or email/i)).toBeNull()
+  })
+
+  it('Members tab shows "Add member" section heading for admins', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getByText(/add member/i)).toBeInTheDocument()
+  })
 })
 
-// ─── Invite tab ────────────────────────────────────────────────────────────
+// ─── Add-member flow (in Members tab) ──────────────────────────────────────
 
-// Helper to stage a user in the invite tab. Uses real timers + manual debounce advance.
+// Helper to stage a user. Uses fake timers + manual debounce advance.
 // Must be called inside a test that has already set up fake timers.
 const aliceUser: User = {
   id: 99,
@@ -241,11 +271,6 @@ const aliceUser: User = {
 }
 
 async function stageAlice() {
-  // navigate to invite tab (no debounce involved for the click)
-  await act(async () => {
-    screen.getByRole('button', { name: 'Invite' }).click()
-  })
-
   const input = screen.getByPlaceholderText(/search by name or email/i)
 
   // Fire change event directly to avoid userEvent timing interactions with fake timers
@@ -274,7 +299,7 @@ async function stageAlice() {
   await waitFor(() => screen.getByText(/to be added/i))
 }
 
-describe('BoardSettingsModal — Invite tab', () => {
+describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.clearAllMocks()
@@ -284,20 +309,8 @@ describe('BoardSettingsModal — Invite tab', () => {
     vi.useRealTimers()
   })
 
-  it('Invite tab is NOT shown when isAdmin=false', () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: 'Invite' })).toBeNull()
-  })
-
-  it('clicking Invite tab shows the search input when isAdmin=true', async () => {
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await act(async () => { screen.getByRole('button', { name: 'Invite' }).click() })
-    expect(screen.getByPlaceholderText(/search by name or email/i)).toBeInTheDocument()
-  })
-
   it('typing <2 chars shows no suggestions', async () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await act(async () => { screen.getByRole('button', { name: 'Invite' }).click() })
 
     const input = screen.getByPlaceholderText(/search by name or email/i)
     await act(async () => {
@@ -313,7 +326,6 @@ describe('BoardSettingsModal — Invite tab', () => {
   it('typing ≥2 chars calls searchUsers after debounce', async () => {
     mockSearchUsers.mockResolvedValue([])
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await act(async () => { screen.getByRole('button', { name: 'Invite' }).click() })
 
     const input = screen.getByPlaceholderText(/search by name or email/i)
     await act(async () => {
@@ -339,8 +351,9 @@ describe('BoardSettingsModal — Invite tab', () => {
     await stageAlice()
 
     expect(screen.getAllByText('Alice Wonder').length).toBeGreaterThanOrEqual(1)
-    // Staged user defaults to 'member' role — dropdown trigger shows 'Member'
-    expect(screen.getByRole('button', { name: 'Member' })).toBeInTheDocument()
+    // Staged user defaults to 'member' role — at least one 'Member' dropdown button is present
+    // (there may be another for the existing Bob Smith row)
+    expect(screen.getAllByRole('button', { name: 'Member' }).length).toBeGreaterThanOrEqual(1)
   })
 
   it('can change the staged user role', async () => {
@@ -348,15 +361,17 @@ describe('BoardSettingsModal — Invite tab', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
-    // Open the staged user's role dropdown (shows 'Member' by default) and select 'Viewer'
+    // Two 'Member' buttons exist: Bob Smith's row + Alice's staged entry.
+    // The staged entry is the last one — click it to open the dropdown.
+    const memberButtons = screen.getAllByRole('button', { name: 'Member' })
     await act(async () => {
-      screen.getByRole('button', { name: 'Member' }).click()
+      memberButtons[memberButtons.length - 1].click()
     })
     await act(async () => {
       screen.getByRole('button', { name: 'Viewer' }).click()
     })
 
-    // Dropdown now shows 'Viewer'
+    // Alice's staged dropdown now shows 'Viewer'
     expect(screen.getByRole('button', { name: 'Viewer' })).toBeInTheDocument()
   })
 
@@ -373,7 +388,6 @@ describe('BoardSettingsModal — Invite tab', () => {
 
   it('submit button is disabled when staged list is empty', async () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await act(async () => { screen.getByRole('button', { name: 'Invite' }).click() })
 
     const submitBtn = screen.getByRole('button', { name: /add to board/i })
     expect(submitBtn).toBeDisabled()
@@ -446,6 +460,69 @@ describe('BoardSettingsModal — Data tab', () => {
   })
 })
 
+// ─── Display tab — staleness threshold ─────────────────────────────────────
+
+describe('BoardSettingsModal — Display tab staleness threshold', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPatchBoard.mockResolvedValue({})
+  })
+
+  it('shows staleness threshold input for admins in Display tab', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Display' }))
+
+    const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
+    expect(input).toBeInTheDocument()
+    expect(input).toHaveValue(7)
+  })
+
+  it('staleness threshold input is editable for admins', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Display' }))
+
+    const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
+    expect(input).not.toHaveAttribute('readonly')
+    expect(input).not.toBeDisabled()
+  })
+
+  it('calls patchBoard on blur with updated staleness value', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Display' }))
+
+    const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
+    await user.clear(input)
+    await user.type(input, '21')
+    await user.tab() // triggers blur
+
+    await waitFor(() => {
+      expect(mockPatchBoard).toHaveBeenCalledWith(1, { staleness_threshold_days: 21 })
+    })
+  })
+
+  it('shows read-only staleness text for non-admins in Display tab', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Display' }))
+
+    // Should show the value as plain text, not an input
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+    expect(screen.getByText(/7 days/i)).toBeInTheDocument()
+  })
+
+  it('falls back to 14 days when staleness_threshold_days is null', async () => {
+    const user = userEvent.setup()
+    const boardNoThreshold: BoardFull = { ...fakeBoard, staleness_threshold_days: null as unknown as number }
+    render(<BoardSettingsModal board={boardNoThreshold} isAdmin={false} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Display' }))
+
+    expect(screen.getByText(/14 days/i)).toBeInTheDocument()
+  })
+})
+
 // ─── initialTab prop ───────────────────────────────────────────────────────
 
 describe('BoardSettingsModal — initialTab prop', () => {
@@ -461,10 +538,11 @@ describe('BoardSettingsModal — initialTab prop', () => {
     expect(screen.getByRole('button', { name: 'Export JSON' })).toBeInTheDocument()
   })
 
-  it('renders with initialTab="invite" starting on the invite tab', () => {
+  it('renders with initialTab="members" (default) starting on the members tab', () => {
     render(
-      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="invite" />
+      <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="members" />
     )
-    expect(screen.getByPlaceholderText(/search by name or email/i)).toBeInTheDocument()
+    expect(screen.getByText('Admin User')).toBeInTheDocument()
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
   })
 })
