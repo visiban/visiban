@@ -7,3 +7,4 @@ Technical documentation for developers and self-hosters.
 | [Overview](overview.md) | System diagram, full tech stack, REST and WebSocket request lifecycles |
 | [Data Model](data-model.md) | Database schema, key models, and their relationships |
 | [Deployment](deployment.md) | Docker Compose, production images, Helm chart for Kubernetes |
+| [Scaling](scaling.md) | Single-server ceilings, when to scale each component, and the recommended scaling sequence |
