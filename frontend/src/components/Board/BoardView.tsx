@@ -17,7 +17,6 @@ import {
 import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../../types";
-import { userDisplayName } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
@@ -292,7 +291,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   // Server-side text search — debounced 300ms, aborts stale requests.
   // searchMatchIds is null when query is empty or on error (silent fallback → show all cards).
-  const { searchMatchIds, isSearching } = useCardSearch(board.id, filters.search);
+  const { searchMatchIds } = useCardSearch(board.id, filters.search);
 
   const filteredCardIds: Set<number> | null = (() => {
     // Client-side filter: assignee, label, priority, due date (search is server-side).
