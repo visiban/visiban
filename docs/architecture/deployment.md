@@ -159,6 +159,10 @@ The bundled PostgreSQL subchart does not perform in-place major version upgrades
    kubectl rollout restart deployment -n visiban visiban-backend
    ```
 
+## Scaling out
+
+When a single-server deployment starts to show latency under load, see [Scaling](scaling.md) for the recommended sequence — worker tuning, S3 for attachments, connection pooling, horizontal replicas, and read replicas — with concrete guidance on when each step is warranted.
+
 ## Rate limiting
 
 In production (`DEBUG=False`), the API enforces the following request rate limits per client. In development (`DEBUG=True`), throttling is effectively disabled (9999/hour for all scopes).
