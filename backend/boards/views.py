@@ -1236,6 +1236,9 @@ class CardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CardSerializer
     filterset_class = CardFilter
+    # Disable pagination: the full board state is loaded via the /full/ endpoint; individual
+    # card list calls (e.g. search) return plain arrays consumed directly by the frontend.
+    pagination_class = None
     ordering_fields = ["position", "due_date", "created_at", "priority"]
     ordering = ["position"]
     # Cards are always scoped to a single board so paginating the list endpoint
