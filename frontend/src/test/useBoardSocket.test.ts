@@ -86,7 +86,7 @@ describe('useBoardSocket', () => {
     const onEvent = vi.fn()
     renderHook(() => useBoardSocket(1, onEvent))
 
-    const event: BoardEvent = { type: 'card.moved', id: 10, column: 2 }
+    const event: BoardEvent = { event: 'card.moved', data: { id: 10, column: 2 } }
     act(() => {
       latestWS().onmessage?.({ data: JSON.stringify(event) })
     })
@@ -98,7 +98,7 @@ describe('useBoardSocket', () => {
     const onEvent = vi.fn()
     renderHook(() => useBoardSocket(1, onEvent))
 
-    const event: BoardEvent = { type: 'card.created', id: 5, title: 'New card' }
+    const event: BoardEvent = { event: 'card.created', data: { id: 5, title: 'New card' } }
     act(() => {
       latestWS().onmessage?.({ data: JSON.stringify(event) })
     })

@@ -82,7 +82,9 @@ const fakeUser: User = {
 
 const fakeBoard: Board = {
   id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', owner: fakeUser,
-  group: null, group_name: null, member_count: 1, card_count: 0, is_starred: false, created_at: '', updated_at: '',
+  group: null, group_name: null, member_count: 1, card_count: 0,
+  staleness_threshold_days: 7, allowed_priorities: [],
+  is_starred: false, created_at: '', updated_at: '',
 }
 
 const fakeColumn: Column = {

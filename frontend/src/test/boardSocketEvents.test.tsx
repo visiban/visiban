@@ -154,7 +154,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView {...props} />)
     await act(async () => {})
     const label: Label = { id: 200, uid: 'lbl002', name: 'Feature', color: '#22C55E' }
-    act(() => { getOnEvent.dispatch({ event: 'label.created', data: label }) })
+    act(() => { getOnEvent.dispatch({ event: 'label.created', data: label as unknown as Record<string, unknown> }) })
     expect(props.onLabelAdded).toHaveBeenCalledWith(expect.objectContaining({ id: 200, name: 'Feature' }))
   })
 
@@ -163,7 +163,7 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView {...props} />)
     await act(async () => {})
     const label: Label = { id: 100, uid: 'lbl001', name: 'Bug (renamed)', color: '#EF4444' }
-    act(() => { getOnEvent.dispatch({ event: 'label.updated', data: label }) })
+    act(() => { getOnEvent.dispatch({ event: 'label.updated', data: label as unknown as Record<string, unknown> }) })
     expect(props.onLabelUpdated).toHaveBeenCalledWith(expect.objectContaining({ id: 100, name: 'Bug (renamed)' }))
   })
 

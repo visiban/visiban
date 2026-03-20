@@ -127,7 +127,7 @@ class CardSearchTests(TestCase):
     def test_search_excludes_archived_cards(self, _):
         """Archived cards must not appear in search results."""
         from django.utils import timezone
-        active = _make_card(self.board, self.col, self.swim, self.user, title="Active searchable card")
+        _make_card(self.board, self.col, self.swim, self.user, title="Active searchable card")
         archived = _make_card(self.board, self.col, self.swim, self.user, title="Archived searchable card")
         archived.archived_at = timezone.now()
         archived.save(update_fields=["archived_at"])
