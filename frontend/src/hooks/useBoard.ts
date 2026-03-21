@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getBoardFull, updateBoard as apiUpdateBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
+import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../types";
 
@@ -260,7 +260,7 @@ export function useBoard() {
     if (!board) return;
     setBoard((b) => b ? { ...b, ...patch } : b);
     try {
-      await apiUpdateBoard(boardId, patch as Parameters<typeof apiUpdateBoard>[1]);
+      await apiPatchBoard(boardId, patch);
     } catch {
       // Reload fresh state on failure
       load();
