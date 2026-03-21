@@ -232,6 +232,9 @@ class BoardViewSet(viewsets.ModelViewSet):
             BoardFavorite.objects.get_or_create(user=request.user, board=board)
         else:
             BoardFavorite.objects.filter(user=request.user, board=board).delete()
+        # Re-fetch via get_queryset() so the _is_starred annotation reflects the
+        # change just made — the object fetched by get_object() above is stale.
+        board = self.get_queryset().get(pk=board.pk)
         return Response(self.get_serializer(board).data)
 
     @action(detail=True, methods=["post"], url_path="move-group")
