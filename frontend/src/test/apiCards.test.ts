@@ -16,6 +16,7 @@ import {
   getCardActivities, getCardAttachments, uploadCardAttachment,
   deleteCardAttachment, getChecklist, addChecklistItem,
   updateChecklistItem, deleteChecklistItem,
+  archiveCard, unarchiveCard, getArchivedCards,
 } from '../api/cards'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -146,5 +147,35 @@ describe('cards API', () => {
     mockClient.delete.mockResolvedValue({})
     await deleteChecklistItem(5, 1, 1)
     expect(mockClient.delete).toHaveBeenCalledWith('/api/boards/5/cards/1/checklist/1/')
+  })
+
+  describe('archiveCard', () => {
+    it('posts to archive endpoint and returns card', async () => {
+      const card = { id: 1, title: 'Archived', archived_at: '2024-01-01T00:00:00Z' }
+      mockClient.post.mockResolvedValue({ data: card })
+      const result = await archiveCard(5, 1)
+      expect(mockClient.post).toHaveBeenCalledWith('/api/boards/5/cards/1/archive/')
+      expect(result).toEqual(card)
+    })
+  })
+
+  describe('unarchiveCard', () => {
+    it('posts to unarchive endpoint and returns card', async () => {
+      const card = { id: 1, title: 'Restored', archived_at: null }
+      mockClient.post.mockResolvedValue({ data: card })
+      const result = await unarchiveCard(5, 1)
+      expect(mockClient.post).toHaveBeenCalledWith('/api/boards/5/cards/1/unarchive/')
+      expect(result).toEqual(card)
+    })
+  })
+
+  describe('getArchivedCards', () => {
+    it('fetches from archived endpoint and returns card list', async () => {
+      const cards = [{ id: 1, title: 'Old card' }]
+      mockClient.get.mockResolvedValue({ data: cards })
+      const result = await getArchivedCards(5)
+      expect(mockClient.get).toHaveBeenCalledWith('/api/boards/5/cards/archived/')
+      expect(result).toEqual(cards)
+    })
   })
 })

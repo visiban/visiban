@@ -105,3 +105,87 @@ class AuthProvidersViewTests(TestCase):
         # AllowAny — no auth needed
         r = self.client.get("/api/auth/providers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
+class UserSearchViewTests(TestCase):
+    """Tests for GET /api/users/?search=<query>."""
+
+    def setUp(self):
+        self.requester = User.objects.create_user(
+            username="searcher", email="searcher@example.com", password="pass"
+        )
+        self.alice = User.objects.create_user(
+            username="alice", email="alice@example.com",
+            password="pass", display_name="Alice Wonderland",
+        )
+        self.bob = User.objects.create_user(
+            username="bob", email="bob@example.com",
+            password="pass", display_name="Bob Builder",
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.requester)
+
+    def test_search_by_display_name(self):
+        r = self.client.get("/api/users/", {"search": "Alice"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        usernames = [u["username"] for u in r.json()]
+        self.assertIn("alice", usernames)
+        self.assertNotIn("bob", usernames)
+
+    def test_search_by_username(self):
+        r = self.client.get("/api/users/", {"search": "bo"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        usernames = [u["username"] for u in r.json()]
+        self.assertIn("bob", usernames)
+
+    def test_search_by_email(self):
+        r = self.client.get("/api/users/", {"search": "alice@"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        emails_returned = [u["username"] for u in r.json()]
+        self.assertIn("alice", emails_returned)
+
+    def test_short_query_returns_empty(self):
+        """Queries shorter than 2 characters return an empty list."""
+        r = self.client.get("/api/users/", {"search": "a"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json(), [])
+
+    def test_empty_query_returns_empty(self):
+        r = self.client.get("/api/users/", {"search": ""})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json(), [])
+
+    def test_results_exclude_requester(self):
+        """The authenticated user must not appear in their own search results."""
+        r = self.client.get("/api/users/", {"search": "searcher"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        usernames = [u["username"] for u in r.json()]
+        self.assertNotIn("searcher", usernames)
+
+    def test_results_capped_at_ten(self):
+        """Results are limited to 10 regardless of how many users match."""
+        for i in range(15):
+            User.objects.create_user(username=f"match_user_{i}", password="pass",
+                                     display_name=f"Matching User {i}")
+        r = self.client.get("/api/users/", {"search": "match"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertLessEqual(len(r.json()), 10)
+
+    def test_response_uses_public_serializer_fields(self):
+        """Response includes only the public fields (id, username, display_name, avatar_url)."""
+        r = self.client.get("/api/users/", {"search": "alice"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        result = r.json()[0]
+        self.assertIn("id", result)
+        self.assertIn("username", result)
+        self.assertIn("display_name", result)
+        self.assertIn("avatar_url", result)
+        # Private fields must not be exposed
+        self.assertNotIn("email", result)
+        self.assertNotIn("must_change_password", result)
+        self.assertNotIn("notif_card_assigned", result)
+
+    def test_unauthenticated_returns_401(self):
+        self.client.force_authenticate(user=None)
+        r = self.client.get("/api/users/", {"search": "alice"})
+        self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
