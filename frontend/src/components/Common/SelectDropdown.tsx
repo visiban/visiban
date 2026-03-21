@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
 export interface SelectDropdownOption<T extends string> {
   value: T;
@@ -27,6 +28,9 @@ export default function SelectDropdown<T extends string>({
 }: Props<T>) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useDropdownEscape(open, () => setOpen(false), triggerRef);
 
   useEffect(() => {
     if (!open) return;
@@ -47,10 +51,11 @@ export default function SelectDropdown<T extends string>({
   return (
     <div ref={containerRef} className={`relative inline-block ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className={`${triggerPadding} bg-slate-800 border rounded outline-none flex items-center gap-1 transition disabled:opacity-50 disabled:cursor-not-allowed
+        className={`${triggerPadding} bg-slate-800 border rounded outline-none flex items-center gap-1 transition disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900
           ${open
             ? "border-blue-400 text-blue-400"
             : "border-slate-600 text-slate-300 hover:border-slate-400"

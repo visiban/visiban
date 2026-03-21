@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import type { BoardFull, Priority } from "../../types";
 import { userDisplayName } from "../../types";
 
@@ -41,6 +42,9 @@ interface SingleSelectDropdownProps<T extends string | number> {
 function SingleSelectDropdown<T extends string | number>({ label, options, selected, onChange }: SingleSelectDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useDropdownEscape(open, () => setOpen(false), triggerRef);
 
   useEffect(() => {
     if (!open) return;
@@ -58,8 +62,9 @@ function SingleSelectDropdown<T extends string | number>({ label, options, selec
   return (
     <div ref={ref} className="relative">
       <button
+        ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition ${
+        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
           selected !== null ? "border-blue-400 text-blue-400" : "border-slate-600 text-slate-300 hover:border-slate-400"
         }`}
       >
@@ -105,6 +110,9 @@ interface CheckboxDropdownProps<T extends string | number> {
 function CheckboxDropdown<T extends string | number>({ label, options, selected, onChange }: CheckboxDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useDropdownEscape(open, () => setOpen(false), triggerRef);
 
   useEffect(() => {
     if (!open) return;
@@ -128,8 +136,9 @@ function CheckboxDropdown<T extends string | number>({ label, options, selected,
   return (
     <div ref={ref} className="relative">
       <button
+        ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition ${
+        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
           selected.length > 0 ? "border-blue-400 text-blue-400" : "border-slate-600 text-slate-300 hover:border-slate-400"
         }`}
       >

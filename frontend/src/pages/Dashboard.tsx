@@ -222,8 +222,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
 
       {joiningGroup && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-white font-semibold text-lg mb-1">Join a group</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="join-group-title" className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <h3 id="join-group-title" className="text-white font-semibold text-lg mb-1">Join a group</h3>
             <p className="text-slate-400 text-sm mb-4">Paste the invite link or token you received.</p>
             <input
               type="text"
@@ -249,8 +249,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         const canDelete = !hasCards || nameMatches;
         return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
-              <h3 className="text-white font-semibold text-lg mb-2">Delete board?</h3>
+            <div role="dialog" aria-modal="true" aria-labelledby="delete-board-title" className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+              <h3 id="delete-board-title" className="text-white font-semibold text-lg mb-2">Delete board?</h3>
               <p className="text-slate-400 text-sm mb-1">
                 <span className="text-white font-medium">{board?.name}</span> and all its data will be permanently deleted.
               </p>

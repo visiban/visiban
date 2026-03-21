@@ -105,7 +105,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           <div ref={bellRef} className="relative">
             <button
               onClick={openBell}
-              className="relative text-slate-300 hover:text-white transition p-1"
+              className="relative text-slate-300 hover:text-white transition p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
               title="Notifications"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -123,7 +123,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                   <span className="text-xs font-semibold text-slate-300">Notifications</span>
                   <button
                     onClick={handleMarkAll}
-                    className="text-xs text-blue-400 hover:text-blue-300"
+                    className="text-xs text-blue-400 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                   >
                     Mark all read
                   </button>
@@ -149,13 +149,13 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
           <button
             onClick={() => navigate("/settings", { state: { from: location } })}
-            className="text-slate-200 text-sm hover:text-white transition"
+            className="text-slate-200 text-sm hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
           >
             {userDisplayName(user)}
           </button>
           <button
             onClick={onLogout}
-            className="text-xs text-slate-400 hover:text-white transition"
+            className="text-xs text-slate-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
           >
             Sign out
           </button>

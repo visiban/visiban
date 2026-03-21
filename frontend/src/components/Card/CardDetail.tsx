@@ -297,7 +297,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
 
-      <div ref={panelRef} className="w-[540px] bg-slate-800 shadow-2xl flex flex-col overflow-hidden">
+      <div ref={panelRef} role="complementary" className="w-[540px] bg-slate-800 shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-700">
           <div className="flex-1 min-w-0">

@@ -76,6 +76,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       onClick={onClick}
       className={`group bg-slate-800 rounded-md cursor-pointer select-none transition-all border relative z-0
         hover:-translate-y-0.5 hover:z-20
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
         ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : card.is_stale ? "ring-1 ring-inset ring-amber-400" : ""}
