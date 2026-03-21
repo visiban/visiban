@@ -15,7 +15,7 @@ import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
 import { importBoard } from "../api/boards";
-import type { Board, Group, GroupLabel, GroupMembership, Priority, User } from "../types";
+import type { Board, Group, GroupMembership, Priority, User } from "../types";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
 
@@ -66,6 +66,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const [isStarred, setIsStarred] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
+
+  // Inline confirmation state — replaces window.confirm() for destructive actions
+  const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<number | null>(null);
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
+  const [confirmRemoveLabelId, setConfirmRemoveLabelId] = useState<number | null>(null);
 
   // Board defaults state
   const [newLabelName, setNewLabelName] = useState("");
@@ -142,7 +147,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleRemoveMember = async (userId: number) => {
-    if (!confirm("Remove this member?")) return;
+    setConfirmRemoveMemberId(null);
     await removeGroupMember(groupId, userId);
     setMembers((prev) => prev.filter((m) => m.user.id !== userId));
   };
@@ -153,7 +158,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleDeleteGroup = async () => {
-    if (!confirm(`Delete group "${group?.name}"? This cannot be undone.`)) return;
+    setConfirmDeleteGroup(false);
     await deleteGroup(groupId);
     navigate("/");
   };
@@ -192,10 +197,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     }
   };
 
-  const handleDeleteGroupLabel = async (label: GroupLabel) => {
-    if (!confirm(`Remove shared label "${label.name}"?`)) return;
-    await deleteGroupLabel(groupId, label.id);
-    setGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.filter((l) => l.id !== label.id) } : prev);
+  const handleDeleteGroupLabel = async (labelId: number) => {
+    setConfirmRemoveLabelId(null);
+    await deleteGroupLabel(groupId, labelId);
+    setGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.filter((l) => l.id !== labelId) } : prev);
   };
 
   const handleTogglePriority = async (priority: Priority) => {
@@ -508,12 +513,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                             <p className="text-xs text-slate-400">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>
                           </RoleInfoTooltip>
                         )}
-                        <button
-                          onClick={() => handleRemoveMember(m.user.id)}
-                          className="text-slate-600 hover:text-red-400 transition text-xs"
-                        >
-                          Remove
-                        </button>
+                        {confirmRemoveMemberId === m.user.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-slate-400">Remove?</span>
+                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-xs text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">No</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmRemoveMemberId(m.user.id)}
+                            className="text-slate-600 hover:text-red-400 transition text-xs"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 shrink-0">
@@ -602,12 +615,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         style={{ backgroundColor: label.color }}
                       />
                       <span className="text-white text-sm flex-1">{label.name}</span>
-                      <button
-                        onClick={() => handleDeleteGroupLabel(label)}
-                        className="text-slate-600 hover:text-red-400 transition text-xs"
-                      >
-                        Remove
-                      </button>
+                      {confirmRemoveLabelId === label.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-slate-400">Remove?</span>
+                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-xs text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">No</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmRemoveLabelId(label.id)}
+                          className="text-slate-600 hover:text-red-400 transition text-xs"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
                   ))}
                   {(group.shared_labels ?? []).length === 0 && (
@@ -656,7 +677,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   </button>
                 )}
                 <button
-                  onClick={handleDeleteGroup}
+                  onClick={() => setConfirmDeleteGroup(true)}
                   className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded-lg transition"
                 >
                   Delete group
@@ -765,6 +786,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   {transferring ? "Transferring…" : "Transfer ownership"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete group confirmation modal */}
+      {confirmDeleteGroup && group && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl border border-slate-700">
+            <h3 className="text-white font-semibold text-base mb-2">Delete &ldquo;{group.name}&rdquo;?</h3>
+            <p className="text-slate-400 text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmDeleteGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+              <button onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete group</button>
             </div>
           </div>
         </div>

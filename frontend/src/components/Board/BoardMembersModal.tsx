@@ -27,6 +27,7 @@ const ROLE_OPTIONS = ROLES.map((r) => ({
 export default function BoardMembersModal({ board, onClose, onMembersChanged }: Props) {
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
+  const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<number | null>(null);
 
   const handleRoleChange = async (userId: number, role: BoardRole) => {
     setSaving(userId);
@@ -46,7 +47,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
   };
 
   const handleRemove = async (userId: number) => {
-    if (!confirm("Remove this member's direct board role? They may still have access via group membership.")) return;
+    setConfirmRemoveUserId(null);
     setSaving(userId);
     try {
       await removeBoardMember(board.id, userId);
@@ -96,14 +97,22 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
                       size="xs"
                     />
                     {!isSelf && m.id !== null && (
-                      <button
-                        onClick={() => handleRemove(m.user.id)}
-                        disabled={isDisabled}
-                        className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-50"
-                        title="Remove direct board role"
-                      >
-                        ✕
-                      </button>
+                      confirmRemoveUserId === m.user.id ? (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[11px] text-slate-400">Remove?</span>
+                          <button onClick={() => handleRemove(m.user.id)} className="text-[11px] text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                          <button onClick={() => setConfirmRemoveUserId(null)} className="text-[11px] text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">No</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmRemoveUserId(m.user.id)}
+                          disabled={isDisabled}
+                          className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-50"
+                          title="Remove direct board role"
+                        >
+                          ✕
+                        </button>
+                      )
                     )}
                   </div>
                 </div>

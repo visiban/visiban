@@ -16,6 +16,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GroupDetail page: replaced all `gray-*` Tailwind tokens with `slate-*` to match the project's dark theme color system (#294)
 - Helm chart `backend-deployment.yaml` now runs daphne (ASGI) instead of gunicorn (WSGI) — Kubernetes deployments via the Helm chart previously used gunicorn which cannot serve WebSocket connections, causing real-time board updates to silently fail (#276)
 - Removed gunicorn from `requirements.txt` — daphne is the ASGI server used in all deployments; gunicorn was a leftover from before the ASGI migration (#276)
+- Card detail `save()` now catches API errors, rolls back to the pre-save state, and shows an inline error message — previously any failure was silently swallowed and the UI was left in an inconsistent state (#300)
+- Bulk move now shows an inline amber warning when one or more cards could not be moved (e.g. blocked by a WIP or weight limit) and keeps the selection active so the user knows which cards were affected; previously partial failures were silently discarded (#303)
+- All 8 `window.confirm()` calls replaced with inline confirmation UI consistent with the design system — affects: card delete, card archive, column delete, board member remove, group member remove, group delete, shared label remove, invite link revoke (#295)
 
 ---
 

@@ -19,6 +19,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const [dropdown, setDropdown] = useState<Dropdown>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [movePartialError, setMovePartialError] = useState<string | null>(null);
 
   useEscapeStack(() => {
     if (!confirmDelete) return false;
@@ -32,6 +33,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
   const handleMove = async (column: Column) => {
     setDropdown(null);
+    setMovePartialError(null);
     setBusy(true);
     // Serialize move requests to avoid database deadlocks from concurrent
     // position-reorder transactions targeting the same column.
@@ -49,7 +51,15 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
       }
     }
     if (updated.length > 0) onCardsUpdated(updated);
-    onClearSelection();
+    const failed = selectedCards.length - updated.length;
+    if (failed > 0) {
+      // Keep selection active so the user can see which cards remain and dismiss manually.
+      setMovePartialError(
+        `${failed} of ${selectedCards.length} card${selectedCards.length !== 1 ? "s" : ""} could not be moved — blocked by a WIP or weight limit.`
+      );
+    } else {
+      onClearSelection();
+    }
     setBusy(false);
   };
 
@@ -232,7 +242,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
         {/* Deselect */}
         <button
-          onClick={onClearSelection}
+          onClick={() => { setMovePartialError(null); onClearSelection(); }}
           disabled={busy}
           className="text-slate-400 hover:text-white transition p-1 disabled:opacity-40"
           title="Deselect all (Esc)"
@@ -242,6 +252,9 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           </svg>
         </button>
 
+        {movePartialError && (
+          <span className="text-xs text-amber-400 shrink-0">{movePartialError}</span>
+        )}
         {busy && (
           <span className="text-xs text-slate-400 animate-pulse">Working...</span>
         )}
