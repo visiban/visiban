@@ -180,8 +180,10 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {saved && <p className="text-sm text-green-400">Changes saved.</p>}
+      <p className="text-xs h-4">
+        {error && <span className="text-red-400">{error}</span>}
+        {saved && !error && <span className="text-green-400">Changes saved.</span>}
+      </p>
 
       <div>
         <button
@@ -286,12 +288,10 @@ function SecurityTab({ user }: { user: User }) {
         />
       </label>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {saved && (
-        <p className="text-sm text-green-400">
-          {hasPw ? "Password changed successfully." : "Password set successfully."}
-        </p>
-      )}
+      <p className="text-xs h-4">
+        {error && <span className="text-red-400">{error}</span>}
+        {saved && !error && <span className="text-green-400">{hasPw ? "Password changed successfully." : "Password set successfully."}</span>}
+      </p>
 
       <div>
         <button
