@@ -30,8 +30,8 @@ Get board summary. Response includes:
 | `card_count` | integer | Number of active (non-archived) cards |
 | `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
 | `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed |
-| `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `false`) |
-| `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `false`) |
+| `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `true` for new boards) |
+| `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `true` for new boards) |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
