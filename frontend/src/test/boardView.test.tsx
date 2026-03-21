@@ -3,16 +3,26 @@ import { render, screen, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
+import type { CollisionDetection, DragEndEvent } from '@dnd-kit/core'
+import * as dndCore from '@dnd-kit/core'
 
 // Controllable search params for deep-link tests
 let mockSearchParams = new URLSearchParams()
 const mockSetSearchParams = vi.fn()
 
+// Capture DndContext props (onDragEnd, collisionDetection) so tests can invoke them directly.
+let capturedOnDragEnd: ((e: DragEndEvent) => void) | undefined
+let capturedCollisionDetection: ((args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection>) | undefined
+
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DndContext: ({ children, onDragEnd, collisionDetection }: { children: React.ReactNode; onDragEnd?: (e: DragEndEvent) => void; collisionDetection?: (args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection> }) => {
+    capturedOnDragEnd = onDragEnd
+    capturedCollisionDetection = collisionDetection
+    return <div>{children}</div>
+  },
   DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   PointerSensor: class {},
-  closestCenter: vi.fn(),
+  closestCenter: vi.fn((_args: Parameters<CollisionDetection>[0]) => []),
   useSensor: () => ({}),
   useSensors: () => [],
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -341,5 +351,64 @@ describe('BoardView', () => {
     fireEvent.mouseDown(sep, { clientX: 100 })
     fireEvent.mouseUp(window, { clientX: 100 })
     expect(screen.getByTestId('add-column-modal')).toBeInTheDocument()
+  })
+
+  it('collisionDetection for card drag only returns cell: containers', () => {
+    render(<BoardView {...defaultProps()} />)
+    expect(capturedCollisionDetection).toBeDefined()
+
+    const containers = [
+      { id: 'col:10', data: { current: {} }, rect: { current: null } },
+      { id: 'swim:20', data: { current: {} }, rect: { current: null } },
+      { id: 'cell:10:20', data: { current: {} }, rect: { current: null } },
+      { id: 'cell:11:20', data: { current: {} }, rect: { current: null } },
+    ]
+
+    // Simulate a card drag (active id is a plain number, not col: or swim:)
+    const args = {
+      active: { id: 228, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+      droppableContainers: containers as Parameters<CollisionDetection>[0]['droppableContainers'],
+      droppableRects: new Map(),
+      collisionRect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 },
+      pointerCoordinates: null,
+    } as Parameters<CollisionDetection>[0]
+
+    capturedCollisionDetection!(args)
+
+    // closestCenter should have been called with only cell: containers
+    const mockClosestCenter = vi.mocked(dndCore.closestCenter)
+    const lastCall = mockClosestCenter.mock.calls[mockClosestCenter.mock.calls.length - 1]
+    const filteredContainers: typeof containers = lastCall[0].droppableContainers as typeof containers
+    expect(filteredContainers.every((c: (typeof containers)[0]) => String(c.id).startsWith('cell:'))).toBe(true)
+    expect(filteredContainers).toHaveLength(2)
+  })
+
+  it('handleDragEnd does not call onMoveCard when card is dropped on a column header', async () => {
+    const props = defaultProps()
+    const card = {
+      id: 228, uid: 'carduid00228', column: 10, swimlane: 20, title: 'Test Card',
+      description: '', priority: 'medium' as const, assignee: null,
+      labels: [], due_date: null, weight: 1, position: 0, created_by: 1,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      last_moved_at: null, attachment_count: 0, checklist_total: 0,
+      checklist_done: 0, is_stale: false, archived_at: null,
+    }
+    props.board = makeBoard({ cards: [card] })
+    render(<BoardView {...props} />)
+    expect(capturedOnDragEnd).toBeDefined()
+
+    // Simulate dropping a card (id=228) onto a column header zone (over.id="col:11")
+    // This is the scenario that causes swimId = undefined → NaN → null → backend 404
+    const dragEndEvent = {
+      active: { id: 228, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+      over: { id: 'col:11', data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+      delta: { x: 0, y: 0 },
+      activatorEvent: new MouseEvent('mousedown'),
+    } as unknown as DragEndEvent
+
+    act(() => { capturedOnDragEnd!(dragEndEvent) })
+
+    // The guard should prevent onMoveCard from being called
+    expect(props.onMoveCard).not.toHaveBeenCalled()
   })
 })
