@@ -45,6 +45,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Fixed regression in due date field where the calendar only opened on the calendar icon — replaced `showPicker()` approach with a transparent `cursor-pointer` input that receives clicks directly, which works in all browsers (#249)
 - Docs: Card Archiving, Demo Data, and Secret Rotation pages now appear in the docs sidebar — they existed but were missing from the mkdocs nav; fix broken `../administration/` link in the features index
 - CreateGroupModal: after a group is created the modal now shows a brief `✓ "Name" created` confirmation in green below the input, clears it after 2 seconds, and returns focus to the name field so the user can immediately type the next group name (#253)
+- `seed_demo_data` production guard (`DEBUG=False` → `CommandError`) is verified correct and covered by tests (`SeedProductionGuardTests`); added inline comment in `frontend/src/api/auth.ts` explaining why `updateDefaultBoard` uses `/api/auth/me/` instead of `/api/auth/user/`
 
 ---
 
