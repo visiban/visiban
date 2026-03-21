@@ -40,6 +40,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       REDIS_CACHE_URL: redis://redis:6379/1
       DEBUG: "false"
+    volumes:
+      - mediafiles:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -69,6 +71,7 @@ services:
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
       - frontend-dist:/usr/share/nginx/html:ro
+      - mediafiles:/app/media:ro
     depends_on:
       frontend-build:
         condition: service_completed_successfully
@@ -87,3 +90,4 @@ services:
 volumes:
   pgdata:
   frontend-dist:
+  mediafiles:

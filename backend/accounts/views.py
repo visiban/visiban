@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from .models import SiteSetting
-from .serializers import UserSerializer
+from .serializers import PublicUserSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -44,7 +44,7 @@ class UserSearchView(APIView):
             .exclude(pk=request.user.pk)
             .order_by("display_name", "username")[:10]
         )
-        return Response(UserSerializer(users, many=True).data)
+        return Response(PublicUserSerializer(users, many=True).data)
 
 
 class AuthProvidersView(APIView):
@@ -77,7 +77,13 @@ class CurrentUserView(APIView):
 
 
 class ChangePasswordView(APIView):
-    """Change the authenticated user's password, keeping the session alive afterwards."""
+    """Change the authenticated user's password, keeping the session alive afterwards.
+
+    Explicitly opts out of MustNotHavePendingPasswordChange so that users who
+    were forced to change their password can still reach this endpoint.
+    """
+
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         current_password = request.data.get("current_password", "")

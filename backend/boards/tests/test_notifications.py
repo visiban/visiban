@@ -21,7 +21,8 @@ def make_board(owner):
 
 class StaleCardNotificationTests(TestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="owner", password="pass")
+        # notif_due_soon=True — stale-card notifications respect this preference.
+        self.owner = User.objects.create_user(username="owner", password="pass", notif_due_soon=True)
         self.board, self.col_a, self.col_b, self.swim = make_board(self.owner)
         self.threshold = self.board.staleness_threshold_days
 
@@ -69,7 +70,7 @@ class StaleCardNotificationTests(TestCase):
         self.assertEqual(Notification.objects.filter(card=card).count(), 0)
 
     def test_stale_card_notifies_assignee(self):
-        assignee = User.objects.create_user(username="assignee", password="pass")
+        assignee = User.objects.create_user(username="assignee", password="pass", notif_due_soon=True)
         BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
         card = self._make_card(assignee=assignee)
         self._make_stale_movement(card, days_ago=self.threshold + 1)
@@ -183,7 +184,8 @@ class CardAssignmentNotificationTests(TestCase):
     @patch("boards.views.broadcast_board_event")
     def test_card_move_notifies_assignee(self, _mock_broadcast):
         col_b = Column.objects.create(board=self.board, name="Doing", position=2)
-        assignee = User.objects.create_user(username="mover_assignee", password="pass")
+        # notif_card_moved=True — card-move notifications respect this preference.
+        assignee = User.objects.create_user(username="mover_assignee", password="pass", notif_card_moved=True)
         BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
         self.card.assignee = assignee
         self.card.save()

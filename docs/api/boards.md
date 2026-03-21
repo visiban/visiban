@@ -6,9 +6,16 @@
 List all boards accessible to the current user.
 
 ### `POST /api/boards/`
-Create a personal board. Creates default columns (Backlog, To Do, Doing, Done) and a "General" swimlane.
+Create a board.
 
-**Request** `{ "name": "My Board", "description": "" }`
+**Request**
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | ✓ | Board name |
+| `description` | | Board description (default: `""`) |
+| `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/boards/templates/` for available slugs. |
+| `swimlane_name` | | Name for the first swimlane (default: `"General"`) |
 
 ### `GET /api/boards/{id}/`
 Get board summary. Response includes:
@@ -23,11 +30,15 @@ Get board summary. Response includes:
 | `card_count` | integer | Number of active (non-archived) cards |
 | `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
 | `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed |
+| `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `false`) |
+| `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `false`) |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
 ### `PUT /api/boards/{id}/`
-Update board name/description. Requires board admin.
+Update board fields. Requires board admin.
+
+**Writable fields:** `name`, `description`, `staleness_threshold_days`, `allowed_priorities`. Board admins may also set `enforce_wip_limits` and `enforce_weight_limits`; non-admins sending these fields receive `403 Forbidden`.
 
 ### `DELETE /api/boards/{id}/`
 Delete board. Requires board owner or site admin.
@@ -121,7 +132,9 @@ Create a column. Requires board admin.
 
 **Request** `{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false }`
 
-> When `allow_card_creation` is `false`, posting a new card to that column returns `400 Bad Request` with `{"column": "Card creation is not allowed in this column."}`. WIP and weight limits are informational soft limits — the API does not reject card creation or moves when they are exceeded.
+> When `allow_card_creation` is `false`, posting a new card to that column returns `400 Bad Request` with `{"column": "Card creation is not allowed in this column."}`.
+>
+> WIP and weight limits are enforced when `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board. A card move to an over-limit column returns `409 Conflict` — see the move endpoint in the [Cards API](cards.md) for the full error schema and the `?force=true` admin override. When enforcement is disabled, limits are displayed but not enforced.
 
 ### `PUT /api/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.

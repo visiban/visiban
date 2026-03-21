@@ -12,6 +12,7 @@ import datetime
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from accounts.models import User
 from boards.models import Board, Card, Notification
 
 
@@ -53,7 +54,12 @@ class Command(BaseCommand):
                 if card.assignee_id:
                     recipients.add(card.assignee_id)
 
-                for user_id in recipients:
+                # Restrict to users who have opted into stale-card notifications.
+                opted_in = set(
+                    User.objects.filter(pk__in=recipients, notif_due_soon=True)
+                    .values_list("pk", flat=True)
+                )
+                for user_id in opted_in:
                     # Idempotency: skip if already notified today for this card
                     already = Notification.objects.filter(
                         recipient_id=user_id,
@@ -66,6 +72,7 @@ class Command(BaseCommand):
                         continue
                     Notification.objects.create(
                         recipient_id=user_id,
+                        action_type=Notification.ActionType.STALE,
                         verb=verb,
                         card=card,
                         board=board,

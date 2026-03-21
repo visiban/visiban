@@ -145,18 +145,20 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 
 ## User search
 
-### `GET /api/users/?q=<query>`
+### `GET /api/users/?search=<query>`
 Search users by display name, email, or username. Requires authentication. Used internally for @mention autocomplete and the member invite typeahead.
 
-Rate-limited to 120 requests/hour per user.
+Rate-limited to 30 requests/minute per user.
 
 **Query params**
 
 | Param | Description |
 |---|---|
-| `q` | Search term (partial match on username, display name, or email) |
+| `search` | Search term — minimum 2 characters; partial match on username, display name, email, or first name. Returns `[]` for shorter queries. |
 
-**Response** `[{ "id": 5, "username": "alice", "display_name": "Alice Smith", "email": "alice@example.com", "avatar_url": null }, ...]`
+**Response** `[{ "id": 5, "username": "alice", "display_name": "Alice Smith", "avatar_url": null }, ...]`
+
+> Results include `id`, `username`, `display_name`, and `avatar_url` only — the full user profile (including email) is not returned by this endpoint.
 
 ---
 
@@ -167,10 +169,10 @@ Returns the list of configured OAuth providers. No authentication required. Used
 
 **Response**
 ```json
-{ "providers": ["google", "github", "gitlab"] }
+{ "google": true, "github": false, "gitlab": true }
 ```
 
-Returns an empty list if no OAuth providers are configured.
+Each key is `true` if the provider is configured on this instance, `false` otherwise.
 
 ---
 
@@ -181,11 +183,11 @@ Change the authenticated user's password. Requires authentication.
 
 **Request**
 ```json
-{ "old_password": "current-password", "new_password1": "new-password", "new_password2": "new-password" }
+{ "current_password": "current-password", "new_password": "new-password" }
 ```
 
-- `new_password1` and `new_password2` must match
-- Minimum length and complexity rules apply (Django password validators)
+- `current_password` is not required for social-only accounts (accounts with no usable password that are setting a password for the first time)
+- Minimum 12 characters; standard Django complexity rules apply
 - If `must_change_password` was set, it is cleared on success
 
 **Response** `200 OK` on success; `400 Bad Request` with field errors on failure.

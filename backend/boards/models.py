@@ -380,6 +380,8 @@ class Notification(models.Model):
     class ActionType(models.TextChoices):
         ASSIGNED = "assigned", "assigned"
         MENTIONED = "mentioned", "mentioned"
+        CARD_MOVED = "card_moved", "card moved"
+        STALE = "stale", "stale"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"

@@ -93,13 +93,27 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Django-served static and media files
+    # Django-served static files
     location /static/ {
         proxy_pass http://backend:8000;
     }
 
+    # Attachment downloads — proxied through Django for authentication and
+    # board-membership checks. Django returns X-Accel-Redirect to hand off
+    # the actual file transfer to Nginx without re-reading it through Python.
     location /media/ {
-        proxy_pass       http://backend:8000;
-        proxy_set_header Host $host;
+        proxy_pass         http://backend:8000;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    # Internal-only location used by X-Accel-Redirect responses from Django.
+    # Not accessible directly from the internet — Nginx rejects external requests
+    # that include an X-Accel-Redirect header targeting this path.
+    location /protected-media/ {
+        internal;
+        alias /app/media/;
     }
 }

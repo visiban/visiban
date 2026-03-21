@@ -2,7 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-from boards.views import LivenessView, ReadinessView
+from boards.views import LivenessView, ReadinessView, ServeMediaView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
@@ -12,6 +12,9 @@ urlpatterns = [
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/health/liveness/", LivenessView.as_view()),
     path("api/health/readiness/", ReadinessView.as_view()),
+    # Authenticated media serving — replaces the unauthenticated Nginx /media/ proxy.
+    # Must be listed before static() so this view handles /media/ in all environments.
+    path("media/<path:path>", ServeMediaView.as_view()),
     path("api/", include("boards.urls")),
     path("api/", include("accounts.urls")),
     path("api/", include("groups.urls")),

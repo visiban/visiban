@@ -16,6 +16,19 @@ class RegistrationSerializer(RegisterSerializer):
     )
 
 
+class PublicUserSerializer(serializers.ModelSerializer):
+    """Minimal user representation returned by the user-search endpoint.
+
+    Intentionally omits email, notification preferences, and other private
+    fields — the search endpoint is accessible to all authenticated users
+    regardless of whether they share a board with the result.
+    """
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "display_name", "avatar_url"]
+
+
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
     # default_board_id is injected as a writable PrimaryKeyRelatedField in

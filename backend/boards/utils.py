@@ -66,7 +66,7 @@ def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
 
     already_notified = set(fresh_card.mentioned_user_ids or [])
     recipients = (
-        User.objects.filter(username__in=added_usernames, pk__in=eff_ids)
+        User.objects.filter(username__in=added_usernames, pk__in=eff_ids, notif_mentioned=True)
         .exclude(pk=actor.pk)
         .exclude(pk__in=already_notified)
     )
