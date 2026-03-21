@@ -39,6 +39,7 @@ Rules:
 - 1.0.0 and later: minor version only — `> **Added in 1.1**` (never `1.1.0`)
 - Patch releases (e.g. 1.1.1) do not get version callouts — only minor and pre-releases
 - Do **not** add version callouts to changed or fixed behaviour — only net-new features
+- For features not yet released, use the planned version number (e.g. `Added in 1.1`) — the callout is accurate the moment the docs go live, and a `grep` at release time will catch any version that needs updating. Never use "next", "upcoming", or "TBD".
 - Check `CHANGELOG.md` or the git tag for the correct version if unsure
 
 ### 3. Apply enterprise callouts
