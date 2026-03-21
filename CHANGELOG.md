@@ -14,7 +14,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Server-side per-board card search: the search input in the filter bar now queries `GET /api/boards/{id}/cards/?search=<q>` (title and description, case-insensitive) debounced at 300ms with `AbortController` cancellation of stale requests; a small spinner appears inside the input while the request is in-flight; errors fall back silently to showing all cards; client-side filters (assignee, label, priority, due date) continue to run locally and are intersected with server results (#233)
 - Due date changes (set, update, clear) now appear in the card activity history with human-readable labels (e.g. "Due date: (none) → Apr 14, 2026"); rapid-fire weight and field changes from ± buttons are debounced at 600ms so only the net change is recorded rather than every intermediate step (#259)
 - Opt-in weight limit enforcement (`enforce_weight_limits` board setting): when enabled, moving a card into a column that would exceed its weight budget returns a 409 showing current weight, card weight, and limit; board admins can override with `?force=true`; archived cards excluded from weight sum; WIP check runs first when both limits are enabled (#260)
-- feat: expose OpenAPI 3.0 spec at `/api/schema/` via drf-spectacular with Swagger UI (`/api/schema/swagger-ui/`) and ReDoc (`/api/schema/redoc/`); CI validates the schema on every backend change (#258)
+- OpenAPI 3.0 spec exposed at `/api/schema/` via drf-spectacular with Swagger UI (`/api/schema/swagger-ui/`) and ReDoc (`/api/schema/redoc/`); CI validates the schema on every backend change (#258)
+- Board filter state (text search, assignee, priority, labels, due date) is now persisted to `localStorage` keyed by `board:{boardId}:filters` — navigating away from a board and returning restores the previous filters; corrupt or missing storage falls back to empty filters without error (#252)
+- Comment delete button added to card detail — two-stage confirmation, RBAC-gated to comment author and board admins (#257)
+- CreateGroupModal: after a group is created the modal now shows a brief `✓ "Name" created` confirmation in green below the input, clears it after 2 seconds, and returns focus to the name field so the user can immediately type the next group name (#253)
+- Docs: new `docs/api/admin.md` — complete reference for the Admin REST API (`GET/PATCH /api/admin/settings/`, `GET/POST /api/admin/users/`, `PATCH /api/admin/users/{id}/`)
+- Docs: `docs/api/authentication.md` — new sections for user search (`GET /api/users/`), OAuth providers (`GET /api/auth/providers/`), and change password (`POST /api/auth/change-password/`)
+- Docs: `docs/api/boards.md` — board star/favorite endpoints and board templates endpoint with full response schema and template list
+- Docs: `docs/api/groups.md` — transfer ownership, group shared labels, and board defaults endpoints
+- Docs: `docs/api/health.md` — version endpoint (`GET /api/version/`)
+- Docs: `docs/features/groups.md` — board move-between-groups, group shared labels, board defaults, and ownership transfer sections
+- Docs: `docs/features/realtime.md` — `card.archived` and `card.unarchived` WebSocket events; WebSocket event envelope (`{event, data}`) and full `card.moved` payload (`{card, movement}`) documented (#256)
+- Docs: `docs/api/cards.md` — documents that `GET /api/boards/{id}/cards/` returns all cards without pagination; `docs/api/authentication.md` documents `GET /api/auth/me/`, `PATCH /api/auth/me/`, and `GET /api/auth/site-config/`; `docs/api/boards.md` documents `staleness_threshold_days` and `allowed_priorities` fields (#256)
+- Docs: Card Archiving, Demo Data, and Secret Rotation pages now appear in the docs sidebar — they existed but were missing from the mkdocs nav; fix broken `../administration/` link in the features index
+
+### Changed
+
+- WebSocket event schema now uses `{event, data}` keys instead of `{type, ...spread}` — prevents payload collision when a serializer field is also named `type`; `BoardEvent` TypeScript type updated to match (#256)
+- `card.moved` WebSocket broadcast now includes the full movement record (`{card, movement}`) — consistent with the REST response so clients can update movement history without re-polling `/movements/` (#256)
+- `CardViewSet` no longer paginates — cards are always board-scoped so `PAGE_SIZE: 50` would silently truncate busy boards (#256)
+- Board Settings: merged the Invite tab into the Members tab — add-member search now appears at the bottom of the Members tab for admins, removing the need to switch tabs; `staleness_threshold_days` is now editable by admins (and read-only for non-admins) in the Display tab (#245)
+- `BoardFullSerializer.get_members()` now uses `UserSerializer` for each member entry so inherited/implicit members stay in sync with direct members when new `User` fields are added (#256)
+- `Board` TypeScript interface now includes `staleness_threshold_days` and `allowed_priorities` — both are returned by `BoardSerializer` but were missing from the frontend type contract (#256)
+- `getSiteConfig` return type now includes `registration_mode` — the field was returned by the API but omitted from the TypeScript return type (#256)
+- Removed `NotificationPrefs` TypeScript interface and `DEFAULT_NOTIFICATION_PREFS` constant — field names did not match the backend (`card_assigned` vs `notif_card_assigned`), and `notification_prefs` was never a User field on the API (#256)
 
 ### Fixed
 
@@ -22,14 +45,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Board list (`GET /api/boards/`) now uses a single annotated query for member count, card count, and starred status — previously issued 3 subqueries per board, causing noticeable latency on accounts with many boards (#283)
 - Email verification mode is now configurable via the `ACCOUNT_EMAIL_VERIFICATION` environment variable — set to `mandatory` or `optional` to enable; defaults to `none` (no behavior change for existing installs) (#304)
 - Due date field now opens the calendar picker on macOS Safari — Safari does not show the native date picker for `opacity: 0` inputs, so the container now explicitly calls `showPicker()` (Safari 16+) or `focus()` (older Safari) on click; Chrome and Firefox continue to open the picker natively via the transparent overlay input (#249)
-- fix: restrict card drag drop targets to cell zones only — prevents col:/swim: headers resolving as drop targets and sending swimlane_id=null to the move endpoint (#272)
+- Fixed regression in due date field where the calendar only opened on the calendar icon — replaced `showPicker()` approach with a transparent `cursor-pointer` input that receives clicks directly, which works in all browsers (#249)
+- `default_board_id` on `PATCH /api/auth/me/` now validates against only the requesting user's boards, preventing IDOR enumeration of foreign board IDs (#256)
+- Restrict card drag-and-drop targets to cell zones only — prevents column/swimlane headers resolving as drop targets and sending `swimlane_id=null` to the move endpoint (#272)
 - Concurrent column or swimlane creation on the same board no longer causes a database integrity error — requests now serialize correctly via a row-level lock (#281)
 - Analytics endpoint now returns a clear 400 error when `days` or `stalled_days` query parameters are non-integer or non-positive, instead of crashing with a 500 (#282)
 - Production Docker image now uses Daphne (ASGI) instead of Gunicorn (WSGI) — WebSocket connections were silently failing in all production deployments (#275)
 - `docker-compose.prod.yml` now declares a named `mediafiles` volume — uploaded attachments were permanently deleted on every container restart (#274)
 - API docs: WIP and weight limit 409 enforcement is now correctly documented — previous docs incorrectly stated limits were informational only (#285)
 - API docs: user search query parameter (`?search=`), rate limit (30 req/min), OAuth providers response shape, and change-password request body corrected to match the live API (#286, #279)
-- Claude Code audit agents now trigger automatically based on context — `migration-check`, `rbac-check`, and `security-review` also fire via a post-edit hook when relevant backend files are modified; `/mr`, `/ci-debug`, and `/release` remain as explicit commands
+- `seed_demo_data` production guard (`DEBUG=False` → `CommandError`) is verified correct and covered by tests
 
 ### Security
 
@@ -38,37 +63,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Attachment files are now served through an authenticated endpoint with board-membership checks; unauthenticated direct access to `/media/` URLs is no longer possible (#278)
 - User search (`GET /api/users/`) now returns only `id`, `username`, `display_name`, and `avatar_url` — email addresses are no longer exposed to other authenticated users (#279)
 - Swimlane contact email and notes fields are now restricted to board admin and site admin roles — viewer and member roles no longer receive this data via the REST API or WebSocket events (#280)
-
-- Docs: new `docs/api/admin.md` — complete reference for the Admin REST API (`GET/PATCH /api/admin/settings/`, `GET/POST /api/admin/users/`, `PATCH /api/admin/users/{id}/`)
-- Docs: `docs/api/authentication.md` — new sections for user search (`GET /api/users/`), OAuth providers (`GET /api/auth/providers/`), and change password (`POST /api/auth/change-password/`)
-- Docs: `docs/api/boards.md` — add board star/favorite endpoints and board templates endpoint with full response schema and template list
-- Docs: `docs/api/groups.md` — add transfer ownership, group shared labels, and board defaults endpoints
-- Docs: `docs/api/health.md` — add version endpoint (`GET /api/version/`)
-- Docs: `docs/features/groups.md` — add sections on board move-between-groups, group shared labels, board defaults, and ownership transfer
-- Docs: `docs/features/realtime.md` — add `card.archived` and `card.unarchived` WebSocket events
-- Docs: `docs/features/realtime.md` now documents the WebSocket event envelope (`{event, data}`) and the full `card.moved` payload (`{card, movement}`) (#256)
-- Docs: `docs/api/cards.md` documents that `GET /api/boards/{id}/cards/` returns all cards without pagination (#256)
-- Docs: `docs/api/authentication.md` documents `GET /api/auth/me/`, `PATCH /api/auth/me/` (including `default_board_id` validation), and `GET /api/auth/site-config/` with `registration_mode` (#256)
-- Docs: `docs/api/boards.md` documents `staleness_threshold_days` and `allowed_priorities` fields on Board objects (#256)
-- WebSocket event schema now uses `{event, data}` keys instead of `{type, ...spread}` — prevents payload collision when a serializer field is also named `type`; `BoardEvent` TypeScript type updated to match (#256)
-- `card.moved` WebSocket broadcast now includes the movement record (`{card, movement}`) — consistent with the REST response so clients can update movement history without re-polling `/movements/` (#256)
-- `CardViewSet` no longer paginates — cards are always board-scoped so `PAGE_SIZE: 50` would silently truncate busy boards (#256)
-- `default_board_id` on `PATCH /api/auth/me/` now validates against only the requesting user's boards, preventing IDOR enumeration of foreign board IDs (#256)
-- `BoardFullSerializer.get_members()` now uses `UserSerializer` for each member entry so inherited/implicit members stay in sync with direct members when new `User` fields are added (#256)
-- `Board` TypeScript interface now includes `staleness_threshold_days` and `allowed_priorities` — both are returned by `BoardSerializer` but were missing from the frontend type contract (#256)
-- `getSiteConfig` return type now includes `registration_mode` — the field was returned by the API but omitted from the TypeScript return type (#256)
-- Removed `NotificationPrefs` TypeScript interface and `DEFAULT_NOTIFICATION_PREFS` constant — field names did not match the backend (`card_assigned` vs `notif_card_assigned`), and `notification_prefs` was never a User field on the API (#256)
-- Board Settings: merged the Invite tab into the Members tab — add-member search now appears at the bottom of the Members tab for admins, removing the need to switch tabs; `staleness_threshold_days` is now editable by admins (and read-only for non-admins) in the Display tab (#245)
-- Board filter state (text search, assignee, priority, labels, due date) is now persisted to `localStorage` keyed by `board:{boardId}:filters` — navigating away from a board and returning restores the previous filters; corrupt or missing storage falls back to empty filters without error (#252)
-- Due date field on card detail now opens the calendar picker when clicking anywhere in the field (text area or icon), not just the calendar icon (#249)
-- Fixed regression in due date field where the calendar only opened on the calendar icon — replaced `showPicker()` approach with a transparent `cursor-pointer` input that receives clicks directly, which works in all browsers (#249)
-- Docs: Card Archiving, Demo Data, and Secret Rotation pages now appear in the docs sidebar — they existed but were missing from the mkdocs nav; fix broken `../administration/` link in the features index
-- CreateGroupModal: after a group is created the modal now shows a brief `✓ "Name" created` confirmation in green below the input, clears it after 2 seconds, and returns focus to the name field so the user can immediately type the next group name (#253)
-- `seed_demo_data` production guard (`DEBUG=False` → `CommandError`) is verified correct and covered by tests (`SeedProductionGuardTests`); added inline comment in `frontend/src/api/auth.ts` explaining why `updateDefaultBoard` uses `/api/auth/me/` instead of `/api/auth/user/`
-- fix: add comment delete button to card detail — two-stage confirmation, RBAC-gated to author and admins (#257)
-
-### Security
-
 - Bumped PyJWT from 2.10.1 to 2.12.0 to fix CVE-2026-32597 (CVSS 7.5 High): PyJWT previously accepted JWS tokens with unrecognized `crit` header extensions instead of rejecting them per RFC 7515; 2.12.0 enforces the spec
 
 ---

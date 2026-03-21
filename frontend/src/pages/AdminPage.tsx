@@ -237,6 +237,11 @@ function SettingsTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) };
+  }, []);
 
   useEffect(() => {
     getAdminSettings()
@@ -256,7 +261,8 @@ function SettingsTab() {
       const updated = await patchAdminSettings({ registration_mode: mode });
       setSettings(updated);
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
     } catch {
       setSettings((s) => s ? { ...s, registration_mode: prev } : s);
       setError("Failed to save settings.");
