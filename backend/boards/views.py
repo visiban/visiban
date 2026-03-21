@@ -173,10 +173,10 @@ class BoardViewSet(viewsets.ModelViewSet):
             ).distinct()
         if self.request.query_params.get("starred") == "true":
             qs = qs.filter(favorites__user=user)
-        # Annotate to avoid 3 extra queries per board on the list endpoint:
-        # member_count, card_count, and is_starred would each issue a subquery
-        # per row without these annotations.
-        return qs.annotate(
+        # select_related("owner", "group") prevents one JOIN-per-board for the
+        # owner and group_name serializer fields. Annotate to avoid 3 further
+        # subqueries per board (member_count, card_count, is_starred).
+        return qs.select_related("owner", "group").annotate(
             _member_count=Count("memberships", distinct=True),
             _card_count=Count("cards", distinct=True),
             _is_starred=Exists(

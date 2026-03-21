@@ -153,6 +153,8 @@ Reorder columns. Requires board admin.
 
 Swimlane objects include a `uid` field — stable across renames, read-only.
 
+**Role-gated fields:** `contact_email` and `notes` are only included in responses for `admin` and `site_admin` role members. `member`, `collaborator`, and `viewer` roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, `GET /api/boards/{id}/full/`, and WebSocket broadcast events.
+
 ### `POST /api/boards/{id}/swimlanes/`
 Create a swimlane. Requires board admin.
 

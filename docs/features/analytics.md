@@ -49,3 +49,8 @@ Archived cards are excluded from stalled card detection — they are no longer i
 Click **Export CSV** to download the heatmap data as a comma-separated file for use in spreadsheets. The export button is only visible to **admin** and **site_admin** users.
 
 **API:** `GET /api/boards/{id}/analytics/?days=30&stalled_days=7`
+
+| Parameter | Type | Default | Constraint |
+|---|---|---|---|
+| `days` | integer | `30` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |
+| `stalled_days` | integer | `7` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |

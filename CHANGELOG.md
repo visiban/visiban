@@ -35,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card detail `save()` now catches API errors, rolls back to the pre-save state, and shows an inline error message — previously any failure was silently swallowed and the UI was left in an inconsistent state (#300)
 - Bulk move now shows an inline amber warning when one or more cards could not be moved (e.g. blocked by a WIP or weight limit) and keeps the selection active so the user knows which cards were affected; previously partial failures were silently discarded (#303)
 - All 8 `window.confirm()` calls replaced with inline confirmation UI consistent with the design system — affects: card delete, card archive, column delete, board member remove, group member remove, group delete, shared label remove, invite link revoke (#295)
+- Board list endpoint now fetches owner and group in a single JOIN instead of issuing one additional query per board — previously `owner` and `group_name` were not covered by `select_related`, causing extra queries per board on large board lists
 
 ---
 
