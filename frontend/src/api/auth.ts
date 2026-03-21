@@ -27,6 +27,13 @@ export const getSiteConfig = () =>
 export const changePassword = (current_password: string, new_password: string) =>
   client.post<{ detail: string }>("/api/auth/change-password/", { current_password, new_password }).then((r) => r.data);
 
+// updateDefaultBoard uses /api/auth/me/ (Visiban's own CurrentUserView) rather than
+// /api/auth/user/ (dj-rest-auth's built-in endpoint) because dj-rest-auth does not
+// know about the Visiban-specific `default_board_id` field — only CurrentUserView's
+// serializer handles it. getCurrentUser and updateCurrentUser use /api/auth/user/
+// for everything else because dj-rest-auth's session/token management hooks into
+// that path. Do not consolidate these two paths without migrating the dj-rest-auth
+// integration first.
 export const updateDefaultBoard = (boardId: number | null) =>
   client.patch<import("../types").User>("/api/auth/me/", { default_board_id: boardId }).then((r) => r.data);
 
