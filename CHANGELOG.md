@@ -27,6 +27,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `docker-compose.prod.yml` now declares a named `mediafiles` volume — uploaded attachments were permanently deleted on every container restart (#274)
 - API docs: WIP and weight limit 409 enforcement is now correctly documented — previous docs incorrectly stated limits were informational only (#285)
 - API docs: user search query parameter (`?search=`), rate limit (30 req/min), OAuth providers response shape, and change-password request body corrected to match the live API (#286, #279)
+- Claude Code audit agents now trigger automatically based on context — `migration-check`, `rbac-check`, and `security-review` also fire via a post-edit hook when relevant backend files are modified; `/mr`, `/ci-debug`, and `/release` remain as explicit commands
 
 ### Security
 
