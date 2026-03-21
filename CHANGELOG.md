@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [1.0.0-rc.7] — 2026-03-21
+
 ### Added
 
 - Opt-in WIP limit enforcement (`enforce_wip_limits` board setting): when enabled, moving a card into a column at or over its WIP limit returns a 409 with a structured error payload; board admins can override with `?force=true`; non-admins get 403 on force attempts; archived cards are excluded from the count; a composite index on `(board_id, column_id, archived_at)` keeps WIP count queries fast (#231)
