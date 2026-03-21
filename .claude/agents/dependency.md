@@ -1,10 +1,16 @@
+---
+name: dependency
+description: Use proactively before adding any new pip or npm package. Checks license (blocks GPL-2.0/3.0), looks up known CVEs, evaluates justification vs existing stack, and assesses transitive dependency and bundle size impact.
+tools: Bash, Read, WebSearch, WebFetch
+---
+
 # Dependency Check
 
 You are reviewing a new package before it is added to the project. The CI will catch license and CVE issues after push, but catching them here is faster and avoids a failed pipeline.
 
 ## What to do
 
-Given the package name(s) in `$ARGUMENTS`:
+Given the package name(s) in the current task or argument provided:
 
 ### 1. Identify the ecosystem
 

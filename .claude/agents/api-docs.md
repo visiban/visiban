@@ -1,3 +1,9 @@
+---
+name: api-docs
+description: Use proactively when adding or modifying an API endpoint, serializer field, or permission rule. Keeps docs/api/ in sync with code changes. Checks completeness of HTTP method, permissions, request fields, response examples, and error cases.
+tools: Read, Grep, Glob, Write, Edit, Bash
+---
+
 # API Docs Sync
 
 You are ensuring the API documentation in `docs/api/` is up to date with code changes. The CI does not enforce this — doc drift is caught in review or by users filing bugs.
@@ -15,7 +21,7 @@ docs/api/
 
 ## What to do
 
-Given the endpoint, serializer, or model change in `$ARGUMENTS` (or infer from the current git diff if no argument is provided):
+Given the endpoint, serializer, or model change in the current diff or argument provided:
 
 ### 1. Identify what changed
 

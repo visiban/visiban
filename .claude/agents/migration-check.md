@@ -1,10 +1,16 @@
+---
+name: migration-check
+description: Use proactively whenever backend/*/models.py is modified. Audits Django model changes for missing migrations, destructive operations (DROP COLUMN, NOT NULL without default, column renames), and risky patterns that could break a zero-downtime deploy. Also triggered automatically via post-edit hook on models.py.
+tools: Read, Grep, Glob, Bash
+---
+
 # Migration Safety Check
 
 You are reviewing Django model changes for migration safety before the branch is pushed. The CI `migration-check` job runs `makemigrations --check --dry-run` and will fail if a migration is missing. More importantly, some migration patterns are dangerous in production and must be caught before merge.
 
 ## What to do
 
-Given the model changes described in `$ARGUMENTS` (or infer from the current git diff of `backend/*/models.py` if no argument is provided):
+Given the model changes in the current diff or argument provided (or infer from `git diff main...HEAD -- backend/*/models.py`):
 
 ### 1. Check for missing migrations
 - Review all changes to `backend/*/models.py`

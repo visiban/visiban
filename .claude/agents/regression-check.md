@@ -1,10 +1,16 @@
+---
+name: regression-check
+description: Use proactively before opening any merge request on a branch that changes source code. Audits for regressions by mapping changed files to risk zones, finding stale mocks and fixtures, checking permission boundary changes, verifying broadcast wiring, and running affected test suites.
+tools: Read, Grep, Glob, Bash
+---
+
 # Regression Check
 
 You are auditing a branch for regressions before it is merged. Your job is to find existing behaviour that the change could silently break — not new features, but things that worked before and might not work now.
 
 ## What to do
 
-Given the branch or change description in `$ARGUMENTS` (or infer from the current branch if nothing is provided):
+Given the branch or change description in the current task or argument provided (or infer from the current branch if nothing is provided):
 
 ### 1. Map the diff to risk zones
 

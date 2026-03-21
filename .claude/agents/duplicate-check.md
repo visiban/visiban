@@ -1,10 +1,16 @@
+---
+name: duplicate-check
+description: Use proactively before creating a new GitLab issue. Scans open and recently closed issues for duplicates, partial overlaps, and conflicting requirements. Recommends whether to open, reference, or close as duplicate.
+tools: Bash, Read
+---
+
 # Duplicate Issue Check
 
 You are scanning GitLab issues for duplicates before a new issue is created or triaged. Your job is to surface existing issues that cover the same problem or feature so that work is not started twice and the backlog stays clean.
 
 ## What to do
 
-Given the issue title, description, or summary in `$ARGUMENTS` (or ask the user for a brief description if nothing is provided):
+Given the issue title, description, or summary in the current task or argument provided (or ask for a brief description if nothing is provided):
 
 ### 1. Fetch open issues
 

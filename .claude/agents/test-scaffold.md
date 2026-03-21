@@ -1,10 +1,16 @@
+---
+name: test-scaffold
+description: Use proactively when implementing a new feature or bug fix that lacks test coverage. Generates Django TestCase scaffolds for backend endpoints, models, and permission boundaries, and Vitest + React Testing Library scaffolds for frontend components, hooks, and API functions.
+tools: Read, Grep, Glob, Write, Bash
+---
+
 # Test Scaffold
 
 You are generating a well-structured test suite for new or modified code in the visiban project. Tests must follow established conventions and achieve meaningful coverage — not just hit lines, but test behaviour.
 
 ## What to do
 
-Given the feature, component, or endpoint described in `$ARGUMENTS`:
+Given the feature, component, or endpoint described in the current task or argument provided:
 
 ### 1. Identify the layer
 Determine whether this is:
@@ -95,7 +101,7 @@ describe('<ComponentName>', () => {
 - One test per distinct scenario; avoid mega-tests that assert 10 things in sequence
 
 ### 5. Output
-Generate the complete test file(s) ready to paste into the correct location:
+Generate the complete test file(s) ready to write into the correct location:
 - Backend: `backend/{app}/tests/test_{feature}.py`
 - Frontend: `frontend/src/test/{feature}.test.ts(x)`
 

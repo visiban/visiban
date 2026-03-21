@@ -1,3 +1,9 @@
+---
+name: rbac-check
+description: Use proactively when adding or modifying any API endpoint, view, viewset, or permission class. Verifies authentication gates, board membership checks, and minimum role enforcement per HTTP action. A missing permission check is a security vulnerability. Also triggered automatically via post-edit hook on views.py.
+tools: Read, Grep, Glob
+---
+
 # RBAC Check
 
 You are auditing a new or modified API endpoint for correct role-based access control. A missed permission check is a security vulnerability. Every endpoint that touches board data must enforce the admin/member/viewer role hierarchy.
@@ -16,7 +22,7 @@ You are auditing a new or modified API endpoint for correct role-based access co
 
 ## What to do
 
-Given the viewset, view, or endpoint in `$ARGUMENTS` (or infer from the current git diff if no argument is provided):
+Given the viewset, view, or endpoint in the current diff or argument provided:
 
 ### 1. Verify authentication gate
 

@@ -1,10 +1,16 @@
+---
+name: perf-check
+description: Use proactively when adding or modifying any viewset, serializer, or database query. Identifies N+1 patterns, missing select_related/prefetch_related, and missing transaction boundaries before merge.
+tools: Read, Grep, Glob, Bash
+---
+
 # Performance Check
 
 You are reviewing new or modified backend code for query performance issues before merge. Silent N+1 problems and missing prefetches are the most common source of production slowdowns in this codebase.
 
 ## What to do
 
-Given the viewset, serializer, or model change in `$ARGUMENTS` (or infer from the current git diff if no argument is provided):
+Given the viewset, serializer, or model change in the current diff or argument provided:
 
 ### 1. Scan for N+1 patterns
 
