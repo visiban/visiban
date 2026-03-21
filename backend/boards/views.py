@@ -7,7 +7,7 @@ import statistics
 import django_filters
 from django.conf import settings as django_settings
 from django.db import transaction
-from django.db.models import F, Max, Q, Sum
+from django.db.models import Count, Exists, F, Max, OuterRef, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -173,7 +173,16 @@ class BoardViewSet(viewsets.ModelViewSet):
             ).distinct()
         if self.request.query_params.get("starred") == "true":
             qs = qs.filter(favorites__user=user)
-        return qs
+        # Annotate to avoid 3 extra queries per board on the list endpoint:
+        # member_count, card_count, and is_starred would each issue a subquery
+        # per row without these annotations.
+        return qs.annotate(
+            _member_count=Count("memberships", distinct=True),
+            _card_count=Count("cards", distinct=True),
+            _is_starred=Exists(
+                BoardFavorite.objects.filter(board=OuterRef("pk"), user=user)
+            ),
+        )
 
     def perform_create(self, serializer):
         board = serializer.save(owner=self.request.user)
@@ -223,6 +232,9 @@ class BoardViewSet(viewsets.ModelViewSet):
             BoardFavorite.objects.get_or_create(user=request.user, board=board)
         else:
             BoardFavorite.objects.filter(user=request.user, board=board).delete()
+        # Re-fetch via get_queryset() so the _is_starred annotation reflects the
+        # change just made — the object fetched by get_object() above is stale.
+        board = self.get_queryset().get(pk=board.pk)
         return Response(self.get_serializer(board).data)
 
     @action(detail=True, methods=["post"], url_path="move-group")

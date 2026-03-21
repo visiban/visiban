@@ -210,12 +210,20 @@ class BoardSerializer(serializers.ModelSerializer):
         read_only_fields = ["uid", "created_at", "updated_at"]
 
     def get_member_count(self, obj):
+        # Use the annotation injected by BoardViewSet.get_queryset() when available
+        # to avoid a subquery per board on the list endpoint.
+        if hasattr(obj, "_member_count"):
+            return obj._member_count
         return obj.memberships.count()
 
     def get_card_count(self, obj):
+        if hasattr(obj, "_card_count"):
+            return obj._card_count
         return obj.cards.count()
 
     def get_is_starred(self, obj):
+        if hasattr(obj, "_is_starred"):
+            return obj._is_starred
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
