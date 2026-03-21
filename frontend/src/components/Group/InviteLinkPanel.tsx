@@ -49,6 +49,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
   const [formExpiry, setFormExpiry] = useState<number | null>(7);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
 
   const fetchLinks = useCallback(async () => {
     setLoading(true);
@@ -71,11 +72,10 @@ export default function InviteLinkPanel({ groupId }: Props) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleRevoke = async (link: GroupInviteLink) => {
-    const displayName = link.name || "this link";
-    if (!confirm(`Revoke "${displayName}"? Anyone who has it will no longer be able to join.`)) return;
-    await revokeInviteLink(groupId, link.id);
-    setLinks((prev) => prev.filter((l) => l.id !== link.id));
+  const handleRevoke = async (linkId: number) => {
+    setConfirmRevokeId(null);
+    await revokeInviteLink(groupId, linkId);
+    setLinks((prev) => prev.filter((l) => l.id !== linkId));
   };
 
   const handleCreate = async () => {
@@ -161,12 +161,19 @@ export default function InviteLinkPanel({ groupId }: Props) {
                 >
                   {copiedId === link.id ? "Copied!" : "Copy"}
                 </button>
-                <button
-                  onClick={() => handleRevoke(link)}
-                  className="text-[11px] text-red-400 hover:text-red-300 transition whitespace-nowrap"
-                >
-                  Revoke
-                </button>
+                {confirmRevokeId === link.id ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-red-400 hover:text-red-300 transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Revoke</button>
+                    <button onClick={() => setConfirmRevokeId(null)} className="text-[11px] text-slate-500 hover:text-slate-300 transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">Cancel</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmRevokeId(link.id)}
+                    className="text-[11px] text-red-400 hover:text-red-300 transition whitespace-nowrap"
+                  >
+                    Revoke
+                  </button>
+                )}
               </div>
             </li>
           ))}

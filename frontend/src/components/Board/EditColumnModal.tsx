@@ -21,6 +21,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const [weightLimit, setWeightLimit] = useState(column.weight_limit?.toString() ?? "");
   const [allowCardCreation, setAllowCardCreation] = useState(column.allow_card_creation);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -108,13 +109,15 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             <span className="text-sm text-slate-500" title={`Move or delete the ${cardCount} card${cardCount === 1 ? "" : "s"} in this column first`}>
               Cannot delete — {cardCount} card{cardCount === 1 ? "" : "s"} remaining
             </span>
+          ) : confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Delete &ldquo;{column.name}&rdquo;?</span>
+              <button onClick={() => onDeleted(column.id)} className="text-xs text-red-400 hover:text-red-300 transition">Yes, delete</button>
+              <button onClick={() => setConfirmDelete(false)} className="text-xs text-slate-500 hover:text-slate-300 transition">Cancel</button>
+            </div>
           ) : (
             <button
-              onClick={() => {
-                if (confirm(`Delete column "${column.name}"?`)) {
-                  onDeleted(column.id);
-                }
-              }}
+              onClick={() => setConfirmDelete(true)}
               className="text-sm text-red-400 hover:text-red-300 transition"
             >
               Delete column

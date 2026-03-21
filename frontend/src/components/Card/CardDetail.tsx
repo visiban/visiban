@@ -78,6 +78,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [labelError, setLabelError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dueDateRef = useRef<HTMLInputElement>(null);
   const dueDateEmptyRef = useRef<HTMLInputElement>(null);
@@ -105,12 +107,26 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     });
   }, [board.id, card.id]);
 
+  // Dismiss confirm overlay before closing the panel so Escape has two stages:
+  // first press dismisses the confirm, second press closes the panel.
+  useEscapeStack(() => {
+    if (!confirmAction) return false;
+    setConfirmAction(null);
+  }, 35);
   useEscapeStack(onClose, 30);
 
   const save = async (patch: CardPatch) => {
-    const updated = await updateCard(board.id, localCard.id, patch);
-    setLocalCard(updated);
-    onUpdated(updated);
+    // Snapshot pre-save state so we can roll back if the API call fails.
+    const prev = localCard;
+    setSaveError(null);
+    try {
+      const updated = await updateCard(board.id, localCard.id, patch);
+      setLocalCard(updated);
+      onUpdated(updated);
+    } catch {
+      setLocalCard(prev);
+      setSaveError("Failed to save — please try again.");
+    }
   };
 
   const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -236,14 +252,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     onUpdated({ ...localCard, checklist_total: localCard.checklist_total - 1, checklist_done: localCard.checklist_done + doneDelta });
   };
 
-  const handleDelete = async () => {
-    if (!confirm("Delete this card?")) return;
+  const handleDelete = () => setConfirmAction("delete");
+  const handleArchive = () => setConfirmAction("archive");
+
+  const executeDelete = async () => {
+    setConfirmAction(null);
     await deleteCard(board.id, card.id);
     onDeleted(card.id);
   };
 
-  const handleArchive = async () => {
-    if (!confirm("Archive this card? It will be hidden from the board but can be restored later.")) return;
+  const executeArchive = async () => {
+    setConfirmAction(null);
     await archiveCard(board.id, card.id);
     onArchived(card.id);
     onClose();
@@ -299,6 +318,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             title="Close"
           >×</button>
         </div>
+
+        {/* Save error — reserved space so layout never shifts */}
+        <p className="text-xs h-4 px-5 pt-1">
+          {saveError && <span className="text-red-400">{saveError}</span>}
+        </p>
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 text-sm">
@@ -808,6 +832,33 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           </div>
         )}
       </div>
+
+      {/* Delete / Archive confirmation overlay */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
+          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl border border-slate-700">
+            {confirmAction === "delete" ? (
+              <>
+                <h3 className="text-white font-semibold text-base mb-2">Delete this card?</h3>
+                <p className="text-slate-400 text-sm mb-5">This cannot be undone.</p>
+                <div className="flex gap-3 justify-end">
+                  <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+                  <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-white font-semibold text-base mb-2">Archive this card?</h3>
+                <p className="text-slate-400 text-sm mb-5">It will be hidden from the board but can be restored from the Archived panel.</p>
+                <div className="flex gap-3 justify-end">
+                  <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+                  <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Archive</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

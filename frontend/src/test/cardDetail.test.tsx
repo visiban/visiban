@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
 
 vi.mock('../api/cards', () => ({
   deleteCard: vi.fn(),
+  archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),
   addCardComment: vi.fn(),
   updateCard: vi.fn(),
@@ -422,6 +423,45 @@ describe('CardDetail', () => {
     render(<CardDetail {...defaultProps()} />)
     await waitFor(() => {
       expect(screen.getByText('@jdoe')).toBeInTheDocument()
+    })
+  })
+
+  it('clicking Delete card shows confirmation modal, not window.confirm', async () => {
+    render(<CardDetail {...defaultProps()} />)
+    fireEvent.click(screen.getByText('Delete card'))
+    expect(screen.getByText('Delete this card?')).toBeInTheDocument()
+    expect(screen.getByText('Cancel')).toBeInTheDocument()
+    // Confirm button in modal
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+  })
+
+  it('cancelling delete confirmation closes the modal without calling deleteCard', async () => {
+    const { deleteCard } = await import('../api/cards')
+    render(<CardDetail {...defaultProps()} />)
+    fireEvent.click(screen.getByText('Delete card'))
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(screen.queryByText('Delete this card?')).not.toBeInTheDocument()
+    expect(deleteCard).not.toHaveBeenCalled()
+  })
+
+  it('clicking Archive card shows confirmation modal, not window.confirm', async () => {
+    render(<CardDetail {...defaultProps()} />)
+    fireEvent.click(screen.getByText('Archive card'))
+    expect(screen.getByText('Archive this card?')).toBeInTheDocument()
+  })
+
+  it('save() shows inline error and rolls back on API failure', async () => {
+    const { updateCard } = await import('../api/cards')
+    const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
+    mockUpdateCard.mockRejectedValueOnce(new Error('Network error'))
+    const props = defaultProps()
+    render(<CardDetail {...props} />)
+    // Blur the title to trigger a save (value unchanged so no save is triggered — change it first)
+    const titleInput = screen.getByDisplayValue('Test Card')
+    fireEvent.change(titleInput, { target: { value: 'Changed title' } })
+    fireEvent.blur(titleInput)
+    await waitFor(() => {
+      expect(screen.getByText('Failed to save — please try again.')).toBeInTheDocument()
     })
   })
 })
