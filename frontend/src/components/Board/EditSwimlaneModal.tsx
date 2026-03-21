@@ -40,7 +40,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+      <div role="dialog" aria-modal="true" aria-labelledby="edit-swimlane-title" className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
         {confirmDelete ? (
           cardCount > 0 ? (
             <>
@@ -72,7 +72,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           )
         ) : (
           <>
-            <h2 className="text-lg font-semibold text-white mb-4">Edit Swimlane</h2>
+            <h2 id="edit-swimlane-title" className="text-lg font-semibold text-white mb-4">Edit Swimlane</h2>
 
             <div className="flex flex-col gap-3">
               <div>

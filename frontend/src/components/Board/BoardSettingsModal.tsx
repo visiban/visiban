@@ -172,11 +172,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
+      <div role="dialog" aria-modal="true" aria-labelledby="board-settings-title" className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-          <h2 className="text-base font-semibold text-white">Board Settings</h2>
+          <h2 id="board-settings-title" className="text-base font-semibold text-white">Board Settings</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition text-xl leading-none">×</button>
         </div>
 

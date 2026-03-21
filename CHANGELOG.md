@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Pressing Escape while a dropdown is open (filter bar, column settings, bulk action toolbar) now closes the dropdown and returns keyboard focus to the trigger button (#270)
+- All modals (Board Settings, Edit Column, Edit Swimlane, Bulk Delete confirm, Join Group, Delete Board) now carry `role="dialog"`, `aria-modal`, and `aria-labelledby` so screen readers announce the dialog title on open (#296)
+- Card detail side panel now carries `role="complementary"` for landmark navigation (#296)
+- Interactive elements across the board UI (cards, column collapse/edit buttons, swimlane collapse/edit buttons, navbar bell/user/sign-out, bulk action toolbar buttons) now show a `focus-visible` ring on keyboard focus and suppress the ring on mouse interaction (#269, #298)
+
 ### Changed
 
 - WIP and weight limit enforcement is now **on by default** for newly created boards — existing boards are unchanged; only boards created after this release will have enforcement enabled automatically (#307)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, Column } from "../../types";
 import { userDisplayName } from "../../types";
@@ -20,6 +20,18 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [movePartialError, setMovePartialError] = useState<string | null>(null);
+
+  const moveRef = useRef<HTMLButtonElement>(null);
+  const assignRef = useRef<HTMLButtonElement>(null);
+  const priorityRef = useRef<HTMLButtonElement>(null);
+
+  // Priority 25: dropdown Escape closes the open dropdown and returns focus to its trigger.
+  useEscapeStack(() => {
+    if (dropdown === null) return false;
+    const ref = dropdown === "move" ? moveRef : dropdown === "assign" ? assignRef : priorityRef;
+    setDropdown(null);
+    ref.current?.focus();
+  }, 25);
 
   useEscapeStack(() => {
     if (!confirmDelete) return false;
@@ -141,9 +153,10 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         {/* Move */}
         <div className="relative">
           <button
+            ref={moveRef}
             onClick={() => toggle("move")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40"
+            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Move to...
           </button>
@@ -166,9 +179,10 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         {/* Assign */}
         <div className="relative">
           <button
+            ref={assignRef}
             onClick={() => toggle("assign")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40"
+            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Assign to...
           </button>
@@ -196,9 +210,10 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         {/* Priority */}
         <div className="relative">
           <button
+            ref={priorityRef}
             onClick={() => toggle("priority")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40"
+            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Priority...
           </button>
@@ -224,7 +239,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={handleArchive}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded-lg text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-40"
+          className="text-xs px-2.5 py-1.5 rounded-lg text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           Archive
         </button>
@@ -233,7 +248,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={() => setConfirmDelete(true)}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition disabled:opacity-40"
+          className="text-xs px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           Delete
         </button>
@@ -244,7 +259,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={() => { setMovePartialError(null); onClearSelection(); }}
           disabled={busy}
-          className="text-slate-400 hover:text-white transition p-1 disabled:opacity-40"
+          className="text-slate-400 hover:text-white transition p-1 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
           title="Deselect all (Esc)"
         >
           <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -263,8 +278,8 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
       {/* Delete confirmation modal */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-white font-semibold text-lg mb-2">Delete {count} card{count !== 1 ? "s" : ""}?</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="bulk-delete-title" className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <h3 id="bulk-delete-title" className="text-white font-semibold text-lg mb-2">Delete {count} card{count !== 1 ? "s" : ""}?</h3>
             <p className="text-slate-400 text-sm mb-5">
               This will permanently delete {count === 1 ? "this card" : `all ${count} selected cards`}. This cannot be undone.
             </p>

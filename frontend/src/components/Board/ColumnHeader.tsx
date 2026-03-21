@@ -113,7 +113,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-            className="text-slate-500 hover:text-slate-300 transition text-xs shrink-0"
+            className="text-slate-500 hover:text-slate-300 transition text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
             title="Collapse column"
           >
             ◀
@@ -149,13 +149,15 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             </span>
           )}
           {/* Edit icon — opens full modal */}
-          <span
-            className={`ml-auto transition text-xs shrink-0 ${isAdmin ? "text-slate-600 group-hover/col:text-slate-400 cursor-pointer hover:text-slate-200" : "text-slate-700 opacity-50 cursor-not-allowed"}`}
+          <button
+            type="button"
+            className={`ml-auto transition text-xs shrink-0 focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 rounded ${isAdmin ? "text-slate-600 group-hover/col:text-slate-400 hover:text-slate-200" : "text-slate-700 opacity-50 cursor-not-allowed"}`}
             title={isAdmin ? "Edit column settings" : nonAdminTitle}
             onClick={isAdmin ? (e) => { e.stopPropagation(); setEditing(true); } : undefined}
+            disabled={!isAdmin}
           >
             ✎
-          </span>
+          </button>
         </div>
 
         {/* Rows 2–3: WIP and Weight stats — only shown when meaningful */}

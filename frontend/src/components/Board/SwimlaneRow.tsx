@@ -153,7 +153,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             {!collapsed && (
               <button
                 onClick={() => { if (isAdmin) setEditing(true); }}
-                className={`transition text-xs ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
+                className={`transition text-xs focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 rounded ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
                 title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
                 disabled={!isAdmin}
               >
@@ -162,7 +162,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             )}
             <button
               onClick={() => setCollapsed((c) => !c)}
-              className="text-slate-400 hover:text-white transition shrink-0"
+              className="text-slate-400 hover:text-white transition shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
               title={collapsed ? "Expand" : "Collapse"}
             >
               <svg

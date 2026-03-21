@@ -33,6 +33,7 @@ function dispatch(e: KeyboardEvent): void {
  * Priority conventions:
  *   40 — modals and overlays
  *   30 — side panels (card detail, archived cards)
+ *   25 — dropdowns (SelectDropdown, FilterBar, BulkActionToolbar) — via useDropdownEscape
  *   20 — inline confirmation dialogs (bulk delete confirm)
  *   10 — selection state (multi-card selection)
  *    0 — page-level navigation (board → referrer, group → referrer)

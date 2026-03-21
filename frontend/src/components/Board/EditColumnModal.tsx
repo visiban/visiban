@@ -43,8 +43,8 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Edit Column</h2>
+      <div role="dialog" aria-modal="true" aria-labelledby="edit-column-title" className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h2 id="edit-column-title" className="text-lg font-semibold text-white mb-4">Edit Column</h2>
 
         <div className="flex flex-col gap-3">
           <div>
