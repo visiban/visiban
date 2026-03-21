@@ -52,7 +52,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     labels: [],
     members: [],
     staleness_threshold_days: 7, allowed_priorities: [],
-    enforce_wip_limits: false,
+    enforce_wip_limits: false, enforce_weight_limits: false,
     is_starred: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
