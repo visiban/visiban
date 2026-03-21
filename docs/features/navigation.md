@@ -64,6 +64,9 @@ The sidebar is hidden below the `lg` breakpoint (1024 px). The Tailwind class `h
 
 On mobile, use the top navigation bar for board and group access. The sidebar does not have a drawer or overlay mode; it is desktop-only.
 
+!!! note "Board view — desktop only in 1.0"
+    While the sidebar and navigation are accessible on smaller viewports, the board view itself requires a desktop browser (1024 px and wider). Mobile support for the board is planned for a future release.
+
 ## Footer shortcuts
 
 When the sidebar is in its expanded state, a footer section is pinned to the bottom with two quick-action links:
