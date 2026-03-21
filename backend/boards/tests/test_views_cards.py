@@ -356,6 +356,116 @@ class CardChecklistTests(TestCase):
         )
 
 
+class CardFilterTests(TestCase):
+    """Tests for CardFilter — priority, assignee, unassigned, column, swimlane, due dates, overdue."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="filter_owner", password="pass")
+        self.assignee = User.objects.create_user(username="filter_assignee", password="pass")
+        self.board, self.col, self.col2, self.swim = _make_board(self.user)
+        self.swim2 = Swimlane.objects.create(board=self.board, name="Lane 2", position=1)
+        BoardMembership.objects.create(board=self.board, user=self.assignee, role=BoardMembership.Role.MEMBER)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+        import datetime
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        tomorrow = today + datetime.timedelta(days=1)
+
+        self.card_high = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="High priority", created_by=self.user, priority="high", position=0,
+        )
+        self.card_low = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Low priority", created_by=self.user, priority="low", position=1,
+        )
+        self.card_assigned = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Assigned card", created_by=self.user, assignee=self.assignee, position=2,
+        )
+        self.card_overdue = Card.objects.create(
+            board=self.board, column=self.col2, swimlane=self.swim,
+            title="Overdue card", created_by=self.user, due_date=yesterday, position=0,
+        )
+        self.card_future = Card.objects.create(
+            board=self.board, column=self.col2, swimlane=self.swim,
+            title="Future card", created_by=self.user, due_date=tomorrow, position=1,
+        )
+        self.card_swim2 = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim2,
+            title="Swim2 card", created_by=self.user, position=0,
+        )
+
+    def _url(self):
+        return f"/api/boards/{self.board.id}/cards/"
+
+    def test_filter_by_priority(self):
+        r = self.client.get(self._url(), {"priority": "high"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertIn("High priority", titles)
+        self.assertNotIn("Low priority", titles)
+
+    def test_filter_by_assignee(self):
+        r = self.client.get(self._url(), {"assignee": self.assignee.id})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertIn("Assigned card", titles)
+        self.assertNotIn("High priority", titles)
+
+    def test_filter_unassigned(self):
+        r = self.client.get(self._url(), {"unassigned": "true"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertNotIn("Assigned card", titles)
+        self.assertIn("High priority", titles)
+
+    def test_filter_by_column(self):
+        r = self.client.get(self._url(), {"column": self.col2.id})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertIn("Overdue card", titles)
+        self.assertIn("Future card", titles)
+        self.assertNotIn("High priority", titles)
+
+    def test_filter_by_swimlane(self):
+        r = self.client.get(self._url(), {"swimlane": self.swim2.id})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertIn("Swim2 card", titles)
+        self.assertNotIn("High priority", titles)
+
+    def test_filter_due_before(self):
+        import datetime
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+        r = self.client.get(self._url(), {"due_before": tomorrow})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertIn("Overdue card", titles)
+        # Future card due_date == tomorrow, which is <= tomorrow so it IS included
+        self.assertNotIn("High priority", titles)  # no due date — excluded
+
+    def test_filter_due_after(self):
+        import datetime
+        today = datetime.date.today().isoformat()
+        r = self.client.get(self._url(), {"due_after": today})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertIn("Future card", titles)
+        self.assertNotIn("Overdue card", titles)
+        self.assertNotIn("High priority", titles)  # no due date
+
+    def test_filter_overdue(self):
+        r = self.client.get(self._url(), {"overdue": "true"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        titles = [c["title"] for c in r.json()]
+        self.assertIn("Overdue card", titles)
+        self.assertNotIn("Future card", titles)
+        self.assertNotIn("High priority", titles)  # no due date
+
+
 class CardListQueryCountTests(TestCase):
     """Assert that the card list endpoint does not produce N+1 queries as card count grows.
 

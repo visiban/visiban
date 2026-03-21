@@ -299,3 +299,81 @@ class ViewerCollaboratorBoundaryTests(TestCase):
             f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+
+class GroupInheritedBoardAccessTests(TestCase):
+    """Verify get_board_role resolves permissions through the group ancestor chain."""
+
+    def setUp(self):
+        from groups.models import Group, GroupMembership
+        self.owner = User.objects.create_user(username="gowner", password="pass")
+        self.user = User.objects.create_user(username="guser", password="pass")
+        # A root group; owner is admin so they can own sub-groups and boards.
+        self.root_group = Group.objects.create(name="Root", owner=self.owner)
+        GroupMembership.objects.create(
+            group=self.root_group, user=self.owner, role=GroupMembership.Role.ADMIN
+        )
+
+    def _make_group_board(self, group):
+        """Create a board owned by self.owner and linked to *group*."""
+        board = Board.objects.create(name="Group Board", owner=self.owner, group=group)
+        BoardMembership.objects.create(board=board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        return board
+
+    def test_direct_group_member_gets_role(self):
+        """Member of the board's own group inherits the group role."""
+        from groups.models import GroupMembership
+        GroupMembership.objects.create(
+            group=self.root_group, user=self.user, role=GroupMembership.Role.MEMBER
+        )
+        board = self._make_group_board(self.root_group)
+        self.assertEqual(get_board_role(self.user, board), GroupMembership.Role.MEMBER)
+
+    def test_group_member_inherits_via_parent(self):
+        """Member of a grandparent group gets access to a board in a nested subgroup."""
+        from groups.models import Group, GroupMembership
+        child = Group.objects.create(name="Child", owner=self.owner, parent=self.root_group)
+        grandchild = Group.objects.create(name="Grandchild", owner=self.owner, parent=child)
+        GroupMembership.objects.create(
+            group=self.root_group, user=self.user, role=GroupMembership.Role.VIEWER
+        )
+        board = self._make_group_board(grandchild)
+        # Walking up: grandchild → child → root_group (found here)
+        self.assertEqual(get_board_role(self.user, board), GroupMembership.Role.VIEWER)
+
+    def test_group_traversal_depth_cap_excludes_distant_ancestor(self):
+        """User in an ancestor 7 levels above board.group is NOT granted access (cap = 6)."""
+        from groups.models import Group, GroupMembership
+        # Build G1 (root) → G2 → G3 → G4 → G5 → G6 → G7
+        # board.group = G7; user is only in G1 — requires 6 hops which exceeds the cap.
+        node = self.root_group  # G1
+        for i in range(2, 8):   # creates G2 … G7
+            node = Group.objects.create(name=f"G{i}", owner=self.owner, parent=node)
+        GroupMembership.objects.create(
+            group=self.root_group, user=self.user, role=GroupMembership.Role.MEMBER
+        )
+        board = self._make_group_board(node)  # board.group = G7
+        # The traversal cap (6) means G7→G6→G5→G4→G3→G2 are checked; G1 is NOT.
+        self.assertIsNone(get_board_role(self.user, board))
+
+    def test_subgroup_membership_does_not_grant_access(self):
+        """Membership in a child of board.group does NOT grant access (traversal walks up only)."""
+        from groups.models import Group, GroupMembership
+        child = Group.objects.create(name="Child", owner=self.owner, parent=self.root_group)
+        # User is only in the child group; board belongs to the parent group.
+        GroupMembership.objects.create(
+            group=child, user=self.user, role=GroupMembership.Role.MEMBER
+        )
+        board = self._make_group_board(self.root_group)
+        self.assertIsNone(get_board_role(self.user, board))
+
+    def test_explicit_board_role_overrides_group_role(self):
+        """Explicit BoardMembership takes precedence over an inherited group role."""
+        from groups.models import GroupMembership
+        GroupMembership.objects.create(
+            group=self.root_group, user=self.user, role=GroupMembership.Role.ADMIN
+        )
+        board = self._make_group_board(self.root_group)
+        # Override: explicit viewer beats group admin
+        BoardMembership.objects.create(board=board, user=self.user, role=BoardMembership.Role.VIEWER)
+        self.assertEqual(get_board_role(self.user, board), BoardMembership.Role.VIEWER)
