@@ -210,7 +210,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             userTimezone={user.timezone ?? ""}
             userDateFormat={user.date_format ?? "MM/DD/YYYY"}
             userTimeFormat={user.time_format ?? "12h"}
-            closeEditorOnEnter={user.close_editor_on_enter ?? false}
+            closeEditorOnEnter={user.close_editor_on_enter ?? true}
             currentUser={user}
           />
         )}

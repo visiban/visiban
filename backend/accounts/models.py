@@ -64,7 +64,7 @@ class User(AbstractUser):
     date_format = models.CharField(max_length=16, blank=True, default="MM/DD/YYYY")
     time_format = models.CharField(max_length=4, blank=True, default="12h")
     number_locale = models.CharField(max_length=16, blank=True, default="en-US")
-    close_editor_on_enter = models.BooleanField(default=False)
+    close_editor_on_enter = models.BooleanField(default=True)
     # The board to open automatically after login. SET_NULL so that deleting a
     # board never cascades to deleting the user. The frontend verifies access
     # before redirecting to prevent an IDOR leak via a stale FK.

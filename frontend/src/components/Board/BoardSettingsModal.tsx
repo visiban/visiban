@@ -25,7 +25,7 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "display" | "data";
+  initialTab?: "members" | "display" | "rules" | "data";
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -34,7 +34,7 @@ interface Props {
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
 }
 
-type Tab = "members" | "display" | "data";
+type Tab = "members" | "display" | "rules" | "data";
 
 interface StagedInvite {
   user: User;
@@ -182,10 +182,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 px-6 gap-1">
-          {(["members", "display", "data"] as Tab[]).map((t) => {
+          {(["members", "display", "rules", "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
               : t === "display" ? "Display"
+              : t === "rules" ? "Rules"
               : "Data";
             return (
               <button
@@ -383,6 +384,83 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             </div>
           )}
 
+          {/* ── Rules tab ── */}
+          {tab === "rules" && (
+            <div className="flex flex-col gap-5">
+              <p className="text-xs text-slate-500">
+                Rules affect all board members. Only admins can change these.
+              </p>
+
+              {/* WIP and weight limit enforcement */}
+              {isAdmin && onUpdateBoardSettings ? (
+                <section>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Limit enforcement</h3>
+                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 cursor-pointer">
+                    <div className="min-w-0 pr-4">
+                      <span className="text-sm text-slate-200">Enforce WIP limits</span>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        When enabled, moving a card into a column that is at or over its WIP limit is blocked. Admins can override.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={board.enforce_wip_limits}
+                      onChange={(e) => onUpdateBoardSettings({ enforce_wip_limits: e.target.checked })}
+                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 cursor-pointer">
+                    <div className="min-w-0 pr-4">
+                      <span className="text-sm text-slate-200">Enforce weight limits</span>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        When enabled, moving a card into a column that would exceed its weight budget is blocked. Admins can override. Columns must have a weight limit set for this to take effect.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={board.enforce_weight_limits}
+                      onChange={(e) => onUpdateBoardSettings({ enforce_weight_limits: e.target.checked })}
+                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                    />
+                  </label>
+                </section>
+              ) : (
+                <section>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Limit enforcement</h3>
+                  <div className="flex flex-col gap-1 py-1">
+                    <p className="text-sm text-slate-300">WIP limits: {board.enforce_wip_limits ? "enforced" : "informational only"}</p>
+                    <p className="text-sm text-slate-300">Weight limits: {board.enforce_weight_limits ? "enforced" : "informational only"}</p>
+                  </div>
+                </section>
+              )}
+
+              {/* Stale card threshold */}
+              <section>
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Stale card threshold</h3>
+                {isAdmin ? (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="staleness-threshold"
+                        aria-label="Stale card threshold"
+                        type="number"
+                        min="1"
+                        value={stalenessThreshold}
+                        onChange={(e) => setStalenessThreshold(Number(e.target.value))}
+                        onBlur={handleStalenessBlur}
+                        className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <span className="text-sm text-slate-400">days</span>
+                    </div>
+                    <p className="text-xs text-slate-500">Cards with no movement after this many days are flagged as stalled.</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-300">{board.staleness_threshold_days ?? 14} days</p>
+                )}
+              </section>
+            </div>
+          )}
+
           {/* ── Data tab ── */}
           {tab === "data" && (
             <div className="flex flex-col gap-6">
@@ -549,69 +627,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </>
               )}
 
-              {/* Board behavior — admin-only settings that affect all board members */}
-              {isAdmin && onUpdateBoardSettings && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Board behavior</h3>
-                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer">
-                    <div className="min-w-0 pr-4">
-                      <span className="text-sm text-slate-200">Enforce WIP limits</span>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        When enabled, moving a card into a column that is at or over its WIP limit is blocked. Admins can override when moving a card.
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={board.enforce_wip_limits}
-                      onChange={(e) => onUpdateBoardSettings({ enforce_wip_limits: e.target.checked })}
-                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
-                    />
-                  </label>
-                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer">
-                    <div className="min-w-0 pr-4">
-                      <span className="text-sm text-slate-200">Enforce weight limits</span>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        When enabled, moving a card into a column that would exceed its weight budget is blocked. Admins can override. Columns must have a weight budget set for this to take effect.
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={board.enforce_weight_limits}
-                      onChange={(e) => onUpdateBoardSettings({ enforce_weight_limits: e.target.checked })}
-                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
-                    />
-                  </label>
-                </section>
-              )}
-
-              {/* Staleness threshold */}
-              <section className="border-t border-slate-700 pt-4 mt-4">
-                {isAdmin ? (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide" htmlFor="staleness-threshold">
-                      Stale card threshold
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="staleness-threshold"
-                        type="number"
-                        min="1"
-                        value={stalenessThreshold}
-                        onChange={(e) => setStalenessThreshold(Number(e.target.value))}
-                        onBlur={handleStalenessBlur}
-                        className="bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2 w-20 focus:border-blue-400 outline-none"
-                      />
-                      <span className="text-sm text-slate-400">days</span>
-                    </div>
-                    <p className="text-xs text-slate-500">Cards with no movement after this many days are flagged as stalled.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Stale card threshold</p>
-                    <p className="text-sm text-slate-300">{board.staleness_threshold_days ?? 14} days</p>
-                  </div>
-                )}
-              </section>
             </div>
           )}
         </div>

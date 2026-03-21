@@ -461,18 +461,18 @@ describe('BoardSettingsModal — Data tab', () => {
   })
 })
 
-// ─── Display tab — staleness threshold ─────────────────────────────────────
+// ─── Analytics tab — staleness threshold ────────────────────────────────────
 
-describe('BoardSettingsModal — Display tab staleness threshold', () => {
+describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPatchBoard.mockResolvedValue({})
   })
 
-  it('shows staleness threshold input for admins in Display tab', async () => {
+  it('shows staleness threshold input for admins in Rules tab', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Display' }))
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     expect(input).toBeInTheDocument()
@@ -482,7 +482,7 @@ describe('BoardSettingsModal — Display tab staleness threshold', () => {
   it('staleness threshold input is editable for admins', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Display' }))
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     expect(input).not.toHaveAttribute('readonly')
@@ -492,7 +492,7 @@ describe('BoardSettingsModal — Display tab staleness threshold', () => {
   it('calls patchBoard on blur with updated staleness value', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Display' }))
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     await user.clear(input)
@@ -504,10 +504,10 @@ describe('BoardSettingsModal — Display tab staleness threshold', () => {
     })
   })
 
-  it('shows read-only staleness text for non-admins in Display tab', async () => {
+  it('shows read-only staleness text for non-admins in Rules tab', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Display' }))
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     // Should show the value as plain text, not an input
     expect(screen.queryByRole('spinbutton')).toBeNull()
@@ -518,7 +518,7 @@ describe('BoardSettingsModal — Display tab staleness threshold', () => {
     const user = userEvent.setup()
     const boardNoThreshold: BoardFull = { ...fakeBoard, staleness_threshold_days: null as unknown as number }
     render(<BoardSettingsModal board={boardNoThreshold} isAdmin={false} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Display' }))
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
 
     expect(screen.getByText(/14 days/i)).toBeInTheDocument()
   })

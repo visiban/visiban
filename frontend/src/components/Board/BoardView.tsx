@@ -185,7 +185,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     }
   }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved]);
 
-  const { connected } = useBoardSocket(board.id, handleSocketEvent);
+  const { status: socketStatus } = useBoardSocket(board.id, handleSocketEvent);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
@@ -651,11 +651,26 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         )}
         <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <span
-          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${connected ? "text-green-400" : "text-slate-500"}`}
-          title={connected ? "Live — real-time updates active" : "Connecting…"}
+          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${
+            socketStatus === "connected" ? "text-green-400"
+            : socketStatus === "reconnecting" || socketStatus === "connecting" ? "text-amber-400"
+            : "text-slate-500"
+          }`}
+          title={
+            socketStatus === "connected" ? "Live — real-time updates active"
+            : socketStatus === "reconnecting" ? "Reconnecting…"
+            : socketStatus === "connecting" ? "Connecting…"
+            : "Offline — real-time updates unavailable"
+          }
         >
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${connected ? "bg-green-400 animate-pulse" : "bg-slate-500"}`} />
-          {connected ? "Live" : "Connecting…"}
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            socketStatus === "connected" ? "bg-green-400 animate-pulse"
+            : socketStatus === "reconnecting" || socketStatus === "connecting" ? "bg-amber-400 animate-pulse"
+            : "bg-slate-500"
+          }`} />
+          {socketStatus === "connected" ? "Live"
+           : socketStatus === "reconnecting" || socketStatus === "connecting" ? "Reconnecting…"
+           : "Offline"}
         </span>
       </div>
 

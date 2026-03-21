@@ -41,7 +41,7 @@ vi.mock('react-router-dom', () => ({
 }))
 
 vi.mock('../hooks/useBoardSocket', () => ({
-  useBoardSocket: () => ({ connected: true }),
+  useBoardSocket: () => ({ connected: true, status: 'connected' }),
 }))
 
 vi.mock('../api/boards', () => ({
