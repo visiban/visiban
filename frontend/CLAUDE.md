@@ -213,6 +213,10 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - The full value must remain in the clipboard on copy — only the display is truncated
 - Add a `title` attribute (or tooltip on hover) showing the full URL
 
+## Hover-reveal controls
+
+When an action button is hidden until hover (`opacity-0 group-hover:opacity-100`), it **must** also include `focus:opacity-100` and a focus ring so keyboard users can reach and activate it. Without `focus:opacity-100`, the button is unreachable by keyboard. This applies to all hover-reveal controls (comment delete, swimlane edit, RTE pencil icon, etc.).
+
 ## Move-blocked toast (MoveBlockedToast)
 
 - **Use `MoveBlockedToast` for all card move constraint violations** — WIP limit, weight limit, or any future column constraint. Never add a second inline toast block in `App.tsx`.

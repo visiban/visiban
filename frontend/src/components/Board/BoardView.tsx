@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../../types";
+import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, User } from "../../types";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
@@ -65,6 +65,7 @@ interface Props {
   userDateFormat?: string;
   userTimeFormat?: string;
   closeEditorOnEnter?: boolean;
+  currentUser?: User | null;
 }
 
 function ColumnTrashZone() {
@@ -116,7 +117,7 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, onUpdateBoardSettings, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false }: Props) {
+export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, onUpdateBoardSettings, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null }: Props) {
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
@@ -885,6 +886,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
           userTimezone={userTimezone}
+          currentUser={currentUser}
           closeEditorOnEnter={closeEditorOnEnter}
         />
       )}

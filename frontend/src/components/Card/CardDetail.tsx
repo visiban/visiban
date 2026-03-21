@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority } from "../../types";
+import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
-import { deleteCard, archiveCard, getCardComments, addCardComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
+import { deleteCard, archiveCard, getCardComments, addCardComment, deleteComment, updateCard, getCardAttachments, uploadCardAttachment, deleteCardAttachment, getChecklist, addChecklistItem, updateChecklistItem, deleteChecklistItem } from "../../api/cards";
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
@@ -22,6 +22,7 @@ interface Props {
   userDateFormat?: string;
   userTimeFormat?: string;
   userTimezone?: string;
+  currentUser?: User | null;
   closeEditorOnEnter?: boolean;
 }
 
@@ -65,9 +66,10 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", closeEditorOnEnter = false }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
+  const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const [commentBody, setCommentBody] = useState("");
   const [tab, setTab] = useState<"details" | "history">("details");
   const [addingLabel, setAddingLabel] = useState(false);
@@ -254,6 +256,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const canEdit = role === "site_admin" || role === "admin" || role === "member";
   const canManageLabels = role === "site_admin" || role === "admin";
   const canComment = canEdit || role === "collaborator";
+  // A comment may be deleted by its author, board admins, or site admins.
+  // Admins can delete any comment for moderation purposes.
+  const canDeleteComment = (c: CardComment): boolean =>
+    (c.author !== null && currentUser !== null && c.author.id === currentUser.id) ||
+    role === "admin" ||
+    role === "site_admin";
+
+  const handleDeleteComment = async (commentId: number) => {
+    await deleteComment(board.id, card.id, commentId);
+    setComments((prev) => prev.filter((x) => x.id !== commentId));
+    setConfirmDeleteCommentId(null);
+  };
 
   const allLabels = [...board.labels];
   localCard.labels.forEach((l) => {
@@ -699,14 +713,44 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     const authorInitials = authorName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
                     const avatarCls = avatarColor(c.author?.id ?? 0);
                     return (
-                      <div key={c.id} className="flex gap-2.5">
+                      <div key={c.id} className="flex gap-2.5 group">
                         <span className={`w-7 h-7 rounded-full ${avatarCls.bg} ${avatarCls.text} text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5`}>
                           {authorInitials}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-semibold text-slate-300">{authorName}</span>
                             <span className="text-[10px] text-slate-500" title={new Date(c.created_at).toLocaleString()}>{formatCommentTime(c.created_at)}</span>
+                            {canDeleteComment(c) && (
+                              confirmDeleteCommentId === c.id ? (
+                                <div className="ml-auto flex items-center gap-1">
+                                  <span className="text-[10px] text-red-400">Delete?</span>
+                                  <button
+                                    onClick={() => handleDeleteComment(c.id)}
+                                    className="text-[10px] text-red-400 hover:text-red-300 font-medium focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1"
+                                  >
+                                    Yes
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteCommentId(null)}
+                                    className="text-[10px] text-slate-500 hover:text-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1"
+                                  >
+                                    No
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  title="Delete comment"
+                                  onClick={() => setConfirmDeleteCommentId(c.id)}
+                                  className="ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 p-0.5 rounded text-slate-500 hover:text-red-400 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                  aria-label="Delete comment"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              )
+                            )}
                           </div>
                           <div className="bg-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 leading-relaxed">
                             {c.body.split(/(@[\w.+-]+)/g).map((part, i) => // nosemgrep: nodejs_scan.javascript-dos-rule-regex_dos
