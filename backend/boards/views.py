@@ -35,7 +35,7 @@ from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     BoardTemplateSerializer,
-    ColumnSerializer, SwimlaneSerializer, LabelSerializer,
+    ColumnSerializer, SwimlaneSerializer, SwimlaneAdminSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     _card_queryset,
@@ -753,8 +753,19 @@ class BoardViewSet(viewsets.ModelViewSet):
         2× the board median for that column.
         """
         board, _ = get_board_for_user(pk, request.user)
-        days = int(request.query_params.get("days", 30))
-        stalled_days = int(request.query_params.get("stalled_days", 7))
+        try:
+            days = int(request.query_params.get("days", 30))
+            stalled_days = int(request.query_params.get("stalled_days", 7))
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "Query params 'days' and 'stalled_days' must be positive integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if days <= 0 or stalled_days <= 0:
+            return Response(
+                {"detail": "Query params 'days' and 'stalled_days' must be positive integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         now = timezone.now()
         stall_cutoff = now - datetime.timedelta(days=stalled_days)
 
@@ -1051,9 +1062,14 @@ class ColumnViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        _max = board.columns.aggregate(m=Max("position"))["m"]
-        max_pos = 0 if _max is None else _max + 1
-        column = serializer.save(board=board, position=max_pos)
+        # Lock the board row before computing the next position to prevent a race
+        # condition where two concurrent requests both read the same Max(position) and
+        # attempt to insert two columns with the same value, violating unique_together.
+        with transaction.atomic():
+            Board.objects.select_for_update().get(pk=board.pk)
+            _max = board.columns.aggregate(m=Max("position"))["m"]
+            max_pos = 0 if _max is None else _max + 1
+            column = serializer.save(board=board, position=max_pos)
         column_data = ColumnSerializer(column).data
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "column.created", column_data))
@@ -1106,7 +1122,14 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for swimlanes on a board; write operations require admin role."""
 
     permission_classes = [IsAuthenticated]
-    serializer_class = SwimlaneSerializer
+
+    def get_serializer_class(self):
+        # Admin and site_admin members see contact_email and notes; all others get the
+        # public serializer which omits those fields to prevent viewer-role PII exposure.
+        _, role = self._board_and_role()
+        if role in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            return SwimlaneAdminSerializer
+        return SwimlaneSerializer
 
     def _board_and_role(self):
         return get_board_for_user(self.kwargs["board_pk"], self.request.user)
@@ -1121,9 +1144,15 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        _max = board.swimlanes.aggregate(m=Max("position"))["m"]
-        max_pos = 0 if _max is None else _max + 1
-        swimlane = serializer.save(board=board, position=max_pos)
+        # Lock the board row for the same reason as ColumnViewSet.perform_create —
+        # concurrent swimlane creation could race on Max(position).
+        with transaction.atomic():
+            Board.objects.select_for_update().get(pk=board.pk)
+            _max = board.swimlanes.aggregate(m=Max("position"))["m"]
+            max_pos = 0 if _max is None else _max + 1
+            swimlane = serializer.save(board=board, position=max_pos)
+        # Broadcast uses the public serializer — contact_email and notes must not be
+        # sent to viewer-role members who are connected via WebSocket.
         swimlane_data = SwimlaneSerializer(swimlane).data
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "swimlane.created", swimlane_data))
@@ -1133,6 +1162,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         swimlane = serializer.save()
+        # Same broadcast-safety constraint as perform_create.
         swimlane_data = SwimlaneSerializer(swimlane).data
         board_id = swimlane.board_id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "swimlane.updated", swimlane_data))

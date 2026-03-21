@@ -39,10 +39,27 @@ class ColumnSerializer(serializers.ModelSerializer):
 
 
 class SwimlaneSerializer(serializers.ModelSerializer):
+    """Public swimlane representation — omits contact_email and notes.
+
+    Viewer-role members have read access to the board but must not see PII or
+    internal notes stored on swimlanes (customer records). Admin-role members and
+    write operations use SwimlaneAdminSerializer which includes those fields.
+    """
+
     class Meta:
         model = Swimlane
-        fields = ["id", "uid", "name", "contact_email", "notes", "position", "color", "is_collapsed", "created_at"]
+        fields = ["id", "uid", "name", "position", "color", "is_collapsed", "created_at"]
         read_only_fields = ["uid"]
+
+
+class SwimlaneAdminSerializer(SwimlaneSerializer):
+    """Full swimlane representation including contact_email and notes.
+
+    Used for admin/site_admin members only. Never served to viewer-role members.
+    """
+
+    class Meta(SwimlaneSerializer.Meta):
+        fields = ["id", "uid", "name", "contact_email", "notes", "position", "color", "is_collapsed", "created_at"]
 
 
 class LabelSerializer(serializers.ModelSerializer):
@@ -207,7 +224,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
 class BoardFullSerializer(serializers.ModelSerializer):
     columns = ColumnSerializer(many=True, read_only=True)
-    swimlanes = SwimlaneSerializer(many=True, read_only=True)
+    swimlanes = serializers.SerializerMethodField()
     cards = serializers.SerializerMethodField()
     labels = LabelSerializer(many=True, read_only=True)
     members = serializers.SerializerMethodField()
@@ -223,6 +240,26 @@ class BoardFullSerializer(serializers.ModelSerializer):
             "allowed_priorities", "enforce_wip_limits", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred",
         ]
         read_only_fields = ["uid"]
+
+    def get_swimlanes(self, obj):
+        """Serialize swimlanes with role-appropriate field exposure.
+
+        Admin and site_admin members see contact_email and notes.
+        Member and viewer roles receive the public serializer which omits those fields.
+
+        get_board_role() is used (not a direct memberships lookup) so group-inherited
+        admin roles are handled correctly.
+        """
+        from .permissions import get_board_role, SITE_ADMIN
+        from .models import BoardMembership as BM
+
+        request = self.context.get("request")
+        role = self.context.get("role")
+        if role is None and request and request.user.is_authenticated:
+            role = get_board_role(request.user, obj)
+        use_admin = role in (BM.Role.ADMIN, SITE_ADMIN)
+        serializer_class = SwimlaneAdminSerializer if use_admin else SwimlaneSerializer
+        return serializer_class(obj.swimlanes.all(), many=True, context=self.context).data
 
     def get_cards(self, obj):
         """Return only active (non-archived) cards for the board view.
