@@ -14,6 +14,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Settings page (Profile and Security tabs) now reserves fixed vertical space for inline status messages so surrounding buttons no longer shift when save/error text appears (#301)
 - Board Settings button is now hidden entirely for non-admin users instead of being greyed out — removing the misleading disabled affordance (#299)
 - GroupDetail page: replaced all `gray-*` Tailwind tokens with `slate-*` to match the project's dark theme color system (#294)
+- Helm chart `backend-deployment.yaml` now runs daphne (ASGI) instead of gunicorn (WSGI) — Kubernetes deployments via the Helm chart previously used gunicorn which cannot serve WebSocket connections, causing real-time board updates to silently fail (#276)
+- Removed gunicorn from `requirements.txt` — daphne is the ASGI server used in all deployments; gunicorn was a leftover from before the ASGI migration (#276)
 
 ---
 
