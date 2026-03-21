@@ -82,7 +82,7 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 - Checklist items (add, check/uncheck, delete) — collapsible section
 - File attachments (up to 10 MB, allowlisted MIME types) — collapsible section
 - Movement history (which columns/swimlanes the card moved through, and when)
-- Field-change activity log (who changed what and when)
+- Field-change activity log (who changed what and when) — tracks title, description, priority, weight, assignee, labels, due date, checklist items, comments, attachments; rapid-fire changes to the same field are debounced and collapsed into a single net entry
 - Scroll gradient when content overflows
 
 ### Card movement audit trail
@@ -106,6 +106,7 @@ Pure reorders (same cell, different position) do not create movement records.
 - CSS Grid: columns (x-axis) × swimlane rows (y-axis)
 - Swimlane label sidebar on the left (resizable by dragging right edge, persisted to localStorage)
 - Column headers sticky on scroll, show WIP count
+- Optional WIP limit enforcement (`enforce_wip_limits` board setting): moving a card into a full column returns an error; board admins can override; archived cards excluded from count
 
 ### Resizing
 
@@ -125,7 +126,7 @@ Pure reorders (same cell, different position) do not create movement records.
 
 - Filter by: priority, label, assignee, due date (overdue, upcoming)
 - Active filter count badge on the filter bar
-- Client-side card search within the loaded board
+- Server-side card search (title + description, case-insensitive, debounced 300ms with AbortController cancellation); client-side filters intersected with server results
 - Filter state persisted to localStorage per board
 
 ### Keyboard shortcuts

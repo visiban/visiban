@@ -16,6 +16,58 @@ type TimelineEntry =
   | { kind: "move"; ts: number; data: CardMovement }
   | { kind: "activity"; ts: number; data: CardActivity };
 
+type ChecklistEventType =
+  | "checklist_item_added"
+  | "checklist_item_checked"
+  | "checklist_item_unchecked"
+  | "checklist_item_deleted";
+
+const CHECKLIST_EVENT_TYPES = new Set<string>([
+  "checklist_item_added",
+  "checklist_item_checked",
+  "checklist_item_unchecked",
+  "checklist_item_deleted",
+]);
+
+type ChecklistGroup = {
+  kind: "checklist-group";
+  ts: number;
+  event_type: ChecklistEventType;
+  items: string[];
+  actor: CardActivity["actor"];
+  created_at: string;
+};
+
+type DisplayEntry = TimelineEntry | ChecklistGroup;
+
+// Collapse consecutive same-type checklist activity entries into a single group
+// so the history shows "Added: 'a', 'b', 'c'" instead of three separate rows.
+function collapseChecklistGroups(entries: TimelineEntry[]): DisplayEntry[] {
+  const result: DisplayEntry[] = [];
+  for (const entry of entries) {
+    if (entry.kind !== "activity" || !CHECKLIST_EVENT_TYPES.has(entry.data.event_type)) {
+      result.push(entry);
+      continue;
+    }
+    const a = entry.data;
+    const value = a.event_type === "checklist_item_deleted" ? a.from_value : a.to_value;
+    const last = result[result.length - 1];
+    if (last?.kind === "checklist-group" && last.event_type === (a.event_type as ChecklistEventType)) {
+      last.items.push(value);
+    } else {
+      result.push({
+        kind: "checklist-group",
+        ts: entry.ts,
+        event_type: a.event_type as ChecklistEventType,
+        items: [value],
+        actor: a.actor,
+        created_at: a.created_at,
+      });
+    }
+  }
+  return result;
+}
+
 function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   if (minutes < 60) return `${minutes}m`;
@@ -45,14 +97,6 @@ function activityLabel(a: CardActivity, userDateFormat = "MM/DD/YYYY"): { line1:
       return { line1: `Attached: ${a.to_value || "file"}` };
     case "attachment_deleted":
       return { line1: `Removed: ${a.from_value || "file"}` };
-    case "checklist_item_added":
-      return { line1: `Added checklist item: "${a.to_value}"` };
-    case "checklist_item_checked":
-      return { line1: `Checked: "${a.to_value}"` };
-    case "checklist_item_unchecked":
-      return { line1: `Unchecked: "${a.to_value}"` };
-    case "checklist_item_deleted":
-      return { line1: `Removed checklist item: "${a.from_value}"` };
     case "due_date_change": {
       const fmt = (iso: string) => iso ? formatDateStr(iso, userDateFormat) : "(none)";
       return { line1: `Due date: ${fmt(a.from_value)} → ${fmt(a.to_value)}` };
@@ -98,7 +142,8 @@ export default function CardMovementTimeline({ boardId, cardId, columnIds, userD
   if (loading) return <p className="text-sm text-slate-400">Loading history…</p>;
   if (entries.length === 0) return <p className="text-sm text-slate-400">No activity yet.</p>;
 
-  const visible = showAll ? entries : entries.filter((e) => e.kind === "move");
+  const rawVisible = showAll ? entries : entries.filter((e) => e.kind === "move");
+  const visible = collapseChecklistGroups(rawVisible);
 
   // All move entries in chronological order, for time-spent calculation
   const moves = entries.filter((e) => e.kind === "move").map((e) => e.data as CardMovement);
@@ -118,7 +163,34 @@ export default function CardMovementTimeline({ boardId, cardId, columnIds, userD
       </div>
 
       <ol className="relative border-l border-slate-700 ml-2">
-        {visible.map((entry) => {
+        {visible.map((entry: DisplayEntry) => {
+          if (entry.kind === "checklist-group") {
+            const cg = entry;
+            const actor = cg.actor ? userDisplayName(cg.actor) : null;
+            const plural = cg.items.length > 1;
+            const labels: Record<ChecklistEventType, [string, string]> = {
+              checklist_item_added:     ["Added checklist item",   "Added checklist items"],
+              checklist_item_checked:   ["Checked",                "Checked"],
+              checklist_item_unchecked: ["Unchecked",              "Unchecked"],
+              checklist_item_deleted:   ["Removed checklist item", "Removed checklist items"],
+            };
+            const [singular, pluralLabel] = labels[cg.event_type];
+            const label = plural ? pluralLabel : singular;
+            const itemList = cg.items.map((i) => `"${i}"`).join(", ");
+            return (
+              <li key={`cg-${cg.ts}-${cg.event_type}`} className="relative mb-3 ml-4">
+                <span className="absolute -left-[1.375rem] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-slate-500 border-2 border-slate-800 shadow" />
+                <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-300">{label}: {itemList}</span>
+                    {actor && <span className="text-xs text-slate-400 ml-auto shrink-0">by {actor}</span>}
+                  </div>
+                  <time className="text-xs text-slate-400">{formatDateTime(cg.created_at, userDateFormat, userTimeFormat)}</time>
+                </div>
+              </li>
+            );
+          }
+
           if (entry.kind === "move") {
             const m = entry.data as CardMovement;
             const actor = m.moved_by ? userDisplayName(m.moved_by) : null;
