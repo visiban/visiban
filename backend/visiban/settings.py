@@ -159,6 +159,10 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
+        # Block all API access for accounts with a forced password-change pending.
+        # Views that must remain accessible (ChangePasswordView) opt out by declaring
+        # their own explicit permission_classes = [IsAuthenticated].
+        "visiban.permissions.MustNotHavePendingPasswordChange",
     ],
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -167,6 +171,9 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    # Tell DRF to trust exactly one proxy (Nginx) when parsing X-Forwarded-For
+    # for rate limiting and IP detection. Prevents IP spoofing via header injection.
+    "NUM_PROXIES": 1,
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
@@ -219,6 +226,14 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORI
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_HTTPONLY = False  # Must be False so JS can read it
 SESSION_COOKIE_SAMESITE = "Lax"
+# Mark session and CSRF cookies as Secure in production so they are never
+# transmitted over plain HTTP. Safe to set behind Nginx TLS termination.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+# Tell Django that the X-Forwarded-Proto header (set by Nginx) is the
+# authoritative indicator of HTTPS. Required for request.is_secure() to
+# return True behind the Nginx reverse proxy.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # django-allauth
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"

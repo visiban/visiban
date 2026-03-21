@@ -14,10 +14,14 @@ def notify_on_card_moved(sender, instance, created, **kwargs):
     # Don't notify the person who moved it
     if card.assignee == instance.moved_by:
         return
+    if not card.assignee.notif_card_moved:
+        return
     to_col = instance.to_column.name if instance.to_column else "a new stage"
     mover = instance.moved_by.username if instance.moved_by else "Someone"
     Notification.objects.create(
         recipient=card.assignee,
+        actor=instance.moved_by,
+        action_type=Notification.ActionType.CARD_MOVED,
         verb=f"{mover} moved \"{card.title}\" to {to_col}",
         card=card,
         board=card.board,

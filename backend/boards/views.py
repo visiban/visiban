@@ -1446,8 +1446,8 @@ class CardViewSet(viewsets.ModelViewSet):
                 card=card, event_type=ET.ASSIGNEE_CHANGE,
                 from_value=old_assignee_name, to_value=new_name, actor=request.user,
             ))
-            # Notify new assignee
-            if card.assignee and card.assignee != request.user:
+            # Notify new assignee if they have not opted out of assignment notifications.
+            if card.assignee and card.assignee != request.user and card.assignee.notif_card_assigned:
                 Notification.objects.create(
                     recipient=card.assignee,
                     actor=request.user,
@@ -1687,6 +1687,7 @@ class CardViewSet(viewsets.ModelViewSet):
             member_users = User.objects.filter(
                 username__in=mentioned_usernames,
                 pk__in=eff_ids,
+                notif_mentioned=True,
             ).exclude(pk=request.user.pk)
             Notification.objects.bulk_create([
                 Notification(
@@ -1978,3 +1979,54 @@ class BoardTemplateListView(APIView):
     def get(self, request):
         templates = BoardTemplate.objects.filter(is_active=True).order_by("sort_order", "name")
         return Response(BoardTemplateSerializer(templates, many=True).data)
+
+
+# ---------------------------------------------------------------------------
+# Authenticated media serving
+# ---------------------------------------------------------------------------
+
+class ServeMediaView(APIView):
+    """Serve uploaded attachment files with authentication and board-membership checks.
+
+    In production, Django authenticates the request and confirms board membership,
+    then delegates the actual file transfer to Nginx via X-Accel-Redirect (zero
+    Python I/O overhead). In development (DEBUG=True), Django serves the file
+    directly so the stack works without Nginx.
+
+    This replaces the unauthenticated /media/ Nginx proxy — see nginx/app.conf.template.
+    Any request that reaches this view but cannot be matched to a known attachment
+    (deleted, never existed, or path tampered) receives 404, not 403, to avoid
+    leaking whether a path is a valid attachment.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, path):
+        try:
+            attachment = (
+                CardAttachment.objects
+                .select_related("card__board")
+                .get(file=path)
+            )
+        except CardAttachment.DoesNotExist:
+            from django.http import Http404
+            raise Http404
+
+        board = attachment.card.board
+        role = get_board_role(request.user, board)
+        if not role:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        if django_settings.DEBUG:
+            # Development: serve the file directly through Django. Not used in
+            # production where Nginx handles the transfer via X-Accel-Redirect.
+            from django.views.static import serve as django_serve
+            return django_serve(request, path, document_root=django_settings.MEDIA_ROOT)
+
+        response = HttpResponse()
+        # Hand the transfer to Nginx's internal /protected-media/ location,
+        # which maps to MEDIA_ROOT (/app/media). Nginx re-adds Content-Type
+        # from the file extension; setting it to empty here avoids a conflict.
+        response["X-Accel-Redirect"] = f"/protected-media/{path}"
+        response["Content-Type"] = ""
+        return response

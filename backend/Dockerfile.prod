@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
@@ -15,4 +15,9 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py ensure_site_admin && gunicorn visiban.wsgi:application --bind 0.0.0.0:8000 --workers 2"]
+# /app/media holds user-uploaded attachments. Declare it as a volume so that
+# container image rebuilds do not silently destroy uploads. In production the
+# volume is mounted explicitly in docker-compose.prod.yml.
+VOLUME ["/app/media"]
+
+CMD ["sh", "-c", "python manage.py migrate && python manage.py ensure_site_admin && daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"]

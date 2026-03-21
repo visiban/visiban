@@ -74,6 +74,26 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 
 `movement` is `null` if only position changed within the same cell.
 
+**WIP / weight limit enforcement**
+
+When `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board and the target column is at or above its limit, the move returns `409 Conflict`:
+
+```json
+{ "code": "wip_limit_exceeded", "detail": "Column 'Doing' is at its WIP limit (5).", "column_id": 3, "wip_limit": 5, "current_count": 5 }
+```
+
+```json
+{ "code": "weight_limit_exceeded", "detail": "Column 'Doing' is at its weight limit (10).", "column_id": 3, "weight_limit": 10, "current_weight": 10 }
+```
+
+Board admins may override the limit by appending `?force=true` to the move URL:
+
+```bash
+POST /api/boards/1/cards/42/move/?force=true
+```
+
+Non-admin users who send `?force=true` receive `403 Forbidden`.
+
 The `*_uid` fields in the movement record are permanent — they remain set even after the referenced column or swimlane is deleted (the FK `*_id` field becomes `null` at that point, but the UID is preserved). See [Stable UIDs](../features/stable-uids.md).
 
 ---
