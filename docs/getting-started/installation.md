@@ -114,6 +114,7 @@ npm run dev
 | `SITE_DOMAIN` | No | Public hostname used for OAuth callbacks (default: `localhost:8000`) — must match your OAuth app's redirect URI |
 | `DJANGO_SUPERUSER_USERNAME` | No | Override bootstrap admin username (default: `admin`) |
 | `DJANGO_SUPERUSER_EMAIL` | No | Override bootstrap admin email (default: `admin@localhost`) |
+| `ACCOUNT_EMAIL_VERIFICATION` | No | Email verification mode: `none` (default — no verification required, works without SMTP), `optional` (sends verification email but allows login without it), or `mandatory` (blocks login until email is verified) |
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
 

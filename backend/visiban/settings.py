@@ -237,7 +237,10 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # django-allauth
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
-ACCOUNT_EMAIL_VERIFICATION = "none"
+# Default to "none" so self-hosted installs work without a configured SMTP server.
+# Set ACCOUNT_EMAIL_VERIFICATION=mandatory to require email confirmation before login,
+# or "optional" to send a verification email but allow login without it.
+ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="none")
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")

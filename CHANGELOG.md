@@ -19,6 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - Board Settings "Enforce WIP limits" toggle now saves correctly — the handler was using `PUT` with only the changed field, causing a 400; switched to `PATCH`
+- Board list (`GET /api/boards/`) now uses a single annotated query for member count, card count, and starred status — previously issued 3 subqueries per board, causing noticeable latency on accounts with many boards (#283)
+- Email verification mode is now configurable via the `ACCOUNT_EMAIL_VERIFICATION` environment variable — set to `mandatory` or `optional` to enable; defaults to `none` (no behavior change for existing installs) (#304)
 - Due date field now opens the calendar picker on macOS Safari — Safari does not show the native date picker for `opacity: 0` inputs, so the container now explicitly calls `showPicker()` (Safari 16+) or `focus()` (older Safari) on click; Chrome and Firefox continue to open the picker natively via the transparent overlay input (#249)
 - fix: restrict card drag drop targets to cell zones only — prevents col:/swim: headers resolving as drop targets and sending swimlane_id=null to the move endpoint (#272)
 - Concurrent column or swimlane creation on the same board no longer causes a database integrity error — requests now serialize correctly via a row-level lock (#281)
