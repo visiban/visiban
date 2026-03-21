@@ -26,7 +26,7 @@ spec:
         - name: backend
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
-          command: ["gunicorn", "visiban.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2"]
+          command: ["daphne", "-b", "0.0.0.0", "-p", "8000", "visiban.asgi:application"]
           ports:
             - name: http
               containerPort: 8000
