@@ -450,6 +450,10 @@ frontend-sast:
   allow_failure: true
 
 # pip-audit: checks Python packages against the OSV vulnerability database.
+# On MRs: only when requirements.txt changes; allow_failure so a new CVE in an
+# existing dep doesn't block unrelated MRs.
+# On the weekly CVE schedule: always runs; allow_failure: false so the pipeline
+# fails and GitLab sends a failure email to maintainers.
 backend-dep-scan:
   stage: security
   image: python:3.12-slim
@@ -457,12 +461,14 @@ backend-dep-scan:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/requirements.txt
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CVE_SCAN == "true"'
+      allow_failure: false
   before_script:
     - pip install --quiet pip-audit
   script:
     - pip-audit -r backend/requirements.txt --format json -o pip-audit-report.json || true
     - pip-audit -r backend/requirements.txt
-  allow_failure: true
   artifacts:
     when: always
     expire_in: 1 week
@@ -470,6 +476,7 @@ backend-dep-scan:
       - pip-audit-report.json
 
 # npm audit: flag HIGH or CRITICAL CVEs in frontend npm dependencies.
+# Same MR / schedule split as backend-dep-scan above.
 frontend-dep-scan:
   extends: .npm-cache
   stage: security
@@ -478,12 +485,14 @@ frontend-dep-scan:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - frontend/package-lock.json
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CVE_SCAN == "true"'
+      allow_failure: false
   before_script:
     - cd frontend
     - npm ci --prefer-offline
   script:
     - npm audit --audit-level=high
-  allow_failure: true
   after_script:
     - cd frontend && npm audit --json > ../npm-audit-report.json 2>/dev/null || true
   artifacts:
@@ -541,6 +550,57 @@ frontend-license-check:
   script:
     - npx license-checker --failOn "GPL-2.0;GPL-3.0" --summary
   allow_failure: true
+
+# trivy: filesystem scan for OS-level CVEs in the Docker base images and
+# IaC misconfigurations in Dockerfiles and Helm charts.
+#
+# Why trivy in addition to pip-audit / npm audit:
+#   - pip-audit and npm audit only see application-layer dependencies.
+#     trivy also scans the OS packages installed in the Docker image
+#     (e.g. Alpine apk packages in python:3.12-slim or node:20-alpine)
+#     for CVEs that the app-layer scanners never see.
+#   - --scanners vuln,config catches both CVEs and IaC issues (Dockerfile
+#     USER root, ADD instead of COPY, missing HEALTHCHECK, etc.) in one pass.
+#
+# Runs on any change to a Dockerfile, requirements.txt, package-lock.json,
+# or Helm chart, plus always on main. allow_failure: true so a newly
+# published OS CVE in a base image does not immediately block merges —
+# findings are visible in the job log and artifact for triage.
+trivy-scan:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/Dockerfile
+        - frontend/Dockerfile
+        - backend/requirements.txt
+        - frontend/package-lock.json
+        - helm/**/*
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    # Scan the repo filesystem — catches vuln in declared deps and IaC issues
+    # in Dockerfiles and Helm templates. --exit-code 0 so the job is non-
+    # blocking; severity threshold is HIGH,CRITICAL for the visible summary.
+    - trivy fs .
+        --scanners vuln,config
+        --severity HIGH,CRITICAL
+        --exit-code 0
+        --format table
+    - trivy fs .
+        --scanners vuln,config
+        --severity HIGH,CRITICAL
+        --exit-code 0
+        --format json
+        --output trivy-report.json
+  allow_failure: true
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - trivy-report.json
 
 # ─── Build verification (MR only) ─────────────────────────────────────────────
 #
@@ -720,6 +780,24 @@ docs-deploy:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: manual
 
+# ─── Weekly CVE dependency scan ───────────────────────────────────────────────
+#
+# backend-dep-scan and frontend-dep-scan (defined in the security stage above)
+# run on a weekly GitLab CI schedule with CVE_SCAN=true set as a schedule
+# variable. Unlike their MR counterparts they use allow_failure: false, so a
+# new HIGH/CRITICAL CVE causes the pipeline to fail and GitLab emails all
+# maintainers who have "Failed pipeline" notifications enabled.
+#
+# To enable email notifications:
+#   Profile → Notifications → Global notification level → "Watch"
+#   or set per-project in Project → Notification settings → "Failed pipeline"
+#
+# The schedule itself is configured in GitLab: CI/CD → Schedules
+#   Description : Weekly CVE scan
+#   Interval    : 0 8 * * 1  (Mondays 08:00 UTC)
+#   Target branch: main
+#   Variables   : CVE_SCAN = true
+#
 # ─── Scheduled branch cleanup ─────────────────────────────────────────────────
 #
 # Deletes remote branches that have been fully merged into main.
