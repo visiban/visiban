@@ -25,7 +25,7 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "display" | "analytics" | "data";
+  initialTab?: "members" | "display" | "rules" | "data";
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -34,7 +34,7 @@ interface Props {
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
 }
 
-type Tab = "members" | "display" | "analytics" | "data";
+type Tab = "members" | "display" | "rules" | "data";
 
 interface StagedInvite {
   user: User;
@@ -182,11 +182,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 px-6 gap-1">
-          {(["members", "display", "analytics", "data"] as Tab[]).map((t) => {
+          {(["members", "display", "rules", "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
               : t === "display" ? "Display"
-              : t === "analytics" ? "Analytics"
+              : t === "rules" ? "Rules"
               : "Data";
             return (
               <button
@@ -384,11 +384,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             </div>
           )}
 
-          {/* ── Analytics tab ── */}
-          {tab === "analytics" && (
+          {/* ── Rules tab ── */}
+          {tab === "rules" && (
             <div className="flex flex-col gap-5">
               <p className="text-xs text-slate-500">
-                Analytics settings affect all board members. Only admins can change these.
+                Rules affect all board members. Only admins can change these.
               </p>
 
               {/* WIP and weight limit enforcement */}

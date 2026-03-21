@@ -17,7 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
-- Board Settings now has a dedicated Analytics tab that groups WIP/weight enforcement toggles and the staleness threshold together, separating configuration analytics from display preferences (#264)
+- Board Settings now has a dedicated Rules tab that groups WIP/weight enforcement toggles and the staleness threshold together, separating board rules from display preferences (#264)
 - WebSocket live indicator is now three-state: green "Live" when connected, amber "Reconnecting…" while attempting to reconnect, and grey "Offline" when the connection has permanently failed (#308)
 - "Close editor on Enter" now defaults to on for new accounts — users who prefer multi-line entry can disable it in Settings → Behavior (#309)
 - User editor preference ("Close editor on Enter") is now in its own Settings → Behavior tab, separating behavioral preferences from visual appearance settings (#309)
