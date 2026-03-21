@@ -169,7 +169,8 @@ export type CardActivityEventType =
   | "checklist_item_added"
   | "checklist_item_checked"
   | "checklist_item_unchecked"
-  | "checklist_item_deleted";
+  | "checklist_item_deleted"
+  | "due_date_change";
 
 export interface CardActivity {
   id: number;

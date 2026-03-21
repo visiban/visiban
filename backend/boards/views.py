@@ -1409,6 +1409,7 @@ class CardViewSet(viewsets.ModelViewSet):
         old_assignee_name = card.assignee.username if card.assignee else "Unassigned"
         old_description = card.description
         old_label_ids = set(card.labels.values_list("id", flat=True))
+        old_due_date = card.due_date.isoformat() if card.due_date else ""
 
         serializer = self.get_serializer(card, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -1472,6 +1473,12 @@ class CardViewSet(viewsets.ModelViewSet):
             activities.append(CardActivity(
                 card=card, event_type=ET.LABEL_CHANGE,
                 from_value="", to_value=", ".join(parts), actor=request.user,
+            ))
+        new_due_date = card.due_date.isoformat() if card.due_date else ""
+        if old_due_date != new_due_date:
+            activities.append(CardActivity(
+                card=card, event_type=ET.DUE_DATE_CHANGE,
+                from_value=old_due_date, to_value=new_due_date, actor=request.user,
             ))
 
         if activities:

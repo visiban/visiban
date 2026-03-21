@@ -150,6 +150,68 @@ class CardUpdateTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn(label.id, [lbl["id"] for lbl in r.json()["labels"]])
 
+    @patch(PATCH_BROADCAST)
+    def test_setting_due_date_logs_activity(self, _):
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"due_date": "2099-06-15"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.DUE_DATE_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.from_value, "")  # was null → empty string
+        self.assertEqual(act.to_value, "2099-06-15")
+
+    @patch(PATCH_BROADCAST)
+    def test_changing_due_date_logs_activity(self, _):
+        self.card.due_date = "2099-01-01"
+        self.card.save()
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"due_date": "2099-06-15"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.DUE_DATE_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.from_value, "2099-01-01")
+        self.assertEqual(act.to_value, "2099-06-15")
+
+    @patch(PATCH_BROADCAST)
+    def test_clearing_due_date_logs_activity(self, _):
+        self.card.due_date = "2099-06-15"
+        self.card.save()
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"due_date": None},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.DUE_DATE_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.from_value, "2099-06-15")
+        self.assertEqual(act.to_value, "")  # cleared → empty string
+
+    @patch(PATCH_BROADCAST)
+    def test_unchanged_due_date_does_not_log_activity(self, _):
+        self.card.due_date = "2099-06-15"
+        self.card.save()
+        self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"due_date": "2099-06-15"},
+        )
+        self.assertEqual(
+            CardActivity.objects.filter(
+                card=self.card, event_type=CardActivity.EventType.DUE_DATE_CHANGE
+            ).count(),
+            0,
+        )
+
 
 class CardCommentsTests(TestCase):
     def setUp(self):

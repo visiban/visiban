@@ -86,6 +86,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [checklistOpen, setChecklistOpen] = useState(true);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Debounce weight saves: rapid +/- clicks coalesce into one PATCH so the
+  // activity feed shows a single net change (e.g. "Weight: 3 → 8") rather
+  // than an entry per click.
+  const weightSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     getCardComments(board.id, card.id).then(setComments);
@@ -516,12 +520,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Weight</p>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => { const w = Math.max(1, localCard.weight - 1); setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
+                    onClick={() => {
+                      const w = Math.max(1, localCard.weight - 1);
+                      setLocalCard((c) => ({ ...c, weight: w }));
+                      if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
+                      weightSaveTimer.current = setTimeout(() => save({ weight: w }), 600);
+                    }}
                     className="w-7 h-7 rounded-full border border-slate-600 text-slate-400 hover:bg-slate-700 transition text-sm font-medium"
                   >−</button>
                   <span className="text-sm font-semibold text-slate-200 w-6 text-center">{localCard.weight}</span>
                   <button
-                    onClick={() => { const w = localCard.weight + 1; setLocalCard((c) => ({ ...c, weight: w })); save({ weight: w }); }}
+                    onClick={() => {
+                      const w = localCard.weight + 1;
+                      setLocalCard((c) => ({ ...c, weight: w }));
+                      if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
+                      weightSaveTimer.current = setTimeout(() => save({ weight: w }), 600);
+                    }}
                     className="w-7 h-7 rounded-full border border-slate-600 text-slate-400 hover:bg-slate-700 transition text-sm font-medium"
                   >+</button>
                 </div>

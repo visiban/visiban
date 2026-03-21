@@ -311,6 +311,7 @@ class CardActivity(models.Model):
         CHECKLIST_ITEM_CHECKED = "checklist_item_checked", "Checklist item checked"
         CHECKLIST_ITEM_UNCHECKED = "checklist_item_unchecked", "Checklist item unchecked"
         CHECKLIST_ITEM_DELETED = "checklist_item_deleted", "Checklist item deleted"
+        DUE_DATE_CHANGE = "due_date_change", "Due date changed"
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="activities")
     event_type = models.CharField(max_length=30, choices=EventType.choices)

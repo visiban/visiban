@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getCardMovements, getCardActivities } from "../../api/cards";
 import type { CardActivity, CardMovement } from "../../types";
 import { userDisplayName } from "../../types";
-import { formatDateTime } from "../../utils/date";
+import { formatDateTime, formatDateStr } from "../../utils/date";
 
 interface Props {
   boardId: number;
@@ -25,7 +25,7 @@ function formatDuration(ms: number): string {
   return `${days}d`;
 }
 
-function activityLabel(a: CardActivity): { line1: string; detail?: string } {
+function activityLabel(a: CardActivity, userDateFormat = "MM/DD/YYYY"): { line1: string; detail?: string } {
   switch (a.event_type) {
     case "priority_change":
       return { line1: `Priority: ${a.from_value} → ${a.to_value}` };
@@ -53,6 +53,10 @@ function activityLabel(a: CardActivity): { line1: string; detail?: string } {
       return { line1: `Unchecked: "${a.to_value}"` };
     case "checklist_item_deleted":
       return { line1: `Removed checklist item: "${a.from_value}"` };
+    case "due_date_change": {
+      const fmt = (iso: string) => iso ? formatDateStr(iso, userDateFormat) : "(none)";
+      return { line1: `Due date: ${fmt(a.from_value)} → ${fmt(a.to_value)}` };
+    }
     default:
       return { line1: (a.event_type as string).replace(/_/g, " ") };
   }
@@ -166,7 +170,7 @@ export default function CardMovementTimeline({ boardId, cardId, columnIds, userD
           }
 
           const a = entry.data as CardActivity;
-          const { line1 } = activityLabel(a);
+          const { line1 } = activityLabel(a, userDateFormat);
           const actor = a.actor ? userDisplayName(a.actor) : null;
 
           return (
