@@ -1,3 +1,9 @@
+---
+name: broadcast-check
+description: Use proactively when adding or modifying any write operation (create, update, delete, move) on board-scoped resources. Verifies broadcast_board_event() is correctly wired for every mutation, deferred with transaction.on_commit(), and that the frontend socket handler exists for the event type.
+tools: Read, Grep, Glob
+---
+
 # Broadcast Check
 
 You are verifying that real-time WebSocket broadcast events are correctly wired for new or modified mutations. Missing a broadcast means the UI goes stale silently — other connected users won't see the change until they reload.
@@ -15,7 +21,7 @@ Called via `async_to_sync` from synchronous Django views. The frontend `useBoard
 
 ## What to do
 
-Given the new or modified viewset, view, or model method in `$ARGUMENTS` (or infer from the current git diff if no argument is provided):
+Given the new or modified viewset, view, or model method in the current diff or argument provided:
 
 ### 1. Identify mutations that require a broadcast
 

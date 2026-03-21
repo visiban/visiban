@@ -1,10 +1,16 @@
+---
+name: perf-bench
+description: Use proactively when adding a SerializerMethodField to CardSerializer, adding a new relation to Card/Board/CardMovement models, modifying the summary or analytics endpoint, or when perf-check flags a potential N+1 that needs verification with actual query counts.
+tools: Read, Grep, Glob, Bash
+---
+
 # Performance Benchmark
 
 You are running the performance benchmark suite for Visiban, measuring SQL query counts for the most performance-sensitive endpoints, identifying regressions, and fixing root causes.
 
 ## What to do
 
-Given the optional argument in `$ARGUMENTS` (e.g. "after adding CardChecklist relation" or left blank to run a general health check):
+Given the optional argument provided (e.g. "after adding CardChecklist relation") or the current diff context:
 
 ---
 
@@ -102,14 +108,6 @@ def _card_queryset(qs):
 
 If a new relation is added to `CardSerializer`, **add it to `_card_queryset` in the same commit**.
 
-**For N+1 in `summary`:**
-
-Replace per-swimlane loops with `.values().annotate()`. See `views.py:summary()` for the canonical implementation.
-
-**For N+1 in `BoardFullSerializer.get_members()`:**
-
-The group ancestor walk (up to 6 levels) issues one query per level. This is bounded and acceptable. If it appears in the slow-query list it is a symptom of deep group nesting, not a code bug.
-
 ---
 
 ### 5. Re-run to verify the fix
@@ -132,15 +130,6 @@ If a new relation is intentionally added to `CardSerializer` (e.g. a new prefetc
 Document the change in the commit message with the before/after counts.
 
 ---
-
-## When to run this skill
-
-Run `/perf-bench` whenever:
-- A new `SerializerMethodField` is added to `CardSerializer`
-- A new relation is added to `Card`, `Board`, or `CardMovement` models
-- The `summary` or `analytics` endpoint is modified
-- A pre-merge `/perf-check` flags a potential N+1 as "verify with query count"
-- The CI `perf-regression` job fails (if added)
 
 ## File map
 

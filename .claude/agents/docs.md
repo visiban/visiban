@@ -1,10 +1,16 @@
+---
+name: docs
+description: Use proactively when writing or updating any user-facing documentation in docs/features/, docs/getting-started/, docs/architecture/, or docs/administration/. Handles version callouts, enterprise callouts, nav updates, and build verification.
+tools: Read, Grep, Glob, Write, Edit, Bash
+---
+
 # Documentation
 
 You are writing or updating user-facing documentation for Visiban. Docs live in `docs/` alongside the code and are built with MkDocs Material and versioned with `mike`.
 
 ## What to do
 
-Given the feature, change, or section described in `$ARGUMENTS` (or infer from the current branch and git diff if no argument is provided):
+Given the feature, change, or section described in the current task or argument provided:
 
 ### 1. Identify the correct location
 
@@ -12,7 +18,7 @@ Given the feature, change, or section described in `$ARGUMENTS` (or infer from t
 docs/
 ├── getting-started/    — installation, first boot, OAuth setup, Docker
 ├── features/           — one page per feature (board, cards, analytics, notifications, etc.)
-├── api/                — API reference (use /api-docs for these)
+├── api/                — API reference (use api-docs agent for these)
 ├── architecture/       — data model, deployment, overview
 ├── administration/     — site admins, Django admin
 └── changelog.md        — auto-symlinked from repo root, do not edit here
@@ -51,9 +57,9 @@ Any feature that requires the enterprise edition must have this callout immediat
 ```
 
 Rules:
-- Only add to features that genuinely require enterprise — run `/enterprise-check` if unsure
+- Only add to features that genuinely require enterprise — use the enterprise-check agent if unsure
 - Do **not** add to OSS features
-- For features with both an OSS and enterprise tier, describe the distinction inline rather than using the callout (e.g. "Basic analytics are available in all editions. Advanced analytics — including velocity, dwell time, and bottleneck reports — require Visiban Enterprise.")
+- For features with both an OSS and enterprise tier, describe the distinction inline rather than using the callout
 
 ### 4. Write the content
 
