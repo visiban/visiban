@@ -6,6 +6,15 @@ export type BoardEvent = {
 };
 
 /**
+ * The connection state exposed by the hook.
+ *   connecting   — initial connect attempt in progress (before onopen fires)
+ *   connected    — socket is open and receiving events
+ *   reconnecting — socket closed unexpectedly; a reconnect timer is running
+ *   failed       — auth rejected (code 4001/4003); no further reconnect attempts
+ */
+export type SocketStatus = "connecting" | "connected" | "reconnecting" | "failed";
+
+/**
  * Opens a WebSocket connection to the board's real-time channel and calls
  * `onEvent` for every message received from the server.
  *
@@ -22,8 +31,8 @@ export type BoardEvent = {
 export function useBoardSocket(
   boardId: number | null,
   onEvent: (event: BoardEvent) => void
-): { connected: boolean } {
-  const [connected, setConnected] = useState(false);
+): { connected: boolean; status: SocketStatus } {
+  const [status, setStatus] = useState<SocketStatus>("connecting");
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
@@ -41,7 +50,7 @@ export function useBoardSocket(
     function connect() {
       ws = new WebSocket(url);
 
-      ws.onopen = () => { if (!canceled) setConnected(true); };
+      ws.onopen = () => { if (!canceled) setStatus("connected"); };
 
       ws.onmessage = (e) => {
         try {
@@ -51,11 +60,17 @@ export function useBoardSocket(
       };
 
       ws.onclose = (e) => {
-        setConnected(false);
-        // Reconnect unless we closed intentionally or auth was rejected
-        if (!canceled && e.code !== 1000 && e.code !== 4001 && e.code !== 4003) {
-          reconnectTimer = setTimeout(connect, 3000);
+        if (canceled) return;
+        // Auth rejection — stop here, no reconnect
+        if (e.code === 4001 || e.code === 4003) {
+          setStatus("failed");
+          return;
         }
+        // Normal unmount close — status stays as-is; component is gone
+        if (e.code === 1000) return;
+        // Unexpected close — schedule reconnect
+        setStatus("reconnecting");
+        reconnectTimer = setTimeout(connect, 3000);
       };
     }
 
@@ -68,5 +83,5 @@ export function useBoardSocket(
     };
   }, [boardId]);
 
-  return { connected };
+  return { connected: status === "connected", status };
 }

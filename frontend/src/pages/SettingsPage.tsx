@@ -10,7 +10,7 @@ import type { ThemePreference } from "../context/ThemeContext";
 import { TIMEZONE_OPTIONS, browserTimezone } from "../utils/date";
 import SelectDropdown from "../components/Common/SelectDropdown";
 
-type Tab = "profile" | "security" | "notifications" | "appearance";
+type Tab = "profile" | "security" | "notifications" | "appearance" | "behavior";
 
 interface Props {
   user: User;
@@ -377,24 +377,8 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; description: strin
   { value: "dark",   label: "Dark",   description: "Always use dark mode" },
 ];
 
-function AppearanceTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
+function AppearanceTab() {
   const { preference, setPreference } = useTheme();
-  const [savingEditor, setSavingEditor] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
-
-  const toggleCloseOnEnter = async () => {
-    const newVal = !(user.close_editor_on_enter ?? false);
-    setSavingEditor(true);
-    setEditorError(null);
-    try {
-      const updated = await updateCurrentUser({ close_editor_on_enter: newVal });
-      onUserUpdated(updated);
-    } catch {
-      setEditorError("Failed to save. Please try again.");
-    } finally {
-      setSavingEditor(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
@@ -438,28 +422,54 @@ function AppearanceTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u:
         </div>
       </div>
 
+    </div>
+  );
+}
+
+function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleCloseOnEnter = async () => {
+    const newVal = !(user.close_editor_on_enter ?? true);
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateCurrentUser({ close_editor_on_enter: newVal });
+      onUserUpdated(updated);
+    } catch {
+      setError("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-5 max-w-lg">
+      <h2 className="text-white text-lg font-semibold">Behavior</h2>
+
       <div>
-        <p className="text-sm text-slate-400 mb-3">Editor behavior</p>
+        <p className="text-sm text-slate-400 mb-3">Card editor</p>
         <label className="flex items-center justify-between gap-4 cursor-pointer">
           <span>
             <span className="block text-sm text-white">Close editor on Enter</span>
-            <span className="block text-xs text-slate-500">When on, pressing Enter in the new card input submits the card and closes the card panel.</span>
+            <span className="block text-xs text-slate-500">When on, pressing Enter in the inline card input submits the card and closes the editor. Enabled by default.</span>
           </span>
           <button
             role="switch"
-            aria-checked={user.close_editor_on_enter ?? false}
-            disabled={savingEditor}
+            aria-checked={user.close_editor_on_enter ?? true}
+            disabled={saving}
             onClick={toggleCloseOnEnter}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-              (user.close_editor_on_enter ?? false) ? "bg-blue-600" : "bg-slate-600"
+              (user.close_editor_on_enter ?? true) ? "bg-blue-600" : "bg-slate-600"
             }`}
           >
             <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-              (user.close_editor_on_enter ?? false) ? "translate-x-4" : "translate-x-1"
+              (user.close_editor_on_enter ?? true) ? "translate-x-4" : "translate-x-1"
             }`} />
           </button>
         </label>
-        {editorError && <p className="text-sm text-red-400 mt-2">{editorError}</p>}
+        <p className="text-xs h-4 mt-1">{error && <span className="text-red-400">{error}</span>}</p>
       </div>
     </div>
   );
@@ -470,6 +480,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "security", label: "Security" },
   { id: "notifications", label: "Notifications" },
   { id: "appearance", label: "Appearance" },
+  { id: "behavior", label: "Behavior" },
 ];
 
 export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
@@ -518,7 +529,8 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} />}
             {activeTab === "security" && <SecurityTab user={user} />}
             {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
-            {activeTab === "appearance" && <AppearanceTab user={user} onUserUpdated={onUserUpdated} />}
+            {activeTab === "appearance" && <AppearanceTab />}
+            {activeTab === "behavior" && <BehaviorTab user={user} onUserUpdated={onUserUpdated} />}
           </div>
         </div>
       </main>
