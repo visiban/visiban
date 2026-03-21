@@ -14,14 +14,17 @@ Custom Claude Code slash commands for the Visiban project. Skills live in `.clau
 ├── changelog.md
 ├── ci-debug.md
 ├── dependency.md
+├── docs.md
 ├── duplicate-check.md
 ├── enterprise-check.md
 ├── migration-check.md
 ├── mr.md
+├── perf-bench.md
 ├── perf-check.md
 ├── rbac-check.md
 ├── regression-check.md
 ├── release.md
+├── security-review.md
 ├── test-scaffold.md
 └── ux-review.md
 ```
@@ -44,8 +47,10 @@ Custom Claude Code slash commands for the Visiban project. Skills live in `.clau
 |---|---|
 | `/migration-check` | Any `backend/*/models.py` file is modified |
 | `/rbac-check` | Adding or modifying any API endpoint |
+| `/security-review` | Adding or modifying a view, serializer, auth logic, file uploads, or any user-controlled input handling |
 | `/broadcast-check` | Adding or modifying any write operation on board-scoped resources |
 | `/perf-check` | Adding or modifying any viewset, serializer, or database query |
+| `/perf-bench` | Adding a `SerializerMethodField` to `CardSerializer`, adding a relation to `Card`/`Board`/`CardMovement`, or when `/perf-check` flags a potential N+1 to verify |
 | `/dependency` | Before adding a new pip or npm package |
 
 ### Testing & documentation
@@ -123,6 +128,12 @@ Guides the full release process. Suggests a semver version from `CHANGELOG.md [U
 
 ### `/test-scaffold`
 Generates a well-structured test suite for new or modified code. Produces Django `TestCase` scaffolds (with `APIClient`, permission boundary tests, and atomic behaviour tests) for backend, and Vitest + React Testing Library scaffolds (with loading, error, and interaction tests) for frontend. Covers behaviour, not implementation.
+
+### `/perf-bench`
+Runs the performance benchmark suite and query-count regression tests against the three most sensitive endpoints (`/cards/`, `/full/`, `/summary/`). Each endpoint has a query budget and a scale invariant (count must not grow with data). Profiles N+1 root causes in `CardSerializer` method fields, identifies unsafe `.first()` / `.count()` / `.filter()` calls on prefetched relations, and verifies the fix re-runs clean.
+
+### `/security-review`
+Audits new or modified code against the OWASP Top 10 and Visiban-specific patterns. Covers broken access control (IDOR, missing `get_board_role()` calls), cryptographic failures, injection, insecure design, serializer field exposure, WebSocket broadcast safety, and frontend `dangerouslySetInnerHTML` usage. Produces a structured report with 🔴 blocking vulnerabilities and 🟡 hardening recommendations.
 
 ### `/ux-review`
 Reviews a UI or UX change against the design system in `frontend/CLAUDE.md`. Audits color token usage, component reuse, typography, interactive states, dark theme correctness, affordance, visual hierarchy, and information density. Runs a polish checklist (hover, focus, transitions, truncation, responsive behaviour) and surfaces new design rules to add to `frontend/CLAUDE.md`.
