@@ -206,3 +206,52 @@ class SummaryQueryCountTests(TestCase):
             f"summary/ query count grew from {baseline} to {more} when swimlanes "
             "were added — the per-swimlane loop regression was reintroduced.",
         )
+
+
+class BoardListQueryCountTests(TestCase):
+    """GET /api/boards/ must not issue per-board queries.
+
+    member_count, card_count, and is_starred are annotated in get_queryset()
+    so they resolve in a single query rather than one subquery per board.
+    owner and group are select_related to prevent join-per-row for those fields.
+    """
+
+    # Auth (1) + boards list with annotations (1) + middleware overhead × 2
+    BUDGET = 8
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u4", password="x")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        for i in range(5):
+            board = Board.objects.create(name=f"Board {i}", owner=self.user)
+            BoardMembership.objects.create(board=board, user=self.user, role="admin")
+
+    def _get_boards(self):
+        return self.client.get("/api/boards/")
+
+    def test_board_list_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_boards()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.data["results"]), 5)
+        self.assertLessEqual(
+            len(ctx), self.BUDGET,
+            f"boards/ used {len(ctx)} queries — budget is {self.BUDGET}. "
+            "An N+1 was introduced; fix the annotation.",
+        )
+
+    def test_board_list_budget_scales_with_boards(self):
+        """Adding more boards must not increase the query count."""
+        baseline = _query_count(self._get_boards)
+
+        for i in range(5, 15):
+            board = Board.objects.create(name=f"Board {i}", owner=self.user)
+            BoardMembership.objects.create(board=board, user=self.user, role="admin")
+
+        doubled = _query_count(self._get_boards)
+        self.assertEqual(
+            baseline, doubled,
+            f"boards/ query count grew from {baseline} to {doubled} when boards "
+            "were added — member_count/card_count/is_starred/owner N+1 regression detected.",
+        )

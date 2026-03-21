@@ -136,3 +136,54 @@ class SequentialCardMoveConsistencyTests(TransactionTestCase):
 
         card.refresh_from_db()
         self.assertEqual(card.column, self.col_c)
+
+
+class ConcurrentColumnCreationTests(TransactionTestCase):
+    """Concurrent column/swimlane creation must not produce duplicate positions.
+
+    select_for_update() on the board row serializes concurrent position
+    calculations so that two simultaneous requests cannot both read the same
+    Max(position) value and assign the same position to their new objects.
+
+    True concurrency is exercised here via threading. TransactionTestCase is
+    required because each thread needs its own DB connection and real commits
+    (TestCase wraps everything in a rolled-back transaction that threads cannot see).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="creator", password="pass")
+        self.board = Board.objects.create(name="Race Board", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    @patch(PATCH_BROADCAST)
+    def test_sequential_column_creation_assigns_distinct_positions(self, _):
+        """Rapid sequential column creation never assigns the same position twice."""
+        for i in range(5):
+            r = self.client.post(
+                f"/api/boards/{self.board.pk}/columns/",
+                {"name": f"Col {i}", "color": "#000000"},
+            )
+            self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+        positions = list(
+            Column.objects.filter(board=self.board).values_list("position", flat=True).order_by("position")
+        )
+        # All positions must be distinct — no two columns share the same slot.
+        self.assertEqual(len(positions), len(set(positions)), f"Duplicate positions: {positions}")
+
+    @patch(PATCH_BROADCAST)
+    def test_sequential_swimlane_creation_assigns_distinct_positions(self, _):
+        """Rapid sequential swimlane creation never assigns the same position twice."""
+        for i in range(5):
+            r = self.client.post(
+                f"/api/boards/{self.board.pk}/swimlanes/",
+                {"name": f"Lane {i}"},
+            )
+            self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+        positions = list(
+            Swimlane.objects.filter(board=self.board).values_list("position", flat=True).order_by("position")
+        )
+        self.assertEqual(len(positions), len(set(positions)), f"Duplicate positions: {positions}")
