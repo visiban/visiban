@@ -43,6 +43,9 @@ export const getCardComments = (boardId: number, cardId: number) =>
 export const addCardComment = (boardId: number, cardId: number, body: string) =>
   client.post<CardComment>(`/api/boards/${boardId}/cards/${cardId}/comments/`, { body }).then((r) => r.data);
 
+export const deleteComment = (boardId: number, cardId: number, commentId: number) =>
+  client.delete(`/api/boards/${boardId}/cards/${cardId}/comments/${commentId}/`);
+
 export const getCardActivities = (boardId: number, cardId: number) =>
   client.get<CardActivity[]>(`/api/boards/${boardId}/cards/${cardId}/activities/`).then((r) => r.data);
 

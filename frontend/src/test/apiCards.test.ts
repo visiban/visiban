@@ -12,7 +12,7 @@ vi.mock('../api/client', () => ({
 import client from '../api/client'
 import {
   createCard, updateCard, deleteCard, moveCard,
-  getCardMovements, getCardComments, addCardComment,
+  getCardMovements, getCardComments, addCardComment, deleteComment,
   getCardActivities, getCardAttachments, uploadCardAttachment,
   deleteCardAttachment, getChecklist, addChecklistItem,
   updateChecklistItem, deleteChecklistItem,
@@ -77,6 +77,14 @@ describe('cards API', () => {
     const result = await addCardComment(5, 1, 'Hello')
     expect(mockClient.post).toHaveBeenCalledWith('/api/boards/5/cards/1/comments/', { body: 'Hello' })
     expect(result).toEqual(comment)
+  })
+
+  describe("deleteComment", () => {
+    it("calls DELETE on the comment endpoint", async () => {
+      mockClient.delete.mockResolvedValueOnce({ data: undefined });
+      await deleteComment(1, 2, 99);
+      expect(mockClient.delete).toHaveBeenCalledWith("/api/boards/1/cards/2/comments/99/");
+    });
   })
 
   it('getCardActivities fetches activities', async () => {
