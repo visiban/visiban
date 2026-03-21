@@ -352,9 +352,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     return (
                       <div className="flex items-center gap-1.5">
                         {/* The transparent input sits over the styled display and receives clicks
-                            directly — the browser opens the picker natively on any click within
-                            the field, without needing showPicker(). */}
-                        <div className="relative flex-1">
+                            directly. On Chrome/Firefox the opacity-0 input is enough; on Safari,
+                            opacity:0 inputs don't trigger the native calendar, so the container
+                            onClick explicitly calls showPicker() / focus() as a fallback. */}
+                        <div
+                          className="relative flex-1 cursor-pointer"
+                          onClick={() => {
+                            const el = dueDateRef.current;
+                            if (!el) return;
+                            // showPicker() is supported in Chrome 99+, Firefox 101+, Safari 16+
+                            if (typeof (el as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+                              try { (el as HTMLInputElement & { showPicker: () => void }).showPicker(); return; } catch { /* ignore */ }
+                            }
+                            // Focus opens the picker on older Safari and acts as a no-op elsewhere
+                            el.focus();
+                          }}
+                        >
                           <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-red-950/40 border-red-700/60 text-red-300" : "bg-slate-700 border-slate-500 text-slate-100"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
@@ -381,7 +394,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     );
                   })() : (
-                    <div className="relative">
+                    <div
+                      className="relative cursor-pointer"
+                      onClick={() => {
+                        const el = dueDateEmptyRef.current;
+                        if (!el) return;
+                        if (typeof (el as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+                          try { (el as HTMLInputElement & { showPicker: () => void }).showPicker(); return; } catch { /* ignore */ }
+                        }
+                        el.focus();
+                      }}
+                    >
                       <div className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 text-slate-500 select-none flex items-center justify-between pointer-events-none">
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>

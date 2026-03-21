@@ -306,6 +306,27 @@ describe('CardDetail', () => {
     expect(screen.getByText('15/06/2099')).toBeInTheDocument()
   })
 
+  it('clicking the due date field (no date set) — input is clickable, not pointer-events-none', () => {
+    render(<CardDetail {...defaultProps()} userDateFormat="MM/DD/YYYY" />)
+    const dateInput = document.querySelector<HTMLInputElement>('input[type="date"]')!
+    expect(dateInput).not.toBeNull()
+    // Input covers the whole field and receives clicks directly — no pointer-events-none
+    expect(dateInput.className).not.toContain('pointer-events-none')
+    expect(dateInput.className).toContain('cursor-pointer')
+  })
+
+  it('clicking the due date field (date set) — input is clickable, not pointer-events-none', () => {
+    const props = defaultProps()
+    props.card = makeCard({ due_date: '2099-06-15' })
+    render(<CardDetail {...props} userDateFormat="MM/DD/YYYY" />)
+    const dateInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="date"]'))
+    const activeInput = dateInputs.find((el) => el.value !== '')!
+    expect(activeInput).toBeTruthy()
+    // Input covers the whole field and receives clicks directly — no pointer-events-none
+    expect(activeInput.className).not.toContain('pointer-events-none')
+    expect(activeInput.className).toContain('cursor-pointer')
+  })
+
   it('renders comments with author initials', async () => {
     const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
     mockGetComments.mockResolvedValue([
