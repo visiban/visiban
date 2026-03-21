@@ -37,6 +37,11 @@ This setup is for **local development only** — the Vite dev server is not suit
 | Frontend | http://localhost:5173 |
 | Backend API | http://localhost:8000 |
 | Django admin | http://localhost:8000/admin |
+| API Schema (Swagger UI) | http://localhost:8000/api/schema/swagger-ui/ |
+| API Schema (ReDoc) | http://localhost:8000/api/schema/redoc/ |
+| API Schema (raw YAML) | http://localhost:8000/api/schema/ |
+
+> **Note:** The schema endpoints are served by Django — access them on port 8000 directly. The Vite dev server on port 5173 does not proxy `/api/` requests, so `http://localhost:5173/api/schema/` will not work.
 
 On first boot the backend will print a one-time admin password — see [First Boot](first-boot.md).
 

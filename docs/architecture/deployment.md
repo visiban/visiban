@@ -14,6 +14,8 @@ The `docker-compose.yml` starts four services: `db` (Postgres 17), `redis` (Redi
 
 > **Note:** The backend uses **daphne** (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.
 
+The backend port (8000) is exposed directly in the dev stack. The Vite dev server on port 5173 does **not** proxy `/api/` requests. Access the [OpenAPI schema](../api/openapi.md) at `http://localhost:8000/api/schema/swagger-ui/`.
+
 ## Production Docker images
 
 Pre-built images are published to the GitLab container registry automatically by CI on every merge to `main`:
@@ -120,6 +122,23 @@ kubectl exec -it -n visiban $(kubectl get pod -n visiban -l app.kubernetes.io/co
 ```
 
 See [First Boot](../getting-started/first-boot.md#kubernetes-helm) for details and password reset instructions.
+
+### OpenAPI schema
+
+The nginx ingress proxies `/api/` to the backend, so the schema endpoints are accessible at your ingress host with no additional configuration:
+
+```
+https://<ingress-host>/api/schema/swagger-ui/
+https://<ingress-host>/api/schema/redoc/
+https://<ingress-host>/api/schema/
+```
+
+The backend port is **not** exposed outside the cluster. For direct backend access during debugging:
+
+```bash
+kubectl port-forward -n visiban svc/<release-name>-backend 8000:8000
+# then: http://localhost:8000/api/schema/swagger-ui/
+```
 
 ### Upgrade
 

@@ -19,6 +19,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, OpenApiTypes
 
 from accounts.models import User
 from groups.models import Group, GroupMembership, get_accessible_group_ids
@@ -247,6 +248,10 @@ class BoardViewSet(viewsets.ModelViewSet):
         board.save()
         return Response(BoardSerializer(board).data)
 
+    @extend_schema(
+        request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
+        responses={200: OpenApiTypes.OBJECT},
+    )
     @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser])
     def import_board(self, request):
         """Import a board from a Visiban JSON or CSV export file."""

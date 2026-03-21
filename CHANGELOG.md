@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Server-side per-board card search: the search input in the filter bar now queries `GET /api/boards/{id}/cards/?search=<q>` (title and description, case-insensitive) debounced at 300ms with `AbortController` cancellation of stale requests; a small spinner appears inside the input while the request is in-flight; errors fall back silently to showing all cards; client-side filters (assignee, label, priority, due date) continue to run locally and are intersected with server results (#233)
 - Due date changes (set, update, clear) now appear in the card activity history with human-readable labels (e.g. "Due date: (none) → Apr 14, 2026"); rapid-fire weight and field changes from ± buttons are debounced at 600ms so only the net change is recorded rather than every intermediate step (#259)
 - Opt-in weight limit enforcement (`enforce_weight_limits` board setting): when enabled, moving a card into a column that would exceed its weight budget returns a 409 showing current weight, card weight, and limit; board admins can override with `?force=true`; archived cards excluded from weight sum; WIP check runs first when both limits are enabled (#260)
+- feat: expose OpenAPI 3.0 spec at `/api/schema/` via drf-spectacular with Swagger UI (`/api/schema/swagger-ui/`) and ReDoc (`/api/schema/redoc/`); CI validates the schema on every backend change (#258)
 
 ### Fixed
 
