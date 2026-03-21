@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.gitlab",
     "dj_rest_auth",
     "dj_rest_auth.registration",
+    "drf_spectacular",
     # Local
     "accounts",
     "boards",
@@ -163,6 +164,7 @@ REST_FRAMEWORK = {
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_THROTTLE_CLASSES": [
@@ -182,6 +184,16 @@ REST_FRAMEWORK = {
         # Invite-link redemption: low ceiling prevents token brute-force scanning.
         "join_group": "9999/hour" if DEBUG else "10/hour",
     },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Visiban API",
+    "DESCRIPTION": "REST API for the Visiban Kanban board. Full OpenAPI 3.0 spec.",
+    "VERSION": "1.0.0",
+    "LICENSE": {"name": "Apache 2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0"},
+    "CONTACT": {"name": "Visiban", "url": "https://visiban.com"},
+    "SERVE_INCLUDE_SCHEMA": False,  # exclude the schema endpoints themselves from the schema
+    "COMPONENT_SPLIT_REQUEST": True,  # separate request/response schemas for write endpoints
 }
 
 # CORS

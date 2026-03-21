@@ -74,6 +74,7 @@ nav:
     - Groups: api/groups.md
     - Admin: api/admin.md
     - Health Checks: api/health.md
+    - OpenAPI Spec: api/openapi.md
   - Architecture:
     - architecture/index.md
     - Overview: architecture/overview.md
