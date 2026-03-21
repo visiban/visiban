@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- Login page inputs now use correct mid-level background (`bg-slate-800`) with visible border and placeholder color, matching the design system depth tokens (#302)
+- Settings page (Profile and Security tabs) now reserves fixed vertical space for inline status messages so surrounding buttons no longer shift when save/error text appears (#301)
+- Board Settings button is now hidden entirely for non-admin users instead of being greyed out — removing the misleading disabled affordance (#299)
+- GroupDetail page: replaced all `gray-*` Tailwind tokens with `slate-*` to match the project's dark theme color system (#294)
+
 ---
 
 ## [1.0.0-rc.7] — 2026-03-21

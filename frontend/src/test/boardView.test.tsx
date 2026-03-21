@@ -201,11 +201,11 @@ describe('BoardView', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
 
-  it('renders Settings button for viewer too', () => {
+  it('hides Settings button for viewer', () => {
     const props = defaultProps()
     props.board = makeBoard({ current_user_role: 'viewer' })
     render(<BoardView {...props} />)
-    expect(screen.getByText('Settings')).toBeInTheDocument()
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument()
   })
 
   it('renders column headers', () => {
