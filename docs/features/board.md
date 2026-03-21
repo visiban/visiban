@@ -1,5 +1,8 @@
 # Board & Cards
 
+!!! note "Desktop only in 1.0"
+    The board view is designed for desktop browsers (1024 px and wider). Mobile viewports are not supported in this release — drag-and-drop, column resizing, and swimlane resizing require a pointer device. A mobile-optimised layout is planned for a future release.
+
 ## Board layout
 
 The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as `cell:{column_id}:{swimlane_id}`.
