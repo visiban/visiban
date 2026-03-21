@@ -62,11 +62,11 @@ class Board(models.Model):
         help_text="Allowed card priorities on this board. Empty list means all priorities are allowed.",
     )
     enforce_wip_limits = models.BooleanField(
-        default=False,
+        default=True,
         help_text="When enabled, card moves into a column at or over its WIP limit are blocked with a 409 response. Board admins can override with ?force=true.",
     )
     enforce_weight_limits = models.BooleanField(
-        default=False,
+        default=True,
         help_text="When enabled, card moves into a column that would exceed its weight budget are blocked with a 409 response. Board admins can override with ?force=true.",
     )
     created_at = models.DateTimeField(auto_now_add=True)

@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- WIP and weight limit enforcement is now **on by default** for newly created boards — existing boards are unchanged; only boards created after this release will have enforcement enabled automatically (#307)
+- Column header WIP over-limit stat now uses text color only (`text-red-400 font-semibold`), matching the weight over-limit treatment — removes the inconsistent filled background that appeared when both stats were shown simultaneously (#268)
+
 ### Fixed
 
 - Login page inputs now use correct mid-level background (`bg-slate-800`) with visible border and placeholder color, matching the design system depth tokens (#302)

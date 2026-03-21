@@ -82,7 +82,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         />
         <span
           className={`text-xs font-medium px-1 py-0.5 rounded-full ${
-            overWip ? "bg-red-900/50 text-red-400" : "bg-slate-700 text-slate-400"
+            overWip ? "text-red-400 font-semibold" : "bg-slate-700 text-slate-400"
           }`}
         >
           {cardCount}

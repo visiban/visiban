@@ -100,6 +100,10 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - Layout: left nav arrow · colored dot · name (truncated) · right nav arrow, then WIP + Weight stats row below
 - Column name: `text-sm font-medium text-slate-200 truncate`
 - WIP / Weight stats: `text-xs text-slate-500` — format `WIP {count}/∞` and `Weight {count}/∞`
+- **Over-limit states use text color + `font-semibold` only — no filled background:**
+  - WIP over-limit: `text-red-400 font-semibold`
+  - Weight over-limit: `text-orange-400 font-semibold`
+  - Never use `bg-red-900/50` or any filled background for over-limit stats — it competes with the column header surface color
 - Column color dot: `w-2.5 h-2.5 rounded-full flex-shrink-0` in the column's assigned color
 - Nav arrows (`◄` / `►`): `text-slate-600 hover:text-slate-300 text-xs transition`
 - Column name truncates with ellipsis — never wraps
