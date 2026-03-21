@@ -47,6 +47,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CreateGroupModal: after a group is created the modal now shows a brief `✓ "Name" created` confirmation in green below the input, clears it after 2 seconds, and returns focus to the name field so the user can immediately type the next group name (#253)
 - `seed_demo_data` production guard (`DEBUG=False` → `CommandError`) is verified correct and covered by tests (`SeedProductionGuardTests`); added inline comment in `frontend/src/api/auth.ts` explaining why `updateDefaultBoard` uses `/api/auth/me/` instead of `/api/auth/user/`
 
+### Security
+
+- Bumped PyJWT from 2.10.1 to 2.12.0 to fix CVE-2026-32597 (CVSS 7.5 High): PyJWT previously accepted JWS tokens with unrecognized `crit` header extensions instead of rejecting them per RFC 7515; 2.12.0 enforces the spec
+
 ---
 
 ## [1.0.0-rc.6] — 2026-03-19
