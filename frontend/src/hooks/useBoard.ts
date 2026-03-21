@@ -4,12 +4,12 @@ import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorder
 import { moveCard as apiMoveCard } from "../api/cards";
 import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../types";
 
-export interface WipLimitError {
-  code: "wip_limit_exceeded";
-  column_name: string;
-  current_count: number;
-  wip_limit: number;
-}
+export type MoveBlockedError =
+  | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
+  | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number };
+
+/** @deprecated Use MoveBlockedError */
+export type WipLimitError = Extract<MoveBlockedError, { code: "wip_limit_exceeded" }>;
 
 interface PendingMove {
   cardId: number;
@@ -25,7 +25,7 @@ export function useBoard() {
   const [board, setBoard] = useState<BoardFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [moveError, setMoveError] = useState<WipLimitError | null>(null);
+  const [moveError, setMoveError] = useState<MoveBlockedError | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 
   const load = useCallback(() => {
@@ -84,8 +84,8 @@ export function useBoard() {
       // On WIP limit exceeded (409), surface a structured error for the UI to display.
       const axiosErr = err as { response?: { status?: number; data?: unknown } };
       if (axiosErr?.response?.status === 409) {
-        const data = axiosErr.response.data as WipLimitError;
-        if (data?.code === "wip_limit_exceeded") {
+        const data = axiosErr.response.data as MoveBlockedError;
+        if (data?.code === "wip_limit_exceeded" || data?.code === "weight_limit_exceeded") {
           setMoveError(data);
           setPendingMove({ cardId, columnId, swimlaneId, position });
         }

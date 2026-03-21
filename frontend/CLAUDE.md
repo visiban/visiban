@@ -212,3 +212,10 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - Truncate long URLs in read-only display inputs: `truncate overflow-hidden text-ellipsis whitespace-nowrap`
 - The full value must remain in the clipboard on copy — only the display is truncated
 - Add a `title` attribute (or tooltip on hover) showing the full URL
+
+## Move-blocked toast (MoveBlockedToast)
+
+- **Use `MoveBlockedToast` for all card move constraint violations** — WIP limit, weight limit, or any future column constraint. Never add a second inline toast block in `App.tsx`.
+- **Always amber** — `border-amber-600 / text-amber-400`. Do not introduce a second color for a different limit type; severity is identical across all constraint violations.
+- **Always show three things**: what was blocked (column name), why (with numbers), and an admin override link when `isAdmin` is true.
+- **Admin override link**: `text-xs text-amber-400 hover:text-amber-200 underline transition` — never a button with background fill.

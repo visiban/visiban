@@ -5,8 +5,8 @@
 The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as `cell:{column_id}:{swimlane_id}`.
 
 - Column headers are sticky on horizontal scroll
-- WIP limit exceeded → header turns red (visual warning only — the API does not block cards)
-- Weight limit exceeded → header turns orange (visual warning only)
+- WIP limit exceeded → header turns red; when enforcement is enabled, moves into a full column are blocked
+- Weight limit exceeded → header turns orange; when enforcement is enabled, moves that would exceed the budget are blocked
 
 ## Swimlanes
 
@@ -39,8 +39,8 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red and a red accent border appears on the column header (visual warning only — the API does not block cards). No WIP row is shown for columns with no limit.
-- **Weight limit** — maximum total card weight allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded.
+- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Board behavior), moving a card into a column at or over its limit is blocked with an error — board admins can override.
+- **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled, moving a card that would push the column over its budget is blocked — board admins can override.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
 Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone.

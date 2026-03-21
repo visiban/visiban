@@ -8,6 +8,7 @@ import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal
 import Navbar from "./components/Layout/Navbar";
 import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
+import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
@@ -168,34 +169,14 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         ]}
       />
       <div className="flex-1 flex flex-col overflow-hidden bg-slate-900 relative">
-        {/* WIP limit exceeded toast — appears at bottom of board area, dismissed on click */}
+        {/* Move blocked toast — shown for WIP or weight limit violations */}
         {moveError && (
-          <div
-            role="alert"
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 bg-slate-800 border border-amber-600 text-slate-200 text-sm rounded-lg px-4 py-3 shadow-xl max-w-sm"
-          >
-            <span className="text-amber-400 shrink-0 mt-0.5">⚠</span>
-            <div className="flex-1 min-w-0">
-              <p>
-                <span className="font-medium">WIP limit reached</span> — "{moveError.column_name}" is at its limit of {moveError.wip_limit} card{moveError.wip_limit !== 1 ? "s" : ""} ({moveError.current_count} active).
-              </p>
-              {isAdmin && (
-                <button
-                  onClick={forceMoveCard}
-                  className="mt-1.5 text-xs text-amber-400 hover:text-amber-200 underline transition"
-                >
-                  Move anyway (admin override)
-                </button>
-              )}
-            </div>
-            <button
-              onClick={clearMoveError}
-              className="text-slate-500 hover:text-slate-200 transition shrink-0 text-lg leading-none"
-              aria-label="Dismiss"
-            >
-              ×
-            </button>
-          </div>
+          <MoveBlockedToast
+            error={moveError}
+            isAdmin={isAdmin}
+            onForce={forceMoveCard}
+            onDismiss={clearMoveError}
+          />
         )}
         {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading board…</div>}
         {error && <div className="flex items-center justify-center h-full text-red-400">{error}</div>}
