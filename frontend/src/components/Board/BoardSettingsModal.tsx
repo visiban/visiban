@@ -567,6 +567,20 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       className="w-4 h-4 rounded accent-blue-500 shrink-0"
                     />
                   </label>
+                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer">
+                    <div className="min-w-0 pr-4">
+                      <span className="text-sm text-slate-200">Enforce weight limits</span>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        When enabled, moving a card into a column that would exceed its weight budget is blocked. Admins can override. Columns must have a weight budget set for this to take effect.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={board.enforce_weight_limits}
+                      onChange={(e) => onUpdateBoardSettings({ enforce_weight_limits: e.target.checked })}
+                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                    />
+                  </label>
                 </section>
               )}
 

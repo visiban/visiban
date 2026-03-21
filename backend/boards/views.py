@@ -7,7 +7,7 @@ import statistics
 import django_filters
 from django.conf import settings as django_settings
 from django.db import transaction
-from django.db.models import F, Max, Q
+from django.db.models import F, Max, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -196,13 +196,14 @@ class BoardViewSet(viewsets.ModelViewSet):
             Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
     def perform_update(self, serializer):
-        """Guard board-level settings updates: only admins can write enforce_wip_limits."""
+        """Guard board-level settings updates: only admins can write enforcement flags."""
         board = serializer.instance
         role = get_board_role(self.request.user, board)
-        # enforce_wip_limits is an admin-only field — block non-admins from
-        # toggling it even if they somehow construct a PATCH request.
-        if "enforce_wip_limits" in self.request.data and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("Only board admins can change WIP limit enforcement.")
+        # enforce_wip_limits and enforce_weight_limits are admin-only fields —
+        # block non-admins from toggling them even if they construct a PATCH request.
+        admin_only_fields = {"enforce_wip_limits", "enforce_weight_limits"}
+        if admin_only_fields & set(self.request.data) and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only board admins can change enforcement settings.")
         serializer.save()
 
     def destroy(self, request, *args, **kwargs):
@@ -1537,6 +1538,37 @@ class CardViewSet(viewsets.ModelViewSet):
                             "column_name": target_column.name,
                             "current_count": wip_count,
                             "wip_limit": target_column.wip_limit,
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
+        # Weight limit enforcement — same pattern as WIP: checked only on column
+        # change, skipped for pure reorders. Uses select_for_update on the target
+        # column to prevent concurrent moves from racing past the check.
+        if board.enforce_weight_limits and column_changed and target_column.weight_limit is not None:
+            Column.objects.select_for_update().get(pk=target_column.pk)
+            current_weight = (
+                Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
+                .exclude(pk=card.pk)
+                .aggregate(total=Sum("weight"))["total"]
+            ) or 0
+            if current_weight + card.weight > target_column.weight_limit:
+                force = request.query_params.get("force", "").lower() == "true"
+                if force:
+                    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+                        return Response(
+                            {"detail": "Only board admins can override a weight limit."},
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                    # Admin with force=true — fall through and allow the move.
+                else:
+                    return Response(
+                        {
+                            "code": "weight_limit_exceeded",
+                            "column_name": target_column.name,
+                            "current_weight": current_weight,
+                            "weight_limit": target_column.weight_limit,
+                            "card_weight": card.weight,
                         },
                         status=status.HTTP_409_CONFLICT,
                     )

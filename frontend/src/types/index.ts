@@ -202,6 +202,7 @@ export interface Board {
   staleness_threshold_days: number;
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
+  enforce_weight_limits: boolean;
   is_starred: boolean;
   created_at: string;
   updated_at: string;
@@ -222,6 +223,7 @@ export interface BoardFull {
   staleness_threshold_days: number;
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
+  enforce_weight_limits: boolean;
   is_starred: boolean;
   created_at: string;
   updated_at: string;

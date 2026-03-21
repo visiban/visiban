@@ -18,7 +18,7 @@ function makeBoard(): BoardFull {
     labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }, { id: 101, uid: 'lbluid000002', name: 'Feature', color: '#3B82F6' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     staleness_threshold_days: 7, allowed_priorities: [],
-    enforce_wip_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
+    enforce_wip_limits: false, enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
   }
 }
 
