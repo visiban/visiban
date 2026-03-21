@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
@@ -148,8 +148,14 @@ describe('AdminPage — access control', () => {
 describe('AdminPage — Settings tab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useFakeTimers()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+  })
+
+  afterEach(() => {
+    vi.runAllTimers()
+    vi.useRealTimers()
   })
 
   it('shows registration mode options', async () => {
