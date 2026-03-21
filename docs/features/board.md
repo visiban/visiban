@@ -42,8 +42,8 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Board behavior), moving a card into a column at or over its limit is blocked with an error — board admins can override.
-- **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled, moving a card that would push the column over its budget is blocked — board admins can override.
+- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Board behavior), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. > **Added in 1.0.0-rc.7:** WIP limit enforcement (was informational-only in earlier releases).
+- **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled, moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. > **Added in 1.0.0-rc.7:** Weight limit enforcement.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
 Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone.
