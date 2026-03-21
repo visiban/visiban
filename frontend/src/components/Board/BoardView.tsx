@@ -481,7 +481,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         ),
       });
     }
-    return closestCenter(args);
+    // Card drag — restrict to cell: drop zones; col: and swim: headers are not valid card targets
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((c) => String(c.id).startsWith("cell:")),
+    });
   }, []);
 
   const handleDragStart = (e: DragStartEvent) => {
@@ -551,6 +555,9 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
     setActiveCard(null);
     if (!over) return;
+    // Guard: card drops must land on a cell: zone. col:/swim: zones are not valid targets for cards.
+    // Without this, over.id like "col:3" causes swimId = undefined → NaN → null → backend 404.
+    if (!String(over.id).startsWith("cell:")) return;
     const [, colId, swimId] = String(over.id).split(":");
     const cardId = Number(activeId);
     const card = board.cards.find((c) => c.id === cardId);
