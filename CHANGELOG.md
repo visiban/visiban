@@ -21,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Board Settings "Enforce WIP limits" toggle now saves correctly — the handler was using `PUT` with only the changed field, causing a 400; switched to `PATCH`
 - Due date field now opens the calendar picker on macOS Safari — Safari does not show the native date picker for `opacity: 0` inputs, so the container now explicitly calls `showPicker()` (Safari 16+) or `focus()` (older Safari) on click; Chrome and Firefox continue to open the picker natively via the transparent overlay input (#249)
 - fix: restrict card drag drop targets to cell zones only — prevents col:/swim: headers resolving as drop targets and sending swimlane_id=null to the move endpoint (#272)
+- Concurrent column or swimlane creation on the same board no longer causes a database integrity error — requests now serialize correctly via a row-level lock (#281)
+- Analytics endpoint now returns a clear 400 error when `days` or `stalled_days` query parameters are non-integer or non-positive, instead of crashing with a 500 (#282)
 - Production Docker image now uses Daphne (ASGI) instead of Gunicorn (WSGI) — WebSocket connections were silently failing in all production deployments (#275)
 - `docker-compose.prod.yml` now declares a named `mediafiles` volume — uploaded attachments were permanently deleted on every container restart (#274)
 - API docs: WIP and weight limit 409 enforcement is now correctly documented — previous docs incorrectly stated limits were informational only (#285)
@@ -32,6 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Users with `must_change_password` set are now blocked from all API endpoints until the password is changed — previously only the frontend modal enforced this, leaving the full API accessible (#277)
 - Attachment files are now served through an authenticated endpoint with board-membership checks; unauthenticated direct access to `/media/` URLs is no longer possible (#278)
 - User search (`GET /api/users/`) now returns only `id`, `username`, `display_name`, and `avatar_url` — email addresses are no longer exposed to other authenticated users (#279)
+- Swimlane contact email and notes fields are now restricted to board admin and site admin roles — viewer and member roles no longer receive this data via the REST API or WebSocket events (#280)
 
 - Docs: new `docs/api/admin.md` — complete reference for the Admin REST API (`GET/PATCH /api/admin/settings/`, `GET/POST /api/admin/users/`, `PATCH /api/admin/users/{id}/`)
 - Docs: `docs/api/authentication.md` — new sections for user search (`GET /api/users/`), OAuth providers (`GET /api/auth/providers/`), and change password (`POST /api/auth/change-password/`)
