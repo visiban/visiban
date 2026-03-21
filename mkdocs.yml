@@ -82,6 +82,7 @@ nav:
   - Administration:
     - administration/index.md
     - Site Admins: administration/site-admins.md
+    - Admin Panel: administration/admin-panel.md
     - Demo Data: administration/demo-data.md
     - Django Admin: administration/django-admin.md
     - Media Storage Security: administration/media-security.md

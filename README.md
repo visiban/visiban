@@ -276,8 +276,6 @@ In-app notifications for card assignment, @mentions in comments, and cards that 
 Visiban 1.0 covers the production-ready core: boards, cards, swimlanes, groups, RBAC, real-time collaboration, import/export, analytics, and self-hosted Docker Compose deployment. The following are planned for v1.1 and later:
 
 - **Email notifications** — in-app notifications are available now; transactional email (assignments, @mentions) comes in v1.1
-- **Server-side card search** — client-side search works for boards under a few hundred cards; full-text server-side search is v1.1
-- **WIP limit enforcement** — WIP counts are displayed in column headers; hard enforcement (blocking moves when the limit is reached) is v1.1
 - **Card watchers** — beyond assignee and @mentions, explicit card subscriptions are v1.1
 
 See the [changelog](CHANGELOG.md) and [open issues](https://gitlab.com/visiban/visiban/-/issues) for what's actively being worked on.
