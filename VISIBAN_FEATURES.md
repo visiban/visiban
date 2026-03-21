@@ -325,8 +325,6 @@ Visiban 1.0 ships the production-ready core. The following are **not in v1.0** b
 | Feature | Why deferred |
 |---|---|
 | Email notifications | Significant infra; in-app notifications cover the core case at 1.0 |
-| Server-side card search | Client-side search is adequate for boards under ~300 cards |
-| WIP limit enforcement | WIP counts are visible; hard enforcement is additive, not blocking |
 | Card watchers / subscriptions | Assignee + @mention covers the primary notification case |
 | Global board activity feed | Not required for core workflow |
 
@@ -337,9 +335,7 @@ Visiban 1.0 ships the production-ready core. The following are **not in v1.0** b
 | Feature | Notes |
 |---|---|
 | Card watchers / subscriptions | Watch a card without being assignee (#229) |
-| WIP limit enforcement | Opt-in hard enforcement via board setting (#231) |
 | Global board activity feed | Chronological stream of all board events (#232) |
-| Server-side card search | PostgreSQL ILIKE or full-text search (#233) |
 | Styled date picker | Replace native `<input type="date">` (#243) |
 | Archive organizer | Search, filter, sort, bulk actions, permanent delete (#250) |
 | Custom color scheme | User-selectable accent color (#251) |

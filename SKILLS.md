@@ -14,11 +14,13 @@ Custom Claude Code slash commands for the Visiban project. Skills live in `.clau
 ├── changelog.md
 ├── ci-debug.md
 ├── dependency.md
+├── duplicate-check.md
 ├── enterprise-check.md
 ├── migration-check.md
 ├── mr.md
 ├── perf-check.md
 ├── rbac-check.md
+├── regression-check.md
 ├── release.md
 ├── test-scaffold.md
 └── ux-review.md
@@ -55,6 +57,13 @@ Custom Claude Code slash commands for the Visiban project. Skills live in `.clau
 | `/api-docs` | Adding or modifying an endpoint, serializer field, or permission rule |
 | `/changelog` | Before opening an MR on any branch that touches source code |
 
+### Verification
+
+| Skill | Invoke when |
+|---|---|
+| `/regression-check` | Before opening an MR — audit for existing behaviour broken by the change |
+| `/duplicate-check` | Before creating a new issue — check for existing issues covering the same problem |
+
 ### Merge & deploy
 
 | Skill | Invoke when |
@@ -88,6 +97,9 @@ Diagnoses a failing GitLab pipeline job. Fetches the job log via `glab`, maps th
 ### `/dependency`
 Reviews a new pip or npm package before it is added. Checks the license (blocks GPL-2.0/3.0), looks up known CVEs, evaluates whether the dependency is justified vs. using existing tools, and assesses transitive dependency and bundle size impact.
 
+### `/duplicate-check`
+Scans open (and recently closed) GitLab issues for duplicates before a new issue is created. Fetches the full issue list, extracts key terms from the proposed issue, classifies each candidate as exact duplicate / partial overlap / superseded / conflict / no match, flags any pair of open issues with contradictory requirements, and recommends whether to open, reference, or close as duplicate.
+
 ### `/enterprise-check`
 Evaluates whether a feature belongs in the OSS repo or the enterprise repo, applying the guiding principle: *"Can a small team use Visiban end-to-end without this?"* If no → OSS. If yes → enterprise candidate. Identifies required OSS extension points for enterprise features and flags grey areas with explicit OSS/enterprise boundary definitions.
 
@@ -102,6 +114,9 @@ Reviews backend code for query performance issues. Identifies N+1 patterns in vi
 
 ### `/rbac-check`
 Audits a new or modified API endpoint for correct role-based access control. Verifies authentication gates, board membership checks, minimum role per HTTP action, cross-board ID isolation, and group inheritance via `get_board_role()`. A missing permission check is treated as a security vulnerability.
+
+### `/regression-check`
+Audits a branch for regressions before merge. Maps changed files to risk zones (schema, API contract, endpoint behaviour, type interfaces, API client, hooks, components), finds indirect dependents via grep, identifies stale mocks and fixtures that no longer match the current API shape, checks permission boundary changes, verifies broadcast wiring is intact, runs the affected test suites, and produces a structured regression report with a clear pass/fail verdict.
 
 ### `/release`
 Guides the full release process. Suggests a semver version from `CHANGELOG.md [Unreleased]` and git log, confirms it with the user, runs pre-flight checks, executes `scripts/release.sh {version}`, and verifies the deployed stack and docs site after completion.
