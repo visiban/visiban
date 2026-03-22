@@ -696,7 +696,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
         */}
-        <div className="flex-1 overflow-auto bg-slate-900">
+        <div className="board-scroll flex-1 overflow-auto bg-slate-900">
           {/*
             min-w-max wrapper — gives the sticky header row and all swimlane
             rows the same containing-block width (max-content).  Without this,

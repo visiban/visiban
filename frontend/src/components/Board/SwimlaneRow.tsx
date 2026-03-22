@@ -272,14 +272,24 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           }
 
           if (collapsed) {
-            // Swimlane collapsed — compact w-10 box matching collapsed-column cell style
+            // Swimlane collapsed — full-width cell showing card count as a pill badge
+            const matchCount = filteredCardIds
+              ? cellCards.filter((c) => filteredCardIds.has(c.id)).length
+              : 0;
+            const hasMatch = matchCount > 0;
+            const displayCount = hasMatch ? matchCount : cellCount;
             return (
               <div key={col.id} className="contents">
                 {sep}
-                <div className="w-10 shrink-0 flex items-center justify-center py-1">
-                  {cellCount > 0 && (
-                    <span className="text-xs font-medium text-slate-400">{cellCount}</span>
-                  )}
+                <div
+                  className={`shrink-0 flex items-center justify-center bg-slate-950${hasMatch ? " animate-pulse" : ""}`}
+                  style={{ width: cellWidth }}
+                >
+                  {displayCount > 0 ? (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${hasMatch ? "bg-blue-500/20 text-blue-400" : "bg-slate-800 text-slate-400"}`}>
+                      {displayCount}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             );
