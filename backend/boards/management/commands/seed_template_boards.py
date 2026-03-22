@@ -2078,8 +2078,624 @@ TEMPLATE_DATA: dict[str, dict] = {
         ],
     },
 
+    # ── Product Roadmap ───────────────────────────────────────────────────────
+    "product_roadmap": {
+        "board_name": "Template: Product Roadmap",
+        "description": (
+            "Track features from idea through general availability. "
+            "Each swimlane represents a product line or area."
+        ),
+        "columns": [
+            {"name": "Idea",       "color": "#8B5CF6", "allow_card_creation": True},
+            {"name": "Scored",     "color": "#6B7280", "allow_card_creation": True},
+            {"name": "Roadmapped", "color": "#3B82F6", "allow_card_creation": False},
+            {"name": "In Dev",     "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Beta / QA",  "color": "#F97316", "allow_card_creation": False},
+            {"name": "GA",         "color": "#10B981", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "Core",       "color": "#3B82F6"},
+            {"name": "Platform",   "color": "#8B5CF6"},
+            {"name": "UX",         "color": "#EC4899"},
+            {"name": "Compliance", "color": "#EF4444"},
+            {"name": "AI / ML",    "color": "#10B981"},
+        ],
+        "swimlanes": [
+            {
+                "name": "Mobile App",
+                "color": "#3B82F6",
+                "contact_email": "",
+                "notes": "iOS and Android. Targets field workers and on-the-go board access.",
+                "cards": [
+                    {
+                        "title": "Push notifications for due date approaching",
+                        "description": (
+                            "Send a push notification to the card assignee 24h before the due date.\n\n"
+                            "## Acceptance criteria\n\n"
+                            "- Notification delivered within 5 min of the 24h threshold\n"
+                            "- Tapping notification opens the card directly\n"
+                            "- Users can opt out per-notification type in Settings"
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": 14,
+                        "weight": 4,
+                        "labels": ["Core"],
+                        "checklist": [
+                            {"text": "Backend: due-date notification Celery task", "is_checked": True},
+                            {"text": "Mobile: register for push via FCM/APNs", "is_checked": True},
+                            {"text": "Deep link: open card from notification", "is_checked": False},
+                            {"text": "Settings: per-type opt-out toggles", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Backend task done. Mobile registration in progress.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Offline mode: optimistic updates + sync on reconnect",
+                        "description": (
+                            "Allow users to move cards and add comments while offline. "
+                            "Changes are queued locally (IndexedDB) and synced when connectivity resumes.\n\n"
+                            "Conflict resolution: server wins for concurrent edits."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 30,
+                        "weight": 5,
+                        "labels": ["Core", "Platform"],
+                        "checklist": [
+                            {"text": "Design offline queue data model", "is_checked": True},
+                            {"text": "Implement IndexedDB queue", "is_checked": False},
+                            {"text": "Implement sync-on-reconnect", "is_checked": False},
+                            {"text": "Conflict resolution strategy documented", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Data model designed. Complex feature — will take 2 sprints.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Drag-to-reorder cards on mobile (touch DnD)",
+                        "description": (
+                            "Desktop drag-and-drop uses pointer events. Touch devices need a separate "
+                            "touch sensor with a 250ms long-press to initiate drag.\n\n"
+                            "Use `@dnd-kit/core` `TouchSensor` with appropriate activation constraints."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 7,
+                        "weight": 4,
+                        "labels": ["UX"],
+                        "checklist": [
+                            {"text": "Configure TouchSensor in useDraggable", "is_checked": True},
+                            {"text": "Test on iOS Safari and Android Chrome", "is_checked": False},
+                            {"text": "Handle scroll lock during drag", "is_checked": False},
+                        ],
+                        "comments": [
+                            "TouchSensor configured. iOS Safari scroll lock conflict to resolve.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Deep link: open card from push notification",
+                        "description": (
+                            "Push notifications should deep-link directly to the relevant card. "
+                            "URL scheme: `visiban://boards/{board_id}/cards/{card_id}`\n\n"
+                            "Handle both cold-start (app not running) and warm-start (app in background)."
+                        ),
+                        "col_idx": 4,
+                        "priority": "medium",
+                        "due_offset": -3,
+                        "weight": 3,
+                        "labels": ["Core"],
+                        "checklist": [
+                            {"text": "Register URL scheme in iOS/Android manifests", "is_checked": True},
+                            {"text": "Handle cold-start deep link", "is_checked": True},
+                            {"text": "Handle warm-start deep link", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Cold-start works. Warm-start has a navigation timing issue.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Dark mode support on iOS 17",
+                        "description": (
+                            "iOS 17 users reported the app ignores system dark mode preference. "
+                            "The web view background renders white behind the app chrome.\n\n"
+                            "Fix: add `color-scheme: dark` meta tag and ensure all surfaces use "
+                            "the dark token palette."
+                        ),
+                        "col_idx": 5,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["UX"],
+                        "checklist": [
+                            {"text": "Add color-scheme meta tag", "is_checked": True},
+                            {"text": "Audit surface colors in dark mode", "is_checked": True},
+                            {"text": "Test on iPhone 15 iOS 17", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Released in v1.2.1. No further reports.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                ],
+            },
+            {
+                "name": "API Platform",
+                "color": "#8B5CF6",
+                "contact_email": "",
+                "notes": "Public REST API, webhooks, OAuth, and developer experience.",
+                "cards": [
+                    {
+                        "title": "Webhook delivery retries with exponential backoff",
+                        "description": (
+                            "Currently, failed webhook deliveries are retried immediately 3× with no delay. "
+                            "Replace with exponential backoff: 1min, 5min, 30min, then give up.\n\n"
+                            "Store delivery attempts and status in a `WebhookDelivery` model for debugging."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 10,
+                        "weight": 4,
+                        "labels": ["Platform"],
+                        "checklist": [
+                            {"text": "Add WebhookDelivery model and migration", "is_checked": True},
+                            {"text": "Implement exponential backoff in Celery task", "is_checked": True},
+                            {"text": "Add delivery log to developer dashboard", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Model and backoff logic done. Dashboard view in progress.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "GraphQL endpoint for board data",
+                        "description": (
+                            "Some enterprise customers want a GraphQL API to query specific card fields "
+                            "without loading the full board payload.\n\n"
+                            "Use `strawberry-graphql`. Expose: boards, columns, swimlanes, cards (read-only)."
+                        ),
+                        "col_idx": 0,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 5,
+                        "labels": ["Platform"],
+                        "checklist": [
+                            {"text": "Evaluate strawberry-graphql vs graphene", "is_checked": False},
+                            {"text": "Design schema", "is_checked": False},
+                            {"text": "Prototype with board + card types", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Backlogged — REST API covers most use cases. Revisit based on demand.",
+                        ],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Per-token rate limiting on public API",
+                        "description": (
+                            "Apply per-API-token rate limits to all public endpoints. "
+                            "Default: 1,000 req/hour. Enterprise: 10,000 req/hour.\n\n"
+                            "Return `X-RateLimit-Remaining` and `Retry-After` headers."
+                        ),
+                        "col_idx": 4,
+                        "priority": "high",
+                        "due_offset": 5,
+                        "weight": 3,
+                        "labels": ["Platform", "Compliance"],
+                        "checklist": [
+                            {"text": "Implement rate limit middleware", "is_checked": True},
+                            {"text": "Add X-RateLimit headers", "is_checked": True},
+                            {"text": "Test 429 response format", "is_checked": True},
+                            {"text": "Document limits in API reference", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Middleware done and tested. Docs update in progress.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "API v2 planning: deprecate v1 field naming",
+                        "description": (
+                            "Several v1 field names are inconsistent (e.g. `last_moved` vs `last_moved_at`). "
+                            "v2 will standardise naming and clean up deprecated fields.\n\n"
+                            "v1 must remain fully functional for at least 2 minor releases after v2 GA."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 60,
+                        "weight": 5,
+                        "labels": ["Platform"],
+                        "checklist": [
+                            {"text": "Audit all v1 field names for inconsistencies", "is_checked": False},
+                            {"text": "Draft v2 schema RFC", "is_checked": False},
+                            {"text": "Get team sign-off on v2 schema", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "OpenAPI spec auto-generation from DRF viewsets",
+                        "description": (
+                            "Add `drf-spectacular` to auto-generate an OpenAPI 3.1 spec from "
+                            "DRF viewsets and serializers.\n\n"
+                            "Serve the spec at `/api/schema/` and a Swagger UI at `/api/docs/`."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": 21,
+                        "weight": 3,
+                        "labels": ["Platform"],
+                        "checklist": [
+                            {"text": "Install drf-spectacular", "is_checked": True},
+                            {"text": "Add @extend_schema annotations to key endpoints", "is_checked": False},
+                            {"text": "Verify generated spec completeness", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+            {
+                "name": "Analytics",
+                "color": "#10B981",
+                "contact_email": "",
+                "notes": "Board analytics, throughput charts, cycle time, and reporting views.",
+                "cards": [
+                    {
+                        "title": "Board throughput chart (cards completed per week)",
+                        "description": (
+                            "Add a throughput chart to the Analytics tab showing how many cards "
+                            "entered the Done column per week over the last 12 weeks.\n\n"
+                            "Use Recharts. Filter by swimlane and label."
+                        ),
+                        "col_idx": 4,
+                        "priority": "medium",
+                        "due_offset": -5,
+                        "weight": 4,
+                        "labels": ["Core", "UX"],
+                        "checklist": [
+                            {"text": "Backend: throughput aggregation endpoint", "is_checked": True},
+                            {"text": "Frontend: Recharts bar chart component", "is_checked": True},
+                            {"text": "Swimlane and label filter wiring", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Chart renders. Filter wiring is the last piece.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Cumulative flow diagram",
+                        "description": (
+                            "Cumulative flow diagram (CFD) shows card counts per column over time. "
+                            "Key insight: widening bands indicate bottlenecks.\n\n"
+                            "Requires daily snapshots of column card counts — add a scheduled task."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": 14,
+                        "weight": 4,
+                        "labels": ["Core"],
+                        "checklist": [
+                            {"text": "Daily snapshot Celery task", "is_checked": True},
+                            {"text": "BoardSnapshot model and migration", "is_checked": True},
+                            {"text": "CFD endpoint with date range filter", "is_checked": False},
+                            {"text": "Frontend: stacked area chart", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "CSV export: card movement history",
+                        "description": (
+                            "Allow board admins to download a CSV of all card movements.\n\n"
+                            "Columns: card_id, title, from_column, to_column, from_swimlane, "
+                            "to_swimlane, moved_by, moved_at.\n\n"
+                            "Scoped to boards the requesting user has access to."
+                        ),
+                        "col_idx": 5,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Core"],
+                        "checklist": [
+                            {"text": "Add export endpoint to BoardMovementViewSet", "is_checked": True},
+                            {"text": "Stream CSV with chunked response", "is_checked": True},
+                            {"text": "Add download button to Analytics tab", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Released in v1.2. Used heavily by enterprise customers.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Cycle time by priority",
+                        "description": (
+                            "Show average cycle time (first move → Done) broken down by priority. "
+                            "Helps teams see whether high-priority cards are actually moving faster."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": 30,
+                        "weight": 3,
+                        "labels": ["Core"],
+                        "checklist": [
+                            {"text": "Calculate cycle time from CardMovement records", "is_checked": False},
+                            {"text": "Group by priority in backend endpoint", "is_checked": False},
+                            {"text": "Display as grouped bar chart", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Stale card heatmap on board view",
+                        "description": (
+                            "Overlay a heatmap on the board grid showing which cells have the most "
+                            "stale cards. Cell colour intensity = stale card count.\n\n"
+                            "Toggle: 'Show stale heatmap' button in board toolbar."
+                        ),
+                        "col_idx": 1,
+                        "priority": "low",
+                        "due_offset": 45,
+                        "weight": 3,
+                        "labels": ["UX"],
+                        "checklist": [
+                            {"text": "Design heatmap colour scale", "is_checked": False},
+                            {"text": "Backend: stale count per cell endpoint", "is_checked": False},
+                            {"text": "Frontend: overlay on board grid", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                ],
+            },
+            {
+                "name": "Integrations",
+                "color": "#F59E0B",
+                "contact_email": "",
+                "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, Linear.",
+                "cards": [
+                    {
+                        "title": "Slack: card move notifications to channel",
+                        "description": (
+                            "When a card is moved to a configured column, post a Slack message "
+                            "to a designated channel.\n\n"
+                            "Config: per-board, select trigger column and Slack channel. "
+                            "Use Slack Incoming Webhooks."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 7,
+                        "weight": 4,
+                        "labels": ["Core"],
+                        "checklist": [
+                            {"text": "Slack Incoming Webhook integration config UI", "is_checked": True},
+                            {"text": "Backend: send webhook on card move signal", "is_checked": True},
+                            {"text": "Test with real Slack workspace", "is_checked": False},
+                            {"text": "Docs: Slack integration setup guide", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Backend wired. Testing with Slack workspace now.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "GitHub: link pull request to card",
+                        "description": (
+                            "Allow users to link a GitHub PR to a card. When the PR is merged, "
+                            "move the card to the configured 'merged' column automatically.\n\n"
+                            "Use GitHub webhooks. Store PR link in card metadata."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": 21,
+                        "weight": 4,
+                        "labels": ["Platform"],
+                        "checklist": [
+                            {"text": "GitHub OAuth app registration", "is_checked": True},
+                            {"text": "PR link UI on card detail", "is_checked": False},
+                            {"text": "Webhook receiver for PR merged event", "is_checked": False},
+                            {"text": "Auto-move card on merge", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Jira importer: migrate boards and cards",
+                        "description": (
+                            "One-time import from Jira Cloud.\n\n"
+                            "Mapping: Jira Project → Board, Jira Issue Status → Column, "
+                            "Jira Epic → Swimlane, Jira Labels → Visiban Labels.\n\n"
+                            "Use Jira REST API with OAuth 2.0."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 45,
+                        "weight": 5,
+                        "labels": ["Core"],
+                        "checklist": [
+                            {"text": "Jira OAuth flow", "is_checked": False},
+                            {"text": "Mapping configuration UI", "is_checked": False},
+                            {"text": "Dry-run mode (preview before import)", "is_checked": False},
+                            {"text": "Full import with progress indicator", "is_checked": False},
+                        ],
+                        "comments": [
+                            "High customer demand — 12 requests this quarter. Prioritising in Q3.",
+                        ],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Zapier connector (trigger + action)",
+                        "description": (
+                            "Publish a Visiban app on Zapier with:\n\n"
+                            "**Triggers**: Card moved, Card created, Due date approaching\n\n"
+                            "**Actions**: Create card, Move card, Add comment"
+                        ),
+                        "col_idx": 0,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 3,
+                        "labels": ["Platform"],
+                        "checklist": [
+                            {"text": "Register Zapier developer app", "is_checked": False},
+                            {"text": "Implement trigger endpoints", "is_checked": False},
+                            {"text": "Implement action endpoints", "is_checked": False},
+                            {"text": "Submit for Zapier review", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Linear sync (two-way card ↔ issue)",
+                        "description": (
+                            "Two-way sync between Visiban cards and Linear issues:\n\n"
+                            "- Linear issue created → Visiban card created\n"
+                            "- Visiban card moved → Linear issue status updated\n\n"
+                            "Use Linear webhooks + API."
+                        ),
+                        "col_idx": 4,
+                        "priority": "high",
+                        "due_offset": -1,
+                        "weight": 5,
+                        "labels": ["Platform"],
+                        "checklist": [
+                            {"text": "Linear OAuth integration", "is_checked": True},
+                            {"text": "Inbound webhook: Linear → Visiban", "is_checked": True},
+                            {"text": "Outbound sync: Visiban → Linear", "is_checked": False},
+                            {"text": "Conflict resolution for simultaneous edits", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Inbound sync working. Outbound has a race condition — investigating.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                ],
+            },
+            {
+                "name": "Enterprise",
+                "color": "#EF4444",
+                "contact_email": "",
+                "notes": "Enterprise-tier features: SSO, audit logs, SCIM, multi-tenancy.",
+                "cards": [
+                    {
+                        "title": "SAML / SSO integration",
+                        "description": (
+                            "Support SAML 2.0 SSO for enterprise customers using IdPs such as "
+                            "Okta, Azure AD, and Google Workspace.\n\n"
+                            "Use `python3-saml`. Configure per-organisation IdP metadata.\n\n"
+                            "Required by 6 enterprise prospects."
+                        ),
+                        "col_idx": 4,
+                        "priority": "urgent",
+                        "due_offset": 3,
+                        "weight": 5,
+                        "labels": ["Compliance", "Platform"],
+                        "checklist": [
+                            {"text": "Integrate python3-saml", "is_checked": True},
+                            {"text": "Per-org IdP metadata storage", "is_checked": True},
+                            {"text": "Test with Okta and Azure AD", "is_checked": True},
+                            {"text": "Docs: SSO setup guide for admins", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Okta and Azure AD both tested. Docs in progress.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Audit log export (admin panel)",
+                        "description": (
+                            "Enterprise admins need to export a complete audit log for compliance. "
+                            "Fields: timestamp, actor, action, resource_type, resource_id, details.\n\n"
+                            "Export formats: JSON and CSV. Date-range filter required."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 10,
+                        "weight": 4,
+                        "labels": ["Compliance"],
+                        "checklist": [
+                            {"text": "AuditLog model and migration", "is_checked": True},
+                            {"text": "Wire signals for all auditable events", "is_checked": False},
+                            {"text": "Export endpoint with date-range filter", "is_checked": False},
+                            {"text": "Admin panel download button", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Multi-tenancy: strict org isolation",
+                        "description": (
+                            "Ensure data from one organisation is never accessible from another.\n\n"
+                            "Implementation: row-level security via `org_id` FK on all resources. "
+                            "Middleware enforces org scope on every request."
+                        ),
+                        "col_idx": 2,
+                        "priority": "urgent",
+                        "due_offset": 14,
+                        "weight": 5,
+                        "labels": ["Compliance", "Platform"],
+                        "checklist": [
+                            {"text": "Add Organisation model", "is_checked": True},
+                            {"text": "Add org_id FK to Board, User, Label", "is_checked": False},
+                            {"text": "Org-scoping middleware", "is_checked": False},
+                            {"text": "Cross-org access tests (must all return 403)", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Organisation model done. FK migrations complex — planning zero-downtime approach.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "SCIM 2.0 user provisioning",
+                        "description": (
+                            "Allow enterprise IdPs to automatically provision and deprovision users "
+                            "via SCIM 2.0.\n\n"
+                            "Endpoints: `/scim/v2/Users` (CRUD) and `/scim/v2/Groups`.\n\n"
+                            "Test with Okta SCIM provisioning."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 30,
+                        "weight": 5,
+                        "labels": ["Compliance", "Platform"],
+                        "checklist": [
+                            {"text": "SCIM Users endpoint (create, update, deactivate)", "is_checked": False},
+                            {"text": "SCIM Groups endpoint", "is_checked": False},
+                            {"text": "Test with Okta provisioning", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "White-label theming (logo + primary colour)",
+                        "description": (
+                            "Allow enterprise customers to set their own logo and primary brand colour. "
+                            "Config stored per-organisation. Applied at render time via CSS variables."
+                        ),
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 3,
+                        "labels": ["UX"],
+                        "checklist": [
+                            {"text": "Add logo_url and primary_color to Organisation", "is_checked": False},
+                            {"text": "CSS variable injection on page load", "is_checked": False},
+                            {"text": "Admin UI for branding settings", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Lower priority than SSO/SCIM — scheduled for Q4.",
+                        ],
+                        "assignee_idx": None,
+                    },
+                ],
+            },
+        ],
+    },
+
     # ── Other templates — added in subsequent tasks ───────────────────────────
-    # "product_roadmap":  { ... },
     # "project_delivery": { ... },
 }
 
