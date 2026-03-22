@@ -118,8 +118,15 @@ export function useBoard() {
         if (!b) return b;
         return { ...b, cards: b.cards.map((c) => (c.id === cardId ? card : c)) };
       });
-    } catch {
+    } catch (err: unknown) {
       setBoard((b) => b ? { ...b, cards: prev } : b);
+      // Surface any structured error so the user knows the override failed
+      // (e.g. a server error or unexpected 409) rather than silently reverting.
+      const axiosErr = err as { response?: { status?: number; data?: unknown } };
+      if (axiosErr?.response?.data) {
+        const data = axiosErr.response.data as MoveBlockedError;
+        if (data?.code) setMoveError(data);
+      }
     }
   }, [board, boardId, pendingMove, clearMoveError]);
 
@@ -253,8 +260,12 @@ export function useBoard() {
 
   const removeSwimlane = useCallback(async (swimlaneId: number) => {
     setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId), cards: b.cards.filter((c) => c.swimlane !== swimlaneId) } : b);
-    await apiDeleteSwimlane(boardId, swimlaneId);
-  }, [boardId]);
+    try {
+      await apiDeleteSwimlane(boardId, swimlaneId);
+    } catch {
+      load();
+    }
+  }, [boardId, load]);
 
   const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
     if (!board) return;

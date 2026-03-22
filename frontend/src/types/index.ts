@@ -69,8 +69,8 @@ export interface Swimlane {
   id: number;
   uid: string;
   name: string;
-  contact_email: string;
-  notes: string;
+  contact_email?: string;
+  notes?: string;
   position: number;
   color: string;
   is_collapsed: boolean;

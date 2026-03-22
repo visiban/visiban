@@ -298,16 +298,27 @@ class BoardFullSerializer(serializers.ModelSerializer):
         for m in obj.memberships.select_related("user").all():
             seen[m.user_id] = {"id": m.id, "user": m.user, "role": m.role, "joined_at": m.joined_at}
 
-        # Group-inherited members (walk ancestor chain)
+        # Group-inherited members — collect ancestor group IDs in a single
+        # traversal (parent FK only, no memberships fetched yet), then load
+        # all group memberships for those IDs in one query instead of one
+        # query per ancestor level.
         if obj.group_id:
+            ancestor_ids = []
             node = obj.group
             depth = 0
             while node and depth < 6:
-                for gm in node.memberships.select_related("user").all():
-                    if gm.user_id not in seen:
-                        seen[gm.user_id] = {"id": None, "user": gm.user, "role": gm.role, "joined_at": gm.joined_at}
+                ancestor_ids.append(node.pk)
                 node = node.parent
                 depth += 1
+            if ancestor_ids:
+                from groups.models import GroupMembership
+                for gm in (
+                    GroupMembership.objects
+                    .filter(group_id__in=ancestor_ids)
+                    .select_related("user")
+                ):
+                    if gm.user_id not in seen:
+                        seen[gm.user_id] = {"id": None, "user": gm.user, "role": gm.role, "joined_at": gm.joined_at}
 
         # Include the board owner if not already present
         if obj.owner_id and obj.owner_id not in seen:
@@ -331,6 +342,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
         return result
 
     def get_current_user_role(self, obj):
+        # Reuse the role already resolved by the view (threaded via context) to
+        # avoid a second get_board_role() call on the same request.
+        role = self.context.get("role")
+        if role is not None:
+            return role
         request = self.context.get("request")
         if not request:
             return None
