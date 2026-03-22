@@ -85,7 +85,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Pro
                     <button
                       onClick={() => handleRestore(card)}
                       disabled={restoringId === card.id}
-                      className="text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-2 py-1 rounded transition disabled:opacity-50"
+                      className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50"
                     >
                       {restoringId === card.id ? "Restoring…" : "Restore"}
                     </button>

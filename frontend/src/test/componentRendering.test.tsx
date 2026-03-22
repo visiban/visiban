@@ -265,18 +265,19 @@ describe('CardItem', () => {
     expect(html).not.toMatch(/bg-gray-|text-gray-|border-gray-/)
   })
 
-  it('strips markdown syntax from description preview', () => {
-    render(<CardItem card={makeCard({ description: '**bold** and _italic_ and `code`' })} />)
-    // Raw markdown syntax must not appear
-    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument()
-    // Plain words should be present
-    expect(screen.getByText('bold and italic and code')).toBeInTheDocument()
+  it('shows description indicator icon when card has a description', () => {
+    const { container } = render(<CardItem card={makeCard({ description: '**bold** and _italic_' })} />)
+    // Description text must not appear on the card (shown in card detail only)
+    expect(screen.queryByText(/bold/)).not.toBeInTheDocument()
+    // A description indicator SVG must be present
+    const svg = container.querySelector('svg[title="Has description"]')
+    expect(svg).toBeInTheDocument()
   })
 
-  it('strips HTML tags from description preview', () => {
-    render(<CardItem card={makeCard({ description: '<span style="color:red">Test</span>' })} />)
-    expect(screen.getByText('Test')).toBeInTheDocument()
-    expect(screen.queryByText(/<span/)).not.toBeInTheDocument()
+  it('does not show description indicator when card has no description', () => {
+    const { container } = render(<CardItem card={makeCard({ description: '' })} />)
+    const svg = container.querySelector('svg[title="Has description"]')
+    expect(svg).not.toBeInTheDocument()
   })
 })
 

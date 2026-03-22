@@ -58,6 +58,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
 
   const hasMetadata =
+    !!card.description ||
     card.labels.length > 0 ||
     card.checklist_total > 0 ||
     card.attachment_count > 0 ||
@@ -96,10 +97,15 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
     >
       {onSelect && (
         <div
+          role="checkbox"
+          aria-checked={selected}
+          tabIndex={0}
           className={`absolute top-1 right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
-            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-slate-600 bg-slate-700 opacity-0 group-hover:opacity-100"}
+            focus:outline-none focus:ring-2 focus:ring-blue-500
+            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-slate-600 bg-slate-700 opacity-0 group-hover:opacity-100 focus:opacity-100"}
           `}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(); }}
+          onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}
           onPointerDown={(e) => e.stopPropagation()}
         >
           {selected && (
@@ -112,17 +118,16 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       <div className="px-2.5 py-2">
         <p className="text-xs font-medium text-slate-200 leading-snug line-clamp-2">{card.title}</p>
 
-        {/* Description — revealed on hover */}
-        {card.description && (
-          <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-150 ease-out">
-            <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-4 mt-1.5 border-t border-slate-700 pt-1.5 whitespace-pre-line">
-              {stripMarkdown(card.description)}
-            </p>
-          </div>
-        )}
+        {/* Description exists — indicator only; full content shown in card detail */}
 
         {hasMetadata && (
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
+            {/* Description indicator */}
+            {card.description && (
+              <svg className="w-2.5 h-2.5 text-slate-500 shrink-0" viewBox="0 0 16 16" fill="currentColor" title="Has description">
+                <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
+              </svg>
+            )}
             {/* Label pills — truncated full name, up to 3 then overflow */}
             {!hideLabels && card.labels.slice(0, 3).map((label) => {
               const display = label.name.length > 8 ? label.name.slice(0, 7) + "…" : label.name;
