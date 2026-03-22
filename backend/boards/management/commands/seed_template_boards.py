@@ -605,8 +605,503 @@ TEMPLATE_DATA: dict[str, dict] = {
         ],
     },
 
+    # ── Customer Support ──────────────────────────────────────────────────────
+    "customer_support": {
+        "board_name": "Template: Customer Support",
+        "description": (
+            "Track support tickets from first report through resolution. "
+            "Each swimlane represents a customer account."
+        ),
+        "columns": [
+            {"name": "New",               "color": "#6B7280", "allow_card_creation": True},
+            {"name": "Triaged",           "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Investigating",     "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Awaiting Customer", "color": "#F97316", "allow_card_creation": False},
+            {"name": "Resolved",          "color": "#10B981", "allow_card_creation": False},
+            {"name": "Closed",            "color": "#9CA3AF", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "P1 Critical", "color": "#EF4444"},
+            {"name": "P2 High",     "color": "#F97316"},
+            {"name": "P3 Normal",   "color": "#3B82F6"},
+            {"name": "Data Loss",   "color": "#7C3AED"},
+            {"name": "Integration", "color": "#0891B2"},
+            {"name": "Billing",     "color": "#D97706"},
+        ],
+        "swimlanes": [
+            {
+                "name": "Globex Corp",
+                "color": "#EF4444",
+                "contact_email": "support@globex.example",
+                "notes": "Enterprise SLA — 4h response, 24h resolution for P1. Primary contact: IT Director.",
+                "cards": [
+                    {
+                        "title": "API returns 500 on bulk card export",
+                        "description": (
+                            "## Reported\n\nPOST `/api/boards/{id}/export/` returns HTTP 500 when "
+                            "the board has more than 500 cards.\n\n"
+                            "## Steps to reproduce\n\n"
+                            "1. Open board with 600+ cards\n"
+                            "2. Click Export → CSV\n"
+                            "3. Response: `500 Internal Server Error`\n\n"
+                            "## Impact\n\nBlocks weekly reporting for all 12 teams."
+                        ),
+                        "col_idx": 2,
+                        "priority": "urgent",
+                        "due_offset": -1,
+                        "weight": 5,
+                        "labels": ["P1 Critical"],
+                        "checklist": [
+                            {"text": "Reproduce in staging", "is_checked": True},
+                            {"text": "Identify root cause (query timeout?)", "is_checked": True},
+                            {"text": "Deploy fix to production", "is_checked": False},
+                            {"text": "Confirm resolution with customer", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Reproduced. The export query times out at 30s — no pagination on that endpoint.",
+                            "Fix: stream the CSV in chunks. MR open, awaiting review.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "SSO login fails for new users after v1.2 deploy",
+                        "description": (
+                            "New users provisioned via SAML after the v1.2 deploy cannot log in. "
+                            "Existing users are unaffected.\n\n"
+                            "Error in browser: `Invalid SAML assertion — missing NameID format`\n\n"
+                            "Regression introduced in v1.2 — NameID format handling changed."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 2,
+                        "weight": 4,
+                        "labels": ["P2 High", "Integration"],
+                        "checklist": [
+                            {"text": "Confirm affected user count", "is_checked": True},
+                            {"text": "Check SAML assertion diff between v1.1 and v1.2", "is_checked": False},
+                            {"text": "Deploy hotfix", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Affects ~30 new users provisioned since Monday. Existing users unaffected.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Webhooks not firing on card moves",
+                        "description": (
+                            "Globex has a Zapier integration that listens for `card.moved` webhook events. "
+                            "Since Tuesday, events are not being delivered.\n\n"
+                            "Webhook logs show events queued but not dispatched. "
+                            "Worker appears healthy."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": 5,
+                        "weight": 3,
+                        "labels": ["P2 High", "Integration"],
+                        "checklist": [
+                            {"text": "Check webhook worker logs", "is_checked": True},
+                            {"text": "Test webhook delivery in staging", "is_checked": True},
+                            {"text": "Send test payload to Globex endpoint", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Worker is running but Redis queue is backed up — unrelated deploy caused slowdown.",
+                            "Awaiting Globex to confirm their endpoint is ready to receive test payload.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Feature request: CSV export include archived cards",
+                        "description": (
+                            "Customer requests that the CSV export include archived cards "
+                            "with an `is_archived` column.\n\n"
+                            "Currently, archived cards are silently excluded from all exports."
+                        ),
+                        "col_idx": 4,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Log as feature request in backlog", "is_checked": True},
+                            {"text": "Confirm workaround (restore → export → re-archive)", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Workaround communicated. Feature filed as #287 in backlog.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Board load time regression after v1.2",
+                        "description": (
+                            "Large boards (800+ cards) are taking 4–6 s to load since v1.2. "
+                            "Previous baseline was ~1.5 s.\n\n"
+                            "Profiling points to a new `get_member_roles()` call in "
+                            "`BoardFullSerializer` that runs once per member."
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": -3,
+                        "weight": 4,
+                        "labels": ["P2 High"],
+                        "checklist": [
+                            {"text": "Profile with django-silk on staging", "is_checked": True},
+                            {"text": "Add prefetch_related for member roles", "is_checked": False},
+                            {"text": "Benchmark before/after", "is_checked": False},
+                            {"text": "Deploy and confirm with customer", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Confirmed N+1: 14 extra queries for a 14-member board. Fix is straightforward.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                ],
+            },
+            {
+                "name": "Pinnacle Media",
+                "color": "#F97316",
+                "contact_email": "helpdesk@pinnaclemedia.example",
+                "notes": "Mid-market. Standard SLA. Primary contact: Project Manager.",
+                "cards": [
+                    {
+                        "title": "Permission error when creating swimlanes",
+                        "description": (
+                            "Board members with Member role get a 403 when trying to add a swimlane, "
+                            "even though the board is configured to allow member-level swimlane creation.\n\n"
+                            "Regression: this worked before v1.1."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 1,
+                        "weight": 3,
+                        "labels": ["P2 High"],
+                        "checklist": [
+                            {"text": "Reproduce with member-role test account", "is_checked": True},
+                            {"text": "Check permission check in SwimlaneViewSet", "is_checked": False},
+                            {"text": "Fix and deploy", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Reproduced. The v1.1 permission refactor accidentally tightened swimlane creation to Admin-only.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Labels not persisting on card edit",
+                        "description": (
+                            "When a card is edited and saved, labels are cleared. "
+                            "The UI shows them momentarily but they disappear after the API response.\n\n"
+                            "Observed in Chrome and Firefox. Not reproducible in Safari."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": -5,
+                        "weight": 3,
+                        "labels": ["P2 High"],
+                        "checklist": [
+                            {"text": "Check PATCH payload includes label IDs", "is_checked": True},
+                            {"text": "Verify serializer handles partial update for M2M", "is_checked": False},
+                        ],
+                        "comments": [
+                            "The PATCH payload is correct. The serializer is not saving M2M on partial=True — known Django quirk.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Email notifications for @mentions not delivered",
+                        "description": (
+                            "Users are not receiving email notifications when @mentioned in card comments. "
+                            "In-app notifications work correctly.\n\n"
+                            "Mail logs show the notification task is enqueued but no SMTP activity."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 7,
+                        "weight": 4,
+                        "labels": ["P2 High"],
+                        "checklist": [
+                            {"text": "Check Celery worker is running email tasks", "is_checked": True},
+                            {"text": "Test SMTP connection from worker host", "is_checked": True},
+                            {"text": "Confirm customer SMTP allowlist includes our IP", "is_checked": False},
+                        ],
+                        "comments": [
+                            "SMTP test from worker succeeds. Suspecting IP allowlist issue on their side.",
+                            "Awaiting Pinnacle IT to confirm their allowlist — sent instructions.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Resolved: browser cache causing stale board state",
+                        "description": (
+                            "Customer reported boards showing cards in wrong columns. "
+                            "Root cause: browser cached the old board snapshot.\n\n"
+                            "Resolution: hard-refresh clears the issue. Added cache-busting "
+                            "headers to the board API response."
+                        ),
+                        "col_idx": 5,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 1,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Add Cache-Control: no-store to board endpoint", "is_checked": True},
+                            {"text": "Communicate workaround to customer", "is_checked": True},
+                            {"text": "Verify fix in v1.2.1", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Deployed in v1.2.1. Customer confirmed resolved.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Orion Software",
+                "color": "#8B5CF6",
+                "contact_email": "ops@orionsoftware.example",
+                "notes": "Technical team — prefers async communication. Escalate P1s to Slack #orion-support.",
+                "cards": [
+                    {
+                        "title": "SAML assertion fails intermittently (1 in 20 logins)",
+                        "description": (
+                            "~5% of SAML logins fail with `InResponseTo mismatch`. "
+                            "Affects all users, not just new ones.\n\n"
+                            "Suspicion: clock skew between their IdP and our service. "
+                            "Their IdP is on-prem; NTP sync uncertain."
+                        ),
+                        "col_idx": 2,
+                        "priority": "urgent",
+                        "due_offset": -2,
+                        "weight": 5,
+                        "labels": ["P1 Critical", "Integration"],
+                        "checklist": [
+                            {"text": "Check NTP sync on their IdP", "is_checked": True},
+                            {"text": "Widen our SAML clock tolerance to ±5 min", "is_checked": False},
+                            {"text": "Deploy and monitor error rate", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Their IdP has a 4-min clock drift. Widening tolerance is the right fix.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Board export missing checklist data",
+                        "description": (
+                            "CSV and JSON exports do not include checklist items. "
+                            "The API response includes them, but the export serializer omits them.\n\n"
+                            "Impacting their reporting workflow."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 3,
+                        "weight": 3,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Add checklist_items to export serializer", "is_checked": False},
+                            {"text": "Update CSV fieldnames", "is_checked": False},
+                            {"text": "Test with 200-item checklist", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Quick fix — checklist_items just needs to be added to the prefetch and serializer.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "WIP limit not enforced when dragging from archived view",
+                        "description": (
+                            "Cards restored from the archived panel bypass WIP limit checks "
+                            "and are placed in the destination column even when the limit is exceeded.\n\n"
+                            "The restore endpoint does not call the column's WIP validation."
+                        ),
+                        "col_idx": 4,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Add WIP check to restore endpoint", "is_checked": True},
+                            {"text": "Add test for restore-to-full-column", "is_checked": True},
+                            {"text": "Deploy", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Fixed in v1.2.1. Restore now respects WIP limits.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                ],
+            },
+            {
+                "name": "Vertex Trading",
+                "color": "#0891B2",
+                "contact_email": "compliance@vertextrading.example",
+                "notes": "Financial sector — strict data residency. All data must stay in EU region.",
+                "cards": [
+                    {
+                        "title": "Compliance audit — provide access logs for Q1",
+                        "description": (
+                            "Vertex requires a full access log export for Q1 2026 for their "
+                            "internal compliance audit.\n\n"
+                            "Needed: timestamp, user, action, resource for all board operations.\n\n"
+                            "CardMovement history covers moves; other actions need a separate pull."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 10,
+                        "weight": 5,
+                        "labels": ["P2 High"],
+                        "checklist": [
+                            {"text": "Confirm scope with Vertex compliance team", "is_checked": True},
+                            {"text": "Export CardMovement records for Q1", "is_checked": False},
+                            {"text": "Export CardActivity records for Q1", "is_checked": False},
+                            {"text": "Deliver via encrypted file share", "is_checked": False},
+                        ],
+                        "comments": [
+                            "They need the raw data, not a UI report. Will export directly from DB.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Historical card movements not visible in History tab",
+                        "description": (
+                            "Cards moved before 2026-01-01 show no movement history. "
+                            "The History tab displays 'No history yet' for these cards.\n\n"
+                            "Root cause: the CardMovement table was introduced in v1.0 — "
+                            "older moves have no records."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": -4,
+                        "weight": 3,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Explain data limitation to customer", "is_checked": True},
+                            {"text": "Check if any legacy activity logs can be imported", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Expected behaviour — pre-v1.0 moves were not tracked. Communicated to customer.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Data export times out on board with 2,000+ cards",
+                        "description": (
+                            "The JSON export endpoint times out (30s Nginx limit) for their "
+                            "largest board. The board has 2,100 cards across 8 swimlanes.\n\n"
+                            "Fix: implement streaming export with chunked transfer encoding."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 14,
+                        "weight": 4,
+                        "labels": ["P2 High"],
+                        "checklist": [
+                            {"text": "Implement StreamingHttpResponse for export", "is_checked": True},
+                            {"text": "Test with 2,000-card board in staging", "is_checked": False},
+                            {"text": "Increase Nginx timeout as temporary mitigation", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Temporary mitigation: bumped Nginx timeout to 120s. Streaming fix in progress.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Resolved: increased Nginx timeout for large exports",
+                        "description": (
+                            "Interim resolution applied: Nginx proxy timeout increased from 30s to 120s "
+                            "for the export endpoint.\n\n"
+                            "Permanent fix (streaming export) tracked in engineering backlog."
+                        ),
+                        "col_idx": 5,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 1,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Deploy Nginx config change", "is_checked": True},
+                            {"text": "Confirm export completes for 2,000-card board", "is_checked": True},
+                            {"text": "File permanent fix as engineering ticket", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Customer confirmed export now completes (~45s). Permanent fix tracked separately.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Cascade Dynamics",
+                "color": "#10B981",
+                "contact_email": "it@cascadedynamics.example",
+                "notes": "New customer — onboarded 2026-02-15. Mostly onboarding questions so far.",
+                "cards": [
+                    {
+                        "title": "Onboarding: how to bulk-import cards from CSV?",
+                        "description": (
+                            "New customer asking about the bulk import feature. "
+                            "They have 300 cards in a spreadsheet they want to load.\n\n"
+                            "Point to: Settings → Import → CSV template."
+                        ),
+                        "col_idx": 0,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Send import documentation link", "is_checked": False},
+                            {"text": "Offer 30-min onboarding call if needed", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Mobile: cards overlap on small screens (< 375px)",
+                        "description": (
+                            "On iPhone SE (375px wide), cards in the board view overflow and overlap "
+                            "adjacent cards in the same column.\n\n"
+                            "Reproducible in Chrome DevTools mobile emulation."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 5,
+                        "weight": 3,
+                        "labels": ["P3 Normal"],
+                        "checklist": [
+                            {"text": "Reproduce in DevTools at 375px", "is_checked": True},
+                            {"text": "Fix column min-width on mobile breakpoint", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Confirmed. The column grid doesn't collapse below 400px. CSS fix needed.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Drag handle unresponsive in Firefox 124",
+                        "description": (
+                            "Card drag-and-drop stops working after the first successful drop in "
+                            "Firefox 124. Subsequent drag attempts do nothing.\n\n"
+                            "Root cause: Firefox handles `pointermove` differently when a CSS "
+                            "transition is active on the column."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": -8,
+                        "weight": 3,
+                        "labels": ["P2 High"],
+                        "checklist": [
+                            {"text": "Reproduce in Firefox 124", "is_checked": True},
+                            {"text": "Disable column transition during drag", "is_checked": False},
+                            {"text": "Test on Firefox + Chrome + Safari", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Confirmed in FF 124. Disabling the column resize transition during drag fixes it.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+        ],
+    },
+
     # ── Other templates — added in subsequent tasks ───────────────────────────
-    # "customer_support": { ... },
     # "customer_success": { ... },
     # "simple_kanban":    { ... },
     # "product_roadmap":  { ... },
