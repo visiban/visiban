@@ -34,13 +34,19 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
   const isDraggingCard = active != null && !String(active.id).startsWith("swim:") && !String(active.id).startsWith("col:");
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
 
   const handleAdd = async () => {
     if (!title.trim()) return;
-    const card = await createCard(boardId, { column: column.id, swimlane: swimlane.id, title: title.trim() });
-    onCardAdded(card);
-    setTitle("");
-    setAdding(false);
+    setAddError(null);
+    try {
+      const card = await createCard(boardId, { column: column.id, swimlane: swimlane.id, title: title.trim() });
+      onCardAdded(card);
+      setTitle("");
+      setAdding(false);
+    } catch {
+      setAddError("Failed to add card.");
+    }
   };
 
   return (
@@ -103,8 +109,9 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
             />
             <div className="flex gap-1.5 mt-1.5">
               <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded-md hover:bg-blue-700 transition font-medium">Add</button>
-              <button onClick={() => setAdding(false)} className="text-xs text-slate-400 hover:text-slate-300 transition">Cancel</button>
+              <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-slate-400 hover:text-slate-300 transition">Cancel</button>
             </div>
+            <p className="text-xs h-4"><span className="text-red-400">{addError}</span></p>
           </div>
         ) : (
           <button

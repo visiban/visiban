@@ -59,7 +59,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                 {b.owner.id === user.id && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-red-400 p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-slate-500 hover:text-red-400 focus:text-red-400 p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     title="Delete board"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

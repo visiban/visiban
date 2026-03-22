@@ -94,6 +94,57 @@ List all active board templates. Requires authentication. Used by the board crea
 
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Blank Board**.
 
+### `GET /api/boards/{id}/summary/`
+Board health summary — swimlane card counts and velocity figures.
+
+**Response fields per swimlane:**
+
+| Field | Description |
+|---|---|
+| `id`, `name` | Swimlane identifier and name |
+| `card_count` | Total active (non-archived) cards |
+| `velocity_7d` | Cards that moved to the final column in the last 7 days |
+| `velocity_30d` | Cards that moved to the final column in the last 30 days |
+
+---
+
+### `GET /api/boards/{id}/analytics/`
+Time-in-stage heatmap derived from `CardMovement` records.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Constraint |
+|---|---|---|---|
+| `days` | integer | `30` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |
+| `stalled_days` | integer | `7` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |
+
+**Response shape:**
+
+```json
+{
+  "days": 30,
+  "columns": ["Backlog", "In Progress", "Done"],
+  "board_medians": { "Backlog": 2.0, "In Progress": 5.5, "Done": 1.0 },
+  "stalled_threshold_days": 7,
+  "swimlanes": [
+    {
+      "id": 1,
+      "name": "Acme Corp",
+      "avg_days_per_column": { "Backlog": 1.5, "In Progress": 8.0, "Done": null },
+      "is_outlier": { "Backlog": false, "In Progress": true, "Done": false },
+      "deal_velocity_days": 12.3,
+      "stalled_cards": [
+        { "id": 42, "title": "Fix login bug", "days_since_move": 14 }
+      ]
+    }
+  ]
+}
+```
+
+A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average exceeds 2× the board-wide median for that column. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
+
+CSV export (`Export CSV` button) is available to `admin` and `site_admin` roles only.
+
 ---
 
 ## Export & Import

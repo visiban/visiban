@@ -36,6 +36,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Bulk move now shows an inline amber warning when one or more cards could not be moved (e.g. blocked by a WIP or weight limit) and keeps the selection active so the user knows which cards were affected; previously partial failures were silently discarded (#303)
 - All 8 `window.confirm()` calls replaced with inline confirmation UI consistent with the design system — affects: card delete, card archive, column delete, board member remove, group member remove, group delete, shared label remove, invite link revoke (#295)
 - Board list endpoint now fetches owner and group in a single JOIN instead of issuing one additional query per board — previously `owner` and `group_name` were not covered by `select_related`, causing extra queries per board on large board lists
+- Analytics endpoint no longer issues one card+movement query per swimlane — all cards and movements are now loaded in two queries and grouped in Python, eliminating O(swimlanes) extra database round-trips
+- Export endpoint (CSV and JSON) no longer re-queries movements, comments, and checklist items per card — `.order_by()` calls replaced with Python sorting over the existing prefetch cache
+- Comments list and attachments list endpoints now use `select_related("author")` and `select_related("uploaded_by")` respectively to avoid one extra JOIN per item
+- Groups list endpoint now annotates member, board, and subgroup counts plus the starred flag in a single query instead of issuing 4 additional queries per group
+- Google OAuth button on the login page no longer uses light-mode colors (`bg-white text-slate-900`) — now correctly uses `bg-slate-700 text-white` matching the dark theme
+- `text-gray-400` token in AnalyticsView column header replaced with `text-slate-400` to match the project color system
+- Hover-reveal edit and delete buttons in the card description editor and board selector now include `focus:opacity-100` and a visible focus ring so keyboard users can reach and activate them
+- Card creation in board cells now shows an inline error message when the API call fails instead of silently dropping the user's input
+- Swimlane contact email is now hidden from non-admin board members in the sidebar, matching the server-side field gating already in place on the API
 
 ---
 

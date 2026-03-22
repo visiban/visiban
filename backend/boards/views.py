@@ -787,16 +787,25 @@ class BoardViewSet(viewsets.ModelViewSet):
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
 
+        # Load all cards and their movements in two queries (cards + prefetch),
+        # then group by swimlane to avoid O(swimlanes) extra card+movement queries.
+        all_cards = list(
+            board.cards.prefetch_related("movements").order_by("swimlane_id", "position")
+        )
+        cards_by_swimlane: dict[int, list] = {}
+        for _c in all_cards:
+            cards_by_swimlane.setdefault(_c.swimlane_id, []).append(_c)
+
         for swimlane in board.swimlanes.order_by("position"):
-            cards = list(
-                board.cards.filter(swimlane=swimlane).prefetch_related("movements")
-            )
+            cards = cards_by_swimlane.get(swimlane.id, [])
             col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
             stalled_cards = []
             deal_velocity_days = []
 
             for card in cards:
-                movements = list(card.movements.order_by("moved_at"))
+                # Use .all() to read from the prefetch cache; re-sorting in Python
+                # avoids an extra ORDER BY query per card.
+                movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
                 if not movements:
                     continue
                 for i, mv in enumerate(movements):
@@ -897,7 +906,9 @@ class BoardViewSet(viewsets.ModelViewSet):
 
             cards_data = []
             for card in cards:
-                movements = list(card.movements.order_by("moved_at"))
+                # Use .all() + sorted() to read from the prefetch cache instead of
+                # issuing an ORDER BY query per card for movements, comments, and checklist.
+                movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
                 cards_data.append({
                     "title": card.title,
                     "description": card.description,
@@ -917,14 +928,14 @@ class BoardViewSet(viewsets.ModelViewSet):
                             "body": c.body,
                             "created_at": c.created_at.isoformat(),
                         }
-                        for c in card.comments.order_by("created_at")
+                        for c in sorted(card.comments.all(), key=lambda c: c.created_at)
                     ],
                     "checklist": [
                         {
                             "text": item.text,
                             "is_checked": item.is_checked,
                         }
-                        for item in card.checklist_items.order_by("position")
+                        for item in sorted(card.checklist_items.all(), key=lambda i: i.position)
                     ],
                 })
 
@@ -976,7 +987,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
         for card in cards:
-            movements = list(card.movements.order_by("moved_at"))
+            movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
             label_names = ", ".join(s(lb.name) for lb in card.labels.all())
             last_moved = movements[-1].moved_at.isoformat() if movements else ""
             history_parts = []
@@ -1705,7 +1716,7 @@ class CardViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         card = get_object_or_404(Card, pk=pk, board=board)
         if request.method == "GET":
-            return Response(CardCommentSerializer(card.comments.all(), many=True).data)
+            return Response(CardCommentSerializer(card.comments.select_related("author"), many=True).data)
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
@@ -1775,7 +1786,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
         if request.method == "GET":
             serializer = CardAttachmentSerializer(
-                card.attachments.all(), many=True, context={"request": request}
+                card.attachments.select_related("uploaded_by"), many=True, context={"request": request}
             )
             return Response(serializer.data)
 

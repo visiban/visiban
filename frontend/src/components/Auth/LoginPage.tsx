@@ -135,7 +135,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.google && (
                 <a
                   href={`${API}/accounts/google/login/?process=login`}
-                  className="flex items-center justify-center gap-3 bg-white text-slate-900 font-medium py-2.5 px-4 rounded-lg hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GoogleIcon />
                   Continue with Google

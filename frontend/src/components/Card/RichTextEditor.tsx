@@ -303,7 +303,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onClick={enterEdit}
-            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700"
+            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             title="Edit description"
             tabIndex={0}
             onFocus={enterEdit}

@@ -116,7 +116,7 @@ export default function AnalyticsView({ boardId, currentUserRole }: Props) {
                 <th key={col} className="pb-2 px-3 font-medium text-center min-w-[90px]">
                   {col}
                   {data.board_medians[col] !== null && (
-                    <div className="text-gray-400 font-normal normal-case tracking-normal mt-0.5">
+                    <div className="text-slate-400 font-normal normal-case tracking-normal mt-0.5">
                       med {data.board_medians[col]}d
                     </div>
                   )}
