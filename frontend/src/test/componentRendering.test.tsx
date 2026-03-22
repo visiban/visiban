@@ -270,13 +270,13 @@ describe('CardItem', () => {
     // Description text must not appear on the card (shown in card detail only)
     expect(screen.queryByText(/bold/)).not.toBeInTheDocument()
     // A description indicator SVG must be present
-    const svg = container.querySelector('svg[title="Has description"]')
+    const svg = container.querySelector('svg[aria-label="Has description"]')
     expect(svg).toBeInTheDocument()
   })
 
   it('does not show description indicator when card has no description', () => {
     const { container } = render(<CardItem card={makeCard({ description: '' })} />)
-    const svg = container.querySelector('svg[title="Has description"]')
+    const svg = container.querySelector('svg[aria-label="Has description"]')
     expect(svg).not.toBeInTheDocument()
   })
 })

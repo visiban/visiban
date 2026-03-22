@@ -100,7 +100,8 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
             {/* Description indicator */}
             {card.description && (
-              <svg className="w-2.5 h-2.5 text-slate-500 shrink-0" viewBox="0 0 16 16" fill="currentColor" title="Has description">
+              <svg className="w-2.5 h-2.5 text-slate-500 shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
+                <title>Has description</title>
                 <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
               </svg>
             )}
