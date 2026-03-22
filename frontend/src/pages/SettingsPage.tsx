@@ -10,7 +10,9 @@ import type { ThemePreference } from "../context/ThemeContext";
 import { TIMEZONE_OPTIONS, browserTimezone } from "../utils/date";
 import SelectDropdown from "../components/Common/SelectDropdown";
 
-type Tab = "profile" | "security" | "notifications" | "appearance" | "behavior";
+type Tab = "profile" | "security" | "notifications" | "appearance" | "behavior" | "about";
+
+declare const __APP_VERSION__: string;
 
 interface Props {
   user: User;
@@ -89,7 +91,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.display_name}
           onChange={set("display_name")}
           placeholder="How you appear on the board"
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -99,7 +101,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           <input
             value={form.first_name}
             onChange={set("first_name")}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
           />
         </label>
         <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
@@ -107,7 +109,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           <input
             value={form.last_name}
             onChange={set("last_name")}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
           />
         </label>
       </div>
@@ -118,7 +120,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.username}
           onChange={set("username")}
           required
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -129,7 +131,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.email}
           onChange={set("email")}
           required
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -258,7 +260,7 @@ function SecurityTab({ user }: { user: User }) {
             onChange={set("current_password")}
             required
             autoComplete="current-password"
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
           />
         </label>
       )}
@@ -272,7 +274,7 @@ function SecurityTab({ user }: { user: User }) {
           required
           autoComplete="new-password"
           minLength={12}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -284,7 +286,7 @@ function SecurityTab({ user }: { user: User }) {
           onChange={set("confirm")}
           required
           autoComplete="new-password"
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -411,14 +413,6 @@ function AppearanceTab() {
             </button>
           ))}
 
-          {/* Light mode placeholder — shown once light-mode styles are implemented */}
-          <div className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border border-slate-700 bg-slate-800/50 opacity-50 cursor-not-allowed">
-            <span className="w-4 h-4 rounded-full border-2 border-slate-600 shrink-0" />
-            <span>
-              <span className="block text-sm font-medium text-slate-400">Light</span>
-              <span className="block text-xs text-slate-600">Coming soon</span>
-            </span>
-          </div>
         </div>
       </div>
 
@@ -475,12 +469,31 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
   );
 }
 
+function AboutTab() {
+  return (
+    <div className="flex flex-col gap-5 max-w-lg">
+      <h2 className="text-white text-lg font-semibold">About</h2>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm text-slate-400">Version</span>
+          <span className="font-mono text-xs text-slate-500">{__APP_VERSION__}</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm text-slate-400">License</span>
+          <span className="text-xs text-slate-500">Apache 2.0</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TABS: { id: Tab; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
   { id: "notifications", label: "Notifications" },
   { id: "appearance", label: "Appearance" },
   { id: "behavior", label: "Behavior" },
+  { id: "about", label: "About" },
 ];
 
 export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
@@ -531,6 +544,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
             {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "appearance" && <AppearanceTab />}
             {activeTab === "behavior" && <BehaviorTab user={user} onUserUpdated={onUserUpdated} />}
+            {activeTab === "about" && <AboutTab />}
           </div>
         </div>
       </main>

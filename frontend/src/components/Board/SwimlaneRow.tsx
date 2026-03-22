@@ -116,7 +116,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             <span
               {...attributes}
               {...listeners}
-              className={`text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${collapsed ? "" : "mt-0.5"}`}
+              className={`text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition-opacity ${collapsed ? "" : "mt-0.5"}`}
               title="Drag to reorder"
             >
               ⠿

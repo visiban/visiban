@@ -11,6 +11,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 - The first-boot and installation getting-started pages now include a "Password file not found?" note explaining that a missing `/tmp/visiban_admin_password` means the admin account was already bootstrapped on a previous boot, and giving the `python manage.py changepassword admin` command to reset it
+- Board view scrollbar is now 10 px wide and higher-contrast (slate-500 at rest, slate-400 on hover) for better discoverability on macOS and Windows
+- Hover-reveal controls (add-subgroup button, swimlane drag handle, card checkbox) now gain `focus:opacity-100` and a focus ring so keyboard users can reach and activate them without a mouse
+- All form inputs now use a consistent `focus:ring-2 focus:ring-blue-500` focus ring and `placeholder-slate-500` placeholder color, replacing the previous inconsistent `focus:border-blue-500` treatment
+- Removed the disabled "Light (Coming soon)" theme placeholder from Settings → Appearance to reduce visual noise
+- Added a Settings → About tab showing the running app version string
+- GroupDetail label and transfer inputs corrected to `bg-slate-800` background and updated focus ring to match the design system
+- CardItem description no longer expands on hover, eliminating layout shift; a small indicator icon in the metadata row signals that a description exists, and the full description remains accessible in the card detail panel
+- Restored button in the Archived Cards panel changed to the secondary variant to comply with the design system — `text-blue-400` is reserved for active filter and selection states
 
 ---
 

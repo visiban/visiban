@@ -368,10 +368,10 @@ describe('AppearanceTab', () => {
     expect(screen.getByText('Dark')).toBeInTheDocument()
   })
 
-  it('renders Light theme as coming soon (disabled)', async () => {
+  it('does not render a Light theme placeholder', async () => {
     await openAppearanceTab()
-    expect(screen.getByText('Light')).toBeInTheDocument()
-    expect(screen.getByText('Coming soon')).toBeInTheDocument()
+    expect(screen.queryByText('Light')).not.toBeInTheDocument()
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
   })
 
   it('clicking System theme option calls setPreference with "system"', async () => {
