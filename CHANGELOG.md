@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- Site admin "Make admin" now requires a confirmation step before granting site admin privileges — previously a single click was sufficient, with no undo prompt
+- Site admin confirm dialog and Add User modal now carry `role="dialog"` and `aria-modal` so screen readers announce them correctly on open
+- Site admin Settings tab status messages ("Settings saved." / error) no longer cause layout shift when they appear or disappear
+- Site admin Users tab now always shows the total user count, not only when there is more than one page of results
+
 ### Added
 
 - Pressing Escape while a dropdown is open (filter bar, column settings, bulk action toolbar) now closes the dropdown and returns keyboard focus to the trigger button (#270)

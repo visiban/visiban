@@ -49,8 +49,8 @@ interface ConfirmDialogProps {
 function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-sm w-full">
-        <p className="text-sm text-slate-300 mb-6">{message}</p>
+      <div role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-sm w-full">
+        <p id="confirm-dialog-message" className="text-sm text-slate-300 mb-6">{message}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
@@ -122,9 +122,9 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-md w-full">
+      <div role="dialog" aria-modal="true" aria-labelledby="add-user-title" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-md w-full">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-700">
-          <h2 className="text-white text-lg font-semibold">Add User</h2>
+          <h2 id="add-user-title" className="text-white text-lg font-semibold">Add User</h2>
           <button
             onClick={onClose}
             className="hover:bg-slate-700 p-1 rounded transition text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -315,8 +315,10 @@ function SettingsTab() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {saved && <p className="text-sm text-green-400">Settings saved.</p>}
+      <p className="text-sm h-5">
+        {error && <span className="text-red-400">{error}</span>}
+        {saved && <span className="text-green-400">Settings saved.</span>}
+      </p>
     </div>
   );
 }
@@ -523,7 +525,10 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                             </button>
                           ) : (
                             <button
-                              onClick={() => applyPatch(u.id, { is_site_admin: true })}
+                              onClick={() => confirmAndRun(
+                                `Grant site admin to ${u.display_name || u.username}? They will have full access to this admin panel.`,
+                                () => applyPatch(u.id, { is_site_admin: true })
+                              )}
                               className="text-xs text-slate-400 hover:text-blue-400 transition"
                             >
                               Make admin
@@ -555,9 +560,9 @@ function UsersTab({ currentUser }: { currentUser: User }) {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between text-sm text-slate-400">
-              <span>{total} users</span>
+          <div className="flex items-center justify-between text-sm text-slate-400">
+            <span>{total} {total === 1 ? "user" : "users"}</span>
+            {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -577,8 +582,8 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                   Next →
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
 
