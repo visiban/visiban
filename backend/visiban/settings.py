@@ -1,6 +1,12 @@
+import sys
 import environ
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
+
+# Detect when running under `manage.py test` so we can substitute fast
+# in-process backends for Redis-backed services. This avoids requiring a
+# running Redis instance just to run the test suite locally.
+_TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -92,27 +98,42 @@ TEMPLATES = [
 WSGI_APPLICATION = "visiban.wsgi.application"
 ASGI_APPLICATION = "visiban.asgi.application"
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [env("REDIS_URL", default="redis://localhost:6379/0")],
+if _TESTING:
+    # Use in-process backends when running the test suite so that a local Redis
+    # instance is not required. Tests that specifically need to verify broadcast
+    # or cache behaviour still work correctly because InMemoryChannelLayer and
+    # LocMemCache implement the same interfaces as the Redis-backed versions.
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
-    },
-}
+    }
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [env("REDIS_URL", default="redis://localhost:6379/0")],
+            },
+        },
+    }
+    # Cache — uses REDIS_CACHE_URL (db 1 by default) to keep it separate from
+    # Channels (db 0). Set REDIS_CACHE_URL explicitly if your Redis host differs
+    # from REDIS_URL or you want to use the same DB (which is fine for dev).
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": env("REDIS_CACHE_URL", default="redis://localhost:6379/1"),
+        }
+    }
 
 DATABASES = {
     "default": env.db("DATABASE_URL"),
-}
-
-# Cache — uses REDIS_CACHE_URL (db 1 by default) to keep it separate from
-# Channels (db 0). Set REDIS_CACHE_URL explicitly if your Redis host differs
-# from REDIS_URL or you want to use the same DB (which is fine for dev).
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": env("REDIS_CACHE_URL", default="redis://localhost:6379/1"),
-    }
 }
 
 AUTH_USER_MODEL = "accounts.User"
