@@ -8,25 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-### Fixed
-
-- Collapsed swimlane rows now show card counts as full-width pill badges aligned with their column headers — previously cells were 40 px stubs misaligned with the column grid; filter matches are highlighted in blue to match the collapsed-column behavior
-- Board scroll container now shows always-visible styled scrollbars (8 px, slate-600 thumb) so users on macOS with "show scrollbars when scrolling" do not encounter an apparently non-scrollable board
-- Site admin "Make admin" now requires a confirmation step before granting site admin privileges — previously a single click was sufficient, with no undo prompt
-- Site admin confirm dialog and Add User modal now carry `role="dialog"` and `aria-modal` so screen readers announce them correctly on open
-- Site admin Settings tab status messages ("Settings saved." / error) no longer cause layout shift when they appear or disappear
-- Site admin Users tab now always shows the total user count, not only when there is more than one page of results
-
 ### Added
 
 - Pressing Escape while a dropdown is open (filter bar, column settings, bulk action toolbar) now closes the dropdown and returns keyboard focus to the trigger button (#270)
 - All modals (Board Settings, Edit Column, Edit Swimlane, Bulk Delete confirm, Join Group, Delete Board) now carry `role="dialog"`, `aria-modal`, and `aria-labelledby` so screen readers announce the dialog title on open (#296)
 - Card detail side panel now carries `role="complementary"` for landmark navigation (#296)
 - Interactive elements across the board UI (cards, column collapse/edit buttons, swimlane collapse/edit buttons, navbar bell/user/sign-out, bulk action toolbar buttons) now show a `focus-visible` ring on keyboard focus and suppress the ring on mouse interaction (#269, #298)
-
-### Fixed
-
-- Running `manage.py test` locally no longer requires a running Redis instance — the test suite now automatically uses `InMemoryChannelLayer` and `LocMemCache` when invoked via `manage.py test`, eliminating false failures caused by Redis connection errors in environments without a local Redis server
 
 ### Changed
 
@@ -39,11 +26,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Collapsed swimlane rows now show card counts as full-width pill badges aligned with their column headers — previously cells were 40 px stubs misaligned with the column grid; filter matches are highlighted in blue to match the collapsed-column behavior
+- Board scroll container now shows always-visible styled scrollbars (8 px, slate-600 thumb) so users on macOS with "show scrollbars when scrolling" do not encounter an apparently non-scrollable board
+- Running `manage.py test` locally no longer requires a running Redis instance — the test suite now automatically uses `InMemoryChannelLayer` and `LocMemCache` when invoked via `manage.py test`, eliminating false failures caused by Redis connection errors in environments without a local Redis server
+- Site admin "Make admin" now requires a confirmation step before granting site admin privileges — previously a single click was sufficient, with no undo prompt
+- Site admin confirm dialog and Add User modal now carry `role="dialog"` and `aria-modal` so screen readers announce them correctly on open
+- Site admin Settings tab status messages ("Settings saved." / error) no longer cause layout shift when they appear or disappear
+- Site admin Users tab now always shows the total user count, not only when there is more than one page of results
 - Attaching to a media file path you are not a board member of now returns 404 instead of 403, preventing an attacker from confirming whether a file path is valid (#310)
 - `CardViewSet.update()` now runs inside a single `transaction.atomic()` block — previously a failure in activity or notification creation after the card save would leave the card updated but with a missing audit trail (#310)
 - Deleting a swimlane now reloads board state on API failure instead of leaving the UI permanently desynchronized with the server (#310)
 - Forcing a blocked card move now surfaces a structured error to the user when the override itself fails, rather than silently reverting (#310)
-- Running `manage.py test` locally no longer requires a running Redis instance — the test suite now automatically uses `InMemoryChannelLayer` and `LocMemCache`, eliminating false failures in environments without a local Redis server
 - `DJANGO_ADMIN_ALLOWED_IPS` and `ACCOUNT_EMAIL_VERIFICATION` are now documented in `.env.example` so operators are aware of these production-relevant settings (#310)
 - Login page inputs now use correct mid-level background (`bg-slate-800`) with visible border and placeholder color, matching the design system depth tokens (#302)
 - Settings page (Profile and Security tabs) now reserves fixed vertical space for inline status messages so surrounding buttons no longer shift when save/error text appears (#301)
