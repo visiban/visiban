@@ -15,6 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card detail side panel now carries `role="complementary"` for landmark navigation (#296)
 - Interactive elements across the board UI (cards, column collapse/edit buttons, swimlane collapse/edit buttons, navbar bell/user/sign-out, bulk action toolbar buttons) now show a `focus-visible` ring on keyboard focus and suppress the ring on mouse interaction (#269, #298)
 
+### Fixed
+
+- Running `manage.py test` locally no longer requires a running Redis instance — the test suite now automatically uses `InMemoryChannelLayer` and `LocMemCache` when invoked via `manage.py test`, eliminating false failures caused by Redis connection errors in environments without a local Redis server
+
 ### Changed
 
 - Board Settings now has a dedicated Rules tab that groups WIP/weight enforcement toggles and the staleness threshold together, separating board rules from display preferences (#264)
