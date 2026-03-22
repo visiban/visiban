@@ -147,7 +147,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 {swimlane.name}
               </p>
             )}
-            {!collapsed && <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>}
+            {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {!collapsed && (

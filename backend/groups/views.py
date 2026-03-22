@@ -1,5 +1,6 @@
 import logging
 
+from django.db.models import Count, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -78,7 +79,16 @@ class GroupViewSet(viewsets.ModelViewSet):
         user = self.request.user
         qs = Group.objects.filter(
             id__in=get_accessible_group_ids(user)
-        ).select_related("owner", "parent")
+        ).select_related("owner", "parent").annotate(
+            # Annotate counts so GroupSerializer can read _member_count etc.
+            # directly from the object instead of issuing 3-4 extra queries per group.
+            _member_count=Count("memberships", distinct=True),
+            _board_count=Count("boards", distinct=True),
+            _subgroup_count=Count("subgroups", distinct=True),
+            _is_starred=Exists(
+                GroupFavorite.objects.filter(user=user, group=OuterRef("pk"))
+            ),
+        )
         if self.request.query_params.get("starred") == "true":
             qs = qs.filter(favorites__user=user)
         return qs

@@ -29,15 +29,25 @@ class GroupSerializer(serializers.ModelSerializer):
         read_only_fields = ["owner", "created_at", "shared_labels", "is_starred"]
 
     def get_member_count(self, obj):
+        # Use annotation from GroupViewSet.get_queryset() when available to avoid
+        # an extra COUNT query per group in list responses.
+        if hasattr(obj, "_member_count"):
+            return obj._member_count
         return obj.memberships.count()
 
     def get_board_count(self, obj):
+        if hasattr(obj, "_board_count"):
+            return obj._board_count
         return obj.boards.count()
 
     def get_subgroup_count(self, obj):
+        if hasattr(obj, "_subgroup_count"):
+            return obj._subgroup_count
         return obj.subgroups.count()
 
     def get_is_starred(self, obj):
+        if hasattr(obj, "_is_starred"):
+            return obj._is_starred
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
