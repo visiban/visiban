@@ -256,7 +256,16 @@ The backend writes a one-time admin password to `/tmp/visiban_admin_password` on
 docker compose -f docker-compose.prod.yml exec backend cat /tmp/visiban_admin_password
 ```
 
-Delete the file after retrieving the password. See [First Boot](first-boot.md) for full details.
+Delete the file after retrieving the password.
+
+!!! note "Password file not found?"
+    If the file does not exist, the admin account was already created on a previous boot (the password is only written once). Reset the password with:
+
+    ```bash
+    docker compose -f docker-compose.prod.yml exec backend python manage.py changepassword admin
+    ```
+
+See [First Boot](first-boot.md) for full details.
 
 ### Subsequent deploys
 

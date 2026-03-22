@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed
+
+- The first-boot and installation getting-started pages now include a "Password file not found?" note explaining that a missing `/tmp/visiban_admin_password` means the admin account was already bootstrapped on a previous boot, and giving the `python manage.py changepassword admin` command to reset it
+
 ---
 
 ## [1.0.0-rc.8] — 2026-03-21

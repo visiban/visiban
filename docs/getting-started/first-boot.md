@@ -40,6 +40,19 @@ Delete the file after retrieving it:
 docker compose -f docker-compose.prod.yml exec backend rm /tmp/visiban_admin_password
 ```
 
+!!! note "Password file not found?"
+    If the file does not exist, the admin account was already created on a previous boot (the password is only written once). Reset the password with:
+
+    ```bash
+    docker compose exec backend python manage.py changepassword admin
+    ```
+
+    For production:
+
+    ```bash
+    docker compose -f docker-compose.prod.yml exec backend python manage.py changepassword admin
+    ```
+
 **Local development (bare metal / venv):**
 
 ```bash
