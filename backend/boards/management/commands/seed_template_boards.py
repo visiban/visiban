@@ -1101,8 +1101,473 @@ TEMPLATE_DATA: dict[str, dict] = {
         ],
     },
 
+    # ── Customer Success ──────────────────────────────────────────────────────
+    "customer_success": {
+        "board_name": "Template: Customer Success",
+        "description": (
+            "Track account health from onboarding through expansion and renewal. "
+            "Each swimlane represents a customer account."
+        ),
+        "columns": [
+            {"name": "Onboarding", "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Adoption",   "color": "#8B5CF6", "allow_card_creation": True},
+            {"name": "Healthy",    "color": "#10B981", "allow_card_creation": False},
+            {"name": "Expansion",  "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Renewal",    "color": "#F97316", "allow_card_creation": False},
+            {"name": "Churned",    "color": "#EF4444", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "At Risk",               "color": "#EF4444"},
+            {"name": "Champion",              "color": "#10B981"},
+            {"name": "Expansion Opportunity", "color": "#F59E0B"},
+            {"name": "Renewal Due",           "color": "#F97316"},
+            {"name": "QBR Needed",            "color": "#8B5CF6"},
+        ],
+        "swimlanes": [
+            {
+                "name": "Acme Corp",
+                "color": "#3B82F6",
+                "contact_email": "ops@acme.example",
+                "notes": "Mid-market. 50 seats. Champion: Head of Ops. 90-day onboarding started 2026-02-01.",
+                "cards": [
+                    {
+                        "title": "Admin training session — 2 teams",
+                        "description": (
+                            "Schedule and deliver two 60-min admin training sessions covering:\n\n"
+                            "- Board setup and swimlane configuration\n"
+                            "- User management and roles\n"
+                            "- Integrations (Slack, webhooks)\n\n"
+                            "Target: Ops team (25 users) and Engineering team (25 users)."
+                        ),
+                        "col_idx": 0,
+                        "priority": "high",
+                        "due_offset": 5,
+                        "weight": 3,
+                        "labels": [],
+                        "checklist": [
+                            {"text": "Book session 1 (Ops team)", "is_checked": True},
+                            {"text": "Book session 2 (Engineering team)", "is_checked": False},
+                            {"text": "Send pre-session setup checklist", "is_checked": True},
+                            {"text": "Share recording after each session", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Session 1 done — great turnout (22/25 attended). Session 2 booked for next Tuesday.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Import historical project data from Trello",
+                        "description": (
+                            "Acme has 3 years of project history in Trello they want imported. "
+                            "Estimated: 800 cards across 6 boards.\n\n"
+                            "Use the CSV import tool. Map Trello lists → Visiban columns."
+                        ),
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": 10,
+                        "weight": 4,
+                        "labels": [],
+                        "checklist": [
+                            {"text": "Export Trello JSON", "is_checked": True},
+                            {"text": "Convert to Visiban CSV format", "is_checked": False},
+                            {"text": "Test import with 50-card sample", "is_checked": False},
+                            {"text": "Full import and verify", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Trello JSON exported. Working on conversion script.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "First board created and team invited",
+                        "description": (
+                            "Acme Ops team has created their first board and invited all 25 members. "
+                            "Initial adoption looks strong — 18/25 users active in week 1.\n\n"
+                            "Next: ensure Engineering team mirrors the structure."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Champion"],
+                        "checklist": [
+                            {"text": "Confirm all users can log in", "is_checked": True},
+                            {"text": "Review board structure with champion", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Head of Ops is a strong champion — already coaching colleagues on WIP limits.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "45-day QBR — health check",
+                        "description": (
+                            "Quarterly Business Review at the 45-day mark.\n\n"
+                            "## Agenda\n\n"
+                            "1. Usage metrics review (WAU, boards created, cards moved)\n"
+                            "2. Feedback on pain points\n"
+                            "3. Expansion discussion (5 additional seats for Design team)\n"
+                            "4. Renewal timeline (due 2026-08-01)"
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": 30,
+                        "weight": 3,
+                        "labels": ["QBR Needed", "Expansion Opportunity"],
+                        "checklist": [
+                            {"text": "Pull usage report from admin panel", "is_checked": False},
+                            {"text": "Prepare QBR deck", "is_checked": False},
+                            {"text": "Book 60-min call with champion", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 4,
+                    },
+                ],
+            },
+            {
+                "name": "Brightfield Energy",
+                "color": "#F59E0B",
+                "contact_email": "digital@brightfield.example",
+                "notes": "At-risk account. Usage dropped 40% MoM. Champion: Lisa Markov (Digital Director).",
+                "cards": [
+                    {
+                        "title": "Usage dropped 40% — intervention needed",
+                        "description": (
+                            "Monthly active users fell from 35 to 21 between February and March. "
+                            "No boards created in the last 3 weeks.\n\n"
+                            "Hypothesis: team restructure following M&A activity. "
+                            "Champion Lisa Markov is still in role — schedule urgent call."
+                        ),
+                        "col_idx": 2,
+                        "priority": "urgent",
+                        "due_offset": 3,
+                        "weight": 5,
+                        "labels": ["At Risk"],
+                        "checklist": [
+                            {"text": "Confirm champion is still in role", "is_checked": True},
+                            {"text": "Pull full usage breakdown by user", "is_checked": True},
+                            {"text": "Schedule intervention call within 48h", "is_checked": False},
+                            {"text": "Prepare re-engagement plan", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Lisa confirmed she's still in role but team reorg has slowed adoption.",
+                            "Call booked for Thursday. Preparing tailored re-engagement deck.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Re-engagement call with Lisa Markov",
+                        "description": (
+                            "Outcome of intervention call:\n\n"
+                            "- Reorg is complete — 3 new team leads added\n"
+                            "- Lisa will personally onboard the new leads\n"
+                            "- Usage expected to recover within 30 days\n\n"
+                            "Risk level: reduced from Critical to Watch."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": -2,
+                        "weight": 3,
+                        "labels": ["Champion"],
+                        "checklist": [
+                            {"text": "Send onboarding resources to new leads", "is_checked": True},
+                            {"text": "Set 2-week follow-up reminder", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Call went well. Lisa is re-engaged and confident in recovery.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "At-risk recovery plan — 30-day milestones",
+                        "description": (
+                            "Documented recovery plan agreed with Lisa Markov:\n\n"
+                            "- Week 1: New team leads onboarded\n"
+                            "- Week 2: First board created by each new lead\n"
+                            "- Week 4: WAU back to ≥ 30\n\n"
+                            "CS will check in weekly."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 7,
+                        "weight": 4,
+                        "labels": ["At Risk"],
+                        "checklist": [
+                            {"text": "Week 1: onboard 3 new leads", "is_checked": False},
+                            {"text": "Week 2: first board per lead", "is_checked": False},
+                            {"text": "Week 4: WAU check", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Expansion: 3 additional teams (60 seats)",
+                        "description": (
+                            "Following recovery, Brightfield wants to expand to 3 additional teams. "
+                            "Current: 35 seats. Proposed: 95 seats.\n\n"
+                            "Opportunity ACV uplift: +$14,400."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": 45,
+                        "weight": 3,
+                        "labels": ["Expansion Opportunity"],
+                        "checklist": [
+                            {"text": "Send expansion proposal", "is_checked": False},
+                            {"text": "Get procurement approval", "is_checked": False},
+                            {"text": "Provision additional seats", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "NovaTech Solutions",
+                "color": "#10B981",
+                "contact_email": "cto@novatech.example",
+                "notes": "Healthy account. Expanding organically. CTO is a vocal advocate.",
+                "cards": [
+                    {
+                        "title": "Onboarding complete — all 3 teams active",
+                        "description": (
+                            "NovaTech completed onboarding ahead of schedule. "
+                            "All 3 teams (Engineering, Product, Design) have active boards.\n\n"
+                            "WAU: 42/45 users. NPS at 30-day mark: 67."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Champion"],
+                        "checklist": [
+                            {"text": "Complete onboarding survey", "is_checked": True},
+                            {"text": "Confirm all users activated", "is_checked": True},
+                        ],
+                        "comments": [
+                            "CTO mentioned Visiban in a company all-hands. Great advocate.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Expansion: 3 new teams want access",
+                        "description": (
+                            "Inbound request from CTO: Sales, Support, and HR teams want Visiban boards. "
+                            "Current contract: 45 seats. New request: 90 seats total.\n\n"
+                            "Route to AE for expansion proposal."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": 14,
+                        "weight": 3,
+                        "labels": ["Expansion Opportunity"],
+                        "checklist": [
+                            {"text": "Brief AE on expansion opportunity", "is_checked": True},
+                            {"text": "Send pricing for additional 45 seats", "is_checked": False},
+                        ],
+                        "comments": [
+                            "AE briefed. Sending expansion proposal this week.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Renewal — 2-year deal discussion",
+                        "description": (
+                            "Current contract expires 2026-09-01. CTO interested in a 2-year deal "
+                            "with the expanded seat count.\n\n"
+                            "Potential ACV: $28,800/year for 90 seats on 2-year term."
+                        ),
+                        "col_idx": 4,
+                        "priority": "high",
+                        "due_offset": 60,
+                        "weight": 4,
+                        "labels": ["Renewal Due", "Expansion Opportunity"],
+                        "checklist": [
+                            {"text": "Prepare 2-year renewal proposal", "is_checked": False},
+                            {"text": "Include expansion seats in proposal", "is_checked": False},
+                            {"text": "Present to CTO and CFO", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Clearwater Bank",
+                "color": "#6366F1",
+                "contact_email": "vendor-mgmt@clearwaterbank.example",
+                "notes": "Financial sector — slow procurement. CISO approval required for all vendor tools.",
+                "cards": [
+                    {
+                        "title": "CISO approval for data residency",
+                        "description": (
+                            "Clearwater Bank requires CISO sign-off before any data is entered. "
+                            "Key requirement: all data must reside in their approved AWS region (us-east-1).\n\n"
+                            "Provide architecture diagram and data flow documentation."
+                        ),
+                        "col_idx": 0,
+                        "priority": "urgent",
+                        "due_offset": 7,
+                        "weight": 5,
+                        "labels": [],
+                        "checklist": [
+                            {"text": "Share architecture diagram", "is_checked": True},
+                            {"text": "Confirm us-east-1 data residency in writing", "is_checked": False},
+                            {"text": "Schedule CISO review call", "is_checked": False},
+                        ],
+                        "comments": [
+                            "CISO review call booked for next Wednesday.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Security questionnaire (47 questions)",
+                        "description": (
+                            "Clearwater InfoSec sent their standard 47-question vendor security form. "
+                            "Deadline: 2026-03-10 (OVERDUE).\n\n"
+                            "Coordinate with InfoSec lead to complete within 2 business days."
+                        ),
+                        "col_idx": 0,
+                        "priority": "high",
+                        "due_offset": -5,
+                        "weight": 4,
+                        "labels": ["At Risk"],
+                        "checklist": [
+                            {"text": "Sections 1–10: infrastructure", "is_checked": True},
+                            {"text": "Sections 11–20: access controls", "is_checked": True},
+                            {"text": "Sections 21–47: compliance", "is_checked": False},
+                        ],
+                        "comments": [
+                            "OVERDUE by 5 days. Escalated to InfoSec lead — expediting.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Adoption stalled at 30% — new team leads not onboarded",
+                        "description": (
+                            "3 weeks post-launch, only 15/50 users are active (30%). "
+                            "Root cause: 4 team leads have not completed setup, so their teams are waiting.\n\n"
+                            "Action: direct outreach to each team lead with a personalised setup guide."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 14,
+                        "weight": 4,
+                        "labels": ["At Risk"],
+                        "checklist": [
+                            {"text": "Identify the 4 blocked team leads", "is_checked": True},
+                            {"text": "Send personalised setup guides", "is_checked": False},
+                            {"text": "Offer 1:1 setup calls", "is_checked": False},
+                            {"text": "Check adoption rate at 2-week mark", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Outreach sent to all 4 leads. Two have responded and booked setup calls.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Executive sponsor re-engaged after champion call",
+                        "description": (
+                            "The Head of Digital Banking (executive sponsor) attended the recovery call "
+                            "and is now actively promoting Visiban internally.\n\n"
+                            "He has mandated all 8 project teams adopt Visiban by end of Q2."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 3,
+                        "labels": ["Champion"],
+                        "checklist": [
+                            {"text": "Send executive overview deck", "is_checked": True},
+                            {"text": "Book Q2 rollout planning session", "is_checked": False},
+                        ],
+                        "comments": [
+                            "This changes the trajectory. Q2 mandate will drive adoption without CS intervention.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                ],
+            },
+            {
+                "name": "Zephyr Logistics",
+                "color": "#EF4444",
+                "contact_email": "it@zephyrlogistics.example",
+                "notes": "Churned 2026-02-28. Contract not renewed. Re-engagement planned for Q4.",
+                "cards": [
+                    {
+                        "title": "Contract not renewed — churn confirmed",
+                        "description": (
+                            "Zephyr Logistics did not renew their contract (expired 2026-02-28). "
+                            "Primary reason given: 'Tool too complex for our ops team.'\n\n"
+                            "Secondary reason: budget cuts across the company."
+                        ),
+                        "col_idx": 5,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": [],
+                        "checklist": [
+                            {"text": "Log churn reason in CRM", "is_checked": True},
+                            {"text": "Deprovision accounts", "is_checked": True},
+                            {"text": "Archive board data per retention policy", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Churn logged. Primary reason: complexity. Consider flagging UX feedback to product.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Exit interview completed",
+                        "description": (
+                            "30-min exit interview with IT Manager.\n\n"
+                            "Key feedback:\n"
+                            "- Onboarding was too long (took 6 weeks)\n"
+                            "- Mobile experience was poor for field workers\n"
+                            "- Would consider returning if mobile UX improves\n\n"
+                            "Filed UX feedback for product team: issues #312, #313."
+                        ),
+                        "col_idx": 5,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 1,
+                        "labels": [],
+                        "checklist": [
+                            {"text": "Document feedback verbatim", "is_checked": True},
+                            {"text": "File product issues from feedback", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Good feedback. Mobile UX is a known gap — this reinforces the priority.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Q4 re-engagement campaign",
+                        "description": (
+                            "Plan outreach to Zephyr for Q4 2026 based on:\n\n"
+                            "1. Improved mobile UX (roadmap item for Q3)\n"
+                            "2. New simplified onboarding flow\n"
+                            "3. Pricing flexibility for logistics sector\n\n"
+                            "Target contact: same IT Manager who gave positive exit feedback."
+                        ),
+                        "col_idx": 0,
+                        "priority": "low",
+                        "due_offset": 90,
+                        "weight": 2,
+                        "labels": [],
+                        "checklist": [
+                            {"text": "Monitor mobile UX roadmap progress", "is_checked": False},
+                            {"text": "Draft re-engagement email template", "is_checked": False},
+                            {"text": "Set Q4 calendar reminder", "is_checked": True},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+        ],
+    },
+
     # ── Other templates — added in subsequent tasks ───────────────────────────
-    # "customer_success": { ... },
     # "simple_kanban":    { ... },
     # "product_roadmap":  { ... },
     # "project_delivery": { ... },
