@@ -28,7 +28,7 @@ Usage:
 
     python manage.py seed_demo_data --export
         After seeding, write canonical JSON and CSV snapshots to
-        scripts/seed/demo_board.json and scripts/seed/demo_board.csv.
+        backend/boards/seed_data/demo_board.json and demo_board.csv.
         Commit the result when the board structure changes so the CI
         seed-export-check job does not fail.
 
@@ -756,12 +756,9 @@ class Command(BaseCommand):
             .order_by("swimlane__position", "column__position", "position")
         )
 
-        repo_root = settings.BASE_DIR.parent
-        # When BASE_DIR.parent does not contain a backend/ subdirectory we are
-        # running inside a container where the backend dir IS the mount root.
-        if not (repo_root / "backend").exists():
-            repo_root = settings.BASE_DIR
-        seed_dir = repo_root / "scripts" / "seed"
+        # Export path: BASE_DIR = .../backend/, so seed_data is a subdirectory
+        # of the boards app regardless of whether we run locally or in Docker.
+        seed_dir = settings.BASE_DIR / "boards" / "seed_data"
         seed_dir.mkdir(parents=True, exist_ok=True)
 
         self._export_json(board, columns, swimlanes, labels, cards, seed_dir)
