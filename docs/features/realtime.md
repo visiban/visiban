@@ -13,10 +13,13 @@ Visiban uses WebSockets (Django Channels + Redis) to push board changes to all c
 
 The top-right corner of the board toolbar shows the connection state:
 
-- 🟢 **Live** — WebSocket connected; the dot pulses with a green animation to indicate an active connection
-- ⚪ **Connecting…** — attempting to connect or reconnecting; dot is static and grey
+- 🟢 **Live** — WebSocket connected; dot pulses with a green animation
+- 🟡 **Reconnecting…** — connection dropped; client is retrying automatically; dot pulses amber
+- ⚫ **Offline** — connection permanently failed (authentication error or repeated failures); dot is grey and static — reload the page to reconnect
 
-The client reconnects automatically after 3 seconds if the connection drops.
+> **Changed in 1.0.0-rc.8:** The indicator now has three distinct states. Previously "Reconnecting…" and "Offline" were both shown as a static grey dot with no text.
+
+The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**.
 
 ## Event types
 

@@ -187,6 +187,14 @@ Settings are accessed from the avatar menu in the top-right navbar.
 
 **Notifications** — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added).
 
+**Behavior** — card editor preferences:
+
+| Setting | Default | Description |
+|---|---|---|
+| Close editor on Enter | On | Pressing Enter in the quick card-title editor confirms and closes it. Turn off to insert a newline instead (useful when titles often span multiple lines). |
+
+> **Added in 1.0.0-rc.8:** The Behavior tab. Previously "Close editor on Enter" was not user-configurable.
+
 **Security** — change password.
 
 ---
