@@ -26,6 +26,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Attaching to a media file path you are not a board member of now returns 404 instead of 403, preventing an attacker from confirming whether a file path is valid (#310)
+- `CardViewSet.update()` now runs inside a single `transaction.atomic()` block — previously a failure in activity or notification creation after the card save would leave the card updated but with a missing audit trail (#310)
+- Deleting a swimlane now reloads board state on API failure instead of leaving the UI permanently desynchronized with the server (#310)
+- Forcing a blocked card move now surfaces a structured error to the user when the override itself fails, rather than silently reverting (#310)
+- Running `manage.py test` locally no longer requires a running Redis instance — the test suite now automatically uses `InMemoryChannelLayer` and `LocMemCache`, eliminating false failures in environments without a local Redis server
+- `DJANGO_ADMIN_ALLOWED_IPS` and `ACCOUNT_EMAIL_VERIFICATION` are now documented in `.env.example` so operators are aware of these production-relevant settings (#310)
 - Login page inputs now use correct mid-level background (`bg-slate-800`) with visible border and placeholder color, matching the design system depth tokens (#302)
 - Settings page (Profile and Security tabs) now reserves fixed vertical space for inline status messages so surrounding buttons no longer shift when save/error text appears (#301)
 - Board Settings button is now hidden entirely for non-admin users instead of being greyed out — removing the misleading disabled affordance (#299)

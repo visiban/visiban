@@ -688,9 +688,14 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
-        """Return the full board state: columns, swimlanes, cards, labels, and members."""
-        board, _ = get_board_for_user(pk, request.user)
-        return Response(BoardFullSerializer(board, context={"request": request}).data)
+        """Return the full board state: columns, swimlanes, cards, labels, and members.
+
+        The resolved role is threaded into serializer context so that
+        get_current_user_role() and get_swimlanes() can reuse it without
+        issuing a second get_board_role() query.
+        """
+        board, role = get_board_for_user(pk, request.user)
+        return Response(BoardFullSerializer(board, context={"request": request, "role": role}).data)
 
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):
@@ -1453,99 +1458,104 @@ class CardViewSet(viewsets.ModelViewSet):
         expressed as a single activity entry listing added (+) and removed (-)
         names. A Notification is created for the new assignee when the assignee
         changes to someone other than the current user.
+
+        The entire sequence (card save → activity creation → notification creation
+        → on_commit broadcast registration) runs inside a single atomic block so
+        that a failure at any step rolls back all side-effects rather than leaving
+        the card saved but with a missing activity trail or notification.
         """
         _, role = self._board_and_role()
         if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
             raise PermissionDenied
         partial = kwargs.pop("partial", False)
         card = self.get_object()
+        with transaction.atomic():
+            # Snapshot before update
+            old_title = card.title
+            old_priority = card.priority
+            old_weight = card.weight
+            old_assignee_id = card.assignee_id
+            old_assignee_name = card.assignee.username if card.assignee else "Unassigned"
+            old_description = card.description
+            old_label_ids = set(card.labels.values_list("id", flat=True))
+            old_due_date = card.due_date.isoformat() if card.due_date else ""
 
-        # Snapshot before update
-        old_title = card.title
-        old_priority = card.priority
-        old_weight = card.weight
-        old_assignee_id = card.assignee_id
-        old_assignee_name = card.assignee.username if card.assignee else "Unassigned"
-        old_description = card.description
-        old_label_ids = set(card.labels.values_list("id", flat=True))
-        old_due_date = card.due_date.isoformat() if card.due_date else ""
+            serializer = self.get_serializer(card, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            card.refresh_from_db()
 
-        serializer = self.get_serializer(card, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        card.refresh_from_db()
+            activities = []
+            ET = CardActivity.EventType
 
-        activities = []
-        ET = CardActivity.EventType
+            if old_title != card.title and "title" in request.data:
+                activities.append(CardActivity(
+                    card=card, event_type=ET.TITLE_CHANGE,
+                    from_value=old_title, to_value=card.title, actor=request.user,
+                ))
+            if old_priority != card.priority:
+                activities.append(CardActivity(
+                    card=card, event_type=ET.PRIORITY_CHANGE,
+                    from_value=old_priority, to_value=card.priority, actor=request.user,
+                ))
+            if old_weight != card.weight:
+                activities.append(CardActivity(
+                    card=card, event_type=ET.WEIGHT_CHANGE,
+                    from_value=str(old_weight), to_value=str(card.weight), actor=request.user,
+                ))
+            if old_assignee_id != card.assignee_id:
+                new_name = card.assignee.username if card.assignee else "Unassigned"
+                activities.append(CardActivity(
+                    card=card, event_type=ET.ASSIGNEE_CHANGE,
+                    from_value=old_assignee_name, to_value=new_name, actor=request.user,
+                ))
+                # Notify new assignee if they have not opted out of assignment notifications.
+                if card.assignee and card.assignee != request.user and card.assignee.notif_card_assigned:
+                    Notification.objects.create(
+                        recipient=card.assignee,
+                        actor=request.user,
+                        action_type=Notification.ActionType.ASSIGNED,
+                        verb=f"You were assigned to \"{card.title}\"",
+                        card=card,
+                        board=card.board,
+                    )
+            if old_description != card.description and "description" in request.data:
+                activities.append(CardActivity(
+                    card=card, event_type=ET.DESCRIPTION_CHANGE,
+                    from_value="", to_value="", actor=request.user,
+                ))
+                # Notify newly @mentioned board members; deferred so the updated
+                # description is already committed when notifications are created.
+                _card, _actor, _old, _new = card, request.user, old_description, card.description
+                transaction.on_commit(lambda: notify_new_mentions(_card, _actor, _old, _new))
+            new_label_ids = set(card.labels.values_list("id", flat=True))
+            if old_label_ids != new_label_ids:
+                added = new_label_ids - old_label_ids
+                removed = old_label_ids - new_label_ids
+                parts = []
+                if added:
+                    names = list(Label.objects.filter(id__in=added).values_list("name", flat=True))
+                    parts.append(f"+{', '.join(names)}")
+                if removed:
+                    names = list(Label.objects.filter(id__in=removed).values_list("name", flat=True))
+                    parts.append(f"-{', '.join(names)}")
+                activities.append(CardActivity(
+                    card=card, event_type=ET.LABEL_CHANGE,
+                    from_value="", to_value=", ".join(parts), actor=request.user,
+                ))
+            new_due_date = card.due_date.isoformat() if card.due_date else ""
+            if old_due_date != new_due_date:
+                activities.append(CardActivity(
+                    card=card, event_type=ET.DUE_DATE_CHANGE,
+                    from_value=old_due_date, to_value=new_due_date, actor=request.user,
+                ))
 
-        if old_title != card.title and "title" in request.data:
-            activities.append(CardActivity(
-                card=card, event_type=ET.TITLE_CHANGE,
-                from_value=old_title, to_value=card.title, actor=request.user,
-            ))
-        if old_priority != card.priority:
-            activities.append(CardActivity(
-                card=card, event_type=ET.PRIORITY_CHANGE,
-                from_value=old_priority, to_value=card.priority, actor=request.user,
-            ))
-        if old_weight != card.weight:
-            activities.append(CardActivity(
-                card=card, event_type=ET.WEIGHT_CHANGE,
-                from_value=str(old_weight), to_value=str(card.weight), actor=request.user,
-            ))
-        if old_assignee_id != card.assignee_id:
-            new_name = card.assignee.username if card.assignee else "Unassigned"
-            activities.append(CardActivity(
-                card=card, event_type=ET.ASSIGNEE_CHANGE,
-                from_value=old_assignee_name, to_value=new_name, actor=request.user,
-            ))
-            # Notify new assignee if they have not opted out of assignment notifications.
-            if card.assignee and card.assignee != request.user and card.assignee.notif_card_assigned:
-                Notification.objects.create(
-                    recipient=card.assignee,
-                    actor=request.user,
-                    action_type=Notification.ActionType.ASSIGNED,
-                    verb=f"You were assigned to \"{card.title}\"",
-                    card=card,
-                    board=card.board,
-                )
-        if old_description != card.description and "description" in request.data:
-            activities.append(CardActivity(
-                card=card, event_type=ET.DESCRIPTION_CHANGE,
-                from_value="", to_value="", actor=request.user,
-            ))
-            # Notify newly @mentioned board members; deferred so the updated
-            # description is already committed when notifications are created.
-            _card, _actor, _old, _new = card, request.user, old_description, card.description
-            transaction.on_commit(lambda: notify_new_mentions(_card, _actor, _old, _new))
-        new_label_ids = set(card.labels.values_list("id", flat=True))
-        if old_label_ids != new_label_ids:
-            added = new_label_ids - old_label_ids
-            removed = old_label_ids - new_label_ids
-            parts = []
-            if added:
-                names = list(Label.objects.filter(id__in=added).values_list("name", flat=True))
-                parts.append(f"+{', '.join(names)}")
-            if removed:
-                names = list(Label.objects.filter(id__in=removed).values_list("name", flat=True))
-                parts.append(f"-{', '.join(names)}")
-            activities.append(CardActivity(
-                card=card, event_type=ET.LABEL_CHANGE,
-                from_value="", to_value=", ".join(parts), actor=request.user,
-            ))
-        new_due_date = card.due_date.isoformat() if card.due_date else ""
-        if old_due_date != new_due_date:
-            activities.append(CardActivity(
-                card=card, event_type=ET.DUE_DATE_CHANGE,
-                from_value=old_due_date, to_value=new_due_date, actor=request.user,
-            ))
+            if activities:
+                CardActivity.objects.bulk_create(activities)
 
-        if activities:
-            CardActivity.objects.bulk_create(activities)
-
-        board_id = card.board_id
-        card_data = serializer.data
-        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
+            board_id = card.board_id
+            card_data = serializer.data
+            transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
@@ -2068,7 +2078,11 @@ class ServeMediaView(APIView):
         board = attachment.card.board
         role = get_board_role(request.user, board)
         if not role:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            # Return 404 (not 403) to avoid leaking whether a file path is a
+            # valid attachment — an attacker who knows a valid path should not
+            # receive confirmation of that fact via a 403.
+            from django.http import Http404
+            raise Http404
 
         if django_settings.DEBUG:
             # Development: serve the file directly through Django. Not used in
