@@ -143,4 +143,23 @@ describe('SwimlaneRow', () => {
     await userEvent.setup().click(screen.getByTitle('Edit swimlane'))
     expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
   })
+
+  it('collapsed swimlane shows card count pill for non-empty cells', async () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1, column: 10 }), makeCard({ id: 2, column: 10 })]
+    render(<SwimlaneRow {...props} />)
+    await userEvent.setup().click(screen.getByTitle('Collapse'))
+    expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('collapsed swimlane highlights filter matches in blue', async () => {
+    const props = defaultProps()
+    const card = makeCard({ id: 1, column: 10 })
+    props.cards = [card]
+    props.filteredCardIds = new Set([card.id])
+    render(<SwimlaneRow {...props} />)
+    await userEvent.setup().click(screen.getByTitle('Collapse'))
+    const badge = screen.getByText('1')
+    expect(badge.className).toContain('text-blue-400')
+  })
 })

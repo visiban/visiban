@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Collapsed swimlane rows now show card counts as full-width pill badges aligned with their column headers — previously cells were 40 px stubs misaligned with the column grid; filter matches are highlighted in blue to match the collapsed-column behavior
+- Board scroll container now shows always-visible styled scrollbars (8 px, slate-600 thumb) so users on macOS with "show scrollbars when scrolling" do not encounter an apparently non-scrollable board
 - Site admin "Make admin" now requires a confirmation step before granting site admin privileges — previously a single click was sufficient, with no undo prompt
 - Site admin confirm dialog and Add User modal now carry `role="dialog"` and `aria-modal` so screen readers announce them correctly on open
 - Site admin Settings tab status messages ("Settings saved." / error) no longer cause layout shift when they appear or disappear
