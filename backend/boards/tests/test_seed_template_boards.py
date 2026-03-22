@@ -393,6 +393,15 @@ class SeedExportTests(TestCase):
         self.assertEqual(len(data["swimlanes"]), 5)
         self.assertEqual(len(data["labels"]), 4)
 
+        # Every card must export its movement history
+        for card_data in data["cards"]:
+            self.assertIn("movements", card_data, f"Card '{card_data['title']}' missing movements")
+            self.assertGreater(len(card_data["movements"]), 0, f"Card '{card_data['title']}' has empty movements")
+        # Spot-check movement shape
+        mv = data["cards"][0]["movements"][0]
+        for field in ("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_at", "moved_by"):
+            self.assertIn(field, mv)
+
     def test_csv_export_headers(self):
         import csv as csv_module
 

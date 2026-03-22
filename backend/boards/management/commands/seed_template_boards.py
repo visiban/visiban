@@ -3694,7 +3694,16 @@ class Command(BaseCommand):
         card_qs = (
             board.cards
             .select_related("column", "swimlane", "assignee")
-            .prefetch_related("labels", "checklist_items", "comments__author")
+            .prefetch_related(
+                "labels",
+                "checklist_items",
+                "comments__author",
+                "movements__moved_by",
+                "movements__from_column",
+                "movements__to_column",
+                "movements__from_swimlane",
+                "movements__to_swimlane",
+            )
             .order_by("swimlane__position", "column__position", "position")
         )
 
@@ -3755,6 +3764,17 @@ class Command(BaseCommand):
                             "author": comment.author.username if comment.author else None,
                         }
                         for comment in card.comments.all()
+                    ],
+                    "movements": [
+                        {
+                            "from_column": mv.from_column_name or None,
+                            "to_column": mv.to_column_name,
+                            "from_swimlane": mv.from_swimlane_name or None,
+                            "to_swimlane": mv.to_swimlane_name,
+                            "moved_at": mv.moved_at.isoformat(),
+                            "moved_by": mv.moved_by.username if mv.moved_by else None,
+                        }
+                        for mv in card.movements.order_by("moved_at")
                     ],
                 }
                 for card in cards
