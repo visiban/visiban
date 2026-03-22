@@ -14,13 +14,9 @@ from accounts.models import User
 from boards.models import (
     Board,
     BoardMembership,
-    Card,
     CardChecklist,
-    CardComment,
     CardMovement,
     Column,
-    Label,
-    Swimlane,
 )
 from boards.management.commands.seed_template_boards import TEMPLATE_DATA, VALID_SLUGS
 
