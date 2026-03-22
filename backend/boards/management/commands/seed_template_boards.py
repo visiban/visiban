@@ -1567,8 +1567,518 @@ TEMPLATE_DATA: dict[str, dict] = {
         ],
     },
 
+    # ── Simple Kanban ─────────────────────────────────────────────────────────
+    "simple_kanban": {
+        "board_name": "Template: Simple Kanban",
+        "description": (
+            "General-purpose kanban board for engineering teams. "
+            "Each swimlane represents a team or workstream."
+        ),
+        "columns": [
+            {"name": "Backlog",     "color": "#6B7280", "allow_card_creation": True},
+            {"name": "To Do",       "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "In Progress", "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "In Review",   "color": "#8B5CF6", "allow_card_creation": False},
+            {"name": "Done",        "color": "#10B981", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "Bug",       "color": "#EF4444"},
+            {"name": "Feature",   "color": "#3B82F6"},
+            {"name": "Improve",   "color": "#10B981"},
+            {"name": "Tech Debt", "color": "#9CA3AF"},
+            {"name": "Blocked",   "color": "#F97316"},
+        ],
+        "swimlanes": [
+            {
+                "name": "Frontend",
+                "color": "#3B82F6",
+                "contact_email": "",
+                "notes": "React / TypeScript. Owns all UI components, pages, and the design system.",
+                "cards": [
+                    {
+                        "title": "Redesign card detail modal layout",
+                        "description": (
+                            "The card detail modal is crowded on smaller screens. "
+                            "Proposed layout:\n\n"
+                            "- Move assignee + due date to a sidebar\n"
+                            "- Give description full-width space\n"
+                            "- Collapse checklist by default"
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": 7,
+                        "weight": 3,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "Design review sign-off", "is_checked": True},
+                            {"text": "Implement new layout", "is_checked": True},
+                            {"text": "Responsive test at 375px and 1280px", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Design approved. Implementation underway.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Fix focus trap in dropdown menus",
+                        "description": (
+                            "Tab key escapes the dropdown menu when it reaches the last item. "
+                            "Should cycle back to the first item.\n\n"
+                            "Affects: FilterBar, SelectDropdown, column header menu."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 3,
+                        "weight": 2,
+                        "labels": ["Bug"],
+                        "checklist": [
+                            {"text": "Add focus trap to SelectDropdown", "is_checked": True},
+                            {"text": "Add focus trap to FilterBar", "is_checked": False},
+                            {"text": "Accessibility audit after fix", "is_checked": False},
+                        ],
+                        "comments": [
+                            "SelectDropdown fixed. FilterBar next.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Accessibility audit: WCAG 2.1 AA compliance",
+                        "description": (
+                            "Run a full WCAG 2.1 AA audit on the board view and card detail. "
+                            "Use axe-core and manual keyboard navigation testing.\n\n"
+                            "File individual issues for each violation found."
+                        ),
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": 21,
+                        "weight": 5,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "Run axe-core on board view", "is_checked": False},
+                            {"text": "Manual keyboard navigation test", "is_checked": False},
+                            {"text": "File issues for each violation", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Dark mode flicker on page load",
+                        "description": (
+                            "When the OS is in dark mode, there is a brief white flash before "
+                            "the dark theme is applied. Caused by: theme class applied after "
+                            "first paint.\n\n"
+                            "Fix: inline theme script in `<head>` before `<body>` renders."
+                        ),
+                        "col_idx": 3,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Bug"],
+                        "checklist": [
+                            {"text": "Add inline theme detection script to index.html", "is_checked": True},
+                            {"text": "Test on Chrome, Firefox, Safari", "is_checked": True},
+                            {"text": "Verify no flash on cold load", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Inline script added. Testing in progress.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Keyboard shortcut N to open quick-add card",
+                        "description": (
+                            "Pressing `N` (when no input is focused) should open a quick-add modal "
+                            "pre-scoped to the last focused column/swimlane cell.\n\n"
+                            "Implementation:\n"
+                            "- Listen for `keydown` on `BoardView`\n"
+                            "- Track last focused cell in a ref\n"
+                            "- Open `CreateCardModal` with column + swimlane pre-filled"
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": 10,
+                        "weight": 3,
+                        "labels": ["Feature"],
+                        "checklist": [
+                            {"text": "Implement keydown listener in BoardView", "is_checked": True},
+                            {"text": "Track last focused cell in ref", "is_checked": False},
+                            {"text": "Wire up CreateCardModal", "is_checked": False},
+                            {"text": "Test: N does nothing when input focused", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Backend",
+                "color": "#10B981",
+                "contact_email": "",
+                "notes": "Django / Python. Owns API, models, background tasks, and WebSocket layer.",
+                "cards": [
+                    {
+                        "title": "Rate limiting on authentication endpoints",
+                        "description": (
+                            "Add per-IP and per-user rate limiting to `POST /api/auth/login/` "
+                            "and `POST /api/auth/token/refresh/`.\n\n"
+                            "Use `django-ratelimit`. Limits: 10 req/min per IP, 5 req/min per user."
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": 5,
+                        "weight": 4,
+                        "labels": ["Feature"],
+                        "checklist": [
+                            {"text": "Install django-ratelimit", "is_checked": True},
+                            {"text": "Apply to login endpoint", "is_checked": True},
+                            {"text": "Apply to token refresh endpoint", "is_checked": False},
+                            {"text": "Add integration tests for limit exceeded (429)", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Login endpoint rate-limited. Refresh endpoint next.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Refactor card move endpoint to use a serializer",
+                        "description": (
+                            "The `POST /api/cards/{id}/move/` view contains too much business logic. "
+                            "Move validation and WIP check logic into a `CardMoveSerializer`.\n\n"
+                            "This makes the logic unit-testable and removes the view's fat."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 14,
+                        "weight": 4,
+                        "labels": ["Tech Debt"],
+                        "checklist": [
+                            {"text": "Write CardMoveSerializer with validation", "is_checked": False},
+                            {"text": "Move WIP check into serializer", "is_checked": False},
+                            {"text": "Update view to use serializer", "is_checked": False},
+                            {"text": "Add unit tests for serializer", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "N+1 query in BoardFullSerializer.get_members()",
+                        "description": (
+                            "Loading `/api/boards/{id}/full/` issues one query per member to "
+                            "resolve inherited group roles. On a 15-member board this is 15 extra queries.\n\n"
+                            "Fix: add `prefetch_related('memberships__user__groups')` to the viewset queryset."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": -2,
+                        "weight": 5,
+                        "labels": ["Bug", "Tech Debt"],
+                        "checklist": [
+                            {"text": "Profile with django-silk to confirm N+1", "is_checked": True},
+                            {"text": "Add prefetch_related", "is_checked": True},
+                            {"text": "Benchmark: confirm query count drops", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Confirmed: 15 extra queries on a 15-member board.",
+                            "prefetch_related added — down to 4 total queries. Benchmarking.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Email notification Celery worker",
+                        "description": (
+                            "Build the Celery task that sends email notifications for:\n\n"
+                            "- Card assigned to me\n"
+                            "- @mention in comment\n"
+                            "- Due date approaching (< 24h)\n\n"
+                            "Idempotent: skip if notification already sent today."
+                        ),
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": 30,
+                        "weight": 4,
+                        "labels": ["Feature"],
+                        "checklist": [
+                            {"text": "Define Notification model", "is_checked": False},
+                            {"text": "Write send_notification Celery task", "is_checked": False},
+                            {"text": "Wire signals for assignment + mention", "is_checked": False},
+                            {"text": "Test with real SMTP in staging", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Audit log pagination (cursor-based)",
+                        "description": (
+                            "The `GET /api/boards/{id}/movements/` endpoint returns all records "
+                            "without pagination. On active boards this can be 10,000+ records.\n\n"
+                            "Implement cursor-based pagination using `created_at` as the cursor."
+                        ),
+                        "col_idx": 4,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "Implement CursorPagination on movements endpoint", "is_checked": True},
+                            {"text": "Update frontend to use cursor token", "is_checked": True},
+                            {"text": "Test with 10,000-record board", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Done. Frontend updated to load-more pattern.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+            {
+                "name": "DevOps",
+                "color": "#F59E0B",
+                "contact_email": "",
+                "notes": "Owns CI/CD, Docker, Helm, infrastructure, and deployment pipelines.",
+                "cards": [
+                    {
+                        "title": "Add readiness probe to Helm chart",
+                        "description": (
+                            "The Django service has no readiness probe — Kubernetes routes traffic "
+                            "to pods before migrations have finished running.\n\n"
+                            "Add an HTTP readiness probe on `/api/health/` that returns 200 only "
+                            "when migrations are complete."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 2,
+                        "weight": 3,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "Add /api/health/ endpoint", "is_checked": True},
+                            {"text": "Wire migration check into health endpoint", "is_checked": True},
+                            {"text": "Update Helm chart with readinessProbe", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Health endpoint done. Helm chart update in PR.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Postgres upgrade from 14 to 16",
+                        "description": (
+                            "Postgres 14 reaches EOL in November 2026. Plan and execute upgrade:\n\n"
+                            "1. Test on staging with pg_upgrade\n"
+                            "2. Verify all queries still work\n"
+                            "3. Coordinate downtime window with team\n"
+                            "4. Upgrade production"
+                        ),
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": 45,
+                        "weight": 5,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "Test pg_upgrade on staging DB dump", "is_checked": False},
+                            {"text": "Run full test suite on PG16", "is_checked": False},
+                            {"text": "Schedule maintenance window", "is_checked": False},
+                            {"text": "Upgrade production", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Add Bandit security scan to CI pipeline",
+                        "description": (
+                            "Run `bandit -r backend/` on every MR. Fail the pipeline on HIGH severity findings.\n\n"
+                            "Add to `.gitlab-ci.yml` as a new `security` stage job."
+                        ),
+                        "col_idx": 4,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Feature"],
+                        "checklist": [
+                            {"text": "Add bandit to requirements-dev.txt", "is_checked": True},
+                            {"text": "Add security stage to .gitlab-ci.yml", "is_checked": True},
+                            {"text": "Fix any existing HIGH findings", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Bandit added. 2 HIGH findings fixed (shell=True, hardcoded secret in test).",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Reduce Docker image size (current: 1.2 GB)",
+                        "description": (
+                            "The production Docker image is 1.2 GB. Target: < 400 MB.\n\n"
+                            "Quick wins:\n"
+                            "- Multi-stage build (separate build and runtime stages)\n"
+                            "- Use `python:3.12-slim` as base\n"
+                            "- Remove dev dependencies from final image"
+                        ),
+                        "col_idx": 2,
+                        "priority": "low",
+                        "due_offset": 14,
+                        "weight": 3,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "Switch to multi-stage Dockerfile", "is_checked": True},
+                            {"text": "Use python:3.12-slim base", "is_checked": True},
+                            {"text": "Measure final image size", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Multi-stage done. Image now 380 MB.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Staging environment auto-refresh on main merge",
+                        "description": (
+                            "Staging should automatically deploy the latest `main` branch on every merge. "
+                            "Currently requires a manual trigger.\n\n"
+                            "Add a GitLab CI deploy stage targeting `staging` environment."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 7,
+                        "weight": 3,
+                        "labels": ["Feature"],
+                        "checklist": [
+                            {"text": "Add staging deploy job to CI", "is_checked": False},
+                            {"text": "Configure GitLab environment for staging", "is_checked": False},
+                            {"text": "Test auto-deploy on a test merge", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 4,
+                    },
+                ],
+            },
+            {
+                "name": "QA",
+                "color": "#8B5CF6",
+                "contact_email": "",
+                "notes": "Owns test strategy, Playwright E2E suite, and release sign-off.",
+                "cards": [
+                    {
+                        "title": "E2E test: card drag and drop across columns",
+                        "description": (
+                            "Write a Playwright E2E test covering:\n\n"
+                            "1. Drag card from column A to column B\n"
+                            "2. Verify card appears in column B\n"
+                            "3. Verify CardMovement record is created\n"
+                            "4. Verify WIP count updates in column headers"
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": 5,
+                        "weight": 4,
+                        "labels": ["Feature"],
+                        "checklist": [
+                            {"text": "Write drag helper utility", "is_checked": True},
+                            {"text": "Write happy-path drag test", "is_checked": True},
+                            {"text": "Write WIP limit exceeded test", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Happy path done. WIP limit test in progress.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Regression suite for v1.1 release",
+                        "description": (
+                            "Build a regression test suite covering the core flows changed in v1.1:\n\n"
+                            "- Card create / edit / delete\n"
+                            "- Swimlane reorder\n"
+                            "- Label management\n"
+                            "- Board member invite\n\n"
+                            "Target: 20 tests, all passing before v1.1 ships."
+                        ),
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 10,
+                        "weight": 4,
+                        "labels": ["Feature"],
+                        "checklist": [
+                            {"text": "Card CRUD tests", "is_checked": False},
+                            {"text": "Swimlane reorder test", "is_checked": False},
+                            {"text": "Label management tests", "is_checked": False},
+                            {"text": "Board member invite test", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Load test: 100 concurrent users on board view",
+                        "description": (
+                            "Run a Locust load test simulating 100 concurrent users loading the board view. "
+                            "Acceptance criteria:\n\n"
+                            "- p95 response time < 800ms\n"
+                            "- No 5xx errors under load\n"
+                            "- Memory usage < 512MB per worker"
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": -1,
+                        "weight": 5,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "Write Locust scenario for board load", "is_checked": True},
+                            {"text": "Run 100-user test on staging", "is_checked": True},
+                            {"text": "Document results and recommendations", "is_checked": False},
+                        ],
+                        "comments": [
+                            "p95: 650ms. No 5xx. Memory OK. Writing up results.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Mobile browser testing matrix",
+                        "description": (
+                            "Define and execute a manual test matrix across:\n\n"
+                            "| Device | Browser |\n"
+                            "| --- | --- |\n"
+                            "| iPhone 15 | Safari |\n"
+                            "| iPhone SE | Safari |\n"
+                            "| Pixel 7 | Chrome |\n"
+                            "| Samsung Galaxy | Samsung Internet |"
+                        ),
+                        "col_idx": 0,
+                        "priority": "low",
+                        "due_offset": 21,
+                        "weight": 3,
+                        "labels": ["Improve"],
+                        "checklist": [
+                            {"text": "iPhone 15 Safari", "is_checked": False},
+                            {"text": "iPhone SE Safari", "is_checked": False},
+                            {"text": "Pixel 7 Chrome", "is_checked": False},
+                            {"text": "Samsung Galaxy Samsung Internet", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": None,
+                    },
+                    {
+                        "title": "Fix flaky Playwright test #148 (swimlane reorder)",
+                        "description": (
+                            "Test #148 fails intermittently (~1 in 8 runs) because it clicks "
+                            "the drag handle before the animation from the previous test completes.\n\n"
+                            "Fix: add `await page.waitForSelector('.drag-handle:visible')` before the drag."
+                        ),
+                        "col_idx": 4,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Bug"],
+                        "checklist": [
+                            {"text": "Add waitForSelector before drag", "is_checked": True},
+                            {"text": "Run test 20 times to confirm stability", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Ran 25 times — 0 failures. Considered fixed.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                ],
+            },
+        ],
+    },
+
     # ── Other templates — added in subsequent tasks ───────────────────────────
-    # "simple_kanban":    { ... },
     # "product_roadmap":  { ... },
     # "project_delivery": { ... },
 }
