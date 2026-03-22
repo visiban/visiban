@@ -5,30 +5,6 @@ import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
 import { formatDueDate } from "../../utils/date";
 
-// Strip markdown syntax and HTML tags from a description so the compact card
-// preview shows readable plain text rather than raw markup.
-function stripMarkdown(md: string): string {
-  return md
-    .replace(/<[^>]+>/g, "")             // remove HTML tags (color spans, etc.)
-    .replace(/\\\n/g, "\n")             // backslash-newline (tiptap hard line break before HTML) → preserve as newline
-    .replace(/\\/g, "")                 // remove remaining lone backslashes
-    .replace(/\*\*\*(.+?)\*\*\*/g, "$1") // ***bold italic***
-    .replace(/___(.+?)___/g, "$1")       // ___bold italic___
-    .replace(/\*\*(.+?)\*\*/g, "$1")     // **bold**
-    .replace(/__(.+?)__/g, "$1")         // __bold__
-    .replace(/\*(.+?)\*/g, "$1")         // *italic*
-    .replace(/_([^_]+)_/g, "$1")         // _italic_
-    .replace(/~~(.+?)~~/g, "$1")         // ~~strikethrough~~
-    .replace(/```[\s\S]*?```/g, "")       // fenced code blocks (drop entirely — too long for preview)
-    .replace(/`([^`]+)`/g, "$1")         // inline code → preserve text
-    .replace(/^#{1,6}\s+/gm, "")        // # headings
-    .replace(/^>\s*/gm, "")             // > blockquotes
-    .replace(/^[-*+]\s+/gm, "")         // - bullet items
-    .replace(/^\d+\.\s+/gm, "")         // 1. ordered items
-    .replace(/[^\S\n]+/g, " ")           // collapse horizontal whitespace (preserve newlines)
-    .replace(/\n{3,}/g, "\n\n")         // cap consecutive blank lines to one
-    .trim();
-}
 
 
 interface Props {
