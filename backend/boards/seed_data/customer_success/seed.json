@@ -1,0 +1,646 @@
+{
+  "name": "Template: Customer Success",
+  "description": "Track account health from onboarding through expansion and renewal. Each swimlane represents a customer account.",
+  "columns": [
+    {
+      "name": "Onboarding",
+      "position": 0,
+      "color": "#3B82F6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Adoption",
+      "position": 1,
+      "color": "#8B5CF6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Healthy",
+      "position": 2,
+      "color": "#10B981",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Expansion",
+      "position": 3,
+      "color": "#F59E0B",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Renewal",
+      "position": 4,
+      "color": "#F97316",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Churned",
+      "position": 5,
+      "color": "#EF4444",
+      "wip_limit": null,
+      "allow_card_creation": false
+    }
+  ],
+  "swimlanes": [
+    {
+      "name": "Acme Corp",
+      "position": 0,
+      "color": "#3B82F6",
+      "contact_email": "ops@acme.example",
+      "notes": "Mid-market. 50 seats. Champion: Head of Ops. 90-day onboarding started 2026-02-01."
+    },
+    {
+      "name": "Brightfield Energy",
+      "position": 1,
+      "color": "#F59E0B",
+      "contact_email": "digital@brightfield.example",
+      "notes": "At-risk account. Usage dropped 40% MoM. Champion: Lisa Markov (Digital Director)."
+    },
+    {
+      "name": "NovaTech Solutions",
+      "position": 2,
+      "color": "#10B981",
+      "contact_email": "cto@novatech.example",
+      "notes": "Healthy account. Expanding organically. CTO is a vocal advocate."
+    },
+    {
+      "name": "Clearwater Bank",
+      "position": 3,
+      "color": "#6366F1",
+      "contact_email": "vendor-mgmt@clearwaterbank.example",
+      "notes": "Financial sector — slow procurement. CISO approval required for all vendor tools."
+    },
+    {
+      "name": "Zephyr Logistics",
+      "position": 4,
+      "color": "#EF4444",
+      "contact_email": "it@zephyrlogistics.example",
+      "notes": "Churned 2026-02-28. Contract not renewed. Re-engagement planned for Q4."
+    }
+  ],
+  "labels": [
+    {
+      "name": "At Risk",
+      "color": "#EF4444"
+    },
+    {
+      "name": "Champion",
+      "color": "#10B981"
+    },
+    {
+      "name": "Expansion Opportunity",
+      "color": "#F59E0B"
+    },
+    {
+      "name": "Renewal Due",
+      "color": "#F97316"
+    },
+    {
+      "name": "QBR Needed",
+      "color": "#8B5CF6"
+    }
+  ],
+  "cards": [
+    {
+      "title": "Admin training session — 2 teams",
+      "description": "Schedule and deliver two 60-min admin training sessions covering:\n\n- Board setup and swimlane configuration\n- User management and roles\n- Integrations (Slack, webhooks)\n\nTarget: Ops team (25 users) and Engineering team (25 users).",
+      "priority": "high",
+      "column": "Onboarding",
+      "swimlane": "Acme Corp",
+      "due_date": "2026-03-20",
+      "weight": 3,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Book session 1 (Ops team)",
+          "is_checked": true
+        },
+        {
+          "text": "Book session 2 (Engineering team)",
+          "is_checked": false
+        },
+        {
+          "text": "Send pre-session setup checklist",
+          "is_checked": true
+        },
+        {
+          "text": "Share recording after each session",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Session 1 done — great turnout (22/25 attended). Session 2 booked for next Tuesday.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Import historical project data from Trello",
+      "description": "Acme has 3 years of project history in Trello they want imported. Estimated: 800 cards across 6 boards.\n\nUse the CSV import tool. Map Trello lists → Visiban columns.",
+      "priority": "medium",
+      "column": "Onboarding",
+      "swimlane": "Acme Corp",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Export Trello JSON",
+          "is_checked": true
+        },
+        {
+          "text": "Convert to Visiban CSV format",
+          "is_checked": false
+        },
+        {
+          "text": "Test import with 50-card sample",
+          "is_checked": false
+        },
+        {
+          "text": "Full import and verify",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Trello JSON exported. Working on conversion script.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "First board created and team invited",
+      "description": "Acme Ops team has created their first board and invited all 25 members. Initial adoption looks strong — 18/25 users active in week 1.\n\nNext: ensure Engineering team mirrors the structure.",
+      "priority": "medium",
+      "column": "Adoption",
+      "swimlane": "Acme Corp",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Champion"
+      ],
+      "checklist": [
+        {
+          "text": "Confirm all users can log in",
+          "is_checked": true
+        },
+        {
+          "text": "Review board structure with champion",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Head of Ops is a strong champion — already coaching colleagues on WIP limits.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "45-day QBR — health check",
+      "description": "Quarterly Business Review at the 45-day mark.\n\n## Agenda\n\n1. Usage metrics review (WAU, boards created, cards moved)\n2. Feedback on pain points\n3. Expansion discussion (5 additional seats for Design team)\n4. Renewal timeline (due 2026-08-01)",
+      "priority": "high",
+      "column": "Healthy",
+      "swimlane": "Acme Corp",
+      "due_date": "2026-04-14",
+      "weight": 3,
+      "labels": [
+        "Expansion Opportunity",
+        "QBR Needed"
+      ],
+      "checklist": [
+        {
+          "text": "Pull usage report from admin panel",
+          "is_checked": false
+        },
+        {
+          "text": "Prepare QBR deck",
+          "is_checked": false
+        },
+        {
+          "text": "Book 60-min call with champion",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Re-engagement call with Lisa Markov",
+      "description": "Outcome of intervention call:\n\n- Reorg is complete — 3 new team leads added\n- Lisa will personally onboard the new leads\n- Usage expected to recover within 30 days\n\nRisk level: reduced from Critical to Watch.",
+      "priority": "high",
+      "column": "Adoption",
+      "swimlane": "Brightfield Energy",
+      "due_date": "2026-03-13",
+      "weight": 3,
+      "labels": [
+        "Champion"
+      ],
+      "checklist": [
+        {
+          "text": "Send onboarding resources to new leads",
+          "is_checked": true
+        },
+        {
+          "text": "Set 2-week follow-up reminder",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Call went well. Lisa is re-engaged and confident in recovery.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "At-risk recovery plan — 30-day milestones",
+      "description": "Documented recovery plan agreed with Lisa Markov:\n\n- Week 1: New team leads onboarded\n- Week 2: First board created by each new lead\n- Week 4: WAU back to ≥ 30\n\nCS will check in weekly.",
+      "priority": "high",
+      "column": "Adoption",
+      "swimlane": "Brightfield Energy",
+      "due_date": "2026-03-22",
+      "weight": 4,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Week 1: onboard 3 new leads",
+          "is_checked": false
+        },
+        {
+          "text": "Week 2: first board per lead",
+          "is_checked": false
+        },
+        {
+          "text": "Week 4: WAU check",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Usage dropped 40% — intervention needed",
+      "description": "Monthly active users fell from 35 to 21 between February and March. No boards created in the last 3 weeks.\n\nHypothesis: team restructure following M&A activity. Champion Lisa Markov is still in role — schedule urgent call.",
+      "priority": "urgent",
+      "column": "Healthy",
+      "swimlane": "Brightfield Energy",
+      "due_date": "2026-03-18",
+      "weight": 5,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Confirm champion is still in role",
+          "is_checked": true
+        },
+        {
+          "text": "Pull full usage breakdown by user",
+          "is_checked": true
+        },
+        {
+          "text": "Schedule intervention call within 48h",
+          "is_checked": false
+        },
+        {
+          "text": "Prepare re-engagement plan",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Lisa confirmed she's still in role but team reorg has slowed adoption.",
+          "author": "demo1"
+        },
+        {
+          "body": "Call booked for Thursday. Preparing tailored re-engagement deck.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Expansion: 3 additional teams (60 seats)",
+      "description": "Following recovery, Brightfield wants to expand to 3 additional teams. Current: 35 seats. Proposed: 95 seats.\n\nOpportunity ACV uplift: +$14,400.",
+      "priority": "medium",
+      "column": "Expansion",
+      "swimlane": "Brightfield Energy",
+      "due_date": "2026-04-29",
+      "weight": 3,
+      "labels": [
+        "Expansion Opportunity"
+      ],
+      "checklist": [
+        {
+          "text": "Send expansion proposal",
+          "is_checked": false
+        },
+        {
+          "text": "Get procurement approval",
+          "is_checked": false
+        },
+        {
+          "text": "Provision additional seats",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Onboarding complete — all 3 teams active",
+      "description": "NovaTech completed onboarding ahead of schedule. All 3 teams (Engineering, Product, Design) have active boards.\n\nWAU: 42/45 users. NPS at 30-day mark: 67.",
+      "priority": "medium",
+      "column": "Adoption",
+      "swimlane": "NovaTech Solutions",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Champion"
+      ],
+      "checklist": [
+        {
+          "text": "Complete onboarding survey",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm all users activated",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "CTO mentioned Visiban in a company all-hands. Great advocate.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Expansion: 3 new teams want access",
+      "description": "Inbound request from CTO: Sales, Support, and HR teams want Visiban boards. Current contract: 45 seats. New request: 90 seats total.\n\nRoute to AE for expansion proposal.",
+      "priority": "medium",
+      "column": "Expansion",
+      "swimlane": "NovaTech Solutions",
+      "due_date": "2026-03-29",
+      "weight": 3,
+      "labels": [
+        "Expansion Opportunity"
+      ],
+      "checklist": [
+        {
+          "text": "Brief AE on expansion opportunity",
+          "is_checked": true
+        },
+        {
+          "text": "Send pricing for additional 45 seats",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "AE briefed. Sending expansion proposal this week.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Renewal — 2-year deal discussion",
+      "description": "Current contract expires 2026-09-01. CTO interested in a 2-year deal with the expanded seat count.\n\nPotential ACV: $28,800/year for 90 seats on 2-year term.",
+      "priority": "high",
+      "column": "Renewal",
+      "swimlane": "NovaTech Solutions",
+      "due_date": "2026-05-14",
+      "weight": 4,
+      "labels": [
+        "Expansion Opportunity",
+        "Renewal Due"
+      ],
+      "checklist": [
+        {
+          "text": "Prepare 2-year renewal proposal",
+          "is_checked": false
+        },
+        {
+          "text": "Include expansion seats in proposal",
+          "is_checked": false
+        },
+        {
+          "text": "Present to CTO and CFO",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "CISO approval for data residency",
+      "description": "Clearwater Bank requires CISO sign-off before any data is entered. Key requirement: all data must reside in their approved AWS region (us-east-1).\n\nProvide architecture diagram and data flow documentation.",
+      "priority": "urgent",
+      "column": "Onboarding",
+      "swimlane": "Clearwater Bank",
+      "due_date": "2026-03-22",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Share architecture diagram",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm us-east-1 data residency in writing",
+          "is_checked": false
+        },
+        {
+          "text": "Schedule CISO review call",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "CISO review call booked for next Wednesday.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Security questionnaire (47 questions)",
+      "description": "Clearwater InfoSec sent their standard 47-question vendor security form. Deadline: 2026-03-10 (OVERDUE).\n\nCoordinate with InfoSec lead to complete within 2 business days.",
+      "priority": "high",
+      "column": "Onboarding",
+      "swimlane": "Clearwater Bank",
+      "due_date": "2026-03-10",
+      "weight": 4,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Sections 1–10: infrastructure",
+          "is_checked": true
+        },
+        {
+          "text": "Sections 11–20: access controls",
+          "is_checked": true
+        },
+        {
+          "text": "Sections 21–47: compliance",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "OVERDUE by 5 days. Escalated to InfoSec lead — expediting.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Adoption stalled at 30% — new team leads not onboarded",
+      "description": "3 weeks post-launch, only 15/50 users are active (30%). Root cause: 4 team leads have not completed setup, so their teams are waiting.\n\nAction: direct outreach to each team lead with a personalised setup guide.",
+      "priority": "high",
+      "column": "Adoption",
+      "swimlane": "Clearwater Bank",
+      "due_date": "2026-03-29",
+      "weight": 4,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Identify the 4 blocked team leads",
+          "is_checked": true
+        },
+        {
+          "text": "Send personalised setup guides",
+          "is_checked": false
+        },
+        {
+          "text": "Offer 1:1 setup calls",
+          "is_checked": false
+        },
+        {
+          "text": "Check adoption rate at 2-week mark",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Outreach sent to all 4 leads. Two have responded and booked setup calls.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Executive sponsor re-engaged after champion call",
+      "description": "The Head of Digital Banking (executive sponsor) attended the recovery call and is now actively promoting Visiban internally.\n\nHe has mandated all 8 project teams adopt Visiban by end of Q2.",
+      "priority": "medium",
+      "column": "Healthy",
+      "swimlane": "Clearwater Bank",
+      "due_date": null,
+      "weight": 3,
+      "labels": [
+        "Champion"
+      ],
+      "checklist": [
+        {
+          "text": "Send executive overview deck",
+          "is_checked": true
+        },
+        {
+          "text": "Book Q2 rollout planning session",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "This changes the trajectory. Q2 mandate will drive adoption without CS intervention.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Q4 re-engagement campaign",
+      "description": "Plan outreach to Zephyr for Q4 2026 based on:\n\n1. Improved mobile UX (roadmap item for Q3)\n2. New simplified onboarding flow\n3. Pricing flexibility for logistics sector\n\nTarget contact: same IT Manager who gave positive exit feedback.",
+      "priority": "low",
+      "column": "Onboarding",
+      "swimlane": "Zephyr Logistics",
+      "due_date": "2026-06-13",
+      "weight": 2,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Monitor mobile UX roadmap progress",
+          "is_checked": false
+        },
+        {
+          "text": "Draft re-engagement email template",
+          "is_checked": false
+        },
+        {
+          "text": "Set Q4 calendar reminder",
+          "is_checked": true
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Contract not renewed — churn confirmed",
+      "description": "Zephyr Logistics did not renew their contract (expired 2026-02-28). Primary reason given: 'Tool too complex for our ops team.'\n\nSecondary reason: budget cuts across the company.",
+      "priority": "medium",
+      "column": "Churned",
+      "swimlane": "Zephyr Logistics",
+      "due_date": null,
+      "weight": 2,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Log churn reason in CRM",
+          "is_checked": true
+        },
+        {
+          "text": "Deprovision accounts",
+          "is_checked": true
+        },
+        {
+          "text": "Archive board data per retention policy",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Churn logged. Primary reason: complexity. Consider flagging UX feedback to product.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Exit interview completed",
+      "description": "30-min exit interview with IT Manager.\n\nKey feedback:\n- Onboarding was too long (took 6 weeks)\n- Mobile experience was poor for field workers\n- Would consider returning if mobile UX improves\n\nFiled UX feedback for product team: issues #312, #313.",
+      "priority": "low",
+      "column": "Churned",
+      "swimlane": "Zephyr Logistics",
+      "due_date": null,
+      "weight": 1,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Document feedback verbatim",
+          "is_checked": true
+        },
+        {
+          "text": "File product issues from feedback",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Good feedback. Mobile UX is a known gap — this reinforces the priority.",
+          "author": "demo1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,724 @@
+{
+  "name": "Template: Simple Kanban",
+  "description": "General-purpose kanban board for engineering teams. Each swimlane represents a team or workstream.",
+  "columns": [
+    {
+      "name": "Backlog",
+      "position": 0,
+      "color": "#6B7280",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "To Do",
+      "position": 1,
+      "color": "#3B82F6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "In Progress",
+      "position": 2,
+      "color": "#F59E0B",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "In Review",
+      "position": 3,
+      "color": "#8B5CF6",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Done",
+      "position": 4,
+      "color": "#10B981",
+      "wip_limit": null,
+      "allow_card_creation": false
+    }
+  ],
+  "swimlanes": [
+    {
+      "name": "Frontend",
+      "position": 0,
+      "color": "#3B82F6",
+      "contact_email": "",
+      "notes": "React / TypeScript. Owns all UI components, pages, and the design system."
+    },
+    {
+      "name": "Backend",
+      "position": 1,
+      "color": "#10B981",
+      "contact_email": "",
+      "notes": "Django / Python. Owns API, models, background tasks, and WebSocket layer."
+    },
+    {
+      "name": "DevOps",
+      "position": 2,
+      "color": "#F59E0B",
+      "contact_email": "",
+      "notes": "Owns CI/CD, Docker, Helm, infrastructure, and deployment pipelines."
+    },
+    {
+      "name": "QA",
+      "position": 3,
+      "color": "#8B5CF6",
+      "contact_email": "",
+      "notes": "Owns test strategy, Playwright E2E suite, and release sign-off."
+    }
+  ],
+  "labels": [
+    {
+      "name": "Bug",
+      "color": "#EF4444"
+    },
+    {
+      "name": "Feature",
+      "color": "#3B82F6"
+    },
+    {
+      "name": "Improve",
+      "color": "#10B981"
+    },
+    {
+      "name": "Tech Debt",
+      "color": "#9CA3AF"
+    },
+    {
+      "name": "Blocked",
+      "color": "#F97316"
+    }
+  ],
+  "cards": [
+    {
+      "title": "Accessibility audit: WCAG 2.1 AA compliance",
+      "description": "Run a full WCAG 2.1 AA audit on the board view and card detail. Use axe-core and manual keyboard navigation testing.\n\nFile individual issues for each violation found.",
+      "priority": "medium",
+      "column": "Backlog",
+      "swimlane": "Frontend",
+      "due_date": "2026-04-05",
+      "weight": 5,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "Run axe-core on board view",
+          "is_checked": false
+        },
+        {
+          "text": "Manual keyboard navigation test",
+          "is_checked": false
+        },
+        {
+          "text": "File issues for each violation",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Fix focus trap in dropdown menus",
+      "description": "Tab key escapes the dropdown menu when it reaches the last item. Should cycle back to the first item.\n\nAffects: FilterBar, SelectDropdown, column header menu.",
+      "priority": "high",
+      "column": "To Do",
+      "swimlane": "Frontend",
+      "due_date": "2026-03-18",
+      "weight": 2,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Add focus trap to SelectDropdown",
+          "is_checked": true
+        },
+        {
+          "text": "Add focus trap to FilterBar",
+          "is_checked": false
+        },
+        {
+          "text": "Accessibility audit after fix",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "SelectDropdown fixed. FilterBar next.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Redesign card detail modal layout",
+      "description": "The card detail modal is crowded on smaller screens. Proposed layout:\n\n- Move assignee + due date to a sidebar\n- Give description full-width space\n- Collapse checklist by default",
+      "priority": "medium",
+      "column": "In Progress",
+      "swimlane": "Frontend",
+      "due_date": "2026-03-22",
+      "weight": 3,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "Design review sign-off",
+          "is_checked": true
+        },
+        {
+          "text": "Implement new layout",
+          "is_checked": true
+        },
+        {
+          "text": "Responsive test at 375px and 1280px",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Design approved. Implementation underway.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Keyboard shortcut N to open quick-add card",
+      "description": "Pressing `N` (when no input is focused) should open a quick-add modal pre-scoped to the last focused column/swimlane cell.\n\nImplementation:\n- Listen for `keydown` on `BoardView`\n- Track last focused cell in a ref\n- Open `CreateCardModal` with column + swimlane pre-filled",
+      "priority": "medium",
+      "column": "In Progress",
+      "swimlane": "Frontend",
+      "due_date": "2026-03-25",
+      "weight": 3,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Implement keydown listener in BoardView",
+          "is_checked": true
+        },
+        {
+          "text": "Track last focused cell in ref",
+          "is_checked": false
+        },
+        {
+          "text": "Wire up CreateCardModal",
+          "is_checked": false
+        },
+        {
+          "text": "Test: N does nothing when input focused",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Dark mode flicker on page load",
+      "description": "When the OS is in dark mode, there is a brief white flash before the dark theme is applied. Caused by: theme class applied after first paint.\n\nFix: inline theme script in `<head>` before `<body>` renders.",
+      "priority": "low",
+      "column": "In Review",
+      "swimlane": "Frontend",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Add inline theme detection script to index.html",
+          "is_checked": true
+        },
+        {
+          "text": "Test on Chrome, Firefox, Safari",
+          "is_checked": true
+        },
+        {
+          "text": "Verify no flash on cold load",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Inline script added. Testing in progress.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Email notification Celery worker",
+      "description": "Build the Celery task that sends email notifications for:\n\n- Card assigned to me\n- @mention in comment\n- Due date approaching (< 24h)\n\nIdempotent: skip if notification already sent today.",
+      "priority": "medium",
+      "column": "Backlog",
+      "swimlane": "Backend",
+      "due_date": "2026-04-14",
+      "weight": 4,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Define Notification model",
+          "is_checked": false
+        },
+        {
+          "text": "Write send_notification Celery task",
+          "is_checked": false
+        },
+        {
+          "text": "Wire signals for assignment + mention",
+          "is_checked": false
+        },
+        {
+          "text": "Test with real SMTP in staging",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Refactor card move endpoint to use a serializer",
+      "description": "The `POST /api/cards/{id}/move/` view contains too much business logic. Move validation and WIP check logic into a `CardMoveSerializer`.\n\nThis makes the logic unit-testable and removes the view's fat.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "Backend",
+      "due_date": "2026-03-29",
+      "weight": 4,
+      "labels": [
+        "Tech Debt"
+      ],
+      "checklist": [
+        {
+          "text": "Write CardMoveSerializer with validation",
+          "is_checked": false
+        },
+        {
+          "text": "Move WIP check into serializer",
+          "is_checked": false
+        },
+        {
+          "text": "Update view to use serializer",
+          "is_checked": false
+        },
+        {
+          "text": "Add unit tests for serializer",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Rate limiting on authentication endpoints",
+      "description": "Add per-IP and per-user rate limiting to `POST /api/auth/login/` and `POST /api/auth/token/refresh/`.\n\nUse `django-ratelimit`. Limits: 10 req/min per IP, 5 req/min per user.",
+      "priority": "high",
+      "column": "In Progress",
+      "swimlane": "Backend",
+      "due_date": "2026-03-20",
+      "weight": 4,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Install django-ratelimit",
+          "is_checked": true
+        },
+        {
+          "text": "Apply to login endpoint",
+          "is_checked": true
+        },
+        {
+          "text": "Apply to token refresh endpoint",
+          "is_checked": false
+        },
+        {
+          "text": "Add integration tests for limit exceeded (429)",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Login endpoint rate-limited. Refresh endpoint next.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "N+1 query in BoardFullSerializer.get_members()",
+      "description": "Loading `/api/boards/{id}/full/` issues one query per member to resolve inherited group roles. On a 15-member board this is 15 extra queries.\n\nFix: add `prefetch_related('memberships__user__groups')` to the viewset queryset.",
+      "priority": "high",
+      "column": "In Review",
+      "swimlane": "Backend",
+      "due_date": "2026-03-13",
+      "weight": 5,
+      "labels": [
+        "Bug",
+        "Tech Debt"
+      ],
+      "checklist": [
+        {
+          "text": "Profile with django-silk to confirm N+1",
+          "is_checked": true
+        },
+        {
+          "text": "Add prefetch_related",
+          "is_checked": true
+        },
+        {
+          "text": "Benchmark: confirm query count drops",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Confirmed: 15 extra queries on a 15-member board.",
+          "author": "demo1"
+        },
+        {
+          "body": "prefetch_related added — down to 4 total queries. Benchmarking.",
+          "author": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Audit log pagination (cursor-based)",
+      "description": "The `GET /api/boards/{id}/movements/` endpoint returns all records without pagination. On active boards this can be 10,000+ records.\n\nImplement cursor-based pagination using `created_at` as the cursor.",
+      "priority": "low",
+      "column": "Done",
+      "swimlane": "Backend",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "Implement CursorPagination on movements endpoint",
+          "is_checked": true
+        },
+        {
+          "text": "Update frontend to use cursor token",
+          "is_checked": true
+        },
+        {
+          "text": "Test with 10,000-record board",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Done. Frontend updated to load-more pattern.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Postgres upgrade from 14 to 16",
+      "description": "Postgres 14 reaches EOL in November 2026. Plan and execute upgrade:\n\n1. Test on staging with pg_upgrade\n2. Verify all queries still work\n3. Coordinate downtime window with team\n4. Upgrade production",
+      "priority": "medium",
+      "column": "Backlog",
+      "swimlane": "DevOps",
+      "due_date": "2026-04-29",
+      "weight": 5,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "Test pg_upgrade on staging DB dump",
+          "is_checked": false
+        },
+        {
+          "text": "Run full test suite on PG16",
+          "is_checked": false
+        },
+        {
+          "text": "Schedule maintenance window",
+          "is_checked": false
+        },
+        {
+          "text": "Upgrade production",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Staging environment auto-refresh on main merge",
+      "description": "Staging should automatically deploy the latest `main` branch on every merge. Currently requires a manual trigger.\n\nAdd a GitLab CI deploy stage targeting `staging` environment.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "DevOps",
+      "due_date": "2026-03-22",
+      "weight": 3,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Add staging deploy job to CI",
+          "is_checked": false
+        },
+        {
+          "text": "Configure GitLab environment for staging",
+          "is_checked": false
+        },
+        {
+          "text": "Test auto-deploy on a test merge",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Reduce Docker image size (current: 1.2 GB)",
+      "description": "The production Docker image is 1.2 GB. Target: < 400 MB.\n\nQuick wins:\n- Multi-stage build (separate build and runtime stages)\n- Use `python:3.12-slim` as base\n- Remove dev dependencies from final image",
+      "priority": "low",
+      "column": "In Progress",
+      "swimlane": "DevOps",
+      "due_date": "2026-03-29",
+      "weight": 3,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "Switch to multi-stage Dockerfile",
+          "is_checked": true
+        },
+        {
+          "text": "Use python:3.12-slim base",
+          "is_checked": true
+        },
+        {
+          "text": "Measure final image size",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Multi-stage done. Image now 380 MB.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Add readiness probe to Helm chart",
+      "description": "The Django service has no readiness probe — Kubernetes routes traffic to pods before migrations have finished running.\n\nAdd an HTTP readiness probe on `/api/health/` that returns 200 only when migrations are complete.",
+      "priority": "high",
+      "column": "In Review",
+      "swimlane": "DevOps",
+      "due_date": "2026-03-17",
+      "weight": 3,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "Add /api/health/ endpoint",
+          "is_checked": true
+        },
+        {
+          "text": "Wire migration check into health endpoint",
+          "is_checked": true
+        },
+        {
+          "text": "Update Helm chart with readinessProbe",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Health endpoint done. Helm chart update in PR.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Add Bandit security scan to CI pipeline",
+      "description": "Run `bandit -r backend/` on every MR. Fail the pipeline on HIGH severity findings.\n\nAdd to `.gitlab-ci.yml` as a new `security` stage job.",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "DevOps",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Add bandit to requirements-dev.txt",
+          "is_checked": true
+        },
+        {
+          "text": "Add security stage to .gitlab-ci.yml",
+          "is_checked": true
+        },
+        {
+          "text": "Fix any existing HIGH findings",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Bandit added. 2 HIGH findings fixed (shell=True, hardcoded secret in test).",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Mobile browser testing matrix",
+      "description": "Define and execute a manual test matrix across:\n\n| Device | Browser |\n| --- | --- |\n| iPhone 15 | Safari |\n| iPhone SE | Safari |\n| Pixel 7 | Chrome |\n| Samsung Galaxy | Samsung Internet |",
+      "priority": "low",
+      "column": "Backlog",
+      "swimlane": "QA",
+      "due_date": "2026-04-05",
+      "weight": 3,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "iPhone 15 Safari",
+          "is_checked": false
+        },
+        {
+          "text": "iPhone SE Safari",
+          "is_checked": false
+        },
+        {
+          "text": "Pixel 7 Chrome",
+          "is_checked": false
+        },
+        {
+          "text": "Samsung Galaxy Samsung Internet",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "Regression suite for v1.1 release",
+      "description": "Build a regression test suite covering the core flows changed in v1.1:\n\n- Card create / edit / delete\n- Swimlane reorder\n- Label management\n- Board member invite\n\nTarget: 20 tests, all passing before v1.1 ships.",
+      "priority": "medium",
+      "column": "To Do",
+      "swimlane": "QA",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Card CRUD tests",
+          "is_checked": false
+        },
+        {
+          "text": "Swimlane reorder test",
+          "is_checked": false
+        },
+        {
+          "text": "Label management tests",
+          "is_checked": false
+        },
+        {
+          "text": "Board member invite test",
+          "is_checked": false
+        }
+      ],
+      "comments": []
+    },
+    {
+      "title": "E2E test: card drag and drop across columns",
+      "description": "Write a Playwright E2E test covering:\n\n1. Drag card from column A to column B\n2. Verify card appears in column B\n3. Verify CardMovement record is created\n4. Verify WIP count updates in column headers",
+      "priority": "high",
+      "column": "In Progress",
+      "swimlane": "QA",
+      "due_date": "2026-03-20",
+      "weight": 4,
+      "labels": [
+        "Feature"
+      ],
+      "checklist": [
+        {
+          "text": "Write drag helper utility",
+          "is_checked": true
+        },
+        {
+          "text": "Write happy-path drag test",
+          "is_checked": true
+        },
+        {
+          "text": "Write WIP limit exceeded test",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Happy path done. WIP limit test in progress.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Load test: 100 concurrent users on board view",
+      "description": "Run a Locust load test simulating 100 concurrent users loading the board view. Acceptance criteria:\n\n- p95 response time < 800ms\n- No 5xx errors under load\n- Memory usage < 512MB per worker",
+      "priority": "high",
+      "column": "In Review",
+      "swimlane": "QA",
+      "due_date": "2026-03-14",
+      "weight": 5,
+      "labels": [
+        "Improve"
+      ],
+      "checklist": [
+        {
+          "text": "Write Locust scenario for board load",
+          "is_checked": true
+        },
+        {
+          "text": "Run 100-user test on staging",
+          "is_checked": true
+        },
+        {
+          "text": "Document results and recommendations",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "p95: 650ms. No 5xx. Memory OK. Writing up results.",
+          "author": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Fix flaky Playwright test #148 (swimlane reorder)",
+      "description": "Test #148 fails intermittently (~1 in 8 runs) because it clicks the drag handle before the animation from the previous test completes.\n\nFix: add `await page.waitForSelector('.drag-handle:visible')` before the drag.",
+      "priority": "medium",
+      "column": "Done",
+      "swimlane": "QA",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Add waitForSelector before drag",
+          "is_checked": true
+        },
+        {
+          "text": "Run test 20 times to confirm stability",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Ran 25 times — 0 failures. Considered fixed.",
+          "author": "demo1"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
+Intro call with VP Engineering,Qualified,TechNova Inc,high,2026-03-22,5,Enterprise,demo1,3,2,2,## Goal  Establish rapport and identify pain points with current project trackin
+Product demo: board visualization,Proposal Sent,TechNova Inc,medium,2026-03-12,3,"Enterprise,Strategic",demo2,3,2,2,Run the standard board demo tailored to engineering use case. Focus on swimlane-
+Security review questionnaire,Negotiation,TechNova Inc,high,2026-03-29,4,Enterprise,demo3,4,2,1,TechNova InfoSec requires a completed vendor security questionnaire before legal
+Legal review of MSA,Negotiation,TechNova Inc,urgent,2026-03-20,5,"Enterprise,Strategic",demo1,4,1,2,Master Service Agreement sent to TechNova legal on 2026-03-10. Their counsel req
+"Confirm pilot program (50 seats, 90 days)",Closed Won,TechNova Inc,medium,,2,"Enterprise,Strategic",demo5,3,3,1,TechNova signed. Pilot starts 2026-04-01 with the Platform Engineering team (50 
+Cold outreach — CISO intro,Lead,BlueRidge Financial,low,,2,Enterprise,demo1,2,1,0,Initial outreach via LinkedIn to CISO Sarah Ng. Referenced their recent SOC 2 ce
+Discovery call completed,Qualified,BlueRidge Financial,medium,2026-03-25,3,Enterprise,demo2,2,1,1,30-min call with CISO and IT Director. Pain: current spreadsheet tracking breaks
+Compliance questionnaire review,Proposal Sent,BlueRidge Financial,high,2026-03-08,5,Enterprise,demo3,4,2,2,"BlueRidge sent a 47-page compliance questionnaire. Sections covering PCI-DSS, GD"
+Negotiate SLA terms,Negotiation,BlueRidge Financial,high,2026-03-18,4,"Enterprise,Strategic",demo1,3,1,1,BlueRidge requires 99.95% uptime SLA with financial penalties. Current standard 
+Q3 seasonal pitch deck,Qualified,Apex Retail,medium,2026-03-30,3,SMB,demo2,3,1,0,Prepare a retail-focused pitch showing how Visiban tracks seasonal campaigns and
+Proposal for 50 seats,Proposal Sent,Apex Retail,high,2026-03-13,4,SMB,demo1,3,2,1,Formal proposal sent 2026-03-12. Includes:  - 50 seats @ standard SMB pricing - 
+Deal lost — budget frozen until Q4,Closed Lost,Apex Retail,low,,1,SMB,demo1,2,2,1,Apex Retail CTO confirmed budget freeze effective immediately. Revisit in Q4 (Oc
+Identify champion at Meridian,Lead,Meridian Health,medium,2026-04-04,2,Enterprise,demo1,2,1,0,Need an internal champion with authority to push the deal. Current contact (IT D
+HIPAA Business Associate Agreement,Proposal Sent,Meridian Health,urgent,2026-03-22,5,Enterprise,demo3,3,1,1,Meridian requires a signed HIPAA BAA before any data can be shared or a trial pr
+Pilot: 10 seats for 90 days,Negotiation,Meridian Health,high,2026-03-29,4,"Enterprise,Strategic",demo5,3,1,1,Pilot scoped to the Care Coordination team (10 seats). Success metrics:  - All a
+Contract signed — 200 seats,Closed Won,Meridian Health,medium,,3,"Enterprise,Renewal,Strategic",demo5,3,3,1,Meridian Health signed a 2-year contract for 200 seats. Annual value: $48k. Effe
+Inbound lead — website form,Lead,Summit Logistics,medium,,2,SMB,demo1,2,2,1,Lead submitted via the website contact form. Message: 'Looking for a Trello repl
+Qualification call,Qualified,Summit Logistics,medium,2026-03-14,3,SMB,demo2,2,1,1,15-min discovery call. Confirmed:  - 25 users across 3 ops teams - Budget: ~$5k/
+Pricing discussion,Negotiation,Summit Logistics,high,2026-03-20,4,SMB,demo1,2,1,1,"Summit wants a 10% discount for annual pre-pay. Standard ACV for 25 seats is $3,"
+Closed — 25 seats annual,Closed Won,Summit Logistics,low,,2,"Renewal,SMB",demo5,3,3,1,"Summit Logistics signed for 25 seats on an annual plan. ACV: $2,700. Payment rec"

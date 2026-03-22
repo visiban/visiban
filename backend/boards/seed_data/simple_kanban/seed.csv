@@ -1,0 +1,21 @@
+title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
+Accessibility audit: WCAG 2.1 AA compliance,Backlog,Frontend,medium,2026-04-05,5,Improve,,3,0,0,Run a full WCAG 2.1 AA audit on the board view and card detail. Use axe-core and
+Fix focus trap in dropdown menus,To Do,Frontend,high,2026-03-18,2,Bug,demo1,3,1,1,Tab key escapes the dropdown menu when it reaches the last item. Should cycle ba
+Redesign card detail modal layout,In Progress,Frontend,medium,2026-03-22,3,Improve,demo2,3,2,1,The card detail modal is crowded on smaller screens. Proposed layout:  - Move as
+Keyboard shortcut N to open quick-add card,In Progress,Frontend,medium,2026-03-25,3,Feature,demo1,4,1,0,Pressing `N` (when no input is focused) should open a quick-add modal pre-scoped
+Dark mode flicker on page load,In Review,Frontend,low,,2,Bug,demo2,3,2,1,"When the OS is in dark mode, there is a brief white flash before the dark theme "
+Email notification Celery worker,Backlog,Backend,medium,2026-04-14,4,Feature,,4,0,0,Build the Celery task that sends email notifications for:  - Card assigned to me
+Refactor card move endpoint to use a serializer,To Do,Backend,medium,2026-03-29,4,Tech Debt,demo4,4,0,0,The `POST /api/cards/{id}/move/` view contains too much business logic. Move val
+Rate limiting on authentication endpoints,In Progress,Backend,high,2026-03-20,4,Feature,demo3,4,2,1,Add per-IP and per-user rate limiting to `POST /api/auth/login/` and `POST /api/
+N+1 query in BoardFullSerializer.get_members(),In Review,Backend,high,2026-03-13,5,"Bug,Tech Debt",demo4,3,2,2,Loading `/api/boards/{id}/full/` issues one query per member to resolve inherite
+Audit log pagination (cursor-based),Done,Backend,low,,2,Improve,demo3,3,3,1,The `GET /api/boards/{id}/movements/` endpoint returns all records without pagin
+Postgres upgrade from 14 to 16,Backlog,DevOps,medium,2026-04-29,5,Improve,,4,0,0,Postgres 14 reaches EOL in November 2026. Plan and execute upgrade:  1. Test on 
+Staging environment auto-refresh on main merge,To Do,DevOps,medium,2026-03-22,3,Feature,demo5,3,0,0,Staging should automatically deploy the latest `main` branch on every merge. Cur
+Reduce Docker image size (current: 1.2 GB),In Progress,DevOps,low,2026-03-29,3,Improve,demo4,3,2,1,The production Docker image is 1.2 GB. Target: < 400 MB.  Quick wins: - Multi-st
+Add readiness probe to Helm chart,In Review,DevOps,high,2026-03-17,3,Improve,demo4,3,2,1,The Django service has no readiness probe — Kubernetes routes traffic to pods be
+Add Bandit security scan to CI pipeline,Done,DevOps,medium,,2,Feature,demo5,3,3,1,Run `bandit -r backend/` on every MR. Fail the pipeline on HIGH severity finding
+Mobile browser testing matrix,Backlog,QA,low,2026-04-05,3,Improve,,4,0,0,Define and execute a manual test matrix across:  | Device | Browser | | --- | --
+Regression suite for v1.1 release,To Do,QA,medium,2026-03-25,4,Feature,,4,0,0,Build a regression test suite covering the core flows changed in v1.1:  - Card c
+E2E test: card drag and drop across columns,In Progress,QA,high,2026-03-20,4,Feature,demo2,3,2,1,Write a Playwright E2E test covering:  1. Drag card from column A to column B 2.
+Load test: 100 concurrent users on board view,In Review,QA,high,2026-03-14,5,Improve,demo3,3,2,1,Run a Locust load test simulating 100 concurrent users loading the board view. A
+Fix flaky Playwright test #148 (swimlane reorder),Done,QA,medium,,2,Bug,demo2,2,2,1,Test #148 fails intermittently (~1 in 8 runs) because it clicks the drag handle 
