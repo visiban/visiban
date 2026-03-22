@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- `seed_template_boards` management command seeds all six board templates (`sales_pipeline`, `customer_support`, `customer_success`, `simple_kanban`, `product_roadmap`, `project_delivery`) with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement history (#254). Seed files are exported to `backend/boards/seed_data/<slug>/seed.{json,csv}`.
+
 ### Changed
 
 - The first-boot and installation getting-started pages now include a "Password file not found?" note explaining that a missing `/tmp/visiban_admin_password` means the admin account was already bootstrapped on a previous boot, and giving the `python manage.py changepassword admin` command to reset it
@@ -19,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GroupDetail label and transfer inputs corrected to `bg-slate-800` background and updated focus ring to match the design system
 - CardItem description no longer expands on hover, eliminating layout shift; a small indicator icon in the metadata row signals that a description exists, and the full description remains accessible in the card detail panel
 - Restored button in the Archived Cards panel changed to the secondary variant to comply with the design system — `text-blue-400` is reserved for active filter and selection states
+- Demo seed export files relocated from `scripts/seed/` to `backend/boards/seed_data/` to co-locate them with the boards app and its management commands; `seed_demo_data --export` and the CI `seed-export-check` job updated accordingly
 
 ---
 
