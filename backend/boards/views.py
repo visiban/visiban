@@ -785,6 +785,11 @@ class BoardViewSet(viewsets.ModelViewSet):
             )
         now = timezone.now()
         stall_cutoff = now - datetime.timedelta(days=stalled_days)
+        # Only count dwell time for column entries that occurred within the chosen
+        # period window. This makes 7d / 30d / 90d produce meaningfully different
+        # heatmaps: a 7-day view shows only very recent activity, while 90d gives
+        # the full historical picture.
+        period_cutoff = now - datetime.timedelta(days=days)
 
         columns = list(board.columns.order_by("position"))
         col_id_to_name = {c.id: c.name for c in columns}
@@ -817,6 +822,10 @@ class BoardViewSet(viewsets.ModelViewSet):
                     col_name = col_id_to_name.get(mv.to_column_id)
                     if not col_name:
                         continue
+                    # Skip movements that started before the analysis window — they
+                    # don't belong in the chosen period's dwell time calculations.
+                    if mv.moved_at < period_cutoff:
+                        continue
                     entry = mv.moved_at
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
@@ -824,7 +833,9 @@ class BoardViewSet(viewsets.ModelViewSet):
                     dwell_days = (exit_ - entry).total_seconds() / 86400
                     col_dwells[col_name].append(dwell_days)
                     all_col_dwells[col_name].append(dwell_days)
-                if len(movements) > 1:
+                # Velocity: only count cards whose last movement fell within the window,
+                # so the metric reflects recent throughput rather than all-time history.
+                if len(movements) > 1 and movements[-1].moved_at >= period_cutoff:
                     deal_velocity_days.append(
                         (movements[-1].moved_at - movements[0].moved_at).total_seconds() / 86400
                     )

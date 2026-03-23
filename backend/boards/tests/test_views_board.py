@@ -5,8 +5,12 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
+import datetime
+
+from django.utils import timezone
+
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane, Card
+from boards.models import Board, BoardMembership, Card, CardMovement, Column, Swimlane
 
 
 PATCH_BROADCAST = "boards.views.broadcast_board_event"
@@ -128,6 +132,54 @@ class BoardAnalyticsTests(TestCase):
     def test_analytics_negative_stalled_days_returns_400(self):
         r = self.client.get(f"/api/boards/{self.board.id}/analytics/?stalled_days=-1")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_analytics_period_filter_affects_dwell_times(self):
+        """days=7 excludes movements older than 7 days; days=90 includes them.
+
+        A card with a movement 60 days ago should contribute dwell time to the
+        90-day window but NOT to the 7-day window, producing different heatmap
+        values for the same board.
+        """
+        col2 = Column.objects.create(board=self.board, name="Done", position=1)
+        card = Card.objects.create(
+            board=self.board, column=col2, swimlane=self.swim,
+            title="Old card", created_by=self.user, position=0,
+        )
+        # Creation movement 65 days ago (outside 7d and 30d windows, inside 90d)
+        old_ts = timezone.now() - datetime.timedelta(days=65)
+        mv = CardMovement.objects.create(
+            card=card,
+            from_column=None, to_column=self.col,
+            from_column_name="", to_column_name=self.col.name,
+            from_column_uid="", to_column_uid=self.col.uid,
+            from_swimlane_name="", to_swimlane_name=self.swim.name,
+            from_swimlane_uid="", to_swimlane_uid=self.swim.uid,
+            moved_by=self.user,
+        )
+        CardMovement.objects.filter(pk=mv.pk).update(moved_at=old_ts)
+        # Transition movement 60 days ago
+        transition_ts = timezone.now() - datetime.timedelta(days=60)
+        mv2 = CardMovement.objects.create(
+            card=card,
+            from_column=self.col, to_column=col2,
+            from_column_name=self.col.name, to_column_name=col2.name,
+            from_column_uid=self.col.uid, to_column_uid=col2.uid,
+            from_swimlane=self.swim, to_swimlane=self.swim,
+            from_swimlane_name=self.swim.name, to_swimlane_name=self.swim.name,
+            from_swimlane_uid=self.swim.uid, to_swimlane_uid=self.swim.uid,
+            moved_by=self.user,
+        )
+        CardMovement.objects.filter(pk=mv2.pk).update(moved_at=transition_ts)
+
+        r7 = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7").json()
+        r90 = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=90").json()
+
+        # 90-day window sees the old movement; 7-day window does not.
+        medians_7 = r7["board_medians"]
+        medians_90 = r90["board_medians"]
+        # Backlog had dwell ~5 days (65→60 days ago) — visible in 90d, not 7d.
+        self.assertIsNone(medians_7.get("Backlog"), "7d should exclude the 60-day-old movement")
+        self.assertIsNotNone(medians_90.get("Backlog"), "90d should include the 60-day-old movement")
 
 
 class BoardMembersTests(TestCase):
