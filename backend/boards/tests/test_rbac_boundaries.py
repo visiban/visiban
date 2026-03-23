@@ -1,10 +1,13 @@
 """RBAC boundary tests: viewer/collaborator permission enforcement across operations."""
+from unittest.mock import patch
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane, Card
+from boards.models import Board, BoardMembership, Card, CardAttachment, Column, Swimlane
 
 
 PATCH_BROADCAST = "boards.views.broadcast_board_event"
@@ -201,3 +204,96 @@ class LastAdminSelfDemotionTests(TestCase):
         from boards.permissions import get_board_role
         effective = get_board_role(self.owner, self.board)
         self.assertEqual(effective, BoardMembership.Role.ADMIN)
+
+
+class ViewerCannotPatchBoardTests(TestCase):
+    """Finding 1: viewers and other non-admin roles must not be able to PATCH board settings."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_vp", password="pass")
+        self.viewer = User.objects.create_user(username="viewer_vp", password="pass")
+        self.member = User.objects.create_user(username="member_vp", password="pass")
+        self.collab = User.objects.create_user(username="collab_vp", password="pass")
+        self.board, _, _, _ = _make_board(self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.viewer, role=BoardMembership.Role.VIEWER)
+        BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
+        BoardMembership.objects.create(board=self.board, user=self.collab, role=BoardMembership.Role.COLLABORATOR)
+
+    def test_viewer_cannot_patch_board(self):
+        client = APIClient()
+        client.force_authenticate(self.viewer)
+        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Hacked Name"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_member_cannot_patch_board(self):
+        """Members can edit cards but not board-level settings."""
+        client = APIClient()
+        client.force_authenticate(self.member)
+        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Member Renamed"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_collaborator_cannot_patch_board(self):
+        client = APIClient()
+        client.force_authenticate(self.collab)
+        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Collab Renamed"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_patch_board(self):
+        client = APIClient()
+        client.force_authenticate(self.owner)
+        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Admin Renamed"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["name"], "Admin Renamed")
+
+
+class CollaboratorAttachmentOwnershipTests(TestCase):
+    """Finding 3: collaborators may only delete their own attachments."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_att", password="pass")
+        self.collab = User.objects.create_user(username="collab_att", password="pass")
+        self.other_member = User.objects.create_user(username="member_att", password="pass")
+        self.board = Board.objects.create(name="Att Board", owner=self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        BoardMembership.objects.create(board=self.board, user=self.collab, role=BoardMembership.Role.COLLABORATOR)
+        BoardMembership.objects.create(board=self.board, user=self.other_member, role=BoardMembership.Role.MEMBER)
+        col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
+        swim = Swimlane.objects.create(board=self.board, name="General", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=swim, title="Card", position=0,
+        )
+
+    def _make_attachment(self, uploaded_by):
+        """Create a CardAttachment with a minimal in-memory file."""
+        f = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
+        return CardAttachment.objects.create(
+            card=self.card,
+            file=f,
+            filename="test.txt",
+            size=5,
+            uploaded_by=uploaded_by,
+        )
+
+    @patch("boards.views.broadcast_board_event")
+    def test_collaborator_cannot_delete_another_users_attachment(self, _mock):
+        attachment = self._make_attachment(uploaded_by=self.other_member)
+        client = APIClient()
+        client.force_authenticate(self.collab)
+        resp = client.delete(
+            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        # Attachment must not have been deleted
+        self.assertTrue(CardAttachment.objects.filter(pk=attachment.pk).exists())
+
+    @patch("boards.views.broadcast_board_event")
+    def test_collaborator_can_delete_own_attachment(self, _mock):
+        attachment = self._make_attachment(uploaded_by=self.collab)
+        client = APIClient()
+        client.force_authenticate(self.collab)
+        # Patch the file storage delete so we don't hit the filesystem
+        with patch.object(attachment.file, "delete", return_value=None):
+            resp = client.delete(
+                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            )
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)

@@ -226,20 +226,17 @@ class BoardViewSet(viewsets.ModelViewSet):
             Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
     def perform_update(self, serializer):
-        """Guard board-level settings updates: only admins can write any board fields."""
+        """Guard board-level updates: only admins can edit any board field.
+
+        Viewers and collaborators have read-only access. Members and above can
+        read but only admins can change the board name, description, settings, or
+        enforcement flags. Previously only enforcement flags were guarded, which
+        allowed viewers and members to rename boards via PATCH.
+        """
         board = serializer.instance
         role = get_board_role(self.request.user, board)
-        # Any board mutation requires at least admin role — viewers, members, and
-        # collaborators must not be able to alter board settings even via a crafted
-        # PATCH request.
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied("Only board admins can edit board settings.")
-        # enforce_wip_limits and enforce_weight_limits are admin-only fields.
-        # The check below is now redundant (all updates require admin above) but
-        # kept for documentation: these fields are especially sensitive.
-        admin_only_fields = {"enforce_wip_limits", "enforce_weight_limits"}
-        if admin_only_fields & set(self.request.data) and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("Only board admins can change enforcement settings.")
         serializer.save()
         board = serializer.instance
         board_id = board.id
@@ -1392,9 +1389,9 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        # Allow-list: only member+, admin, or site-admin may create cards.
-        # Using a positive allow-list is safer than a block-list because newly
-        # introduced roles will be denied by default rather than accidentally permitted.
+        # Allow-list: only member, admin, or site_admin may create cards.
+        # A block-list (VIEWER, COLLABORATOR) would silently allow any future
+        # role added to the system — the allow-list is the safe default.
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied("You do not have permission to perform this action.")
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
@@ -1431,9 +1428,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
-        # Allow-list: only member+, admin, or site-admin may delete cards.
-        # Using a positive allow-list is safer than a block-list because newly
-        # introduced roles will be denied by default rather than accidentally permitted.
+        # Allow-list: same pattern as perform_create — safer than block-list.
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied("You do not have permission to perform this action.")
         board_id = instance.board_id
@@ -1949,7 +1944,9 @@ class CardViewSet(viewsets.ModelViewSet):
             )
         card = get_object_or_404(Card, pk=pk, board=board)
         attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
-        # Collaborators may only delete their own attachments; member+ can delete any.
+        # Collaborators may only delete their own attachments — they cannot
+        # delete attachments uploaded by other members. This mirrors the ownership
+        # check on delete_comment to keep the two delete actions consistent.
         if role == BoardMembership.Role.COLLABORATOR and attachment.uploaded_by != request.user:
             return Response(
                 {"detail": "You can only delete your own attachments."},

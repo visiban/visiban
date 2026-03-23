@@ -189,7 +189,13 @@ class GroupViewSet(viewsets.ModelViewSet):
     def subgroups(self, request, pk=None):
         group = self.get_object()
         _require_group_member(request.user, group)
-        return Response(GroupSerializer(group.subgroups.all(), many=True).data)
+        # Filter subgroups to only those the requesting user is a member of —
+        # a user with access to the parent group should not automatically see all
+        # subgroups if they are not a member of those subgroups.
+        from .models import get_accessible_group_ids
+        accessible_ids = get_accessible_group_ids(request.user)
+        subgroups = group.subgroups.filter(id__in=accessible_ids)
+        return Response(GroupSerializer(subgroups, many=True, context={"request": request}).data)
 
     # ------------------------------------------------------------------
     # Boards
@@ -413,6 +419,10 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post", "delete"], url_path="star")
     def star(self, request, pk=None):
         group = self.get_object()
+        # Confirm the requesting user is actually a member of this group before
+        # allowing a star/unstar — get_object() only checks visibility (accessible
+        # group ids), but starring is a member-level action.
+        _require_group_member(request.user, group)
         if request.method == "DELETE":
             GroupFavorite.objects.filter(user=request.user, group=group).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -504,6 +514,9 @@ class JoinGroupView(APIView):
                 {"detail": "This invite link has expired."},
                 status=status.HTTP_410_GONE,
             )
+        # get_or_create: if the user is already a member, their existing role is preserved.
+        # Invite links never downgrade or upgrade an existing membership — this is intentional.
+        # An admin must explicitly change the role via the members API.
         membership, created = GroupMembership.objects.get_or_create(
             group=link.group,
             user=request.user,
