@@ -619,7 +619,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           </span>
                           <button
                             onClick={() => handleDeleteChecklistItem(item.id)}
-                            className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0"
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
                           >
                             ✕
                           </button>
@@ -726,7 +726,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         </div>
                         <button
                           onClick={() => handleDeleteAttachment(a.id)}
-                          className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0"
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
                           title="Delete"
                         >✕</button>
                       </div>

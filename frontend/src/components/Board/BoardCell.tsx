@@ -116,7 +116,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className={`w-full text-left text-[11px] rounded-md px-1.5 py-1 transition group/add ${
+            className={`w-full text-left text-xs rounded-md px-1.5 py-1 transition group/add ${
               cards.length === 0
                 ? "text-slate-500 hover:text-slate-200 hover:bg-slate-700/60"
                 : "mt-1 text-slate-600 hover:text-slate-300 hover:bg-slate-700/50"
