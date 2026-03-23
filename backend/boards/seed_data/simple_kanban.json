@@ -129,6 +129,51 @@
           "moved_at": "2026-02-28T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-27T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo3",
+          "created_at": "2026-02-27T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo3",
+          "created_at": "2026-02-27T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo3",
+          "created_at": "2026-02-27T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add keybinding handler",
+          "actor": "demo3",
+          "created_at": "2026-02-27T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Guard against focus conflicts with modals",
+          "actor": "demo3",
+          "created_at": "2026-02-27T00:22:00+00:00"
+        }
       ]
     },
     {
@@ -196,6 +241,86 @@
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature, Improve",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Spike responsive layout options",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Spike responsive layout options",
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design review from Casey",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design review from Casey",
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement sidebar component",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement sidebar component",
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Accessibility audit (axe-core)",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Sidebar prototype looks great on mobile.",
+          "actor": "demo1",
+          "created_at": "2026-02-15T00:24:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Accessibility pass scheduled for tomorrow.",
+          "actor": "demo2",
+          "created_at": "2026-02-15T00:39:00+00:00"
+        }
       ]
     },
     {
@@ -262,6 +387,79 @@
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add CSS text-overflow: ellipsis",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add CSS text-overflow: ellipsis",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add tooltip on hover",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add tooltip on hover",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify in all supported browsers",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Verify in all supported browsers",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Fix ready for QA.",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:26:00+00:00"
+        }
       ]
     },
     {
@@ -312,6 +510,65 @@
           "to_swimlane": "Backend",
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improve, Tech Debt",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile current movement inserts under load",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Profile current movement inserts under load",
+          "actor": "demo2",
+          "created_at": "2026-02-24T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement bulk_create in drag handler",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Load test: 50 concurrent drags",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:21:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Profiling shows 8ms per insert at 50 concurrent users.",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:23:00+00:00"
         }
       ]
     },
@@ -383,6 +640,93 @@
           "to_swimlane": "Backend",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature, Improve",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add CursorPagination class",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add CursorPagination class",
+          "actor": "demo3",
+          "created_at": "2026-02-05T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update BoardViewSet to use it",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Update BoardViewSet to use it",
+          "actor": "demo3",
+          "created_at": "2026-02-05T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update API docs",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Update API docs",
+          "actor": "demo3",
+          "created_at": "2026-02-05T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm frontend handles paginated response",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:29:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Backend done. Waiting on frontend confirmation.",
+          "actor": "demo1",
+          "created_at": "2026-02-05T00:31:00+00:00"
         }
       ]
     },
@@ -458,6 +802,72 @@
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo3"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Tech Debt",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Happy path test",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Happy path test",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Non-member rejection test",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Non-member rejection test",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Already-archived idempotency test",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Already-archived idempotency test",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "All 3 tests passing. Coverage up from 84% to 87%.",
+          "actor": "demo1",
+          "created_at": "2026-01-22T00:23:00+00:00"
+        }
       ]
     },
     {
@@ -511,6 +921,79 @@
           "to_swimlane": "Mobile",
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-02",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design offline queue data model",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design offline queue data model",
+          "actor": "demo2",
+          "created_at": "2026-02-25T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement AsyncStorage queue",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement sync-on-reconnect logic",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test conflict resolution (server wins)",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:27:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Data model approved. Implementation starting this sprint.",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:29:00+00:00"
         }
       ]
     },
@@ -571,6 +1054,72 @@
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo1"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Blocked, Bug",
+          "actor": "demo2",
+          "created_at": "2026-02-18T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-02-18T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-18",
+          "actor": "demo2",
+          "created_at": "2026-02-18T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce on iOS 17.4 Safari",
+          "actor": "demo2",
+          "created_at": "2026-02-18T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce on iOS 17.4 Safari",
+          "actor": "demo3",
+          "created_at": "2026-02-18T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Patch touch event handler",
+          "actor": "demo2",
+          "created_at": "2026-02-18T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Patch touch event handler",
+          "actor": "demo3",
+          "created_at": "2026-02-18T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Regression test on Chrome iOS and Safari",
+          "actor": "demo2",
+          "created_at": "2026-02-18T00:23:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "BLOCKED: touch event library has an upstream bug. Filed issue with maintainer.",
+          "actor": "demo1",
+          "created_at": "2026-02-18T00:25:00+00:00"
+        }
       ]
     },
     {
@@ -621,6 +1170,65 @@
           "to_swimlane": "DevOps",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature, Improve",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Define canary traffic split in Nginx config",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Define canary traffic split in Nginx config",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add error rate check to CI gate",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test canary rollback path",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Nginx config done. Error rate gate in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:24:00+00:00"
         }
       ]
     },
@@ -704,6 +1312,100 @@
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo5"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Tech Debt",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit all secrets in .env files",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Audit all secrets in .env files",
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provision Vault cluster",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Provision Vault cluster",
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Migrate secrets to Vault",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Migrate secrets to Vault",
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Remove .env files from all servers",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Remove .env files from all servers",
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Enable automatic rotation on DB passwords",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Enable automatic rotation on DB passwords",
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:27:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Migration complete. All servers using Vault. Rotation active.",
+          "actor": "demo1",
+          "created_at": "2026-01-27T00:28:00+00:00"
+        }
       ]
     },
     {
@@ -744,6 +1446,65 @@
           "to_swimlane": "Design",
           "moved_at": "2026-03-04T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improve",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-14",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Recruit 5 participants",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write session script",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run sessions",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write up findings",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:26:00+00:00"
         }
       ]
     },
@@ -816,7 +1577,88 @@
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature, Improve",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit all 12 semantic tokens",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Audit all 12 semantic tokens",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft dark mode variants in Figma",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft dark mode variants in Figma",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Review with frontend team",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Review with frontend team",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Publish final token spec",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Token pairs reviewed with frontend. Publishing final spec today.",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:27:00+00:00"
+        }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }

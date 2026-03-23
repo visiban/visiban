@@ -162,6 +162,65 @@
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design circuit breaker logic",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design circuit breaker logic",
+          "actor": "demo2",
+          "created_at": "2026-02-21T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement in Kong config",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Chaos test: simulate DB failure",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:25:00+00:00"
+        }
       ]
     },
     {
@@ -232,6 +291,86 @@
           "to_swimlane": "API Gateway",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, P2 - Medium",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit custom plugins for 3.4 breaking changes",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Audit custom plugins for 3.4 breaking changes",
+          "actor": "demo3",
+          "created_at": "2026-02-07T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update plugins in staging",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Update plugins in staging",
+          "actor": "demo3",
+          "created_at": "2026-02-07T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Staging smoke test",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Schedule production change window",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "2 custom plugins need minor updates for 3.4 API changes.",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:30:00+00:00"
         }
       ]
     },
@@ -324,6 +463,100 @@
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo5"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P1 - High, Security",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-16",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm rate limit bypass is reproducible",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm rate limit bypass is reproducible",
+          "actor": "demo4",
+          "created_at": "2026-01-20T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add rate limiter to /api/export/ in Kong config",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add rate limiter to /api/export/ in Kong config",
+          "actor": "demo4",
+          "created_at": "2026-01-20T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test rate limit enforcement in staging",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Test rate limit enforcement in staging",
+          "actor": "demo4",
+          "created_at": "2026-01-20T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy during off-peak window",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deploy during off-peak window",
+          "actor": "demo4",
+          "created_at": "2026-01-20T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify rate limit is active in production",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:29:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Fix tested in staging. Deploying tonight 02:00-04:00 UTC.",
+          "actor": "demo1",
+          "created_at": "2026-01-20T00:31:00+00:00"
+        }
       ]
     },
     {
@@ -406,6 +639,107 @@
           "to_swimlane": "PostgreSQL Cluster",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, P1 - High",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provision PgBouncer EC2 instance",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Provision PgBouncer EC2 instance",
+          "actor": "demo1",
+          "created_at": "2026-01-17T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Configure transaction pooling mode",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Configure transaction pooling mode",
+          "actor": "demo1",
+          "created_at": "2026-01-17T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Load test: simulate Monday peak",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Load test: simulate Monday peak",
+          "actor": "demo1",
+          "created_at": "2026-01-17T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Migrate app connections to PgBouncer in staging",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:29:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Migrate app connections to PgBouncer in staging",
+          "actor": "demo1",
+          "created_at": "2026-01-17T00:31:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Production deployment scheduled",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:32:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Load test passed. Peak connection count down 68%. Ready for prod.",
+          "actor": "demo1",
+          "created_at": "2026-01-17T00:34:00+00:00"
         }
       ]
     },
@@ -517,6 +851,114 @@
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo5"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P0 - Critical",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Incident declared and team paged",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Incident declared and team paged",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Traffic rerouted to replica",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Traffic rerouted to replica",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Primary restored",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Primary restored",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Postmortem written",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Postmortem written",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Action items tracked",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:29:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Action items tracked",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:31:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Incident resolved. Postmortem published 2026-03-11. 3 action items.",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:32:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Action items: (1) lower failover time SLA (2) add AZ redundancy (3) page SRE faster.",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:47:00+00:00"
+        }
       ]
     },
     {
@@ -587,6 +1029,86 @@
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, P1 - High",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile slow tests (> 500ms each)",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Profile slow tests (> 500ms each)",
+          "actor": "demo5",
+          "created_at": "2026-01-28T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Parallelize test runner across 4 workers",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Parallelize test runner across 4 workers",
+          "actor": "demo5",
+          "created_at": "2026-01-28T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add setUpTestData for fixture-heavy test classes",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify pipeline drops below 8 min target",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Parallelization alone cut from 18 min to 11 min. setUpTestData should get us to ~7.",
+          "actor": "demo1",
+          "created_at": "2026-01-28T00:30:00+00:00"
         }
       ]
     },
@@ -691,6 +1213,86 @@
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2025-12-16T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, Security",
+          "actor": "demo5",
+          "created_at": "2025-12-16T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add bandit job to .gitlab-ci.yml",
+          "actor": "demo5",
+          "created_at": "2025-12-16T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add bandit job to .gitlab-ci.yml",
+          "actor": "demo1",
+          "created_at": "2025-12-16T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add semgrep job with python ruleset",
+          "actor": "demo5",
+          "created_at": "2025-12-16T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add semgrep job with python ruleset",
+          "actor": "demo1",
+          "created_at": "2025-12-16T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Set job as required for merge",
+          "actor": "demo5",
+          "created_at": "2025-12-16T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Set job as required for merge",
+          "actor": "demo1",
+          "created_at": "2025-12-16T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Clear all pre-existing findings",
+          "actor": "demo5",
+          "created_at": "2025-12-16T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Clear all pre-existing findings",
+          "actor": "demo1",
+          "created_at": "2025-12-16T00:24:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "SAST gate live. 0 pre-existing findings after cleanup sprint.",
+          "actor": "demo1",
+          "created_at": "2025-12-16T00:25:00+00:00"
+        }
       ]
     },
     {
@@ -752,6 +1354,86 @@
           "to_swimlane": "Object Storage (S3)",
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P1 - High",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-17",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm backups are intact (manual spot check)",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm backups are intact (manual spot check)",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify Lambda timeout root cause",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identify Lambda timeout root cause",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Increase Lambda timeout from 30s to 120s",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify verification passes for 3 consecutive runs",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Backups confirmed intact. Lambda timeout is the issue — fix in staging.",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:30:00+00:00"
         }
       ]
     },
@@ -852,6 +1534,72 @@
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, P2 - Medium",
+          "actor": "demo4",
+          "created_at": "2025-12-23T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo4",
+          "created_at": "2025-12-23T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Enable Intelligent-Tiering on attachment bucket",
+          "actor": "demo4",
+          "created_at": "2025-12-23T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Enable Intelligent-Tiering on attachment bucket",
+          "actor": "demo5",
+          "created_at": "2025-12-23T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm no access pattern disruption",
+          "actor": "demo4",
+          "created_at": "2025-12-23T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm no access pattern disruption",
+          "actor": "demo5",
+          "created_at": "2025-12-23T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Monitor costs for 30 days",
+          "actor": "demo4",
+          "created_at": "2025-12-23T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Monitor costs for 30 days",
+          "actor": "demo5",
+          "created_at": "2025-12-23T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Enabled 2026-02-01. Month 1 saving: $193. Verified complete.",
+          "actor": "demo1",
+          "created_at": "2025-12-23T00:23:00+00:00"
+        }
       ]
     },
     {
@@ -893,6 +1641,51 @@
           "to_swimlane": "Kubernetes Cluster",
           "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, P2 - Medium",
+          "actor": "demo1",
+          "created_at": "2026-03-04T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-05-14",
+          "actor": "demo1",
+          "created_at": "2026-03-04T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit deprecated APIs in current Helm charts",
+          "actor": "demo1",
+          "created_at": "2026-03-04T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test 1.29 upgrade in staging cluster",
+          "actor": "demo1",
+          "created_at": "2026-03-04T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test 1.30 upgrade in staging cluster",
+          "actor": "demo1",
+          "created_at": "2026-03-04T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Schedule 1.29 production change window",
+          "actor": "demo1",
+          "created_at": "2026-03-04T00:19:00+00:00"
         }
       ]
     },
@@ -989,7 +1782,88 @@
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo3"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2025-12-26T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, P0 - Critical",
+          "actor": "demo2",
+          "created_at": "2025-12-26T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2025-12-26T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Increase memory limits to 1Gi in deployment manifest",
+          "actor": "demo2",
+          "created_at": "2025-12-26T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Increase memory limits to 1Gi in deployment manifest",
+          "actor": "demo3",
+          "created_at": "2025-12-26T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy updated manifest",
+          "actor": "demo2",
+          "created_at": "2025-12-26T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deploy updated manifest",
+          "actor": "demo3",
+          "created_at": "2025-12-26T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Install VPA and configure for backend deployment",
+          "actor": "demo2",
+          "created_at": "2025-12-26T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Install VPA and configure for backend deployment",
+          "actor": "demo3",
+          "created_at": "2025-12-26T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify no OOM kills in next Monday spike",
+          "actor": "demo2",
+          "created_at": "2025-12-26T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Memory limits updated and VPA configured. Monitoring next Monday.",
+          "actor": "demo1",
+          "created_at": "2025-12-26T00:28:00+00:00"
+        }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }

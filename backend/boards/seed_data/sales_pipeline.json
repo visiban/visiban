@@ -150,6 +150,37 @@
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo2",
+          "created_at": "2026-02-20T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo2",
+          "created_at": "2026-02-20T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-14",
+          "actor": "demo2",
+          "created_at": "2026-02-20T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify analytics champion in data team",
+          "actor": "demo2",
+          "created_at": "2026-02-20T00:17:00+00:00"
+        }
       ]
     },
     {
@@ -204,6 +235,58 @@
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-09T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise, Renewal",
+          "actor": "demo3",
+          "created_at": "2026-02-09T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo3",
+          "created_at": "2026-02-09T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Map out teams not yet on platform",
+          "actor": "demo3",
+          "created_at": "2026-02-09T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Map out teams not yet on platform",
+          "actor": "demo4",
+          "created_at": "2026-02-09T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Book discovery call with infra lead",
+          "actor": "demo3",
+          "created_at": "2026-02-09T00:19:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Pilot NPS is 62. Good timing to bring up expansion.",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:21:00+00:00"
         }
       ]
     },
@@ -284,6 +367,86 @@
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise, Strategic",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send custom proposal deck",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send custom proposal deck",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm security questionnaire complete",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm security questionnaire complete",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Schedule executive sign-off call",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "VP Engineering confirmed budget. Legal review starts Monday.",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "They want swimlane-level WIP limits — confirm this is on the roadmap.",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:43:00+00:00"
+        }
       ]
     },
     {
@@ -324,6 +487,51 @@
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SMB",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-04",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Qualify with marketing lead",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Qualify with marketing lead",
+          "actor": "demo2",
+          "created_at": "2026-02-10T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provision 10 trial seats",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:19:00+00:00"
         }
       ]
     },
@@ -391,6 +599,79 @@
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SMB, Strategic",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Prepare retail-specific demo board",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Prepare retail-specific demo board",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run live demo with CTO",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Run live demo with CTO",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send follow-up with pricing options",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Demo landed well. CTO liked the per-region swimlane view.",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:28:00+00:00"
         }
       ]
     },
@@ -484,6 +765,86 @@
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo1"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Renewal, SMB, Strategic",
+          "actor": "demo3",
+          "created_at": "2026-01-04T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo3",
+          "created_at": "2026-01-04T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo3",
+          "created_at": "2026-01-04T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft 3-year MSA",
+          "actor": "demo3",
+          "created_at": "2026-01-04T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft 3-year MSA",
+          "actor": "demo4",
+          "created_at": "2026-01-04T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Get legal sign-off on SLA clause",
+          "actor": "demo3",
+          "created_at": "2026-01-04T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Get legal sign-off on SLA clause",
+          "actor": "demo4",
+          "created_at": "2026-01-04T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm seat count with Apex procurement",
+          "actor": "demo3",
+          "created_at": "2026-01-04T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Execute agreement",
+          "actor": "demo3",
+          "created_at": "2026-01-04T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "CTO pushing hard to close before Q2 budget cycle closes.",
+          "actor": "demo1",
+          "created_at": "2026-01-04T00:27:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Legal flagged the liability cap — escalated to VP Sales.",
+          "actor": "demo2",
+          "created_at": "2026-01-04T00:42:00+00:00"
+        }
       ]
     },
     {
@@ -541,6 +902,72 @@
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send SOC 2 Type II report",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send SOC 2 Type II report",
+          "actor": "demo3",
+          "created_at": "2026-01-29T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Complete GDPR data processing addendum",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Book technical deep-dive with their engineering team",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "VP Product confirmed Notion is a weak competitor here — they need structure.",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:27:00+00:00"
         }
       ]
     },
@@ -611,6 +1038,58 @@
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-23",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send add-on order form",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send add-on order form",
+          "actor": "demo4",
+          "created_at": "2026-01-21T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm provisioning date",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:19:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Engineering lead wants to start before the compliance rollout completes.",
+          "actor": "demo1",
+          "created_at": "2026-01-21T00:21:00+00:00"
         }
       ]
     },
@@ -706,6 +1185,58 @@
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo5"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo4",
+          "created_at": "2025-12-13T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo4",
+          "created_at": "2025-12-13T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Log loss reason in CRM",
+          "actor": "demo4",
+          "created_at": "2025-12-13T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Log loss reason in CRM",
+          "actor": "demo5",
+          "created_at": "2025-12-13T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Flag integration gap to product team",
+          "actor": "demo4",
+          "created_at": "2025-12-13T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Flag integration gap to product team",
+          "actor": "demo5",
+          "created_at": "2025-12-13T00:19:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Loss reason: missing native risk tool integration. Adding to product backlog.",
+          "actor": "demo1",
+          "created_at": "2025-12-13T00:20:00+00:00"
+        }
       ]
     },
     {
@@ -738,6 +1269,51 @@
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-03-04T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo4",
+          "created_at": "2026-03-04T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-09",
+          "actor": "demo4",
+          "created_at": "2026-03-04T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Respond to inbound inquiry",
+          "actor": "demo4",
+          "created_at": "2026-03-04T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Respond to inbound inquiry",
+          "actor": "demo5",
+          "created_at": "2026-03-04T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send HIPAA BAA for review",
+          "actor": "demo4",
+          "created_at": "2026-03-04T00:19:00+00:00"
         }
       ]
     },
@@ -785,6 +1361,58 @@
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-19T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise, Strategic",
+          "actor": "demo5",
+          "created_at": "2026-02-19T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-02",
+          "actor": "demo5",
+          "created_at": "2026-02-19T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Qualify with IT Director",
+          "actor": "demo5",
+          "created_at": "2026-02-19T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Qualify with IT Director",
+          "actor": "demo1",
+          "created_at": "2026-02-19T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Request intro to CIO",
+          "actor": "demo5",
+          "created_at": "2026-02-19T00:19:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "IT Director is strong champion. CIO meeting requested for next week.",
+          "actor": "demo1",
+          "created_at": "2026-02-19T00:21:00+00:00"
         }
       ]
     },
@@ -874,6 +1502,79 @@
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise, Renewal, Strategic",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-10",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send renewal quote with analytics upsell",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send renewal quote with analytics upsell",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Schedule QBR with CIO",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Schedule QBR with CIO",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Get signed renewal order form",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:23:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "QBR went well. CIO open to analytics module — needs board approval.",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "OVERDUE — renewal date is in 5 days. Escalated to VP Sales.",
+          "actor": "demo2",
+          "created_at": "2026-01-16T00:40:00+00:00"
+        }
       ]
     },
     {
@@ -931,6 +1632,72 @@
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SMB",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send content agency template",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send content agency template",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run 30-min discovery call",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Run 30-min discovery call",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provide trial access",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "They love the swimlane-per-client model. Trello can not do this cleanly.",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:24:00+00:00"
         }
       ]
     },
@@ -1023,7 +1790,81 @@
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo5"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Renewal, SMB",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provision 30 seats",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Provision 30 seats",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send onboarding guide",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send onboarding guide",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Set 90-day upsell reminder",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Set 90-day upsell reminder",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Closed in 4 days from first contact. Fastest close this quarter.",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:26:00+00:00"
+        }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }

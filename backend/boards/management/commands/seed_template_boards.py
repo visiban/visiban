@@ -3809,6 +3809,7 @@ class Command(BaseCommand):
 
     def _export_json(self, board, columns, swimlane_specs, label_specs, cards, out_path):
         data = {
+            "schema_version": 1,
             "name": board.name,
             "description": board.description,
             "columns": [
@@ -3840,6 +3841,7 @@ class Command(BaseCommand):
                     "title": card.title,
                     "description": card.description,
                     "priority": card.priority,
+                    "assignee": card.assignee.username if card.assignee else None,
                     "column": card.column.name,
                     "swimlane": card.swimlane.name,
                     "due_date": card.due_date.isoformat() if card.due_date else None,
@@ -3866,6 +3868,16 @@ class Command(BaseCommand):
                             "moved_by": mv.moved_by.username if mv.moved_by else None,
                         }
                         for mv in card.movements.order_by("moved_at")
+                    ],
+                    "activities": [
+                        {
+                            "event_type": act.event_type,
+                            "from_value": act.from_value,
+                            "to_value": act.to_value,
+                            "actor": act.actor.username if act.actor else None,
+                            "created_at": act.created_at.isoformat(),
+                        }
+                        for act in card.activities.order_by("created_at")
                     ],
                 }
                 for card in cards

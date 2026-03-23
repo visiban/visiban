@@ -151,6 +151,51 @@
           "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-20T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-02-20T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo1",
+          "created_at": "2026-02-20T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm behavior in prod",
+          "actor": "demo1",
+          "created_at": "2026-02-20T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm behavior in prod",
+          "actor": "demo2",
+          "created_at": "2026-02-20T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Check permission bypass logic in drag handler",
+          "actor": "demo1",
+          "created_at": "2026-02-20T00:19:00+00:00"
+        }
       ]
     },
     {
@@ -212,6 +257,79 @@
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-16",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce locally on Firefox 124",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce locally on Firefox 124",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Check browser console for JS errors",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Check browser console for JS errors",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm fix in staging",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy patch and notify customer",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Reproduced. Root cause: race condition in board hydration on Firefox. Fix in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:27:00+00:00"
         }
       ]
     },
@@ -296,6 +414,100 @@
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Performance",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-14",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce with a 500+ card board",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce with a 500+ card board",
+          "actor": "demo4",
+          "created_at": "2026-01-20T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile query — identify N+1",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Profile query — identify N+1",
+          "actor": "demo4",
+          "created_at": "2026-01-20T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add select_related and pagination",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add select_related and pagination",
+          "actor": "demo4",
+          "created_at": "2026-01-20T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Load test fix before deploying",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:29:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "P1 escalated by account team. Engineering lead assigned.",
+          "actor": "demo1",
+          "created_at": "2026-01-20T00:31:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Root cause: N+1 on label fetch. Fix ready — deploying tonight.",
+          "actor": "demo2",
+          "created_at": "2026-01-20T00:46:00+00:00"
+        }
       ]
     },
     {
@@ -365,6 +577,93 @@
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-17",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce on iOS 17.4 Safari",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce on iOS 17.4 Safari",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Check touch event handling in drag library",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Check touch event handling in drag library",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send workaround to customer (use Chrome iOS)",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send workaround to customer (use Chrome iOS)",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Ship permanent fix",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:29:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Workaround sent. Permanent fix tracked in eng backlog — ETA 2 sprints.",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:31:00+00:00"
         }
       ]
     },
@@ -447,6 +746,72 @@
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-22T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo2",
+          "created_at": "2026-01-22T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify delay in SMTP relay logs",
+          "actor": "demo2",
+          "created_at": "2026-01-22T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identify delay in SMTP relay logs",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Switch to backup relay",
+          "actor": "demo2",
+          "created_at": "2026-01-22T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Switch to backup relay",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm notifications now timely",
+          "actor": "demo2",
+          "created_at": "2026-01-22T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm notifications now timely",
+          "actor": "demo3",
+          "created_at": "2026-01-22T00:21:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Resolved. SMTP relay was throttling. Switched to backup — delays gone.",
+          "actor": "demo1",
+          "created_at": "2026-01-22T00:22:00+00:00"
         }
       ]
     },
@@ -538,6 +903,65 @@
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo3",
+          "created_at": "2025-12-24T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm old subdomain links are broken",
+          "actor": "demo3",
+          "created_at": "2025-12-24T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm old subdomain links are broken",
+          "actor": "demo4",
+          "created_at": "2025-12-24T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add redirect rule for old subdomain",
+          "actor": "demo3",
+          "created_at": "2025-12-24T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add redirect rule for old subdomain",
+          "actor": "demo4",
+          "created_at": "2025-12-24T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Re-generate invite links for Apex",
+          "actor": "demo3",
+          "created_at": "2025-12-24T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Re-generate invite links for Apex",
+          "actor": "demo4",
+          "created_at": "2025-12-24T00:18:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Resolved. Old subdomain redirect added. Existing links now work.",
+          "actor": "demo1",
+          "created_at": "2025-12-24T00:19:00+00:00"
+        }
       ]
     },
     {
@@ -603,6 +1027,65 @@
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm event ordering issue in webhook logs",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm event ordering issue in webhook logs",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Discuss sequencing guarantee options with eng",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provide workaround (use event timestamp to reorder)",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Awaiting engineering input on whether ordered delivery is feasible.",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:24:00+00:00"
         }
       ]
     },
@@ -691,6 +1174,107 @@
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Security",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-13",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm 2FA bypass is reproducible",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm 2FA bypass is reproducible",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify root cause in session fingerprint logic",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identify root cause in session fingerprint logic",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy hotfix to production",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deploy hotfix to production",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit logs for any suspicious logins",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:29:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send customer security incident report",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:31:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "P0 — Security team engaged immediately. Hotfix deployed at 03:14 UTC.",
+          "actor": "demo1",
+          "created_at": "2026-01-21T00:33:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Root cause: device fingerprint cache key collision after last deployment.",
+          "actor": "demo2",
+          "created_at": "2026-01-21T00:48:00+00:00"
+        }
       ]
     },
     {
@@ -740,6 +1324,72 @@
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-18",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm comments exist in DB",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm comments exist in DB",
+          "actor": "demo5",
+          "created_at": "2026-02-12T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Trace why UI is not rendering them",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy fix and validate all comments visible",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Confirmed: comments have a null author_id from migration script. UI filters these out.",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:27:00+00:00"
         }
       ]
     },
@@ -795,6 +1445,58 @@
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo3"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-19",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce role-change permission refresh bug",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce role-change permission refresh bug",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Force-clear permission cache on role update",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:19:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Workaround: ask user to log out and back in. Permanent fix in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:21:00+00:00"
+        }
       ]
     },
     {
@@ -823,6 +1525,37 @@
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-28T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo3",
+          "created_at": "2026-02-28T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo3",
+          "created_at": "2026-02-28T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce on Safari 17",
+          "actor": "demo3",
+          "created_at": "2026-02-28T00:16:00+00:00"
         }
       ]
     },
@@ -905,6 +1638,65 @@
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo4",
+          "created_at": "2026-01-13T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm regression in 2026-03-01 release",
+          "actor": "demo4",
+          "created_at": "2026-01-13T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm regression in 2026-03-01 release",
+          "actor": "demo5",
+          "created_at": "2026-01-13T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Fix filter query and deploy",
+          "actor": "demo4",
+          "created_at": "2026-01-13T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Fix filter query and deploy",
+          "actor": "demo5",
+          "created_at": "2026-01-13T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm fix with customer",
+          "actor": "demo4",
+          "created_at": "2026-01-13T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm fix with customer",
+          "actor": "demo5",
+          "created_at": "2026-01-13T00:18:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Resolved. Date comparison was using UTC vs local timezone mismatch.",
+          "actor": "demo1",
+          "created_at": "2026-01-13T00:19:00+00:00"
         }
       ]
     },
@@ -992,7 +1784,60 @@
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-01-10T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature Request",
+          "actor": "demo5",
+          "created_at": "2026-01-10T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo5",
+          "created_at": "2026-01-10T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Log in product backlog",
+          "actor": "demo5",
+          "created_at": "2026-01-10T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Log in product backlog",
+          "actor": "demo1",
+          "created_at": "2026-01-10T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Notify customer when shipped",
+          "actor": "demo5",
+          "created_at": "2026-01-10T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Feature request acknowledged. Added to backlog — no ETA yet.",
+          "actor": "demo1",
+          "created_at": "2026-01-10T00:22:00+00:00"
+        }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }

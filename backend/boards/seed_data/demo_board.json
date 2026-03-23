@@ -157,6 +157,82 @@
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo2"
         }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-14",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Yes, same root cause. Fixing both in the same MR.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:37:00+00:00"
+        }
       ]
     },
     {
@@ -182,6 +258,75 @@
         {
           "body": "The Helm chart change needs a review from DevOps before we ship this.",
           "author": "demo5"
+        }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-19",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify affected endpoints",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identify affected endpoints",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add permission check",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add permission check",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The Helm chart change needs a review from DevOps before we ship this.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:21:00+00:00"
         }
       ]
     },
@@ -212,6 +357,68 @@
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo1"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Improvement",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-04",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scope defined",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Dependencies checked",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Dependencies checked",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Metadata only for the first version. We can add description as an opt-in column later.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        }
       ]
     },
     {
@@ -227,7 +434,42 @@
         "Improvement"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Improvement",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        }
+      ]
     },
     {
       "title": "Write API docs for /boards/{id}/full/",
@@ -259,7 +501,91 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-21",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update CHANGELOG",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Push Docker images",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:27:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add attachment preview for PDFs",
@@ -273,7 +599,58 @@
         "Bug"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add time-in-stage heatmap to analytics",
@@ -293,6 +670,71 @@
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo4"
+        }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize tr",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:11:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:26:00+00:00"
         }
       ]
     },
@@ -329,7 +771,122 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Acme Corp",
+          "to_swimlane": "Acme Corp",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-12",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify on mobile",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Accessibility check",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        }
+      ]
     },
     {
       "title": "Fix Google OAuth callback 500 on new user",
@@ -341,7 +898,35 @@
       "weight": 1,
       "labels": [],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-07",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        }
+      ]
     },
     {
       "title": "Set up weekly demo data refresh job",
@@ -376,6 +961,90 @@
         {
           "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
           "author": "demo3"
+        }
+      ],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-30",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify test passes",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Confirmed fixed on my iPhone 14 after pulling the latest.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:25:00+00:00"
         }
       ]
     },
@@ -421,6 +1090,104 @@
           "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo5"
         }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update CHANGELOG",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Push Docker images",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Push Docker images",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Post release notes",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "I'll pick this up after the rc.5 release. Assigning to myself.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Opened a follow-up: #221 — CSV export: add optional description column.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:43:00+00:00"
+        }
       ]
     },
     {
@@ -457,6 +1224,91 @@
           "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
           "author": "demo1"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-24",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy to staging",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Merged the Helm review comments. Ready for QA.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:35:00+00:00"
+        }
       ]
     },
     {
@@ -481,7 +1333,71 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update CHANGELOG",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        }
+      ]
     },
     {
       "title": "Write migration guide from v0.9 to v1.0",
@@ -509,6 +1425,99 @@
         {
           "body": "The Helm chart change needs a review from DevOps before we ship this.",
           "author": "demo4"
+        }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-26",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile query performance",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Profile query performance",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add select_related / prefetch",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add select_related / prefetch",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The Helm chart change needs a review from DevOps before we ship this.",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:22:00+00:00"
         }
       ]
     },
@@ -542,6 +1551,93 @@
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo2"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-10",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scope defined",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Dependencies checked",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implementation started",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Scope question: should this also cover the row separator?",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        }
       ]
     },
     {
@@ -556,7 +1652,73 @@
         "Bug"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Beta Team",
+          "to_swimlane": "Beta Team",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add CSV export for board activity",
@@ -592,6 +1754,96 @@
           "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo3"
         }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-14",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update CHANGELOG",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:27:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Agreed. Moving to Backlog for now.",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize tr",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:43:00+00:00"
+        }
       ]
     },
     {
@@ -616,6 +1868,47 @@
           "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
           "author": "demo2"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Improvement",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Filed a hotfix MR. ETA 2h.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Confirmed fixed on my iPhone 14 after pulling the latest.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:28:00+00:00"
+        }
       ]
     },
     {
@@ -630,7 +1923,48 @@
         "Feature"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-07",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add invite-only registration toggle",
@@ -645,7 +1979,49 @@
         "Feature"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Cloudstride Ltd",
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-24",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Investigate flaky test in test_concurrent_moves",
@@ -668,7 +2044,78 @@
           "is_checked": true
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Cloudstride Ltd",
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Cloudstride Ltd",
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-31",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add card duplication action",
@@ -697,7 +2144,93 @@
           "is_checked": true
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Cloudstride Ltd",
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Cloudstride Ltd",
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Cloudstride Ltd",
+          "to_swimlane": "Cloudstride Ltd",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy to staging",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Monitor error rate",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Monitor error rate",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        }
+      ]
     },
     {
       "title": "Fix empty state not showing on fresh board",
@@ -712,7 +2245,48 @@
         "Feature"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        }
+      ]
     },
     {
       "title": "Create Helm chart for staging deployment",
@@ -737,7 +2311,55 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:09:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:11:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        }
+      ]
     },
     {
       "title": "Fix stale WebSocket after board rename",
@@ -771,6 +2393,76 @@
           "body": "The Helm chart change needs a review from DevOps before we ship this.",
           "author": "demo2"
         }
+      ],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "@demo3 can you take a pass at the Helm config?",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The Helm chart change needs a review from DevOps before we ship this.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:30:00+00:00"
+        }
       ]
     },
     {
@@ -790,6 +2482,55 @@
         {
           "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
           "author": "demo2"
+        }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Improvement",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:16:00+00:00"
         }
       ]
     },
@@ -820,7 +2561,70 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update CHANGELOG",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:07:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:09:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Push Docker images",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Support @mentions in card descriptions",
@@ -845,7 +2649,79 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:11:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add offline mode banner",
@@ -864,6 +2740,79 @@
         {
           "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
           "author": "demo4"
+        }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Improvement",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-07",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:16:00+00:00"
         }
       ]
     },
@@ -892,7 +2841,94 @@
           "is_checked": true
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "DevOps Guild",
+          "to_swimlane": "DevOps Guild",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        }
+      ]
     },
     {
       "title": "Investigate slow card load on large boards",
@@ -934,6 +2970,118 @@
           "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
           "author": "demo5"
         }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-12",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify on mobile",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Verify on mobile",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Accessibility check",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "I'll pick this up after the rc.5 release. Assigning to myself.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:43:00+00:00"
+        }
       ]
     },
     {
@@ -948,7 +3096,57 @@
         "Feature"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-31",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add read receipt to comments",
@@ -962,7 +3160,59 @@
         "Bug"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        }
+      ]
     },
     {
       "title": "Fix column WIP limit badge wrapping",
@@ -977,7 +3227,73 @@
         "Feature"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Ember Studio",
+          "to_swimlane": "Ember Studio",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add keyboard shortcut to create card",
@@ -1018,6 +3334,82 @@
           "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
           "author": "demo1"
         }
+      ],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-11",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile query performance",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add select_related / prefetch",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Measure improvement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add comment explaining why",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:39:00+00:00"
+        }
       ]
     },
     {
@@ -1042,6 +3434,62 @@
           "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
           "author": "demo3"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-03",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "QA sign-off. Deploying to staging.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:32:00+00:00"
+        }
       ]
     },
     {
@@ -1063,7 +3511,70 @@
           "is_checked": true
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-14",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update CHANGELOG",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add priority filter to FilterBar",
@@ -1092,6 +3603,76 @@
           "body": "Merged the Helm review comments. Ready for QA.",
           "author": "demo1"
         }
+      ],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature, Improvement",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-26",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Merged the Helm review comments. Ready for QA.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        }
       ]
     },
     {
@@ -1114,6 +3695,63 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo2"
+        }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "QA sign-off. Deploying to staging.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:29:00+00:00"
         }
       ]
     },
@@ -1153,6 +3791,119 @@
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo2"
         }
+      ],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-07",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify affected endpoints",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identify affected endpoints",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add permission check",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add permission check",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write test",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write test",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Security review",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Confirmed fixed on my iPhone 14 after pulling the latest.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member boa",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:41:00+00:00"
+        }
       ]
     },
     {
@@ -1167,7 +3918,64 @@
         "Bug"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-11",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add card position audit log",
@@ -1200,6 +4008,98 @@
           "body": "Agreed. Moving to Backlog for now.",
           "author": "demo2"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-11",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft API design doc",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft API design doc",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Get team sign-off",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement endpoint",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement endpoint",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Agreed. Moving to Backlog for now.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        }
       ]
     },
     {
@@ -1218,6 +4118,70 @@
         {
           "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
           "author": "demo5"
+        }
+      ],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:20:00+00:00"
         }
       ]
     },
@@ -1259,6 +4223,135 @@
           "body": "Deployed. Monitoring Sentry for regressions.",
           "author": "demo3"
         }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Frontier AI",
+          "to_swimlane": "Frontier AI",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-27",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:27:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify test passes",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Metadata only for the first version. We can add description as an opt-in column later.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Deployed. Monitoring Sentry for regressions.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:45:00+00:00"
+        }
       ]
     },
     {
@@ -1277,6 +4370,48 @@
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo4"
+        }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member boa",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:14:00+00:00"
         }
       ]
     },
@@ -1320,6 +4455,97 @@
           "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
           "author": "demo2"
         }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update CHANGELOG",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Bump version",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tag release",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Push Docker images",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Push Docker images",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Filed a hotfix MR. ETA 2h.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Metadata only for the first version. We can add description as an opt-in column later.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:33:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:48:00+00:00"
+        }
       ]
     },
     {
@@ -1332,7 +4558,50 @@
       "weight": 4,
       "labels": [],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-26",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        }
+      ]
     },
     {
       "title": "Clean up unused CSS utility classes",
@@ -1359,7 +4628,92 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy to staging",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        }
+      ]
     },
     {
       "title": "Fix swimlane collapse state not persisting",
@@ -1386,6 +4740,84 @@
           "body": "Agreed. Moving to Backlog for now.",
           "author": "demo5"
         }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-04",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "I'll pick this up after the rc.5 release. Assigning to myself.",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:35:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Agreed. Moving to Backlog for now.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:50:00+00:00"
+        }
       ]
     },
     {
@@ -1398,7 +4830,50 @@
       "weight": 5,
       "labels": [],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        }
+      ]
     },
     {
       "title": "Fix broken avatar URL for OAuth users",
@@ -1419,7 +4894,65 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:09:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:11:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add bulk label assignment",
@@ -1439,6 +4972,86 @@
         {
           "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
           "author": "demo2"
+        }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-04",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:30:00+00:00"
         }
       ]
     },
@@ -1482,6 +5095,135 @@
           "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
           "author": "demo1"
         }
+      ],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Growth Squad",
+          "to_swimlane": "Growth Squad",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft API design doc",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft API design doc",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Get team sign-off",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:11:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Get team sign-off",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement endpoint",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement endpoint",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write tests",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write tests",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member boa",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:35:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:50:00+00:00"
+        }
       ]
     },
     {
@@ -1515,6 +5257,97 @@
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo2"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Feature",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-10",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Create feature branch",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Create feature branch",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write tests",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write tests",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Yes, same root cause. Fixing both in the same MR.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        }
       ]
     },
     {
@@ -1537,6 +5370,69 @@
         {
           "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
           "author": "demo5"
+        }
+      ],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:35:00+00:00"
         }
       ]
     },
@@ -1566,6 +5462,92 @@
           "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo3"
         }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-31",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile query performance",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add select_related / prefetch",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize tr",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        }
       ]
     },
     {
@@ -1593,6 +5575,78 @@
           "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
           "author": "demo3"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "I'll pick this up after the rc.5 release. Assigning to myself.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:29:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:44:00+00:00"
+        }
       ]
     },
     {
@@ -1614,6 +5668,86 @@
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo3"
         }
+      ],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-01",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member boa",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:30:00+00:00"
+        }
       ]
     },
     {
@@ -1633,6 +5767,79 @@
           "body": "Agreed. Moving to Backlog for now.",
           "author": "demo3"
         }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Hardrock Systems",
+          "to_swimlane": "Hardrock Systems",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-24",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Agreed. Moving to Backlog for now.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        }
       ]
     },
     {
@@ -1647,7 +5854,41 @@
         "Improvement"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-17",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        }
+      ]
     },
     {
       "title": "Implement board copy feature",
@@ -1659,7 +5900,34 @@
       "weight": 2,
       "labels": [],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-31",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add column archival (soft delete)",
@@ -1673,7 +5941,41 @@
         "Bug"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-12",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Optimise full-board query with select_related",
@@ -1707,6 +6009,68 @@
           "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo2"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Read existing code and write notes",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Read existing code and write notes",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:07:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify all affected tests",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement fix",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update docs",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Update docs",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Opened a follow-up: #221 — CSV export: add optional description column.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        }
       ]
     },
     {
@@ -1729,6 +6093,69 @@
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo4"
+        }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-18",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:35:00+00:00"
         }
       ]
     },
@@ -1754,6 +6181,70 @@
         {
           "body": "Agreed. Moving to Backlog for now.",
           "author": "demo1"
+        }
+      ],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-17",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The CSV format question: should we include card description or just metadata? Description can be very long.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:11:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Metadata only for the first version. We can add description as an opt-in column later.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Agreed. Moving to Backlog for now.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:41:00+00:00"
         }
       ]
     },
@@ -1785,6 +6276,93 @@
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo5"
         }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-17",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile query performance",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add select_related / prefetch",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Measure improvement",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Measure improvement",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        }
       ]
     },
     {
@@ -1811,6 +6389,100 @@
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo2"
+        }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-13",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Merged the Helm review comments. Ready for QA.",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:35:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:50:00+00:00"
         }
       ]
     },
@@ -1843,7 +6515,122 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Indigo Labs",
+          "to_swimlane": "Indigo Labs",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Feature",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify test passes",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        }
+      ]
     },
     {
       "title": "Add card quick-add shortcut to swimlane",
@@ -1857,7 +6644,34 @@
         "Improvement"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-01",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        }
+      ]
     },
     {
       "title": "Implement board-level search",
@@ -1888,7 +6702,98 @@
           "is_checked": true
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo5",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Create feature branch",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write tests",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write tests",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Open MR",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Open MR",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        }
+      ]
     },
     {
       "title": "Support emoji in card titles",
@@ -1924,6 +6829,97 @@
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo5"
         }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-20",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Create feature branch",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Create feature branch",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write tests",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:27:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Yes, same root cause. Fixing both in the same MR.",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:42:00+00:00"
+        }
       ]
     },
     {
@@ -1951,7 +6947,63 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design mockup approved",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement component",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add unit test",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:18:00+00:00"
+        }
+      ]
     },
     {
       "title": "Fix CSV import skipping blank description",
@@ -1965,7 +7017,57 @@
         "Improvement"
       ],
       "checklist": [],
-      "comments": []
+      "comments": [],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Improvement",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-01",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        }
+      ]
     },
     {
       "title": "Migrate CI from Docker-in-Docker to kaniko",
@@ -1994,7 +7096,85 @@
           "is_checked": true
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-21",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reproduce issue locally",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:11:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add failing test",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Fix root cause",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify test passes",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Verify test passes",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        }
+      ]
     },
     {
       "title": "Set up staging environment seed job",
@@ -2030,7 +7210,116 @@
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Backlog",
+          "from_swimlane": null,
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "To Do",
+          "to_column": "Doing",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Doing",
+          "to_column": "Review",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Review",
+          "to_column": "Done",
+          "from_swimlane": "Just Ship It",
+          "to_swimlane": "Just Ship It",
+          "moved_at": "2026-03-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Bug, Improvement",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write migration",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test rollback",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy to staging",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deploy to staging",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Monitor error rate",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy to prod",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:24:00+00:00"
+        }
+      ]
     }
-  ]
+  ],
+  "schema_version": 1
 }

@@ -371,6 +371,20 @@ class BoardViewSet(viewsets.ModelViewSet):
         if not isinstance(data, dict):
             return Response({"detail": "Invalid JSON: expected an object at the top level."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Schema version guard — warn on missing (pre-versioning files) or future versions.
+        # The current importer understands schema_version 1.  Files without the field are
+        # treated as version 0 (pre-1.0 exports) and imported on a best-effort basis.
+        _SUPPORTED_SCHEMA_VERSION = 1
+        schema_version = data.get("schema_version", 0)
+        if schema_version > _SUPPORTED_SCHEMA_VERSION:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "Importing board JSON with schema_version=%s (importer supports up to %s). "
+                "Some fields may be ignored.",
+                schema_version,
+                _SUPPORTED_SCHEMA_VERSION,
+            )
+
         # Enforce per-import item ceilings before touching the database.  These
         # limits prevent a single large import from exhausting server resources
         # or producing a board that is impractical to use.
@@ -477,6 +491,14 @@ class BoardViewSet(viewsets.ModelViewSet):
                 if priority not in [c[0] for c in Card.Priority.choices]:
                     priority = "medium"
 
+                # Resolve assignee by username if present; silently skip unknown users.
+                assignee_username = card_data.get("assignee")
+                assignee = (
+                    User.objects.filter(username=assignee_username).first()
+                    if assignee_username
+                    else None
+                )
+
                 card = Card.objects.create(
                     board=board,
                     column=column,
@@ -484,6 +506,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                     title=card_data["title"],
                     description=card_data.get("description", ""),
                     priority=priority,
+                    assignee=assignee,
                     due_date=card_data.get("due_date") or None,
                     weight=card_data.get("weight", 1),
                     position=card_data.get("position", 0),
@@ -515,6 +538,68 @@ class BoardViewSet(viewsets.ModelViewSet):
                         is_checked=checklist_data.get("is_checked", False),
                         position=ci_idx,
                     )
+
+                # Create movement history. Unknown usernames fall back to the
+                # importing user so history is never orphaned.
+                for mv_data in card_data.get("movements", []):
+                    from_col_name = mv_data.get("from_column") or ""
+                    to_col_name = mv_data.get("to_column") or ""
+                    from_sw_name = mv_data.get("from_swimlane") or ""
+                    to_sw_name = mv_data.get("to_swimlane") or ""
+                    from_col = column_map.get(from_col_name)
+                    to_col = column_map.get(to_col_name)
+                    from_sw = swimlane_map.get(from_sw_name)
+                    to_sw = swimlane_map.get(to_sw_name)
+                    moved_by_username = mv_data.get("moved_by")
+                    moved_by = (
+                        User.objects.filter(username=moved_by_username).first()
+                        if moved_by_username
+                        else None
+                    ) or request.user
+                    mv = CardMovement.objects.create(
+                        card=card,
+                        from_column=from_col,
+                        to_column=to_col,
+                        from_swimlane=from_sw,
+                        to_swimlane=to_sw,
+                        from_column_name=from_col.name if from_col else from_col_name,
+                        to_column_name=to_col.name if to_col else to_col_name,
+                        from_swimlane_name=from_sw.name if from_sw else from_sw_name,
+                        to_swimlane_name=to_sw.name if to_sw else to_sw_name,
+                        from_column_uid=from_col.uid if from_col else "",
+                        to_column_uid=to_col.uid if to_col else "",
+                        from_swimlane_uid=from_sw.uid if from_sw else "",
+                        to_swimlane_uid=to_sw.uid if to_sw else "",
+                        moved_by=moved_by,
+                    )
+                    if mv_data.get("moved_at"):
+                        CardMovement.objects.filter(pk=mv.pk).update(
+                            moved_at=mv_data["moved_at"]
+                        )
+
+                # Create activity log entries (field-change history).
+                for act_data in card_data.get("activities", []):
+                    event_type = act_data.get("event_type", "")
+                    valid_types = [e[0] for e in CardActivity.EventType.choices]
+                    if event_type not in valid_types:
+                        continue
+                    actor_username = act_data.get("actor")
+                    actor = (
+                        User.objects.filter(username=actor_username).first()
+                        if actor_username
+                        else None
+                    ) or request.user
+                    act = CardActivity.objects.create(
+                        card=card,
+                        event_type=event_type,
+                        from_value=act_data.get("from_value", ""),
+                        to_value=act_data.get("to_value", ""),
+                        actor=actor,
+                    )
+                    if act_data.get("created_at"):
+                        CardActivity.objects.filter(pk=act.pk).update(
+                            created_at=act_data["created_at"]
+                        )
 
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
