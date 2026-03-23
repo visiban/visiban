@@ -14,7 +14,7 @@ Export path: backend/boards/seed_data/<slug>/seed.{json,csv}
 
 Usage:
     python manage.py seed_template_boards --template all
-        Seed all 6 templates. Skips any board that already exists.
+        Seed all 10 templates. Skips any board that already exists.
 
     python manage.py seed_template_boards --template sales_pipeline
         Seed a single template by slug.

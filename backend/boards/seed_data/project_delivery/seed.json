@@ -47,39 +47,39 @@
   ],
   "swimlanes": [
     {
-      "name": "Website Relaunch",
+      "name": "Mobile App Relaunch",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "marketing@internal.example",
-      "notes": "Brand refresh + CMS migration. Go-live target: 2026-05-01. Owner: Head of Marketing."
+      "contact_email": "mobile-team@internal.example",
+      "notes": "Full redesign of iOS and Android apps. Target launch: 2026-06-01."
     },
     {
-      "name": "ERP Migration",
+      "name": "Data Platform Migration",
       "position": 1,
-      "color": "#F97316",
-      "contact_email": "erp-project@internal.example",
-      "notes": "SAP → NetSuite migration. 6-month project. Cutover target: 2026-09-01. High risk."
-    },
-    {
-      "name": "Mobile App Launch",
-      "position": 2,
       "color": "#8B5CF6",
-      "contact_email": "mobile-pm@internal.example",
-      "notes": "iOS and Android launch. App Store review target: 2026-04-15."
+      "contact_email": "data-team@internal.example",
+      "notes": "Migrate from legacy Redshift to Snowflake. Zero-downtime required."
     },
     {
-      "name": "Security Audit",
-      "position": 3,
+      "name": "Security Compliance Audit",
+      "position": 2,
       "color": "#EF4444",
       "contact_email": "security@internal.example",
-      "notes": "Annual pen test + SOC 2 Type II evidence collection. Vendor: CrowdStrike."
+      "notes": "Annual SOC 2 Type II + pen test. Audit window: 2026-04-01 to 2026-04-30."
     },
     {
-      "name": "Data Center Move",
+      "name": "Customer Portal v2",
+      "position": 3,
+      "color": "#F59E0B",
+      "contact_email": "portal-team@internal.example",
+      "notes": "Self-service portal for enterprise customers. Target launch: 2026-07-01."
+    },
+    {
+      "name": "GDPR Deletion Pipeline",
       "position": 4,
-      "color": "#6B7280",
-      "contact_email": "infra@internal.example",
-      "notes": "Relocate from legacy co-lo to AWS. Target: zero-downtime migration. Q3 2026."
+      "color": "#14B8A6",
+      "contact_email": "legal-eng@internal.example",
+      "notes": "Automate right-to-erasure workflow. Legal deadline: 2026-05-25."
     }
   ],
   "labels": [
@@ -106,11 +106,260 @@
   ],
   "cards": [
     {
-      "title": "Define brand refresh scope and deliverables",
-      "description": "Align stakeholders on what the brand refresh covers:\n\n- New logo and colour palette ✓\n- Updated typography\n- Revised tone of voice guide\n- Photography / illustration style\n\nOut of scope: product UI changes (separate project).",
-      "priority": "high",
+      "title": "App Store Submission",
+      "description": "Submit updated app to Apple App Store and Google Play.\n\nApple review typically 3-5 business days. Coordinate marketing announcement timing with comms team.",
+      "priority": "medium",
       "column": "Planning",
-      "swimlane": "Website Relaunch",
+      "swimlane": "Mobile App Relaunch",
+      "due_date": "2026-04-19",
+      "weight": 3,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Prepare App Store screenshots",
+          "is_checked": false
+        },
+        {
+          "text": "Write release notes",
+          "is_checked": false
+        },
+        {
+          "text": "Submit to TestFlight first",
+          "is_checked": false
+        },
+        {
+          "text": "Submit to production stores",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "API v3 Integration",
+      "description": "Migrate the mobile app from REST API v2 to the new v3 GraphQL API.\n\nBreaking changes in auth token format and pagination. Requires coordinated release with backend team.",
+      "priority": "urgent",
+      "column": "Execution",
+      "swimlane": "Mobile App Relaunch",
+      "due_date": "2026-03-25",
+      "weight": 5,
+      "labels": [
+        "Blocked"
+      ],
+      "checklist": [
+        {
+          "text": "Map v2 → v3 endpoint changes",
+          "is_checked": true
+        },
+        {
+          "text": "Update auth token handler",
+          "is_checked": true
+        },
+        {
+          "text": "Update pagination across all list views",
+          "is_checked": false
+        },
+        {
+          "text": "End-to-end smoke tests on staging",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "BLOCKED: waiting on backend team to finalize v3 pagination spec.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "UX Research & Design",
+      "description": "User research, wireframing, and final design system for the relaunched app.\n\n## Scope\n\n- 8 user interviews (existing customers)\n- Wireframes for all 12 core screens\n- Design system tokens aligned to web platform\n- Handoff to engineering via Figma",
+      "priority": "high",
+      "column": "Milestone Review",
+      "swimlane": "Mobile App Relaunch",
+      "due_date": "2026-03-10",
+      "weight": 4,
+      "labels": [
+        "On Track"
+      ],
+      "checklist": [
+        {
+          "text": "Complete 8 user interviews",
+          "is_checked": true
+        },
+        {
+          "text": "Wireframes reviewed by PM",
+          "is_checked": true
+        },
+        {
+          "text": "Final designs approved",
+          "is_checked": true
+        },
+        {
+          "text": "Figma handoff to engineering",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Designs approved. Engineering handoff scheduled for Monday.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Production Cutover",
+      "description": "Zero-downtime cutover from Redshift to Snowflake.\n\nPlan: dual-write phase complete → route 10% reads → 100% reads → decommission Redshift writes.",
+      "priority": "urgent",
+      "column": "Planning",
+      "swimlane": "Data Platform Migration",
+      "due_date": "2026-04-26",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Cutover runbook written and reviewed",
+          "is_checked": false
+        },
+        {
+          "text": "Rollback plan documented",
+          "is_checked": false
+        },
+        {
+          "text": "Schedule maintenance window with ops",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Dual-Write Validation Phase",
+      "description": "Run Redshift and Snowflake in parallel for 2 weeks. Compare row counts and checksums. Cutover only after 5 consecutive days of zero discrepancies.",
+      "priority": "high",
+      "column": "Kickoff",
+      "swimlane": "Data Platform Migration",
+      "due_date": "2026-04-05",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Deploy dual-write middleware",
+          "is_checked": false
+        },
+        {
+          "text": "Build checksum comparison dashboard",
+          "is_checked": false
+        },
+        {
+          "text": "Define discrepancy alert thresholds",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Schema Mapping & Data Audit",
+      "description": "Audit all 340 tables in Redshift and map each to Snowflake schema.\n\nIdentify tables with breaking type changes, deprecated tables, and backfill needs.",
+      "priority": "high",
+      "column": "Milestone Review",
+      "swimlane": "Data Platform Migration",
       "due_date": "2026-03-22",
       "weight": 4,
       "labels": [
@@ -118,830 +367,385 @@
       ],
       "checklist": [
         {
-          "text": "Draft scope document",
+          "text": "Export Redshift schema",
           "is_checked": true
         },
         {
-          "text": "Stakeholder sign-off (CMO + CEO)",
+          "text": "Flag type-change tables to DBA",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm drop list with data owners",
           "is_checked": false
         },
         {
-          "text": "Share with design agency",
+          "text": "Final schema mapping signed off",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Scope doc drafted. Waiting on CEO calendar for sign-off meeting.",
+          "body": "280/340 tables mapped. 12 have breaking type changes.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-29T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
     {
-      "title": "Stakeholder sign-off on new wireframes",
-      "description": "Design agency delivered 12 wireframe screens for review. Feedback due by 2026-03-12 (OVERDUE).\n\nKey reviewers: CMO, Head of Product, Head of Engineering.",
+      "title": "SOC 2 Type II Evidence Collection",
+      "description": "Collect all evidence for the SOC 2 Type II audit.\n\nEvidence categories: access control logs (90 days), change management, incident response logs, vendor assessments, backup test results.",
       "priority": "high",
-      "column": "Kickoff",
-      "swimlane": "Website Relaunch",
-      "due_date": "2026-03-12",
-      "weight": 3,
-      "labels": [
-        "Blocked"
-      ],
-      "checklist": [
-        {
-          "text": "CMO review",
-          "is_checked": true
-        },
-        {
-          "text": "Head of Product review",
-          "is_checked": false
-        },
-        {
-          "text": "Head of Engineering review",
-          "is_checked": false
-        },
-        {
-          "text": "Consolidate feedback and send to agency",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "CMO approved with minor changes. Engineering review still pending.",
-          "author": "demo1"
-        },
-        {
-          "body": "BLOCKED: Head of Engineering on leave until Monday.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Content migration: 150 pages to new CMS",
-      "description": "Migrate all 150 public-facing pages from the legacy CMS (Drupal 7) to the new CMS (Contentful).\n\nMigration plan:\n1. Export Drupal content as JSON\n2. Transform and import via Contentful API\n3. QA each page in staging\n4. Redirect legacy URLs",
-      "priority": "urgent",
       "column": "Execution",
-      "swimlane": "Website Relaunch",
-      "due_date": "2026-03-29",
-      "weight": 5,
-      "labels": [
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "Export Drupal content (150 pages)",
-          "is_checked": true
-        },
-        {
-          "text": "Import 50 priority pages to Contentful",
-          "is_checked": true
-        },
-        {
-          "text": "Import remaining 100 pages",
-          "is_checked": false
-        },
-        {
-          "text": "QA all pages in staging",
-          "is_checked": false
-        },
-        {
-          "text": "Set up URL redirects",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "50 priority pages migrated. On track for full migration.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "SEO audit of new site before go-live",
-      "description": "Run a full SEO audit before launch:\n\n- Verify all canonical URLs\n- Check meta titles and descriptions\n- Validate sitemap.xml\n- Confirm no broken internal links\n- Check Core Web Vitals (LCP < 2.5s, CLS < 0.1)",
-      "priority": "medium",
-      "column": "Milestone Review",
-      "swimlane": "Website Relaunch",
-      "due_date": "2026-04-05",
-      "weight": 3,
-      "labels": [
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "Run Screaming Frog crawl",
-          "is_checked": true
-        },
-        {
-          "text": "Fix broken internal links (found 8)",
-          "is_checked": false
-        },
-        {
-          "text": "Core Web Vitals check via PageSpeed Insights",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "8 broken links found. Fixing before milestone review.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Go-live: DNS cutover and legacy redirects",
-      "description": "Final go-live steps:\n\n1. Update DNS to point to new infrastructure\n2. Verify SSL certificate auto-renews\n3. Confirm all legacy URLs redirect (301) correctly\n4. Monitor error rate for 24h post-launch",
-      "priority": "high",
-      "column": "Wrap-up",
-      "swimlane": "Website Relaunch",
-      "due_date": "2026-03-20",
+      "swimlane": "Security Compliance Audit",
+      "due_date": "2026-03-25",
       "weight": 4,
       "labels": [
-        "Milestone",
         "On Track"
       ],
       "checklist": [
         {
-          "text": "Update DNS TTL to 60s (24h before cutover)",
+          "text": "Pull access control logs from IAM",
           "is_checked": true
         },
         {
-          "text": "Cutover DNS",
+          "text": "Compile change management records",
+          "is_checked": true
+        },
+        {
+          "text": "Document incident response log",
           "is_checked": false
         },
         {
-          "text": "Verify SSL",
-          "is_checked": false
-        },
-        {
-          "text": "Smoke test all redirects",
+          "text": "Vendor security assessment summary",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "TTL reduced. Cutover scheduled for Saturday 2am PT.",
+          "body": "IAM logs and change records complete. Incident log in progress.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
     {
-      "title": "Cutover weekend plan and rollback procedure",
-      "description": "Document the cutover plan for the 2026-09-01 weekend:\n\n- Friday EOD: freeze SAP transactions\n- Saturday: final data migration run\n- Sunday: validation and smoke tests\n- Monday 08:00: go-live on NetSuite\n\nRollback: revert to SAP if critical issues found before 10:00 Monday.",
-      "priority": "high",
-      "column": "Planning",
-      "swimlane": "ERP Migration",
-      "due_date": "2026-05-14",
-      "weight": 5,
+      "title": "External Penetration Test",
+      "description": "Annual pen test scoped to public web app, API, WebSocket layer, and auth flows.",
+      "priority": "medium",
+      "column": "Wrap-up",
+      "swimlane": "Security Compliance Audit",
+      "due_date": "2026-03-20",
+      "weight": 3,
       "labels": [],
       "checklist": [
         {
-          "text": "Write cutover runbook",
-          "is_checked": false
+          "text": "Agree scope with vendor",
+          "is_checked": true
         },
         {
-          "text": "Write rollback procedure",
-          "is_checked": false
+          "text": "Provide staging access",
+          "is_checked": true
         },
         {
-          "text": "Get CFO sign-off on cutover plan",
-          "is_checked": false
+          "text": "Receive final report",
+          "is_checked": true
         },
         {
-          "text": "Brief all team leads on weekend plan",
+          "text": "Remediate findings",
           "is_checked": false
         }
       ],
-      "comments": []
+      "comments": [
+        {
+          "body": "Report received — 2 medium findings, 0 critical. Remediation underway.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-01-13T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Milestone Review",
+          "to_column": "Wrap-up",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
     },
     {
-      "title": "Vendor selection complete: NetSuite chosen",
-      "description": "After a 6-week RFP process, NetSuite was selected over Oracle Fusion.\n\nDecision factors:\n- Total cost of ownership 20% lower\n- Faster implementation timeline\n- Better mid-market fit\n\nSOW signed 2026-02-15.",
+      "title": "Frontend Development",
+      "description": "Build the React frontend: dashboard, board list, user management, billing, support.",
       "priority": "medium",
-      "column": "Kickoff",
-      "swimlane": "ERP Migration",
-      "due_date": null,
-      "weight": 3,
-      "labels": [
-        "On Track"
-      ],
-      "checklist": [
-        {
-          "text": "SOW signed",
-          "is_checked": true
-        },
-        {
-          "text": "Project kick-off scheduled",
-          "is_checked": true
-        },
-        {
-          "text": "Internal project team assembled",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "SOW signed. Implementation partner onboarding next week.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Data mapping: legacy SAP schema → NetSuite",
-      "description": "Map all 340 SAP data objects to their NetSuite equivalents.\n\n## Status\n\n- Finance module: 85/120 objects mapped ✓\n- HR module: 30/90 objects mapped\n- Inventory module: 0/130 objects mapped — not started\n\nBlocked on HR: data privacy review required.",
-      "priority": "urgent",
-      "column": "Execution",
-      "swimlane": "ERP Migration",
-      "due_date": "2026-03-10",
-      "weight": 5,
-      "labels": [
-        "Blocked",
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "Finance module mapping",
-          "is_checked": true
-        },
-        {
-          "text": "HR module: data privacy review",
-          "is_checked": false
-        },
-        {
-          "text": "HR module mapping",
-          "is_checked": false
-        },
-        {
-          "text": "Inventory module mapping",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "OVERDUE: HR privacy review delayed by legal. Escalated.",
-          "author": "demo1"
-        },
-        {
-          "body": "Legal cleared HR review. Resuming HR mapping.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Parallel run: both systems live simultaneously",
-      "description": "Run SAP and NetSuite simultaneously for 30 days to validate:\n\n- All transactions reconcile between systems\n- Month-end close works in NetSuite\n- Reports match within 0.1% tolerance\n\nStart date: 2026-07-01.",
-      "priority": "high",
-      "column": "Execution",
-      "swimlane": "ERP Migration",
-      "due_date": "2026-04-14",
-      "weight": 5,
-      "labels": [
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "Set up NetSuite parallel environment",
-          "is_checked": false
-        },
-        {
-          "text": "Define reconciliation report",
-          "is_checked": false
-        },
-        {
-          "text": "Run first weekly reconciliation",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "User acceptance testing (UAT) — Finance team",
-      "description": "Finance team UAT covering 45 test scenarios:\n\n- Invoice creation and approval workflow\n- Month-end close process\n- Multi-currency transactions\n- Expense report submission",
-      "priority": "high",
-      "column": "Milestone Review",
-      "swimlane": "ERP Migration",
+      "column": "Planning",
+      "swimlane": "Customer Portal v2",
       "due_date": "2026-04-29",
       "weight": 4,
-      "labels": [
-        "Milestone"
-      ],
+      "labels": [],
       "checklist": [
         {
-          "text": "Prepare 45 UAT test scripts",
+          "text": "Design handoff received",
           "is_checked": false
         },
         {
-          "text": "Run UAT with Finance team (5 days)",
-          "is_checked": false
-        },
-        {
-          "text": "Triage and fix UAT defects",
-          "is_checked": false
-        },
-        {
-          "text": "Finance team sign-off",
+          "text": "Component library setup",
           "is_checked": false
         }
       ],
-      "comments": []
-    },
-    {
-      "title": "Marketing launch plan sign-off",
-      "description": "Marketing has prepared the launch plan:\n\n- Press release to 12 tech publications\n- Product Hunt launch on GA day\n- Email campaign to existing web users (8,000)\n- Social media content calendar (2 weeks)\n\nNeeds CEO and CMO sign-off.",
-      "priority": "medium",
-      "column": "Kickoff",
-      "swimlane": "Mobile App Launch",
-      "due_date": null,
-      "weight": 3,
-      "labels": [
-        "On Track"
-      ],
-      "checklist": [
+      "comments": [],
+      "movements": [
         {
-          "text": "CMO sign-off",
-          "is_checked": true
-        },
-        {
-          "text": "CEO sign-off",
-          "is_checked": true
-        },
-        {
-          "text": "Embargo dates confirmed with press contacts",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Both signed off. Press embargoes being coordinated.",
-          "author": "demo1"
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
     {
-      "title": "Beta TestFlight cohort (200 users)",
-      "description": "Recruit 200 beta testers via TestFlight for a 2-week closed beta.\n\nFocus areas:\n- Drag-and-drop on iOS\n- Push notification reliability\n- Offline sync behaviour\n\nNPS target: ≥ 45.",
+      "title": "Requirements & Stakeholder Sign-off",
+      "description": "Capture all requirements from account management, support, and enterprise customers.\n\nKey stakeholders: VP CS, Head of Support, 3 enterprise customer advisors.",
       "priority": "high",
-      "column": "Execution",
-      "swimlane": "Mobile App Launch",
-      "due_date": "2026-03-13",
-      "weight": 4,
-      "labels": [
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "Distribute TestFlight invites to 200 testers",
-          "is_checked": true
-        },
-        {
-          "text": "Monitor crash reports daily",
-          "is_checked": true
-        },
-        {
-          "text": "Collect NPS survey at end of beta",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "200 testers active. Crash rate at 0.3% — need to get below 0.1%.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "App Store metadata and screenshots",
-      "description": "Prepare App Store and Google Play listing assets:\n\n- App name, subtitle, description (all locales)\n- 10 screenshots per device size\n- App preview video (30s)\n- Privacy policy URL",
-      "priority": "medium",
       "column": "Milestone Review",
-      "swimlane": "Mobile App Launch",
-      "due_date": "2026-03-22",
+      "swimlane": "Customer Portal v2",
+      "due_date": "2026-03-18",
       "weight": 3,
       "labels": [
         "On Track"
       ],
       "checklist": [
         {
-          "text": "Write App Store description (EN)",
+          "text": "Stakeholder workshops complete",
           "is_checked": true
         },
         {
-          "text": "Create screenshots for iPhone 15 Pro",
+          "text": "Requirements document written",
           "is_checked": true
         },
         {
-          "text": "Create screenshots for iPad Pro",
-          "is_checked": false
-        },
-        {
-          "text": "Record 30s preview video",
+          "text": "Sign-off from VP CS and Head of Support",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "iPhone screenshots done. iPad and video still needed.",
+          "body": "47 requirements captured. Sign-off call Thursday.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
     {
-      "title": "Crash rate: must be below 0.1% before GA",
-      "description": "Current crash rate: 0.3% (TestFlight). Target: < 0.1%.\n\nTop crashes from Sentry:\n1. NullPointerException in DragDropController (Android) — 60%\n2. IndexOutOfBoundsException in SwimlaneAdapter — 25%\n3. Network timeout not handled on reconnect — 15%",
-      "priority": "urgent",
-      "column": "Milestone Review",
-      "swimlane": "Mobile App Launch",
-      "due_date": "2026-03-20",
-      "weight": 5,
-      "labels": [
-        "Blocked"
-      ],
-      "checklist": [
-        {
-          "text": "Fix DragDropController NPE",
-          "is_checked": true
-        },
-        {
-          "text": "Fix SwimlaneAdapter IOOB",
-          "is_checked": false
-        },
-        {
-          "text": "Handle network timeout gracefully",
-          "is_checked": false
-        },
-        {
-          "text": "Confirm crash rate < 0.1% for 48h",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "NPE fixed. Crash rate dropped to 0.15%. Two more to go.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Post-launch retrospective",
-      "description": "30-min retro with the mobile team one week post-launch.\n\nAgenda:\n- What went well\n- What slowed us down\n- One thing to change for the next launch\n\nDocument outcomes in Confluence.",
-      "priority": "low",
+      "title": "Deletion Request API",
+      "description": "API endpoint to process GDPR erasure requests.\n\nMust cascade across all user-owned data: boards, cards, comments, activity logs, and exports.",
+      "priority": "high",
       "column": "Retro",
-      "swimlane": "Mobile App Launch",
+      "swimlane": "GDPR Deletion Pipeline",
       "due_date": null,
-      "weight": 2,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Run retro session",
-          "is_checked": true
-        },
-        {
-          "text": "Document outcomes",
-          "is_checked": true
-        },
-        {
-          "text": "Share with wider team",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Retro done. Key outcome: start App Store asset prep 4 weeks earlier next time.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Pen test scope approved by CrowdStrike",
-      "description": "Scope agreed with CrowdStrike:\n\n- External web application (production)\n- API endpoints\n- Authentication and authorisation flows\n- WebSocket layer\n\nOut of scope: internal infrastructure, employee workstations.",
-      "priority": "high",
-      "column": "Kickoff",
-      "swimlane": "Security Audit",
-      "due_date": "2026-03-08",
-      "weight": 4,
-      "labels": [
-        "On Track"
-      ],
-      "checklist": [
-        {
-          "text": "Scope document signed by both parties",
-          "is_checked": true
-        },
-        {
-          "text": "Whitelist CrowdStrike IP ranges",
-          "is_checked": true
-        },
-        {
-          "text": "Pen test start date confirmed: 2026-03-17",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Pen test started on schedule.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "CrowdStrike engagement: active pen testing",
-      "description": "Active pen test running 2026-03-17 to 2026-03-21.\n\nDaily check-ins with CrowdStrike lead. Monitor production logs for anomalies during test window.\n\nAll findings will be reported in the final report.",
-      "priority": "high",
-      "column": "Execution",
-      "swimlane": "Security Audit",
-      "due_date": "2026-03-29",
-      "weight": 4,
-      "labels": [
-        "On Track"
-      ],
-      "checklist": [
-        {
-          "text": "Daily stand-up with CrowdStrike",
-          "is_checked": true
-        },
-        {
-          "text": "Monitor prod logs for anomalies",
-          "is_checked": true
-        },
-        {
-          "text": "Receive preliminary findings",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Day 3: 2 medium findings flagged so far. No criticals.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Remediate 3 HIGH severity findings",
-      "description": "CrowdStrike report delivered. 3 HIGH findings to remediate:\n\n1. **Insecure Direct Object Reference** on `/api/cards/{id}/` — no ownership check\n2. **Missing rate limiting** on password reset endpoint\n3. **Verbose error messages** leaking stack traces in 500 responses\n\nAll 3 must be remediated before SOC 2 evidence collection.",
-      "priority": "urgent",
-      "column": "Execution",
-      "swimlane": "Security Audit",
-      "due_date": "2026-03-14",
-      "weight": 5,
-      "labels": [
-        "Blocked",
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "Fix IDOR: add board membership check on card endpoint",
-          "is_checked": true
-        },
-        {
-          "text": "Add rate limiting to password reset",
-          "is_checked": false
-        },
-        {
-          "text": "Strip stack traces from 500 responses",
-          "is_checked": false
-        },
-        {
-          "text": "Retest with CrowdStrike to confirm fixes",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "IDOR fix deployed. Rate limiting and stack traces in progress.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "SOC 2 evidence collection — Q1 2026",
-      "description": "Collect evidence for the following SOC 2 Type II controls:\n\n- CC6.1: Logical access controls\n- CC7.2: Security incident procedures\n- CC8.1: Change management\n- A1.1: Availability commitments\n\nEvidence period: 2026-01-01 to 2026-03-31.",
-      "priority": "high",
-      "column": "Milestone Review",
-      "swimlane": "Security Audit",
-      "due_date": "2026-04-05",
-      "weight": 4,
-      "labels": [
-        "External Dependency",
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "CC6.1: export access review logs",
-          "is_checked": true
-        },
-        {
-          "text": "CC7.2: document incident response runbook",
-          "is_checked": false
-        },
-        {
-          "text": "CC8.1: export MR audit trail from GitLab",
-          "is_checked": false
-        },
-        {
-          "text": "A1.1: export uptime data from PagerDuty",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Audit report delivered to leadership",
-      "description": "CrowdStrike delivered the final pen test report. All 3 HIGH findings confirmed remediated.\n\nReport summary shared with CEO, CTO, and Board of Directors.\n\nNext audit: Q1 2027.",
-      "priority": "medium",
-      "column": "Wrap-up",
-      "swimlane": "Security Audit",
-      "due_date": null,
-      "weight": 3,
-      "labels": [
-        "On Track"
-      ],
-      "checklist": [
-        {
-          "text": "Receive final report from CrowdStrike",
-          "is_checked": true
-        },
-        {
-          "text": "Share executive summary with leadership",
-          "is_checked": true
-        },
-        {
-          "text": "File report in compliance system",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Report filed. No open findings. Clean bill of health.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Network topology design for AWS VPC",
-      "description": "Design the AWS VPC network topology:\n\n- 3 AZs for high availability\n- Private subnets for app servers and RDS\n- Public subnets for load balancers only\n- VPN gateway for on-prem connectivity during migration\n\nReview with network team before provisioning.",
-      "priority": "high",
-      "column": "Planning",
-      "swimlane": "Data Center Move",
-      "due_date": "2026-03-29",
       "weight": 5,
       "labels": [
         "On Track"
       ],
       "checklist": [
         {
-          "text": "Draft VPC architecture diagram",
+          "text": "Enumerate all user-owned tables",
           "is_checked": true
         },
         {
-          "text": "Security group rules reviewed",
-          "is_checked": false
+          "text": "Implement cascading deletion logic",
+          "is_checked": true
         },
         {
-          "text": "Network team sign-off",
-          "is_checked": false
+          "text": "Write unit tests covering all table deletes",
+          "is_checked": true
         },
         {
-          "text": "Provision VPC in AWS",
-          "is_checked": false
+          "text": "Legal review of deletion coverage",
+          "is_checked": true
+        },
+        {
+          "text": "Deploy to production",
+          "is_checked": true
         }
       ],
       "comments": [
         {
-          "body": "Architecture diagram ready for review.",
+          "body": "Deployed. Legal confirmed full coverage. Retro scheduled.",
           "author": "demo1"
         }
-      ]
-    },
-    {
-      "title": "Live migration weekend: zero-downtime cutover",
-      "description": "Zero-downtime cutover plan:\n\n1. Enable active-active mode (traffic to both co-lo and AWS)\n2. Drain co-lo gradually (10% → 50% → 100% AWS)\n3. Monitor error rate at each step — abort if > 0.5%\n4. Decommission co-lo load balancer after 48h stability\n\nMigration weekend: 2026-08-15.",
-      "priority": "urgent",
-      "column": "Planning",
-      "swimlane": "Data Center Move",
-      "due_date": "2026-06-13",
-      "weight": 5,
-      "labels": [
-        "Milestone"
       ],
-      "checklist": [
+      "movements": [
         {
-          "text": "Active-active mode tested",
-          "is_checked": false
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
-          "text": "Runbook written and reviewed",
-          "is_checked": false
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
-          "text": "All stakeholders notified of migration weekend",
-          "is_checked": false
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
-          "text": "On-call rota confirmed for migration weekend",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Hardware decommission: racks 14–22",
-      "description": "After migration, decommission racks 14–22 in the legacy co-lo:\n\n- Wipe all disks (DoD 5220.22-M standard)\n- Return leased hardware to vendor\n- Cancel co-lo contract (30-day notice required)\n\nEstimated savings: $8,400/month.",
-      "priority": "high",
-      "column": "Kickoff",
-      "swimlane": "Data Center Move",
-      "due_date": "2026-04-14",
-      "weight": 5,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Confirm all services off legacy hardware",
-          "is_checked": false
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
-          "text": "Wipe disks (certified)",
-          "is_checked": false
+          "from_column": "Milestone Review",
+          "to_column": "Wrap-up",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
-          "text": "Return hardware to vendor",
-          "is_checked": false
-        },
-        {
-          "text": "Send 30-day co-lo contract notice",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Application dependency mapping",
-      "description": "Map all 38 applications and their dependencies before migration:\n\n- Which apps talk to each other?\n- Which apps have hard-coded IP addresses (need updating)?\n- Which apps have co-lo-specific config?\n\nUse network traffic analysis + manual interviews with app owners.",
-      "priority": "medium",
-      "column": "Execution",
-      "swimlane": "Data Center Move",
-      "due_date": "2026-03-07",
-      "weight": 4,
-      "labels": [
-        "Blocked"
-      ],
-      "checklist": [
-        {
-          "text": "Network traffic analysis (5-day capture)",
-          "is_checked": true
-        },
-        {
-          "text": "Interview app owners for 20 critical apps",
-          "is_checked": true
-        },
-        {
-          "text": "Document dependency map",
-          "is_checked": false
-        },
-        {
-          "text": "Identify hard-coded IPs to update",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "OVERDUE: 3 app owners unavailable. Blocked on Finance apps.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Failover test: production traffic to DR site",
-      "description": "Simulate a primary site failure and verify that:\n\n1. Traffic fails over to the AWS DR site within 60 seconds\n2. All data is consistent (RDS read replica is current)\n3. Recovery time objective (RTO) < 5 minutes is met\n\nSchedule maintenance window: Sunday 02:00–04:00 PT.",
-      "priority": "urgent",
-      "column": "Milestone Review",
-      "swimlane": "Data Center Move",
-      "due_date": "2026-03-22",
-      "weight": 5,
-      "labels": [
-        "Milestone"
-      ],
-      "checklist": [
-        {
-          "text": "Set up AWS DR environment",
-          "is_checked": true
-        },
-        {
-          "text": "Configure Route 53 health checks",
-          "is_checked": true
-        },
-        {
-          "text": "Run failover test in maintenance window",
-          "is_checked": false
-        },
-        {
-          "text": "Document actual RTO achieved",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "DR environment ready. Test scheduled for Sunday.",
-          "author": "demo1"
+          "from_column": "Wrap-up",
+          "to_column": "Retro",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     }

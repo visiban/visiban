@@ -1,0 +1,818 @@
+{
+  "name": "Template: Legal & Compliance",
+  "description": "Track compliance requests and approvals per department. Each swimlane is a department; each card is a compliance request or review.",
+  "columns": [
+    {
+      "name": "Submitted",
+      "position": 0,
+      "color": "#6B7280",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Under Review",
+      "position": 1,
+      "color": "#3B82F6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Needs Clarification",
+      "position": 2,
+      "color": "#F97316",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Approved",
+      "position": 3,
+      "color": "#10B981",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Denied",
+      "position": 4,
+      "color": "#EF4444",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Archived",
+      "position": 5,
+      "color": "#9CA3AF",
+      "wip_limit": null,
+      "allow_card_creation": false
+    }
+  ],
+  "swimlanes": [
+    {
+      "name": "Engineering",
+      "position": 0,
+      "color": "#3B82F6",
+      "contact_email": "legal@internal.example",
+      "notes": "Infra, security, and product engineering compliance requests."
+    },
+    {
+      "name": "Finance",
+      "position": 1,
+      "color": "#F59E0B",
+      "contact_email": "legal@internal.example",
+      "notes": "Contract reviews, financial compliance, and vendor agreements."
+    },
+    {
+      "name": "HR & People",
+      "position": 2,
+      "color": "#10B981",
+      "contact_email": "legal@internal.example",
+      "notes": "Employment law, policy reviews, and people compliance."
+    },
+    {
+      "name": "Sales & Customer Contracts",
+      "position": 3,
+      "color": "#8B5CF6",
+      "contact_email": "legal@internal.example",
+      "notes": "Enterprise contract reviews, NDA requests, and DPA processing."
+    },
+    {
+      "name": "Product & Engineering Policy",
+      "position": 4,
+      "color": "#EC4899",
+      "contact_email": "legal@internal.example",
+      "notes": "OSS license reviews, open-source contribution policy, IP assignments."
+    }
+  ],
+  "labels": [
+    {
+      "name": "GDPR",
+      "color": "#3B82F6"
+    },
+    {
+      "name": "SOC 2",
+      "color": "#8B5CF6"
+    },
+    {
+      "name": "Contract",
+      "color": "#F59E0B"
+    },
+    {
+      "name": "Policy",
+      "color": "#10B981"
+    },
+    {
+      "name": "Vendor",
+      "color": "#F97316"
+    }
+  ],
+  "cards": [
+    {
+      "title": "New AWS vendor agreement — DPA review",
+      "description": "AWS updated its Data Processing Addendum. Legal must review against current GDPR obligations.\n\nDeadline: 2026-04-15 (AWS contract renewal date).",
+      "priority": "high",
+      "column": "Under Review",
+      "swimlane": "Engineering",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [
+        "GDPR",
+        "Vendor"
+      ],
+      "checklist": [
+        {
+          "text": "Receive updated DPA from AWS",
+          "is_checked": true
+        },
+        {
+          "text": "Legal review in progress",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "DPA received 2026-03-18. Review started.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Engineering",
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "GDPR data deletion pipeline — legal sign-off",
+      "description": "Request for legal sign-off on the automated GDPR erasure pipeline.\n\nPipeline cascades deletion across boards, cards, comments, activity logs, and exports.\n\nLegal must confirm full coverage before pipeline goes live.",
+      "priority": "urgent",
+      "column": "Approved",
+      "swimlane": "Engineering",
+      "due_date": null,
+      "weight": 5,
+      "labels": [
+        "GDPR",
+        "Policy"
+      ],
+      "checklist": [
+        {
+          "text": "Technical spec submitted to legal",
+          "is_checked": true
+        },
+        {
+          "text": "Legal reviewed data flow diagram",
+          "is_checked": true
+        },
+        {
+          "text": "Sign-off received",
+          "is_checked": true
+        },
+        {
+          "text": "Archived in compliance system",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Legal confirmed full GDPR coverage. Pipeline cleared for production.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Engineering",
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "Engineering",
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Needs Clarification",
+          "to_column": "Approved",
+          "from_swimlane": "Engineering",
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Penetration test scope approval",
+      "description": "Annual pen test scope requires legal review before external firm is granted staging access.\n\nScope: web app, API, WebSocket layer, and auth flows.",
+      "priority": "medium",
+      "column": "Approved",
+      "swimlane": "Engineering",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "SOC 2"
+      ],
+      "checklist": [
+        {
+          "text": "Scope document submitted",
+          "is_checked": true
+        },
+        {
+          "text": "Legal approved",
+          "is_checked": true
+        },
+        {
+          "text": "Archived",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Approved same day. Pen test firm granted access.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Engineering",
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "Engineering",
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Needs Clarification",
+          "to_column": "Approved",
+          "from_swimlane": "Engineering",
+          "to_swimlane": "Engineering",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Customer MSA redline review — TechNova",
+      "description": "TechNova's legal team proposed two redlines on the MSA:\n\n1. Liability cap: 2x ARR (we proposed 1x)\n2. Data deletion SLA: 30 days (we proposed 90 days)\n\nFinance and legal must agree before counter-proposal is sent.",
+      "priority": "urgent",
+      "column": "Needs Clarification",
+      "swimlane": "Finance",
+      "due_date": "2026-03-18",
+      "weight": 5,
+      "labels": [
+        "Contract"
+      ],
+      "checklist": [
+        {
+          "text": "Receive TechNova redlines",
+          "is_checked": true
+        },
+        {
+          "text": "Finance review of liability cap impact",
+          "is_checked": true
+        },
+        {
+          "text": "Engineering confirm 30-day deletion feasibility",
+          "is_checked": false
+        },
+        {
+          "text": "Send counter-proposal",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Finance approved 2x ARR cap. Waiting on engineering for deletion SLA.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Finance",
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Finance",
+          "to_swimlane": "Finance",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "Finance",
+          "to_swimlane": "Finance",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Accounts payable policy update",
+      "description": "Updated AP policy requiring dual approval for any invoice > $10k. Policy change requires legal review and board sign-off.",
+      "priority": "medium",
+      "column": "Approved",
+      "swimlane": "Finance",
+      "due_date": null,
+      "weight": 3,
+      "labels": [
+        "Policy"
+      ],
+      "checklist": [
+        {
+          "text": "Policy draft submitted",
+          "is_checked": true
+        },
+        {
+          "text": "Legal reviewed",
+          "is_checked": true
+        },
+        {
+          "text": "Board sign-off obtained",
+          "is_checked": true
+        },
+        {
+          "text": "Policy published internally",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Board approved 2026-03-12. Publishing to all staff next week.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Finance",
+          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Finance",
+          "to_swimlane": "Finance",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "Finance",
+          "to_swimlane": "Finance",
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Needs Clarification",
+          "to_column": "Approved",
+          "from_swimlane": "Finance",
+          "to_swimlane": "Finance",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Remote work policy — legal review",
+      "description": "Updated remote work policy covering 14 countries. Legal must confirm compliance with each country's employment law.\n\nFocus areas: expense policy, tax nexus, and equipment ownership.",
+      "priority": "high",
+      "column": "Under Review",
+      "swimlane": "HR & People",
+      "due_date": "2026-03-29",
+      "weight": 4,
+      "labels": [
+        "Policy"
+      ],
+      "checklist": [
+        {
+          "text": "HR submitted draft policy",
+          "is_checked": true
+        },
+        {
+          "text": "Legal review: UK and EU",
+          "is_checked": true
+        },
+        {
+          "text": "Legal review: APAC",
+          "is_checked": false
+        },
+        {
+          "text": "Final policy approved",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "UK and EU sections clear. APAC review (Australia + Japan) in progress.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "HR & People",
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Employee data retention policy",
+      "description": "Define and document how long employee records are retained, segmented by record type (payroll, performance, disciplinary).\n\nTriggered by GDPR audit finding.",
+      "priority": "medium",
+      "column": "Archived",
+      "swimlane": "HR & People",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "GDPR",
+        "Policy"
+      ],
+      "checklist": [
+        {
+          "text": "Record types catalogued",
+          "is_checked": true
+        },
+        {
+          "text": "Retention periods defined",
+          "is_checked": true
+        },
+        {
+          "text": "Policy approved and published",
+          "is_checked": true
+        },
+        {
+          "text": "Archived in compliance system",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Policy archived. GDPR audit finding closed.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "HR & People",
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "HR & People",
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Needs Clarification",
+          "to_column": "Approved",
+          "from_swimlane": "HR & People",
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Approved",
+          "to_column": "Denied",
+          "from_swimlane": "HR & People",
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Denied",
+          "to_column": "Archived",
+          "from_swimlane": "HR & People",
+          "to_swimlane": "HR & People",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "HIPAA BAA — BlueSky Health",
+      "description": "BlueSky Health requires a HIPAA Business Associate Agreement before any trial data can be provisioned.\n\nStandard Visiban BAA covers PHI in transit and at rest.",
+      "priority": "urgent",
+      "column": "Needs Clarification",
+      "swimlane": "Sales & Customer Contracts",
+      "due_date": "2026-03-20",
+      "weight": 4,
+      "labels": [
+        "Contract"
+      ],
+      "checklist": [
+        {
+          "text": "BAA sent to BlueSky legal",
+          "is_checked": true
+        },
+        {
+          "text": "BlueSky redlines received",
+          "is_checked": true
+        },
+        {
+          "text": "Legal reviewing redlines",
+          "is_checked": false
+        },
+        {
+          "text": "Execute and file signed BAA",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Two minor redlines received. Legal reviewing now.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Sales & Customer Contracts",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Sales & Customer Contracts",
+          "to_swimlane": "Sales & Customer Contracts",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "Sales & Customer Contracts",
+          "to_swimlane": "Sales & Customer Contracts",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "NDA request — GlobalBank Corp",
+      "description": "GlobalBank requires a mutual NDA before sharing their IT architecture diagrams for the integration scoping call.\n\nStandard mutual NDA template. Turnaround target: 24 hours.",
+      "priority": "high",
+      "column": "Approved",
+      "swimlane": "Sales & Customer Contracts",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Contract"
+      ],
+      "checklist": [
+        {
+          "text": "NDA submitted by account team",
+          "is_checked": true
+        },
+        {
+          "text": "Legal reviewed — standard terms, no issues",
+          "is_checked": true
+        },
+        {
+          "text": "Both parties executed",
+          "is_checked": true
+        },
+        {
+          "text": "Filed in contract management system",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Executed in 18 hours. Filed.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Sales & Customer Contracts",
+          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Sales & Customer Contracts",
+          "to_swimlane": "Sales & Customer Contracts",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "Sales & Customer Contracts",
+          "to_swimlane": "Sales & Customer Contracts",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Needs Clarification",
+          "to_column": "Approved",
+          "from_swimlane": "Sales & Customer Contracts",
+          "to_swimlane": "Sales & Customer Contracts",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Apache 2.0 vs ELv2 boundary review",
+      "description": "Annual review of the OSS/enterprise license boundary. Confirm all files in enterprise/ have ELv2 headers and no Apache 2.0 code has been inadvertently mixed in.",
+      "priority": "high",
+      "column": "Under Review",
+      "swimlane": "Product & Engineering Policy",
+      "due_date": "2026-03-27",
+      "weight": 3,
+      "labels": [
+        "Policy"
+      ],
+      "checklist": [
+        {
+          "text": "Automated license header scan run",
+          "is_checked": true
+        },
+        {
+          "text": "Manual review of enterprise/ directory",
+          "is_checked": false
+        },
+        {
+          "text": "Any mixed-license files corrected",
+          "is_checked": false
+        },
+        {
+          "text": "Legal sign-off on clean state",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Automated scan: 3 files flagged. Manual review in progress.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Product & Engineering Policy",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Product & Engineering Policy",
+          "to_swimlane": "Product & Engineering Policy",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "New dependency license review — celery 5.4",
+      "description": "celery 5.4 has been proposed as a dependency. BSD 3-Clause license — confirm compatible with Apache 2.0 distribution.",
+      "priority": "low",
+      "column": "Approved",
+      "swimlane": "Product & Engineering Policy",
+      "due_date": null,
+      "weight": 1,
+      "labels": [
+        "Policy"
+      ],
+      "checklist": [
+        {
+          "text": "License confirmed: BSD 3-Clause",
+          "is_checked": true
+        },
+        {
+          "text": "Compatible with Apache 2.0 — approved",
+          "is_checked": true
+        },
+        {
+          "text": "Archived",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Approved. BSD 3-Clause is compatible with Apache 2.0.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Submitted",
+          "from_swimlane": null,
+          "to_swimlane": "Product & Engineering Policy",
+          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Submitted",
+          "to_column": "Under Review",
+          "from_swimlane": "Product & Engineering Policy",
+          "to_swimlane": "Product & Engineering Policy",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Under Review",
+          "to_column": "Needs Clarification",
+          "from_swimlane": "Product & Engineering Policy",
+          "to_swimlane": "Product & Engineering Policy",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Needs Clarification",
+          "to_column": "Approved",
+          "from_swimlane": "Product & Engineering Policy",
+          "to_swimlane": "Product & Engineering Policy",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    }
+  ]
+}

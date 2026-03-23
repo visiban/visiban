@@ -11,6 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - `seed_template_boards` management command seeds all six board templates (`sales_pipeline`, `customer_support`, `customer_success`, `simple_kanban`, `product_roadmap`, `project_delivery`) with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement history (#254). Seed files are exported to `backend/boards/seed_data/<slug>/seed.{json,csv}`.
+- Four new board templates are available: Content Production, Hiring & Recruiting, Legal & Compliance, and Infrastructure & DevOps — each with domain-specific swimlanes, cards, labels, and column structures
+- Card JSON exports from `seed_template_boards --export` now include a `movements` array per card, enabling imported boards to display realistic History tab data
 
 ### Changed
 
@@ -24,6 +26,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CardItem description no longer expands on hover, eliminating layout shift; a small indicator icon in the metadata row signals that a description exists, and the full description remains accessible in the card detail panel
 - Restored button in the Archived Cards panel changed to the secondary variant to comply with the design system — `text-blue-400` is reserved for active filter and selection states
 - Demo seed export files relocated from `scripts/seed/` to `backend/boards/seed_data/` to co-locate them with the boards app and its management commands; `seed_demo_data --export` and the CI `seed-export-check` job updated accordingly
+- `sales_pipeline` template expanded from 6 to 8 columns: Prospect → Qualified → Discovery → Demo → Proposal Sent → Negotiation → Closed Won → Closed Lost
+- `customer_support` template expanded to 7 columns with a new Escalated stage between In Progress and Resolved
+- `simple_kanban` template expanded from 5 to 7 columns: Backlog → Refined → Sprint Ready → In Dev → In Review → QA/Testing → Done
+- `product_roadmap` template redesigned from 6 to 8 columns: Idea → Validated → Scoped → Prioritized → In Build → Beta → Launched → Monitoring
+- Seed data cards now each represent the primary tracked item for their workflow (deals in sales, tickets in support, accounts in customer success, features in roadmap, candidates in recruiting, etc.) rather than individual sub-tasks
 
 ---
 

@@ -1,19 +1,13 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Admin training session — 2 teams,Onboarding,Acme Corp,high,2026-03-20,3,,demo5,4,2,1,Schedule and deliver two 60-min admin training sessions covering:  - Board setup
-Import historical project data from Trello,Onboarding,Acme Corp,medium,2026-03-25,4,,demo3,4,1,1,Acme has 3 years of project history in Trello they want imported. Estimated: 800
-First board created and team invited,Adoption,Acme Corp,medium,,2,Champion,demo5,2,2,1,Acme Ops team has created their first board and invited all 25 members. Initial 
-45-day QBR — health check,Healthy,Acme Corp,high,2026-04-14,3,"Expansion Opportunity,QBR Needed",demo5,3,0,0,Quarterly Business Review at the 45-day mark.  ## Agenda  1. Usage metrics revie
-Re-engagement call with Lisa Markov,Adoption,Brightfield Energy,high,2026-03-13,3,Champion,demo5,2,1,1,Outcome of intervention call:  - Reorg is complete — 3 new team leads added - Li
-At-risk recovery plan — 30-day milestones,Adoption,Brightfield Energy,high,2026-03-22,4,At Risk,demo5,3,0,0,Documented recovery plan agreed with Lisa Markov:  - Week 1: New team leads onbo
-Usage dropped 40% — intervention needed,Healthy,Brightfield Energy,urgent,2026-03-18,5,At Risk,demo5,4,2,2,Monthly active users fell from 35 to 21 between February and March. No boards cr
-Expansion: 3 additional teams (60 seats),Expansion,Brightfield Energy,medium,2026-04-29,3,Expansion Opportunity,demo1,3,0,0,"Following recovery, Brightfield wants to expand to 3 additional teams. Current: "
-Onboarding complete — all 3 teams active,Adoption,NovaTech Solutions,medium,,2,Champion,demo5,2,2,1,"NovaTech completed onboarding ahead of schedule. All 3 teams (Engineering, Produ"
-Expansion: 3 new teams want access,Expansion,NovaTech Solutions,medium,2026-03-29,3,Expansion Opportunity,demo1,2,1,1,"Inbound request from CTO: Sales, Support, and HR teams want Visiban boards. Curr"
-Renewal — 2-year deal discussion,Renewal,NovaTech Solutions,high,2026-05-14,4,"Expansion Opportunity,Renewal Due",demo1,3,0,0,Current contract expires 2026-09-01. CTO interested in a 2-year deal with the ex
-CISO approval for data residency,Onboarding,Clearwater Bank,urgent,2026-03-22,5,,demo5,3,1,1,Clearwater Bank requires CISO sign-off before any data is entered. Key requireme
-Security questionnaire (47 questions),Onboarding,Clearwater Bank,high,2026-03-10,4,At Risk,demo3,3,2,1,Clearwater InfoSec sent their standard 47-question vendor security form. Deadlin
-Adoption stalled at 30% — new team leads not onboarded,Adoption,Clearwater Bank,high,2026-03-29,4,At Risk,demo5,4,1,1,"3 weeks post-launch, only 15/50 users are active (30%). Root cause: 4 team leads"
-Executive sponsor re-engaged after champion call,Healthy,Clearwater Bank,medium,,3,Champion,demo5,2,1,1,The Head of Digital Banking (executive sponsor) attended the recovery call and i
-Q4 re-engagement campaign,Onboarding,Zephyr Logistics,low,2026-06-13,2,,demo1,3,1,0,Plan outreach to Zephyr for Q4 2026 based on:  1. Improved mobile UX (roadmap it
-Contract not renewed — churn confirmed,Churned,Zephyr Logistics,medium,,2,,demo5,3,3,1,Zephyr Logistics did not renew their contract (expired 2026-02-28). Primary reas
-Exit interview completed,Churned,Zephyr Logistics,low,,1,,demo5,2,2,1,30-min exit interview with IT Manager.  Key feedback: - Onboarding was too long 
+Summit Logistics,Adoption,Americas,high,2026-03-22,3,At Risk,demo1,3,1,1,25-seat SMB account. Month 2 of annual plan.  Low engagement — WAU sitting at 35
+TechNova Inc,Expansion,Americas,high,2026-03-29,5,,demo1,4,2,2,500-seat enterprise account. Onboarding completed ahead of schedule.  ## Health 
+BlueSky Health,Renewal,Americas,urgent,2026-03-12,5,,demo5,3,2,1,200-seat healthcare account. In renewal cycle (2026-05-01).  Healthy engagement 
+FinEdge Ltd,Onboarding,EMEA,high,2026-03-25,4,,demo3,3,1,1,80-seat compliance-focused account. Adopted Visiban for regulatory workflow trac
+Apex Retail Group,Onboarding,EMEA,urgent,2026-03-20,5,,demo5,4,1,1,"300-seat enterprise account, newly signed. Rollout across 200 locations.  Comple"
+Mosaic Creative,Healthy,EMEA,low,2026-04-14,2,,demo3,2,1,1,"30-seat creative agency. 3 months post-close, strong adoption.  WAU: 88%. Using "
+NexGen Fintech JP,Adoption,APAC,high,2026-03-23,4,At Risk,demo4,3,2,1,60-seat Japanese fintech. Churned from previous provider.  Still in early adopti
+DataStream AU,Healthy,APAC,medium,2026-04-05,2,,demo4,2,1,0,45-seat analytics firm. Adopted Visiban for sprint tracking.  Healthy engagement
+GlobalBank Corp,Healthy,Enterprise Accounts,high,2026-03-20,4,,demo1,3,1,1,400-seat banking enterprise. Year 2 of a 3-year agreement.  Renewal not at risk 
+PharmaCo Ltd,Expansion,Enterprise Accounts,medium,2026-04-04,3,,demo2,2,1,1,350-seat pharma enterprise. Clinical and regulatory teams on separate boards.  E
+GreenLeaf Agency,Healthy,Mid-Market,low,2026-04-29,1,,demo5,1,0,0,"50-seat digital marketing agency. Strong adoption, all teams active.  Renewal in"
+Ironclad Manufacturing,Churned,Mid-Market,urgent,,4,At Risk,demo5,3,2,1,80-seat industrial firm. Low product adoption — WAU at 22%.  Risk: renewal in 60

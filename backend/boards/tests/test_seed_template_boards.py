@@ -41,7 +41,8 @@ class SeedStructureTests(TestCase):
         self.board = Board.objects.get(name="Template: Sales Pipeline")
 
     def test_correct_column_count(self):
-        self.assertEqual(self.board.columns.count(), 6)
+        # sales_pipeline v2 has 8 columns (added Discovery and Demo stages)
+        self.assertEqual(self.board.columns.count(), 8)
 
     def test_column_names_and_order(self):
         names = list(
@@ -49,7 +50,10 @@ class SeedStructureTests(TestCase):
         )
         self.assertEqual(
             names,
-            ["Lead", "Qualified", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"],
+            [
+                "Prospect", "Qualified", "Discovery", "Demo",
+                "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost",
+            ],
         )
 
     def test_swimlane_count(self):
@@ -60,8 +64,7 @@ class SeedStructureTests(TestCase):
         self.assertEqual(names, {"Enterprise", "SMB", "Strategic", "Renewal"})
 
     def test_cards_created(self):
-        # sales_pipeline has 20 cards across 5 swimlanes
-        self.assertGreaterEqual(self.board.cards.count(), 15)
+        self.assertGreaterEqual(self.board.cards.count(), 10)
 
     def test_board_owner_is_admin_member(self):
         membership = self.board.memberships.get(user=self.board.owner)
@@ -280,7 +283,7 @@ class SeedIdempotencyTests(TestCase):
 
 @override_settings(DEBUG=True)
 class SeedAllTemplatesTests(TestCase):
-    def test_seeds_all_six_templates(self):
+    def test_seeds_all_ten_templates(self):
         _seed("all")
         for slug in VALID_SLUGS:
             board_name = TEMPLATE_DATA[slug]["board_name"]
@@ -372,7 +375,10 @@ class SeedExportTests(TestCase):
         card_qs = (
             board.cards
             .select_related("column", "swimlane", "assignee")
-            .prefetch_related("labels", "checklist_items", "comments__author")
+            .prefetch_related(
+                "labels", "checklist_items", "comments__author",
+                "movements__moved_by",
+            )
         )
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -389,7 +395,8 @@ class SeedExportTests(TestCase):
 
         for key in ("name", "columns", "swimlanes", "labels", "cards"):
             self.assertIn(key, data)
-        self.assertEqual(len(data["columns"]), 6)
+        # sales_pipeline v2: 8 columns, 5 swimlanes, 4 labels
+        self.assertEqual(len(data["columns"]), 8)
         self.assertEqual(len(data["swimlanes"]), 5)
         self.assertEqual(len(data["labels"]), 4)
 

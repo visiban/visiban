@@ -1,20 +1,14 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-SSO login fails for new users after v1.2 deploy,Triaged,Globex Corp,high,2026-03-17,4,"Integration,P2 High",demo3,3,1,1,New users provisioned via SAML after the v1.2 deploy cannot log in. Existing use
-API returns 500 on bulk card export,Investigating,Globex Corp,urgent,2026-03-14,5,P1 Critical,demo3,4,2,2,## Reported  POST `/api/boards/{id}/export/` returns HTTP 500 when the board has
-Board load time regression after v1.2,Investigating,Globex Corp,high,2026-03-12,4,P2 High,demo4,4,1,1,Large boards (800+ cards) are taking 4–6 s to load since v1.2. Previous baseline
-Webhooks not firing on card moves,Awaiting Customer,Globex Corp,medium,2026-03-20,3,"Integration,P2 High",demo2,3,2,2,Globex has a Zapier integration that listens for `card.moved` webhook events. Si
-Feature request: CSV export include archived cards,Resolved,Globex Corp,low,,2,P3 Normal,demo1,2,2,1,Customer requests that the CSV export include archived cards with an `is_archive
-Permission error when creating swimlanes,Triaged,Pinnacle Media,high,2026-03-16,3,P2 High,demo3,3,1,1,"Board members with Member role get a 403 when trying to add a swimlane, even tho"
-Labels not persisting on card edit,Investigating,Pinnacle Media,medium,2026-03-10,3,P2 High,demo2,2,1,1,"When a card is edited and saved, labels are cleared. The UI shows them momentari"
-Email notifications for @mentions not delivered,Awaiting Customer,Pinnacle Media,high,2026-03-22,4,P2 High,demo5,3,2,2,Users are not receiving email notifications when @mentioned in card comments. In
-Resolved: browser cache causing stale board state,Closed,Pinnacle Media,low,,1,P3 Normal,demo1,3,3,1,Customer reported boards showing cards in wrong columns. Root cause: browser cac
-Board export missing checklist data,Triaged,Orion Software,medium,2026-03-18,3,P3 Normal,demo2,3,0,1,CSV and JSON exports do not include checklist items. The API response includes t
-SAML assertion fails intermittently (1 in 20 logins),Investigating,Orion Software,urgent,2026-03-13,5,"Integration,P1 Critical",demo3,3,1,1,"~5% of SAML logins fail with `InResponseTo mismatch`. Affects all users, not jus"
-WIP limit not enforced when dragging from archived view,Resolved,Orion Software,medium,,2,P3 Normal,demo4,3,3,1,Cards restored from the archived panel bypass WIP limit checks and are placed in
-Compliance audit — provide access logs for Q1,Triaged,Vertex Trading,high,2026-03-25,5,P2 High,demo5,4,1,1,Vertex requires a full access log export for Q1 2026 for their internal complian
-Historical card movements not visible in History tab,Investigating,Vertex Trading,medium,2026-03-11,3,P3 Normal,demo1,2,1,1,Cards moved before 2026-01-01 show no movement history. The History tab displays
-"Data export times out on board with 2,000+ cards",Awaiting Customer,Vertex Trading,high,2026-03-29,4,P2 High,demo4,3,1,1,The JSON export endpoint times out (30s Nginx limit) for their largest board. Th
-Resolved: increased Nginx timeout for large exports,Closed,Vertex Trading,low,,1,P3 Normal,demo1,3,3,1,Interim resolution applied: Nginx proxy timeout increased from 30s to 120s for t
-Onboarding: how to bulk-import cards from CSV?,New,Cascade Dynamics,low,,2,P3 Normal,demo5,2,0,0,New customer asking about the bulk import feature. They have 300 cards in a spre
-Mobile: cards overlap on small screens (< 375px),Triaged,Cascade Dynamics,medium,2026-03-20,3,P3 Normal,demo2,2,1,1,"On iPhone SE (375px wide), cards in the board view overflow and overlap adjacent"
-Drag handle unresponsive in Firefox 124,Investigating,Cascade Dynamics,medium,2026-03-07,3,P2 High,demo3,3,1,1,Card drag-and-drop stops working after the first successful drop in Firefox 124.
+Column WIP limit not enforcing for board admins,Triaged,TechNova Inc,medium,2026-03-20,3,Bug,demo4,2,1,0,Board admins can drag cards into WIP-limited columns beyond the limit. Members (
+Board loads blank after login on Firefox 124,Investigating,TechNova Inc,high,2026-03-16,4,Bug,demo2,4,2,1,Reported by 3 users. Board appears empty immediately after login on Firefox 124.
+CSV export returns 500 for boards with 500+ cards,Escalated,TechNova Inc,urgent,2026-03-14,5,"Bug,Performance",demo3,4,3,2,TechNova's largest board has 620 cards. CSV export times out and returns HTTP 50
+Card drag-drop broken on iOS Safari,Awaiting Customer,Apex Retail Group,high,2026-03-17,4,Bug,demo2,4,3,1,Store managers using iPads cannot drag cards between columns. The drag starts bu
+Email notifications delayed by 2+ hours,Resolved,Apex Retail Group,medium,,2,Bug,demo5,3,3,1,Apex staff report card assignment notifications arrive hours late. Checked our q
+Board invite link returns 404,Closed,Apex Retail Group,medium,,1,Bug,demo1,3,3,1,Apex is inviting new store managers via board share links. Half the links are re
+Webhook events arriving out of order,Awaiting Customer,FinEdge Ltd,high,2026-03-22,4,Bug,demo4,3,1,1,FinEdge's automation pipeline receives card move events out of sequence. Their c
+2FA not triggering on new device login,Escalated,FinEdge Ltd,urgent,2026-03-13,5,"Bug,Security",demo3,5,3,2,FinEdge reports that 2FA challenges are not appearing when users log in from a n
+Card comments missing after board migration,Triaged,BlueSky Health,high,2026-03-18,3,Bug,demo2,3,1,1,BlueSky migrated boards from their old instance. Card comments imported but are 
+Board member cannot see swimlane after role change,Investigating,BlueSky Health,medium,2026-03-19,2,Bug,demo1,2,1,1,A user promoted from Member to Admin lost visibility of one swimlane. Logging ou
+Label colors not saving on Safari 17,New,Mosaic Creative,medium,2026-03-22,2,Bug,demo4,1,0,0,Users on Safari 17 report that custom label colors revert to default on page rel
+Due date filter returning no results,Resolved,Mosaic Creative,medium,,2,Bug,demo5,3,3,1,The due date filter on the board view returns 0 cards even when cards have due d
+Request: bulk card archive,Closed,Mosaic Creative,low,,1,Feature Request,demo1,2,1,1,Mosaic wants to archive all cards in a column at once at campaign end. Currently

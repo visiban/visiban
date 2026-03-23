@@ -1,21 +1,15 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Intro call with VP Engineering,Qualified,TechNova Inc,high,2026-03-22,5,Enterprise,demo1,3,2,2,## Goal  Establish rapport and identify pain points with current project trackin
-Product demo: board visualization,Proposal Sent,TechNova Inc,medium,2026-03-12,3,"Enterprise,Strategic",demo2,3,2,2,Run the standard board demo tailored to engineering use case. Focus on swimlane-
-Security review questionnaire,Negotiation,TechNova Inc,high,2026-03-29,4,Enterprise,demo3,4,2,1,TechNova InfoSec requires a completed vendor security questionnaire before legal
-Legal review of MSA,Negotiation,TechNova Inc,urgent,2026-03-20,5,"Enterprise,Strategic",demo1,4,1,2,Master Service Agreement sent to TechNova legal on 2026-03-10. Their counsel req
-"Confirm pilot program (50 seats, 90 days)",Closed Won,TechNova Inc,medium,,2,"Enterprise,Strategic",demo5,3,3,1,TechNova signed. Pilot starts 2026-04-01 with the Platform Engineering team (50 
-Cold outreach — CISO intro,Lead,BlueRidge Financial,low,,2,Enterprise,demo1,2,1,0,Initial outreach via LinkedIn to CISO Sarah Ng. Referenced their recent SOC 2 ce
-Discovery call completed,Qualified,BlueRidge Financial,medium,2026-03-25,3,Enterprise,demo2,2,1,1,30-min call with CISO and IT Director. Pain: current spreadsheet tracking breaks
-Compliance questionnaire review,Proposal Sent,BlueRidge Financial,high,2026-03-08,5,Enterprise,demo3,4,2,2,"BlueRidge sent a 47-page compliance questionnaire. Sections covering PCI-DSS, GD"
-Negotiate SLA terms,Negotiation,BlueRidge Financial,high,2026-03-18,4,"Enterprise,Strategic",demo1,3,1,1,BlueRidge requires 99.95% uptime SLA with financial penalties. Current standard 
-Q3 seasonal pitch deck,Qualified,Apex Retail,medium,2026-03-30,3,SMB,demo2,3,1,0,Prepare a retail-focused pitch showing how Visiban tracks seasonal campaigns and
-Proposal for 50 seats,Proposal Sent,Apex Retail,high,2026-03-13,4,SMB,demo1,3,2,1,Formal proposal sent 2026-03-12. Includes:  - 50 seats @ standard SMB pricing - 
-Deal lost — budget frozen until Q4,Closed Lost,Apex Retail,low,,1,SMB,demo1,2,2,1,Apex Retail CTO confirmed budget freeze effective immediately. Revisit in Q4 (Oc
-Identify champion at Meridian,Lead,Meridian Health,medium,2026-04-04,2,Enterprise,demo1,2,1,0,Need an internal champion with authority to push the deal. Current contact (IT D
-HIPAA Business Associate Agreement,Proposal Sent,Meridian Health,urgent,2026-03-22,5,Enterprise,demo3,3,1,1,Meridian requires a signed HIPAA BAA before any data can be shared or a trial pr
-Pilot: 10 seats for 90 days,Negotiation,Meridian Health,high,2026-03-29,4,"Enterprise,Strategic",demo5,3,1,1,Pilot scoped to the Care Coordination team (10 seats). Success metrics:  - All a
-Contract signed — 200 seats,Closed Won,Meridian Health,medium,,3,"Enterprise,Renewal,Strategic",demo5,3,3,1,Meridian Health signed a 2-year contract for 200 seats. Annual value: $48k. Effe
-Inbound lead — website form,Lead,Summit Logistics,medium,,2,SMB,demo1,2,2,1,Lead submitted via the website contact form. Message: 'Looking for a Trello repl
-Qualification call,Qualified,Summit Logistics,medium,2026-03-14,3,SMB,demo2,2,1,1,15-min discovery call. Confirmed:  - 25 users across 3 ops teams - Budget: ~$5k/
-Pricing discussion,Negotiation,Summit Logistics,high,2026-03-20,4,SMB,demo1,2,1,1,"Summit wants a 10% discount for annual pre-pay. Standard ACV for 25 seats is $3,"
-Closed — 25 seats annual,Closed Won,Summit Logistics,low,,2,"Renewal,SMB",demo5,3,3,1,"Summit Logistics signed for 25 seats on an annual plan. ACV: $2,700. Payment rec"
+Analytics Add-on Upsell,Qualified,TechNova Inc,low,2026-04-14,2,Enterprise,demo1,1,0,0,TechNova data team interested in the analytics module. Current deal is base lice
+Engineering Hub Expansion — 200 Seats,Discovery,TechNova Inc,medium,2026-04-05,4,"Enterprise,Renewal",demo2,2,1,1,Expansion deal targeting the infrastructure and platform teams not included in t
+Platform Migration — 500 Seats,Proposal Sent,TechNova Inc,high,2026-03-29,5,"Enterprise,Strategic",demo1,3,2,2,Opportunity to displace Jira across all engineering teams. Champion is the VP En
+Seasonal Campaign Tracker Pilot,Qualified,Apex Retail Group,medium,2026-04-04,3,SMB,demo1,2,1,0,"Pilot for the marketing team tracking seasonal campaign tasks. 10 seats, 60 days"
+Operations Board Rollout — 200 Locations,Demo,Apex Retail Group,high,2026-03-25,4,"SMB,Strategic",demo2,3,2,1,Each retail location tracks their own ops tasks on a shared board. Swimlane-per-
+Full Org Rollout — 300 Seats,Negotiation,Apex Retail Group,urgent,2026-03-20,5,"Renewal,SMB,Strategic",demo1,4,2,2,"Following successful pilot, Apex wants to roll out to all ops, marketing, and lo"
+Compliance Workflow License — 80 Seats,Discovery,FinEdge Ltd,high,2026-03-27,4,Enterprise,demo3,3,1,1,FinEdge tracks regulatory submissions and internal audit cycles. Primary use cas
+Engineering Team Add-on — 40 Seats,Proposal Sent,FinEdge Ltd,medium,2026-03-23,3,Enterprise,demo2,2,1,1,"After closing the compliance deal, the engineering team wants to adopt Visiban f"
+Risk Dashboard Integration — Lost,Closed Lost,FinEdge Ltd,low,,1,Enterprise,demo3,2,2,1,FinEdge wanted native integration with their risk management platform. We could 
+Clinical Project Tracking — Initial Outreach,Prospect,BlueSky Health,medium,2026-04-09,2,Enterprise,demo1,2,1,0,Inbound inquiry from IT Director. Interested in tracking clinical IT projects ac
+IT Operations Board — 50 Seats,Qualified,BlueSky Health,medium,2026-04-02,3,"Enterprise,Strategic",demo1,2,1,1,Opportunity with the IT ops team tracking infrastructure changes. Separate from 
+Enterprise Renewal — 200 Seats,Negotiation,BlueSky Health,urgent,2026-03-10,5,"Enterprise,Renewal,Strategic",demo5,3,2,2,Annual renewal coming up for existing 200-seat enterprise contract. Opportunity 
+Content Calendar Boards — 30 Seats,Discovery,Mosaic Creative,medium,2026-03-22,3,SMB,demo2,3,2,1,Mosaic tracks every client content campaign on shared boards. Use case: one swim
+Campaign Sprint Boards — Closed Won,Closed Won,Mosaic Creative,low,,2,"Renewal,SMB",demo5,3,3,1,Mosaic signed for 30 seats on a monthly plan. Primary use: campaign sprint board

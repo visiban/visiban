@@ -1,0 +1,12 @@
+title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
+Add circuit breaker for downstream DB connections,Triaged,API Gateway,high,2026-04-05,4,Change,demo4,3,1,0,"During last month's DB failover, the API gateway continued routing traffic, caus"
+Upgrade Kong from 3.1 to 3.6,In Progress,API Gateway,high,2026-03-29,4,"Change,P2 - Medium",demo4,4,2,1,Kong 3.1 reaches end of life 2026-05-01. Upgrade to 3.6 for security patches and
+Rate limit bypass on /api/export/ endpoint,Change Window,API Gateway,urgent,2026-03-16,5,"P1 - High,Security",demo3,5,4,1,Reported by security scan: the /api/export/ endpoint bypasses the standard rate 
+Add connection pooling via PgBouncer,Testing,PostgreSQL Cluster,high,2026-03-22,4,"Change,P1 - High",demo3,5,4,1,During peak traffic (Monday mornings) we approach the max_connections limit. Add
+Unplanned failover — primary DB unreachable,Verified,PostgreSQL Cluster,urgent,,5,P0 - Critical,demo1,5,5,2,2026-03-10 01:47 UTC: Primary RDS instance became unreachable. Failover to repli
+Backend test suite taking 18+ minutes,In Progress,CI/CD Pipeline,high,2026-03-25,4,"Change,P1 - High",demo4,4,2,1,The backend test suite grew from 8 min to 18 min over the last quarter. Blocking
+Add SAST scan (Bandit + semgrep) to all MRs,Verified,CI/CD Pipeline,medium,,3,"Change,Security",demo1,4,4,1,Static analysis security scanning is currently optional. Make it a required CI g
+WAL backup verification failure,Assigned,Object Storage (S3),high,2026-03-17,4,P1 - High,demo2,4,2,1,Automated WAL backup verification failed on 3 consecutive days. Backups are uplo
+Enable S3 Intelligent-Tiering for attachment bucket,Verified,Object Storage (S3),low,,2,"Change,P2 - Medium",demo5,3,3,1,Card attachments older than 90 days are rarely accessed. Enable Intelligent-Tier
+Upgrade Kubernetes from 1.28 to 1.30,Reported,Kubernetes Cluster,medium,2026-05-14,4,"Change,P2 - Medium",demo3,4,0,0,EKS 1.28 support ends 2026-11-01. Plan the upgrade path: 1.28 → 1.29 → 1.30 in s
+Node group OOM kill during Monday traffic spike,Deployed,Kubernetes Cluster,urgent,,5,"Change,P0 - Critical",demo4,4,3,1,2026-03-17 08:45 UTC: 2 backend pods OOM-killed during Monday traffic spike.  Ro

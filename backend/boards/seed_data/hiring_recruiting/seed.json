@@ -1,0 +1,925 @@
+{
+  "name": "Template: Hiring & Recruiting",
+  "description": "Track candidates from application through hire or rejection. Each swimlane is an open role; each card is a candidate.",
+  "columns": [
+    {
+      "name": "Applied",
+      "position": 0,
+      "color": "#6B7280",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Phone Screen",
+      "position": 1,
+      "color": "#3B82F6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Technical Screen",
+      "position": 2,
+      "color": "#8B5CF6",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Interview",
+      "position": 3,
+      "color": "#F59E0B",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Reference Check",
+      "position": 4,
+      "color": "#F97316",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Offer Extended",
+      "position": 5,
+      "color": "#EC4899",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Hired",
+      "position": 6,
+      "color": "#10B981",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Rejected",
+      "position": 7,
+      "color": "#9CA3AF",
+      "wip_limit": null,
+      "allow_card_creation": false
+    }
+  ],
+  "swimlanes": [
+    {
+      "name": "Senior Backend Engineer",
+      "position": 0,
+      "color": "#3B82F6",
+      "contact_email": "hiring@internal.example",
+      "notes": "Django + DRF. 5+ yrs. Hiring manager: Alex Rivera. Target: hire by 2026-05-01."
+    },
+    {
+      "name": "Product Designer (Senior)",
+      "position": 1,
+      "color": "#EC4899",
+      "contact_email": "hiring@internal.example",
+      "notes": "Figma, design systems, user research. Hiring manager: Casey Osei. Urgent fill."
+    },
+    {
+      "name": "Customer Success Manager",
+      "position": 2,
+      "color": "#10B981",
+      "contact_email": "hiring@internal.example",
+      "notes": "B2B SaaS CS experience required. EMEA coverage preferred."
+    },
+    {
+      "name": "DevOps Engineer",
+      "position": 3,
+      "color": "#14B8A6",
+      "contact_email": "hiring@internal.example",
+      "notes": "Kubernetes, Terraform, AWS. Ideally 4+ yrs. Hiring manager: Morgan Wu."
+    },
+    {
+      "name": "Head of Marketing",
+      "position": 4,
+      "color": "#F97316",
+      "contact_email": "hiring@internal.example",
+      "notes": "VP-level. B2B SaaS growth marketing. Reports to CEO. Confidential search."
+    }
+  ],
+  "labels": [
+    {
+      "name": "Strong Yes",
+      "color": "#10B981"
+    },
+    {
+      "name": "Yes",
+      "color": "#3B82F6"
+    },
+    {
+      "name": "Maybe",
+      "color": "#F59E0B"
+    },
+    {
+      "name": "No",
+      "color": "#EF4444"
+    },
+    {
+      "name": "Referred",
+      "color": "#8B5CF6"
+    }
+  ],
+  "cards": [
+    {
+      "title": "Rachel Torres",
+      "description": "4 years Python, 2 years Django. Previous: Backend Engineer at Summit.\n\nInbound application. Passed initial resume screen.",
+      "priority": "low",
+      "column": "Phone Screen",
+      "swimlane": "Senior Backend Engineer",
+      "due_date": "2026-03-25",
+      "weight": 2,
+      "labels": [
+        "Maybe"
+      ],
+      "checklist": [
+        {
+          "text": "Resume reviewed",
+          "is_checked": true
+        },
+        {
+          "text": "Phone screen scheduled",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Marcus Jeon",
+      "description": "5 years Python. Previous: Backend Lead at DataStream.\n\nApplied via LinkedIn. Strong system design answers in phone screen.",
+      "priority": "medium",
+      "column": "Technical Screen",
+      "swimlane": "Senior Backend Engineer",
+      "due_date": "2026-03-22",
+      "weight": 3,
+      "labels": [
+        "Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen scheduled",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen completed",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Technical screen tomorrow at 2pm. Interviewer: Jordan Patel.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Priya Sharma",
+      "description": "7 years Python/Django. Previous: Staff Engineer at FinEdge.\n\nReferred by Casey Osei. Strong GitHub presence — Django contrib.\n\n**Recruiter note:** Very communicative. Responds within hours.",
+      "priority": "high",
+      "column": "Offer Extended",
+      "swimlane": "Senior Backend Engineer",
+      "due_date": "2026-03-18",
+      "weight": 5,
+      "labels": [
+        "Referred",
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen passed (scored 92/100)",
+          "is_checked": true
+        },
+        {
+          "text": "On-site loop completed",
+          "is_checked": true
+        },
+        {
+          "text": "References called (2/3 complete)",
+          "is_checked": true
+        },
+        {
+          "text": "Offer letter sent",
+          "is_checked": true
+        },
+        {
+          "text": "Awaiting candidate response",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Hiring loop unanimous strong yes. References glowing.",
+          "author": "demo1"
+        },
+        {
+          "body": "Offer sent 2026-03-18. Response deadline 2026-03-25.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-01-12T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-01-29T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Fatima Al-Hassan",
+      "description": "5 years product design. Previous: design systems lead at a B2B SaaS company.\n\nReferred by a Visiban customer. Strong design systems background.",
+      "priority": "high",
+      "column": "Interview",
+      "swimlane": "Product Designer (Senior)",
+      "due_date": "2026-03-20",
+      "weight": 4,
+      "labels": [
+        "Referred",
+        "Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Portfolio review passed",
+          "is_checked": true
+        },
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Design challenge submitted",
+          "is_checked": true
+        },
+        {
+          "text": "Panel interview scheduled",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Design challenge score: 88/100. Strong systems thinking.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Anika Obi",
+      "description": "6 years UX/product design. Previous: Lead Designer at Mosaic Creative.\n\nPortfolio standout: redesigned Mosaic's client dashboard — NPS +18.",
+      "priority": "high",
+      "column": "Hired",
+      "swimlane": "Product Designer (Senior)",
+      "due_date": null,
+      "weight": 5,
+      "labels": [
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Portfolio review passed",
+          "is_checked": true
+        },
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Design challenge submitted and scored (94/100)",
+          "is_checked": true
+        },
+        {
+          "text": "Full panel interview passed",
+          "is_checked": true
+        },
+        {
+          "text": "References clear",
+          "is_checked": true
+        },
+        {
+          "text": "Offer accepted",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Hired! Start date 2026-04-14. Exceptional candidate.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2025-12-28T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-12T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-04T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Offer Extended",
+          "to_column": "Hired",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Leo Bergman",
+      "description": "4 years UX. Previous: mid-level designer at a fintech startup.\n\nGood craft but portfolio lacks systems-level design thinking.",
+      "priority": "low",
+      "column": "Rejected",
+      "swimlane": "Product Designer (Senior)",
+      "due_date": null,
+      "weight": 1,
+      "labels": [
+        "No"
+      ],
+      "checklist": [
+        {
+          "text": "Portfolio review — not moved forward",
+          "is_checked": true
+        },
+        {
+          "text": "Rejection email sent",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Good fundamentals but not at senior level yet. Encourage to apply again in 12 months.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2025-12-21T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-09T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-21T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-04T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Offer Extended",
+          "to_column": "Hired",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Hired",
+          "to_column": "Rejected",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Nour El-Amin",
+      "description": "4 years CS at a B2B SaaS company. Fluent Arabic, French, English.\n\nEMEA-based. Strong renewals track record (98% retention).",
+      "priority": "high",
+      "column": "Reference Check",
+      "swimlane": "Customer Success Manager",
+      "due_date": "2026-03-23",
+      "weight": 4,
+      "labels": [
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Case study interview passed",
+          "is_checked": true
+        },
+        {
+          "text": "Panel interview passed",
+          "is_checked": true
+        },
+        {
+          "text": "Reference check in progress (2/3)",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Panel loved her. Reference check almost done.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "James Okonkwo",
+      "description": "3 years CS at an enterprise software firm. UK-based.\n\nGood phone screen but case study interview was average.",
+      "priority": "low",
+      "column": "Rejected",
+      "swimlane": "Customer Success Manager",
+      "due_date": null,
+      "weight": 1,
+      "labels": [
+        "Maybe"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Case study interview — not progressing",
+          "is_checked": true
+        },
+        {
+          "text": "Rejection sent",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Not strong enough on strategic account planning. Polite rejection sent.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2025-12-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-04T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-11T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-25T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Offer Extended",
+          "to_column": "Hired",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Hired",
+          "to_column": "Rejected",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Sara Lundqvist",
+      "description": "3 years DevOps. Previous: cloud infra engineer.\n\nGood fundamentals but limited Kubernetes experience.",
+      "priority": "low",
+      "column": "Applied",
+      "swimlane": "DevOps Engineer",
+      "due_date": "2026-03-30",
+      "weight": 1,
+      "labels": [
+        "Maybe"
+      ],
+      "checklist": [
+        {
+          "text": "Resume reviewed — moving to phone screen",
+          "is_checked": true
+        },
+        {
+          "text": "Phone screen scheduled",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Kenji Nakamura",
+      "description": "5 years DevOps/SRE. Previous: SRE at a high-traffic API company.\n\nKubernetes CKA certified. Strong incident management background.",
+      "priority": "high",
+      "column": "Technical Screen",
+      "swimlane": "DevOps Engineer",
+      "due_date": "2026-03-21",
+      "weight": 4,
+      "labels": [
+        "Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen: K8s + Terraform — scheduled",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen completed",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Technical screen tomorrow. Strong phone screen.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "DevOps Engineer",
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "DevOps Engineer",
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Diana Ferreira",
+      "description": "VP Marketing at a Series B SaaS company for 3 years. Grew pipeline 4x. Content + demand gen background.\n\nIntroduced via executive search firm. Confidential — do not reference internally.",
+      "priority": "urgent",
+      "column": "Interview",
+      "swimlane": "Head of Marketing",
+      "due_date": "2026-03-22",
+      "weight": 5,
+      "labels": [
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Intro call with CEO",
+          "is_checked": true
+        },
+        {
+          "text": "Exec panel (CEO + CTO + VP CS)",
+          "is_checked": true
+        },
+        {
+          "text": "Presentation: 90-day marketing plan",
+          "is_checked": true
+        },
+        {
+          "text": "Reference check (confidential)",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Exec panel strong consensus. References underway (confidential).",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Head of Marketing",
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Head of Marketing",
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Head of Marketing",
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    }
+  ]
+}

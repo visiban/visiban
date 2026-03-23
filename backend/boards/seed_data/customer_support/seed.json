@@ -1,6 +1,6 @@
 {
   "name": "Template: Customer Support",
-  "description": "Track support tickets from first report through resolution. Each swimlane represents a customer account.",
+  "description": "Track support tickets from first report through resolution. Each swimlane is a customer account; each card is an open ticket.",
   "columns": [
     {
       "name": "New",
@@ -31,15 +31,22 @@
       "allow_card_creation": false
     },
     {
-      "name": "Resolved",
+      "name": "Escalated",
       "position": 4,
+      "color": "#EF4444",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Resolved",
+      "position": 5,
       "color": "#10B981",
       "wip_limit": null,
       "allow_card_creation": false
     },
     {
       "name": "Closed",
-      "position": 5,
+      "position": 6,
       "color": "#9CA3AF",
       "wip_limit": null,
       "allow_card_creation": false
@@ -47,675 +54,943 @@
   ],
   "swimlanes": [
     {
-      "name": "Globex Corp",
+      "name": "TechNova Inc",
       "position": 0,
-      "color": "#EF4444",
-      "contact_email": "support@globex.example",
-      "notes": "Enterprise SLA — 4h response, 24h resolution for P1. Primary contact: IT Director."
+      "color": "#3B82F6",
+      "contact_email": "support@technova.example",
+      "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1."
     },
     {
-      "name": "Pinnacle Media",
+      "name": "Apex Retail Group",
       "position": 1,
-      "color": "#F97316",
-      "contact_email": "helpdesk@pinnaclemedia.example",
-      "notes": "Mid-market. Standard SLA. Primary contact: Project Manager."
+      "color": "#F59E0B",
+      "contact_email": "support@apexretail.example",
+      "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager."
     },
     {
-      "name": "Orion Software",
+      "name": "FinEdge Ltd",
       "position": 2,
       "color": "#8B5CF6",
-      "contact_email": "ops@orionsoftware.example",
-      "notes": "Technical team — prefers async communication. Escalate P1s to Slack #orion-support."
+      "contact_email": "support@finedge.example",
+      "notes": "Compliance-sensitive. All support comms may be audited. Use formal language."
     },
     {
-      "name": "Vertex Trading",
+      "name": "BlueSky Health",
       "position": 3,
-      "color": "#0891B2",
-      "contact_email": "compliance@vertextrading.example",
-      "notes": "Financial sector — strict data residency. All data must stay in EU region."
+      "color": "#10B981",
+      "contact_email": "support@blueskyhealth.example",
+      "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal."
     },
     {
-      "name": "Cascade Dynamics",
+      "name": "Mosaic Creative",
       "position": 4,
-      "color": "#10B981",
-      "contact_email": "it@cascadedynamics.example",
-      "notes": "New customer — onboarded 2026-02-15. Mostly onboarding questions so far."
+      "color": "#EC4899",
+      "contact_email": "support@mosaiccreative.example",
+      "notes": "SMB tier. Self-serve. Generally quick to resolve — low SLA pressure."
     }
   ],
   "labels": [
     {
-      "name": "P1 Critical",
+      "name": "Bug",
       "color": "#EF4444"
     },
     {
-      "name": "P2 High",
-      "color": "#F97316"
-    },
-    {
-      "name": "P3 Normal",
-      "color": "#3B82F6"
-    },
-    {
-      "name": "Data Loss",
-      "color": "#7C3AED"
-    },
-    {
-      "name": "Integration",
-      "color": "#0891B2"
+      "name": "Feature Request",
+      "color": "#8B5CF6"
     },
     {
       "name": "Billing",
-      "color": "#D97706"
+      "color": "#F59E0B"
+    },
+    {
+      "name": "Security",
+      "color": "#EC4899"
+    },
+    {
+      "name": "Performance",
+      "color": "#14B8A6"
     }
   ],
   "cards": [
     {
-      "title": "SSO login fails for new users after v1.2 deploy",
-      "description": "New users provisioned via SAML after the v1.2 deploy cannot log in. Existing users are unaffected.\n\nError in browser: `Invalid SAML assertion — missing NameID format`\n\nRegression introduced in v1.2 — NameID format handling changed.",
-      "priority": "high",
+      "title": "Column WIP limit not enforcing for board admins",
+      "description": "Board admins can drag cards into WIP-limited columns beyond the limit. Members (non-admins) are blocked correctly.\n\nCustomer reports this defeats the purpose of WIP limits.",
+      "priority": "medium",
       "column": "Triaged",
-      "swimlane": "Globex Corp",
-      "due_date": "2026-03-17",
-      "weight": 4,
+      "swimlane": "TechNova Inc",
+      "due_date": "2026-03-20",
+      "weight": 3,
       "labels": [
-        "Integration",
-        "P2 High"
+        "Bug"
       ],
       "checklist": [
         {
-          "text": "Confirm affected user count",
+          "text": "Confirm behavior in prod",
           "is_checked": true
         },
         {
-          "text": "Check SAML assertion diff between v1.1 and v1.2",
+          "text": "Check permission bypass logic in drag handler",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Board loads blank after login on Firefox 124",
+      "description": "Reported by 3 users. Board appears empty immediately after login on Firefox 124.0. Works on Chrome and Safari.\n\n## Steps to reproduce\n\n1. Log in on Firefox 124\n2. Navigate to any board\n3. Board renders blank — no columns visible\n4. Hard refresh fixes it",
+      "priority": "high",
+      "column": "Investigating",
+      "swimlane": "TechNova Inc",
+      "due_date": "2026-03-16",
+      "weight": 4,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Reproduce locally on Firefox 124",
+          "is_checked": true
+        },
+        {
+          "text": "Check browser console for JS errors",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm fix in staging",
           "is_checked": false
         },
         {
-          "text": "Deploy hotfix",
+          "text": "Deploy patch and notify customer",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Affects ~30 new users provisioned since Monday. Existing users unaffected.",
+          "body": "Reproduced. Root cause: race condition in board hydration on Firefox. Fix in progress.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
     {
-      "title": "API returns 500 on bulk card export",
-      "description": "## Reported\n\nPOST `/api/boards/{id}/export/` returns HTTP 500 when the board has more than 500 cards.\n\n## Steps to reproduce\n\n1. Open board with 600+ cards\n2. Click Export → CSV\n3. Response: `500 Internal Server Error`\n\n## Impact\n\nBlocks weekly reporting for all 12 teams.",
+      "title": "CSV export returns 500 for boards with 500+ cards",
+      "description": "TechNova's largest board has 620 cards. CSV export times out and returns HTTP 500.\n\nSmaller boards (< 200 cards) export fine. Likely a query timeout.",
       "priority": "urgent",
-      "column": "Investigating",
-      "swimlane": "Globex Corp",
+      "column": "Escalated",
+      "swimlane": "TechNova Inc",
       "due_date": "2026-03-14",
       "weight": 5,
       "labels": [
-        "P1 Critical"
+        "Bug",
+        "Performance"
       ],
       "checklist": [
         {
-          "text": "Reproduce in staging",
+          "text": "Reproduce with a 500+ card board",
           "is_checked": true
         },
         {
-          "text": "Identify root cause (query timeout?)",
+          "text": "Profile query — identify N+1",
           "is_checked": true
         },
         {
-          "text": "Deploy fix to production",
-          "is_checked": false
+          "text": "Add select_related and pagination",
+          "is_checked": true
         },
         {
-          "text": "Confirm resolution with customer",
+          "text": "Load test fix before deploying",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Reproduced. The export query times out at 30s — no pagination on that endpoint.",
+          "body": "P1 escalated by account team. Engineering lead assigned.",
           "author": "demo1"
         },
         {
-          "body": "Fix: stream the CSV in chunks. MR open, awaiting review.",
+          "body": "Root cause: N+1 on label fetch. Fix ready — deploying tonight.",
           "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-01-25T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Awaiting Customer",
+          "to_column": "Escalated",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
     {
-      "title": "Board load time regression after v1.2",
-      "description": "Large boards (800+ cards) are taking 4–6 s to load since v1.2. Previous baseline was ~1.5 s.\n\nProfiling points to a new `get_member_roles()` call in `BoardFullSerializer` that runs once per member.",
+      "title": "Card drag-drop broken on iOS Safari",
+      "description": "Store managers using iPads cannot drag cards between columns. The drag starts but the card snaps back on drop.\n\niOS 17.4, Safari. Chrome on iOS works.",
       "priority": "high",
-      "column": "Investigating",
-      "swimlane": "Globex Corp",
-      "due_date": "2026-03-12",
+      "column": "Awaiting Customer",
+      "swimlane": "Apex Retail Group",
+      "due_date": "2026-03-17",
       "weight": 4,
       "labels": [
-        "P2 High"
+        "Bug"
       ],
       "checklist": [
         {
-          "text": "Profile with django-silk on staging",
+          "text": "Reproduce on iOS 17.4 Safari",
           "is_checked": true
         },
         {
-          "text": "Add prefetch_related for member roles",
-          "is_checked": false
+          "text": "Check touch event handling in drag library",
+          "is_checked": true
         },
         {
-          "text": "Benchmark before/after",
-          "is_checked": false
+          "text": "Send workaround to customer (use Chrome iOS)",
+          "is_checked": true
         },
         {
-          "text": "Deploy and confirm with customer",
+          "text": "Ship permanent fix",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Confirmed N+1: 14 extra queries for a 14-member board. Fix is straightforward.",
+          "body": "Workaround sent. Permanent fix tracked in eng backlog — ETA 2 sprints.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
     {
-      "title": "Webhooks not firing on card moves",
-      "description": "Globex has a Zapier integration that listens for `card.moved` webhook events. Since Tuesday, events are not being delivered.\n\nWebhook logs show events queued but not dispatched. Worker appears healthy.",
+      "title": "Email notifications delayed by 2+ hours",
+      "description": "Apex staff report card assignment notifications arrive hours late. Checked our queue — jobs are processing but SMTP relay is slow.\n\nAffecting all email notifications, not just assignments.",
       "priority": "medium",
-      "column": "Awaiting Customer",
-      "swimlane": "Globex Corp",
-      "due_date": "2026-03-20",
-      "weight": 3,
-      "labels": [
-        "Integration",
-        "P2 High"
-      ],
-      "checklist": [
-        {
-          "text": "Check webhook worker logs",
-          "is_checked": true
-        },
-        {
-          "text": "Test webhook delivery in staging",
-          "is_checked": true
-        },
-        {
-          "text": "Send test payload to Globex endpoint",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Worker is running but Redis queue is backed up — unrelated deploy caused slowdown.",
-          "author": "demo1"
-        },
-        {
-          "body": "Awaiting Globex to confirm their endpoint is ready to receive test payload.",
-          "author": "demo2"
-        }
-      ]
-    },
-    {
-      "title": "Feature request: CSV export include archived cards",
-      "description": "Customer requests that the CSV export include archived cards with an `is_archived` column.\n\nCurrently, archived cards are silently excluded from all exports.",
-      "priority": "low",
       "column": "Resolved",
-      "swimlane": "Globex Corp",
+      "swimlane": "Apex Retail Group",
       "due_date": null,
       "weight": 2,
       "labels": [
-        "P3 Normal"
+        "Bug"
       ],
       "checklist": [
         {
-          "text": "Log as feature request in backlog",
+          "text": "Identify delay in SMTP relay logs",
           "is_checked": true
         },
         {
-          "text": "Confirm workaround (restore → export → re-archive)",
+          "text": "Switch to backup relay",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm notifications now timely",
           "is_checked": true
         }
       ],
       "comments": [
         {
-          "body": "Workaround communicated. Feature filed as #287 in backlog.",
+          "body": "Resolved. SMTP relay was throttling. Switched to backup — delays gone.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-01-12T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Awaiting Customer",
+          "to_column": "Escalated",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Escalated",
+          "to_column": "Resolved",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
     {
-      "title": "Permission error when creating swimlanes",
-      "description": "Board members with Member role get a 403 when trying to add a swimlane, even though the board is configured to allow member-level swimlane creation.\n\nRegression: this worked before v1.1.",
-      "priority": "high",
-      "column": "Triaged",
-      "swimlane": "Pinnacle Media",
-      "due_date": "2026-03-16",
-      "weight": 3,
-      "labels": [
-        "P2 High"
-      ],
-      "checklist": [
-        {
-          "text": "Reproduce with member-role test account",
-          "is_checked": true
-        },
-        {
-          "text": "Check permission check in SwimlaneViewSet",
-          "is_checked": false
-        },
-        {
-          "text": "Fix and deploy",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Reproduced. The v1.1 permission refactor accidentally tightened swimlane creation to Admin-only.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Labels not persisting on card edit",
-      "description": "When a card is edited and saved, labels are cleared. The UI shows them momentarily but they disappear after the API response.\n\nObserved in Chrome and Firefox. Not reproducible in Safari.",
+      "title": "Board invite link returns 404",
+      "description": "Apex is inviting new store managers via board share links. Half the links are returning 404.\n\nHypothesis: links generated before the subdomain migration are broken.",
       "priority": "medium",
-      "column": "Investigating",
-      "swimlane": "Pinnacle Media",
-      "due_date": "2026-03-10",
-      "weight": 3,
+      "column": "Closed",
+      "swimlane": "Apex Retail Group",
+      "due_date": null,
+      "weight": 1,
       "labels": [
-        "P2 High"
+        "Bug"
       ],
       "checklist": [
         {
-          "text": "Check PATCH payload includes label IDs",
+          "text": "Confirm old subdomain links are broken",
           "is_checked": true
         },
         {
-          "text": "Verify serializer handles partial update for M2M",
-          "is_checked": false
+          "text": "Add redirect rule for old subdomain",
+          "is_checked": true
+        },
+        {
+          "text": "Re-generate invite links for Apex",
+          "is_checked": true
         }
       ],
       "comments": [
         {
-          "body": "The PATCH payload is correct. The serializer is not saving M2M on partial=True — known Django quirk.",
+          "body": "Resolved. Old subdomain redirect added. Existing links now work.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-01-03T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-01-28T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Awaiting Customer",
+          "to_column": "Escalated",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Escalated",
+          "to_column": "Resolved",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Resolved",
+          "to_column": "Closed",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
     {
-      "title": "Email notifications for @mentions not delivered",
-      "description": "Users are not receiving email notifications when @mentioned in card comments. In-app notifications work correctly.\n\nMail logs show the notification task is enqueued but no SMTP activity.",
+      "title": "Webhook events arriving out of order",
+      "description": "FinEdge's automation pipeline receives card move events out of sequence. Their compliance logs then show incorrect state transitions.\n\nEvents are delivered but not guaranteed ordered — they need ordering.",
       "priority": "high",
       "column": "Awaiting Customer",
-      "swimlane": "Pinnacle Media",
+      "swimlane": "FinEdge Ltd",
       "due_date": "2026-03-22",
       "weight": 4,
       "labels": [
-        "P2 High"
+        "Bug"
       ],
       "checklist": [
         {
-          "text": "Check Celery worker is running email tasks",
+          "text": "Confirm event ordering issue in webhook logs",
           "is_checked": true
         },
         {
-          "text": "Test SMTP connection from worker host",
-          "is_checked": true
+          "text": "Discuss sequencing guarantee options with eng",
+          "is_checked": false
         },
         {
-          "text": "Confirm customer SMTP allowlist includes our IP",
+          "text": "Provide workaround (use event timestamp to reorder)",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "SMTP test from worker succeeds. Suspecting IP allowlist issue on their side.",
+          "body": "Awaiting engineering input on whether ordered delivery is feasible.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
-          "body": "Awaiting Pinnacle IT to confirm their allowlist — sent instructions.",
-          "author": "demo2"
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
     {
-      "title": "Resolved: browser cache causing stale board state",
-      "description": "Customer reported boards showing cards in wrong columns. Root cause: browser cached the old board snapshot.\n\nResolution: hard-refresh clears the issue. Added cache-busting headers to the board API response.",
-      "priority": "low",
-      "column": "Closed",
-      "swimlane": "Pinnacle Media",
-      "due_date": null,
-      "weight": 1,
-      "labels": [
-        "P3 Normal"
-      ],
-      "checklist": [
-        {
-          "text": "Add Cache-Control: no-store to board endpoint",
-          "is_checked": true
-        },
-        {
-          "text": "Communicate workaround to customer",
-          "is_checked": true
-        },
-        {
-          "text": "Verify fix in v1.2.1",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Deployed in v1.2.1. Customer confirmed resolved.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Board export missing checklist data",
-      "description": "CSV and JSON exports do not include checklist items. The API response includes them, but the export serializer omits them.\n\nImpacting their reporting workflow.",
-      "priority": "medium",
-      "column": "Triaged",
-      "swimlane": "Orion Software",
-      "due_date": "2026-03-18",
-      "weight": 3,
-      "labels": [
-        "P3 Normal"
-      ],
-      "checklist": [
-        {
-          "text": "Add checklist_items to export serializer",
-          "is_checked": false
-        },
-        {
-          "text": "Update CSV fieldnames",
-          "is_checked": false
-        },
-        {
-          "text": "Test with 200-item checklist",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Quick fix — checklist_items just needs to be added to the prefetch and serializer.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "SAML assertion fails intermittently (1 in 20 logins)",
-      "description": "~5% of SAML logins fail with `InResponseTo mismatch`. Affects all users, not just new ones.\n\nSuspicion: clock skew between their IdP and our service. Their IdP is on-prem; NTP sync uncertain.",
+      "title": "2FA not triggering on new device login",
+      "description": "FinEdge reports that 2FA challenges are not appearing when users log in from a new device.\n\nThis is a security regression — escalated to security team immediately.",
       "priority": "urgent",
-      "column": "Investigating",
-      "swimlane": "Orion Software",
+      "column": "Escalated",
+      "swimlane": "FinEdge Ltd",
       "due_date": "2026-03-13",
       "weight": 5,
       "labels": [
-        "Integration",
-        "P1 Critical"
+        "Bug",
+        "Security"
       ],
       "checklist": [
         {
-          "text": "Check NTP sync on their IdP",
+          "text": "Confirm 2FA bypass is reproducible",
           "is_checked": true
         },
         {
-          "text": "Widen our SAML clock tolerance to ±5 min",
+          "text": "Identify root cause in session fingerprint logic",
+          "is_checked": true
+        },
+        {
+          "text": "Deploy hotfix to production",
+          "is_checked": true
+        },
+        {
+          "text": "Audit logs for any suspicious logins",
           "is_checked": false
         },
         {
-          "text": "Deploy and monitor error rate",
+          "text": "Send customer security incident report",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Their IdP has a 4-min clock drift. Widening tolerance is the right fix.",
+          "body": "P0 — Security team engaged immediately. Hotfix deployed at 03:14 UTC.",
           "author": "demo1"
+        },
+        {
+          "body": "Root cause: device fingerprint cache key collision after last deployment.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Awaiting Customer",
+          "to_column": "Escalated",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
     {
-      "title": "WIP limit not enforced when dragging from archived view",
-      "description": "Cards restored from the archived panel bypass WIP limit checks and are placed in the destination column even when the limit is exceeded.\n\nThe restore endpoint does not call the column's WIP validation.",
+      "title": "Card comments missing after board migration",
+      "description": "BlueSky migrated boards from their old instance. Card comments imported but are not visible in the UI.\n\nData is present in the database — this is a display bug.",
+      "priority": "high",
+      "column": "Triaged",
+      "swimlane": "BlueSky Health",
+      "due_date": "2026-03-18",
+      "weight": 3,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Confirm comments exist in DB",
+          "is_checked": true
+        },
+        {
+          "text": "Trace why UI is not rendering them",
+          "is_checked": false
+        },
+        {
+          "text": "Deploy fix and validate all comments visible",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Confirmed: comments have a null author_id from migration script. UI filters these out.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Board member cannot see swimlane after role change",
+      "description": "A user promoted from Member to Admin lost visibility of one swimlane. Logging out and back in resolves it — stale session permissions.",
+      "priority": "medium",
+      "column": "Investigating",
+      "swimlane": "BlueSky Health",
+      "due_date": "2026-03-19",
+      "weight": 2,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Reproduce role-change permission refresh bug",
+          "is_checked": true
+        },
+        {
+          "text": "Force-clear permission cache on role update",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Workaround: ask user to log out and back in. Permanent fix in progress.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Label colors not saving on Safari 17",
+      "description": "Users on Safari 17 report that custom label colors revert to default on page reload. Chrome users are unaffected.",
+      "priority": "medium",
+      "column": "New",
+      "swimlane": "Mosaic Creative",
+      "due_date": "2026-03-22",
+      "weight": 2,
+      "labels": [
+        "Bug"
+      ],
+      "checklist": [
+        {
+          "text": "Reproduce on Safari 17",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Due date filter returning no results",
+      "description": "The due date filter on the board view returns 0 cards even when cards have due dates set.\n\nReported after the 2026-03-01 release. Likely a regression.",
       "priority": "medium",
       "column": "Resolved",
-      "swimlane": "Orion Software",
+      "swimlane": "Mosaic Creative",
       "due_date": null,
       "weight": 2,
       "labels": [
-        "P3 Normal"
+        "Bug"
       ],
       "checklist": [
         {
-          "text": "Add WIP check to restore endpoint",
+          "text": "Confirm regression in 2026-03-01 release",
           "is_checked": true
         },
         {
-          "text": "Add test for restore-to-full-column",
+          "text": "Fix filter query and deploy",
           "is_checked": true
         },
         {
-          "text": "Deploy",
+          "text": "Confirm fix with customer",
           "is_checked": true
         }
       ],
       "comments": [
         {
-          "body": "Fixed in v1.2.1. Restore now respects WIP limits.",
+          "body": "Resolved. Date comparison was using UTC vs local timezone mismatch.",
           "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-01-07T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Awaiting Customer",
+          "to_column": "Escalated",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Escalated",
+          "to_column": "Resolved",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
     {
-      "title": "Compliance audit — provide access logs for Q1",
-      "description": "Vertex requires a full access log export for Q1 2026 for their internal compliance audit.\n\nNeeded: timestamp, user, action, resource for all board operations.\n\nCardMovement history covers moves; other actions need a separate pull.",
-      "priority": "high",
-      "column": "Triaged",
-      "swimlane": "Vertex Trading",
-      "due_date": "2026-03-25",
-      "weight": 5,
-      "labels": [
-        "P2 High"
-      ],
-      "checklist": [
-        {
-          "text": "Confirm scope with Vertex compliance team",
-          "is_checked": true
-        },
-        {
-          "text": "Export CardMovement records for Q1",
-          "is_checked": false
-        },
-        {
-          "text": "Export CardActivity records for Q1",
-          "is_checked": false
-        },
-        {
-          "text": "Deliver via encrypted file share",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "They need the raw data, not a UI report. Will export directly from DB.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Historical card movements not visible in History tab",
-      "description": "Cards moved before 2026-01-01 show no movement history. The History tab displays 'No history yet' for these cards.\n\nRoot cause: the CardMovement table was introduced in v1.0 — older moves have no records.",
-      "priority": "medium",
-      "column": "Investigating",
-      "swimlane": "Vertex Trading",
-      "due_date": "2026-03-11",
-      "weight": 3,
-      "labels": [
-        "P3 Normal"
-      ],
-      "checklist": [
-        {
-          "text": "Explain data limitation to customer",
-          "is_checked": true
-        },
-        {
-          "text": "Check if any legacy activity logs can be imported",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Expected behaviour — pre-v1.0 moves were not tracked. Communicated to customer.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Data export times out on board with 2,000+ cards",
-      "description": "The JSON export endpoint times out (30s Nginx limit) for their largest board. The board has 2,100 cards across 8 swimlanes.\n\nFix: implement streaming export with chunked transfer encoding.",
-      "priority": "high",
-      "column": "Awaiting Customer",
-      "swimlane": "Vertex Trading",
-      "due_date": "2026-03-29",
-      "weight": 4,
-      "labels": [
-        "P2 High"
-      ],
-      "checklist": [
-        {
-          "text": "Implement StreamingHttpResponse for export",
-          "is_checked": true
-        },
-        {
-          "text": "Test with 2,000-card board in staging",
-          "is_checked": false
-        },
-        {
-          "text": "Increase Nginx timeout as temporary mitigation",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Temporary mitigation: bumped Nginx timeout to 120s. Streaming fix in progress.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Resolved: increased Nginx timeout for large exports",
-      "description": "Interim resolution applied: Nginx proxy timeout increased from 30s to 120s for the export endpoint.\n\nPermanent fix (streaming export) tracked in engineering backlog.",
+      "title": "Request: bulk card archive",
+      "description": "Mosaic wants to archive all cards in a column at once at campaign end. Currently must archive one card at a time.\n\nLogged as a feature request.",
       "priority": "low",
       "column": "Closed",
-      "swimlane": "Vertex Trading",
+      "swimlane": "Mosaic Creative",
       "due_date": null,
       "weight": 1,
       "labels": [
-        "P3 Normal"
+        "Feature Request"
       ],
       "checklist": [
         {
-          "text": "Deploy Nginx config change",
+          "text": "Log in product backlog",
           "is_checked": true
         },
         {
-          "text": "Confirm export completes for 2,000-card board",
-          "is_checked": true
-        },
-        {
-          "text": "File permanent fix as engineering ticket",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Customer confirmed export now completes (~45s). Permanent fix tracked separately.",
-          "author": "demo1"
-        }
-      ]
-    },
-    {
-      "title": "Onboarding: how to bulk-import cards from CSV?",
-      "description": "New customer asking about the bulk import feature. They have 300 cards in a spreadsheet they want to load.\n\nPoint to: Settings → Import → CSV template.",
-      "priority": "low",
-      "column": "New",
-      "swimlane": "Cascade Dynamics",
-      "due_date": null,
-      "weight": 2,
-      "labels": [
-        "P3 Normal"
-      ],
-      "checklist": [
-        {
-          "text": "Send import documentation link",
-          "is_checked": false
-        },
-        {
-          "text": "Offer 30-min onboarding call if needed",
-          "is_checked": false
-        }
-      ],
-      "comments": []
-    },
-    {
-      "title": "Mobile: cards overlap on small screens (< 375px)",
-      "description": "On iPhone SE (375px wide), cards in the board view overflow and overlap adjacent cards in the same column.\n\nReproducible in Chrome DevTools mobile emulation.",
-      "priority": "medium",
-      "column": "Triaged",
-      "swimlane": "Cascade Dynamics",
-      "due_date": "2026-03-20",
-      "weight": 3,
-      "labels": [
-        "P3 Normal"
-      ],
-      "checklist": [
-        {
-          "text": "Reproduce in DevTools at 375px",
-          "is_checked": true
-        },
-        {
-          "text": "Fix column min-width on mobile breakpoint",
+          "text": "Notify customer when shipped",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Confirmed. The column grid doesn't collapse below 400px. CSS fix needed.",
+          "body": "Feature request acknowledged. Added to backlog — no ETA yet.",
           "author": "demo1"
         }
-      ]
-    },
-    {
-      "title": "Drag handle unresponsive in Firefox 124",
-      "description": "Card drag-and-drop stops working after the first successful drop in Firefox 124. Subsequent drag attempts do nothing.\n\nRoot cause: Firefox handles `pointermove` differently when a CSS transition is active on the column.",
-      "priority": "medium",
-      "column": "Investigating",
-      "swimlane": "Cascade Dynamics",
-      "due_date": "2026-03-07",
-      "weight": 3,
-      "labels": [
-        "P2 High"
       ],
-      "checklist": [
+      "movements": [
         {
-          "text": "Reproduce in Firefox 124",
-          "is_checked": true
+          "from_column": null,
+          "to_column": "New",
+          "from_swimlane": null,
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2025-12-23T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
-          "text": "Disable column transition during drag",
-          "is_checked": false
+          "from_column": "New",
+          "to_column": "Triaged",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-01-13T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
-          "text": "Test on Firefox + Chrome + Safari",
-          "is_checked": false
-        }
-      ],
-      "comments": [
+          "from_column": "Triaged",
+          "to_column": "Investigating",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-01-25T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
         {
-          "body": "Confirmed in FF 124. Disabling the column resize transition during drag fixes it.",
-          "author": "demo1"
+          "from_column": "Investigating",
+          "to_column": "Awaiting Customer",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Awaiting Customer",
+          "to_column": "Escalated",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Escalated",
+          "to_column": "Resolved",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Resolved",
+          "to_column": "Closed",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     }
