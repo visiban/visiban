@@ -744,7 +744,7 @@ class Command(BaseCommand):
         """
         # Re-fetch cards with all related data prefetched so that _export_json
         # and _export_csv don't issue N+1 queries for labels, checklist items,
-        # comments, column, swimlane, and assignee.
+        # comments, column, swimlane, assignee, movements, and activities.
         # Export only active (non-archived) cards — the snapshot represents the
         # live board view, not the archived history.
         card_ids = [c.pk for c in cards if c.archived_at is None]
@@ -752,7 +752,13 @@ class Command(BaseCommand):
             board.cards
             .filter(pk__in=card_ids)
             .select_related("column", "swimlane", "assignee")
-            .prefetch_related("labels", "checklist_items", "comments__author")
+            .prefetch_related(
+                "labels",
+                "checklist_items",
+                "comments__author",
+                "movements__moved_by",
+                "activities__actor",
+            )
             .order_by("swimlane__position", "column__position", "position")
         )
 
@@ -767,8 +773,9 @@ class Command(BaseCommand):
 
     def _export_json(self, board, columns, swimlanes, labels, cards, seed_dir):
         # Structure must match the canonical export format consumed by _import_json
-        # (flat top-level keys: name, description, columns, swimlanes, labels, cards).
+        # (flat top-level keys: schema_version, name, description, columns, swimlanes, labels, cards).
         data = {
+            "schema_version": 1,
             "name": board.name,
             "description": board.description,
             "columns": [
@@ -804,6 +811,7 @@ class Command(BaseCommand):
                     "swimlane": card.swimlane.name,
                     "due_date": card.due_date.isoformat() if card.due_date else None,
                     "weight": card.weight,
+                    "assignee": card.assignee.username if card.assignee else None,
                     "labels": [lbl.name for lbl in card.labels.order_by("name")],
                     "checklist": [
                         {"text": item.text, "is_checked": item.is_checked}
@@ -815,6 +823,27 @@ class Command(BaseCommand):
                             "author": comment.author.username if comment.author else None,
                         }
                         for comment in card.comments.all()
+                    ],
+                    "movements": [
+                        {
+                            "from_column": mv.from_column_name,
+                            "to_column": mv.to_column_name,
+                            "from_swimlane": mv.from_swimlane_name,
+                            "to_swimlane": mv.to_swimlane_name,
+                            "moved_at": mv.moved_at.isoformat(),
+                            "moved_by": mv.moved_by.username if mv.moved_by else None,
+                        }
+                        for mv in card.movements.order_by("moved_at")
+                    ],
+                    "activities": [
+                        {
+                            "event_type": act.event_type,
+                            "from_value": act.from_value,
+                            "to_value": act.to_value,
+                            "actor": act.actor.username if act.actor else None,
+                            "created_at": act.created_at.isoformat(),
+                        }
+                        for act in card.activities.order_by("created_at")
                     ],
                 }
                 for card in cards
