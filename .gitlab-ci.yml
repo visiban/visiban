@@ -850,8 +850,10 @@ cleanup-merged-branches:
     - git fetch --prune origin
   script:
     - |
+      # grep -v exits 1 when no lines match (all merged branches already gone).
+      # The || true prevents pipefail from killing the job in that success case.
       merged=$(git branch -r --merged origin/main \
-        | grep -v 'origin/main$\|origin/HEAD\|origin/gh-pages' \
+        | { grep -v 'origin/main$\|origin/HEAD\|origin/gh-pages' || true; } \
         | sed 's|origin/||' \
         | xargs)
       if [ -z "$merged" ]; then
