@@ -1,0 +1,777 @@
+{
+  "name": "Template: Customer Success",
+  "description": "Track account health from onboarding through expansion and renewal. Each swimlane represents a customer account.",
+  "columns": [
+    {
+      "name": "Onboarding",
+      "position": 0,
+      "color": "#3B82F6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Adoption",
+      "position": 1,
+      "color": "#8B5CF6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Healthy",
+      "position": 2,
+      "color": "#10B981",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Expansion",
+      "position": 3,
+      "color": "#F59E0B",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Renewal",
+      "position": 4,
+      "color": "#F97316",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Churned",
+      "position": 5,
+      "color": "#EF4444",
+      "wip_limit": null,
+      "allow_card_creation": false
+    }
+  ],
+  "swimlanes": [
+    {
+      "name": "Americas",
+      "position": 0,
+      "color": "#3B82F6",
+      "contact_email": "csm-americas@visiban.example",
+      "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera."
+    },
+    {
+      "name": "EMEA",
+      "position": 1,
+      "color": "#8B5CF6",
+      "contact_email": "csm-emea@visiban.example",
+      "notes": "Europe, Middle East, Africa. CSM: Jordan Patel."
+    },
+    {
+      "name": "APAC",
+      "position": 2,
+      "color": "#10B981",
+      "contact_email": "csm-apac@visiban.example",
+      "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu."
+    },
+    {
+      "name": "Enterprise Accounts",
+      "position": 3,
+      "color": "#F59E0B",
+      "contact_email": "enterprise-cs@visiban.example",
+      "notes": "200+ seat strategic accounts managed directly by VP CS."
+    },
+    {
+      "name": "Mid-Market",
+      "position": 4,
+      "color": "#EF4444",
+      "contact_email": "midmarket-cs@visiban.example",
+      "notes": "20-200 seat accounts. CSM coverage pooled."
+    }
+  ],
+  "labels": [
+    {
+      "name": "At Risk",
+      "color": "#EF4444"
+    },
+    {
+      "name": "Champion",
+      "color": "#10B981"
+    },
+    {
+      "name": "Expansion Opportunity",
+      "color": "#F59E0B"
+    },
+    {
+      "name": "Renewal Due",
+      "color": "#F97316"
+    },
+    {
+      "name": "QBR Needed",
+      "color": "#8B5CF6"
+    }
+  ],
+  "cards": [
+    {
+      "title": "Summit Logistics",
+      "description": "25-seat SMB account. Month 2 of annual plan.\n\nLow engagement — WAU sitting at 35%. Risk of churn at renewal.",
+      "priority": "high",
+      "column": "Adoption",
+      "swimlane": "Americas",
+      "due_date": "2026-03-22",
+      "weight": 3,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Book check-in call with ops manager",
+          "is_checked": true
+        },
+        {
+          "text": "Share adoption guide for mobile card creation",
+          "is_checked": false
+        },
+        {
+          "text": "Set 30-day re-check reminder",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Ops manager on leave until next week. Booking call for return.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "TechNova Inc",
+      "description": "500-seat enterprise account. Onboarding completed ahead of schedule.\n\n## Health signals\n\n- WAU: 78% (target: 70%)\n- NPS: 62\n- Open support tickets: 2 (both minor)\n\nExpansion conversation in progress — 200 additional seats.",
+      "priority": "high",
+      "column": "Expansion",
+      "swimlane": "Americas",
+      "due_date": "2026-03-29",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Schedule QBR with VP Engineering",
+          "is_checked": true
+        },
+        {
+          "text": "Present expansion ROI deck",
+          "is_checked": true
+        },
+        {
+          "text": "Get verbal commitment on 200 seat expansion",
+          "is_checked": false
+        },
+        {
+          "text": "Send expansion order form",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "QBR went great. VP Engineering openly mentioned expansion plans.",
+          "author": "demo1"
+        },
+        {
+          "body": "NPS 62 — best in the Americas portfolio this quarter.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Healthy",
+          "to_column": "Expansion",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "BlueSky Health",
+      "description": "200-seat healthcare account. In renewal cycle (2026-05-01).\n\nHealthy engagement but pushing for analytics add-on at no extra cost.",
+      "priority": "urgent",
+      "column": "Renewal",
+      "swimlane": "Americas",
+      "due_date": "2026-03-12",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Send renewal quote",
+          "is_checked": true
+        },
+        {
+          "text": "Negotiate analytics add-on pricing",
+          "is_checked": true
+        },
+        {
+          "text": "Get signed renewal form",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "OVERDUE — renewal is past due. CIO is travelling. Escalated to VP CS.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Healthy",
+          "to_column": "Expansion",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Expansion",
+          "to_column": "Renewal",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "FinEdge Ltd",
+      "description": "80-seat compliance-focused account. Adopted Visiban for regulatory workflow tracking.\n\nEngineering team (40 seats) just provisioned — still in onboarding.",
+      "priority": "high",
+      "column": "Onboarding",
+      "swimlane": "EMEA",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Run onboarding session 1: board setup",
+          "is_checked": true
+        },
+        {
+          "text": "Run onboarding session 2: workflows and WIP limits",
+          "is_checked": false
+        },
+        {
+          "text": "Confirm all 80 users have logged in",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Session 1 complete. Engineering lead very engaged.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Apex Retail Group",
+      "description": "300-seat enterprise account, newly signed. Rollout across 200 locations.\n\nComplex onboarding — need swimlane template for each region.",
+      "priority": "urgent",
+      "column": "Onboarding",
+      "swimlane": "EMEA",
+      "due_date": "2026-03-20",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Assign dedicated onboarding specialist",
+          "is_checked": true
+        },
+        {
+          "text": "Create region swimlane template",
+          "is_checked": false
+        },
+        {
+          "text": "Run kickoff session with Apex ops leadership",
+          "is_checked": false
+        },
+        {
+          "text": "Provision all 300 seats",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Large rollout — dedicated onboarding specialist assigned.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Mosaic Creative",
+      "description": "30-seat creative agency. 3 months post-close, strong adoption.\n\nWAU: 88%. Using swimlane-per-client model effectively.",
+      "priority": "low",
+      "column": "Healthy",
+      "swimlane": "EMEA",
+      "due_date": "2026-04-14",
+      "weight": 2,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Send 90-day check-in survey",
+          "is_checked": true
+        },
+        {
+          "text": "Propose annual plan upgrade (currently monthly)",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Happy account. Good candidate for a case study.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "NexGen Fintech JP",
+      "description": "60-seat Japanese fintech. Churned from previous provider.\n\nStill in early adoption — ensuring they see value before 90 days.",
+      "priority": "high",
+      "column": "Adoption",
+      "swimlane": "APAC",
+      "due_date": "2026-03-23",
+      "weight": 4,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Complete onboarding checklist with eng lead",
+          "is_checked": true
+        },
+        {
+          "text": "Set up weekly check-in for first 90 days",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm WAU target met by day 60",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Previous provider churned them due to poor support. We need to overcommunicate.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "DataStream AU",
+      "description": "45-seat analytics firm. Adopted Visiban for sprint tracking.\n\nHealthy engagement. Champion is Head of Engineering.",
+      "priority": "medium",
+      "column": "Healthy",
+      "swimlane": "APAC",
+      "due_date": "2026-04-05",
+      "weight": 2,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Send quarterly product update digest",
+          "is_checked": true
+        },
+        {
+          "text": "Invite to APAC customer roundtable",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "GlobalBank Corp",
+      "description": "400-seat banking enterprise. Year 2 of a 3-year agreement.\n\nRenewal not at risk but annual business review is overdue.",
+      "priority": "high",
+      "column": "Healthy",
+      "swimlane": "Enterprise Accounts",
+      "due_date": "2026-03-20",
+      "weight": 4,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Schedule annual business review",
+          "is_checked": true
+        },
+        {
+          "text": "Prepare YoY usage and ROI report",
+          "is_checked": false
+        },
+        {
+          "text": "Present roadmap preview",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "ABR overdue by 3 weeks. CIO has been traveling. Meeting confirmed for Friday.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "PharmaCo Ltd",
+      "description": "350-seat pharma enterprise. Clinical and regulatory teams on separate boards.\n\nExpansion conversation for 150 additional seats (R&D division).",
+      "priority": "medium",
+      "column": "Expansion",
+      "swimlane": "Enterprise Accounts",
+      "due_date": "2026-04-04",
+      "weight": 3,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Map R&D team use cases",
+          "is_checked": true
+        },
+        {
+          "text": "Send expansion proposal",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "R&D director wants Visiban — IT procurement is the gatekeeper.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Healthy",
+          "to_column": "Expansion",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "GreenLeaf Agency",
+      "description": "50-seat digital marketing agency. Strong adoption, all teams active.\n\nRenewal in 4 months. Low risk.",
+      "priority": "low",
+      "column": "Healthy",
+      "swimlane": "Mid-Market",
+      "due_date": "2026-04-29",
+      "weight": 1,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Send renewal reminder at T-60",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Ironclad Manufacturing",
+      "description": "80-seat industrial firm. Low product adoption — WAU at 22%.\n\nRisk: renewal in 60 days. Operations team not fully onboarded.",
+      "priority": "urgent",
+      "column": "Churned",
+      "swimlane": "Mid-Market",
+      "due_date": null,
+      "weight": 4,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Identify adoption blockers in ops team",
+          "is_checked": true
+        },
+        {
+          "text": "Offer complimentary re-onboarding session",
+          "is_checked": true
+        },
+        {
+          "text": "Set 2-week re-engagement goal",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Account manager says ops team resists new tools. Need exec sponsor.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-01-11T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Healthy",
+          "to_column": "Expansion",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Expansion",
+          "to_column": "Renewal",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Renewal",
+          "to_column": "Churned",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    }
+  ]
+}

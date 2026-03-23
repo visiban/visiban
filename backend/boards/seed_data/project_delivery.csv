@@ -1,0 +1,12 @@
+title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
+App Store Submission,Planning,Mobile App Relaunch,medium,2026-04-19,3,,demo5,4,0,0,Submit updated app to Apple App Store and Google Play.  Apple review typically 3
+API v3 Integration,Execution,Mobile App Relaunch,urgent,2026-03-25,5,Blocked,demo1,4,2,1,Migrate the mobile app from REST API v2 to the new v3 GraphQL API.  Breaking cha
+UX Research & Design,Milestone Review,Mobile App Relaunch,high,2026-03-10,4,On Track,demo2,4,3,1,"User research, wireframing, and final design system for the relaunched app.  ## "
+Production Cutover,Planning,Data Platform Migration,urgent,2026-04-26,5,,demo4,3,0,0,Zero-downtime cutover from Redshift to Snowflake.  Plan: dual-write phase comple
+Dual-Write Validation Phase,Kickoff,Data Platform Migration,high,2026-04-05,5,,demo3,3,0,0,Run Redshift and Snowflake in parallel for 2 weeks. Compare row counts and check
+Schema Mapping & Data Audit,Milestone Review,Data Platform Migration,high,2026-03-22,4,On Track,demo3,4,2,1,Audit all 340 tables in Redshift and map each to Snowflake schema.  Identify tab
+SOC 2 Type II Evidence Collection,Execution,Security Compliance Audit,high,2026-03-25,4,On Track,demo4,4,2,1,Collect all evidence for the SOC 2 Type II audit.  Evidence categories: access c
+External Penetration Test,Wrap-up,Security Compliance Audit,medium,2026-03-20,3,,demo4,4,3,1,"Annual pen test scoped to public web app, API, WebSocket layer, and auth flows."
+Frontend Development,Planning,Customer Portal v2,medium,2026-04-29,4,,demo2,2,0,0,"Build the React frontend: dashboard, board list, user management, billing, suppo"
+Requirements & Stakeholder Sign-off,Milestone Review,Customer Portal v2,high,2026-03-18,3,On Track,demo1,3,2,1,"Capture all requirements from account management, support, and enterprise custom"
+Deletion Request API,Retro,GDPR Deletion Pipeline,high,,5,On Track,demo3,5,5,1,API endpoint to process GDPR erasure requests.  Must cascade across all user-own

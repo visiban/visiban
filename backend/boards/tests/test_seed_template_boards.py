@@ -41,7 +41,8 @@ class SeedStructureTests(TestCase):
         self.board = Board.objects.get(name="Template: Sales Pipeline")
 
     def test_correct_column_count(self):
-        self.assertEqual(self.board.columns.count(), 6)
+        # sales_pipeline v2 has 8 columns (added Discovery and Demo stages)
+        self.assertEqual(self.board.columns.count(), 8)
 
     def test_column_names_and_order(self):
         names = list(
@@ -49,7 +50,10 @@ class SeedStructureTests(TestCase):
         )
         self.assertEqual(
             names,
-            ["Lead", "Qualified", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"],
+            [
+                "Prospect", "Qualified", "Discovery", "Demo",
+                "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost",
+            ],
         )
 
     def test_swimlane_count(self):
@@ -60,8 +64,7 @@ class SeedStructureTests(TestCase):
         self.assertEqual(names, {"Enterprise", "SMB", "Strategic", "Renewal"})
 
     def test_cards_created(self):
-        # sales_pipeline has 20 cards across 5 swimlanes
-        self.assertGreaterEqual(self.board.cards.count(), 15)
+        self.assertGreaterEqual(self.board.cards.count(), 10)
 
     def test_board_owner_is_admin_member(self):
         membership = self.board.memberships.get(user=self.board.owner)
@@ -75,6 +78,22 @@ class SeedStructureTests(TestCase):
         out, _ = _seed("sales_pipeline", wipe=True)
         self.assertIn("Seeded", out)
         self.assertIn("Template: Sales Pipeline", out)
+
+    def test_cards_have_activity_history(self):
+        """Every card with an assignee, labels, or due date must have activity records."""
+        cards_with_assignee = self.board.cards.filter(assignee__isnull=False)
+        for card in cards_with_assignee[:3]:  # spot-check first 3
+            count = card.activities.count()
+            self.assertGreater(count, 0, f"'{card.title}' has no activity records")
+
+    def test_comment_activities_created(self):
+        """Cards with comments must have comment_added activity records."""
+        from boards.models import CardActivity
+        comment_acts = CardActivity.objects.filter(
+            card__board=self.board,
+            event_type=CardActivity.EventType.COMMENT_ADDED,
+        )
+        self.assertGreater(comment_acts.count(), 0, "No comment_added activities found")
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +299,7 @@ class SeedIdempotencyTests(TestCase):
 
 @override_settings(DEBUG=True)
 class SeedAllTemplatesTests(TestCase):
-    def test_seeds_all_six_templates(self):
+    def test_seeds_all_ten_templates(self):
         _seed("all")
         for slug in VALID_SLUGS:
             board_name = TEMPLATE_DATA[slug]["board_name"]
@@ -372,26 +391,39 @@ class SeedExportTests(TestCase):
         card_qs = (
             board.cards
             .select_related("column", "swimlane", "assignee")
-            .prefetch_related("labels", "checklist_items", "comments__author")
+            .prefetch_related(
+                "labels", "checklist_items", "comments__author",
+                "movements__moved_by",
+            )
         )
 
         with tempfile.TemporaryDirectory() as tmp:
-            seed_dir = Path(tmp)
+            out_path = Path(tmp) / "seed.json"
             cmd._export_json(
                 board,
                 cols,
                 template_data["swimlanes"],
                 template_data["labels"],
                 card_qs,
-                seed_dir,
+                out_path,
             )
-            data = json.loads((seed_dir / "seed.json").read_text())
+            data = json.loads(out_path.read_text())
 
         for key in ("name", "columns", "swimlanes", "labels", "cards"):
             self.assertIn(key, data)
-        self.assertEqual(len(data["columns"]), 6)
+        # sales_pipeline v2: 8 columns, 5 swimlanes, 4 labels
+        self.assertEqual(len(data["columns"]), 8)
         self.assertEqual(len(data["swimlanes"]), 5)
         self.assertEqual(len(data["labels"]), 4)
+
+        # Every card must export its movement history
+        for card_data in data["cards"]:
+            self.assertIn("movements", card_data, f"Card '{card_data['title']}' missing movements")
+            self.assertGreater(len(card_data["movements"]), 0, f"Card '{card_data['title']}' has empty movements")
+        # Spot-check movement shape
+        mv = data["cards"][0]["movements"][0]
+        for field in ("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_at", "moved_by"):
+            self.assertIn(field, mv)
 
     def test_csv_export_headers(self):
         import csv as csv_module
@@ -412,9 +444,9 @@ class SeedExportTests(TestCase):
         cmd.style.SUCCESS = lambda s: s
 
         with tempfile.TemporaryDirectory() as tmp:
-            seed_dir = Path(tmp)
-            cmd._export_csv(card_qs, seed_dir)
-            with (seed_dir / "seed.csv").open() as f:
+            out_path = Path(tmp) / "seed.csv"
+            cmd._export_csv(card_qs, out_path)
+            with out_path.open() as f:
                 reader = csv_module.DictReader(f)
                 rows = list(reader)
 

@@ -1,0 +1,14 @@
+title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
+Column WIP limit not enforcing for board admins,Triaged,TechNova Inc,medium,2026-03-20,3,Bug,demo4,2,1,0,Board admins can drag cards into WIP-limited columns beyond the limit. Members (
+Board loads blank after login on Firefox 124,Investigating,TechNova Inc,high,2026-03-16,4,Bug,demo2,4,2,1,Reported by 3 users. Board appears empty immediately after login on Firefox 124.
+CSV export returns 500 for boards with 500+ cards,Escalated,TechNova Inc,urgent,2026-03-14,5,"Bug,Performance",demo3,4,3,2,TechNova's largest board has 620 cards. CSV export times out and returns HTTP 50
+Card drag-drop broken on iOS Safari,Awaiting Customer,Apex Retail Group,high,2026-03-17,4,Bug,demo2,4,3,1,Store managers using iPads cannot drag cards between columns. The drag starts bu
+Email notifications delayed by 2+ hours,Resolved,Apex Retail Group,medium,,2,Bug,demo5,3,3,1,Apex staff report card assignment notifications arrive hours late. Checked our q
+Board invite link returns 404,Closed,Apex Retail Group,medium,,1,Bug,demo1,3,3,1,Apex is inviting new store managers via board share links. Half the links are re
+Webhook events arriving out of order,Awaiting Customer,FinEdge Ltd,high,2026-03-22,4,Bug,demo4,3,1,1,FinEdge's automation pipeline receives card move events out of sequence. Their c
+2FA not triggering on new device login,Escalated,FinEdge Ltd,urgent,2026-03-13,5,"Bug,Security",demo3,5,3,2,FinEdge reports that 2FA challenges are not appearing when users log in from a n
+Card comments missing after board migration,Triaged,BlueSky Health,high,2026-03-18,3,Bug,demo2,3,1,1,BlueSky migrated boards from their old instance. Card comments imported but are 
+Board member cannot see swimlane after role change,Investigating,BlueSky Health,medium,2026-03-19,2,Bug,demo1,2,1,1,A user promoted from Member to Admin lost visibility of one swimlane. Logging ou
+Label colors not saving on Safari 17,New,Mosaic Creative,medium,2026-03-22,2,Bug,demo4,1,0,0,Users on Safari 17 report that custom label colors revert to default on page rel
+Due date filter returning no results,Resolved,Mosaic Creative,medium,,2,Bug,demo5,3,3,1,The due date filter on the board view returns 0 cards even when cards have due d
+Request: bulk card archive,Closed,Mosaic Creative,low,,1,Feature Request,demo1,2,1,1,Mosaic wants to archive all cards in a column at once at campaign end. Currently

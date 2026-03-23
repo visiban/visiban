@@ -1,0 +1,12 @@
+title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
+Rachel Torres,Phone Screen,Senior Backend Engineer,low,2026-03-25,2,Maybe,demo1,2,1,0,"4 years Python, 2 years Django. Previous: Backend Engineer at Summit.  Inbound a"
+Marcus Jeon,Technical Screen,Senior Backend Engineer,medium,2026-03-22,3,Yes,demo3,3,2,1,5 years Python. Previous: Backend Lead at DataStream.  Applied via LinkedIn. Str
+Priya Sharma,Offer Extended,Senior Backend Engineer,high,2026-03-18,5,"Referred,Strong Yes",demo1,6,5,2,7 years Python/Django. Previous: Staff Engineer at FinEdge.  Referred by Casey O
+Fatima Al-Hassan,Interview,Product Designer (Senior),high,2026-03-20,4,"Referred,Yes",demo3,4,3,1,5 years product design. Previous: design systems lead at a B2B SaaS company.  Re
+Anika Obi,Hired,Product Designer (Senior),high,,5,Strong Yes,demo5,6,6,1,6 years UX/product design. Previous: Lead Designer at Mosaic Creative.  Portfoli
+Leo Bergman,Rejected,Product Designer (Senior),low,,1,No,demo5,2,2,1,4 years UX. Previous: mid-level designer at a fintech startup.  Good craft but p
+Nour El-Amin,Reference Check,Customer Success Manager,high,2026-03-23,4,Strong Yes,demo1,4,3,1,"4 years CS at a B2B SaaS company. Fluent Arabic, French, English.  EMEA-based. S"
+James Okonkwo,Rejected,Customer Success Manager,low,,1,Maybe,demo3,3,3,1,3 years CS at an enterprise software firm. UK-based.  Good phone screen but case
+Sara Lundqvist,Applied,DevOps Engineer,low,2026-03-30,1,Maybe,demo4,2,1,0,3 years DevOps. Previous: cloud infra engineer.  Good fundamentals but limited K
+Kenji Nakamura,Technical Screen,DevOps Engineer,high,2026-03-21,4,Yes,demo4,3,2,1,5 years DevOps/SRE. Previous: SRE at a high-traffic API company.  Kubernetes CKA
+Diana Ferreira,Interview,Head of Marketing,urgent,2026-03-22,5,Strong Yes,demo1,4,3,1,VP Marketing at a Series B SaaS company for 3 years. Grew pipeline 4x. Content +

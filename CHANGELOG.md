@@ -11,9 +11,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 - `seed_template_boards` management command seeds all six board templates (`sales_pipeline`, `customer_support`, `customer_success`, `simple_kanban`, `product_roadmap`, `project_delivery`) with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement history (#254). Seed files are exported to `backend/boards/seed_data/<slug>/seed.{json,csv}`.
+- Four new board templates are available: Content Production, Hiring & Recruiting, Legal & Compliance, and Infrastructure & DevOps — each with domain-specific swimlanes, cards, labels, and column structures
+- Card JSON exports from `seed_template_boards --export` now include a `movements` array per card, enabling imported boards to display realistic History tab data
+- Icons added for the four new board templates (Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps) in the Create Board modal template picker
 
 ### Changed
 
+- `simple_kanban` template revised to the classic 5-column layout: Backlog → To Do → Doing → Review → Done
+- Seed command now generates `CardActivity` records (assignee, labels, due date, priority escalations, checklist events, comments) for each card so the History tab shows rich activity alongside column movements
+- Seed data files flattened from `seed_data/<slug>/seed.json` to `seed_data/<slug>.json` (one directory, one file per template)
+- JSON export recommended over CSV: JSON includes the full CardMovement history; CSV contains column-level data only and is noted as such in the export output
 - The first-boot and installation getting-started pages now include a "Password file not found?" note explaining that a missing `/tmp/visiban_admin_password` means the admin account was already bootstrapped on a previous boot, and giving the `python manage.py changepassword admin` command to reset it
 - Board view scrollbar is now 10 px wide and higher-contrast (slate-500 at rest, slate-400 on hover) for better discoverability on macOS and Windows
 - Hover-reveal controls (add-subgroup button, swimlane drag handle, card checkbox) now gain `focus:opacity-100` and a focus ring so keyboard users can reach and activate them without a mouse
@@ -24,6 +31,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CardItem description no longer expands on hover, eliminating layout shift; a small indicator icon in the metadata row signals that a description exists, and the full description remains accessible in the card detail panel
 - Restored button in the Archived Cards panel changed to the secondary variant to comply with the design system — `text-blue-400` is reserved for active filter and selection states
 - Demo seed export files relocated from `scripts/seed/` to `backend/boards/seed_data/` to co-locate them with the boards app and its management commands; `seed_demo_data --export` and the CI `seed-export-check` job updated accordingly
+- `sales_pipeline` template expanded from 6 to 8 columns: Prospect → Qualified → Discovery → Demo → Proposal Sent → Negotiation → Closed Won → Closed Lost
+- `customer_support` template expanded to 7 columns with a new Escalated stage between In Progress and Resolved
+- `simple_kanban` template expanded from 5 to 7 columns: Backlog → Refined → Sprint Ready → In Dev → In Review → QA/Testing → Done
+- `product_roadmap` template redesigned from 6 to 8 columns: Idea → Validated → Scoped → Prioritized → In Build → Beta → Launched → Monitoring
+- Seed data cards now each represent the primary tracked item for their workflow (deals in sales, tickets in support, accounts in customer success, features in roadmap, candidates in recruiting, etc.) rather than individual sub-tasks
+- Create Board modal: loading state now shows a spinner instead of plain text, template cards have keyboard focus rings (`focus-visible:ring-2`), API failure shows an inline error instead of silently hiding templates, input focus ring updated to `focus:ring-2 focus:ring-blue-500 focus:border-transparent`, hint text color standardized to `text-slate-500`, and an X close button added to the header
 
 ---
 

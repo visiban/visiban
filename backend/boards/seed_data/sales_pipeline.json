@@ -1,0 +1,1029 @@
+{
+  "name": "Template: Sales Pipeline",
+  "description": "Track open deals from first contact through close. Each swimlane is an account; each card is a deal or opportunity.",
+  "columns": [
+    {
+      "name": "Prospect",
+      "position": 0,
+      "color": "#6B7280",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Qualified",
+      "position": 1,
+      "color": "#3B82F6",
+      "wip_limit": null,
+      "allow_card_creation": true
+    },
+    {
+      "name": "Discovery",
+      "position": 2,
+      "color": "#8B5CF6",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Demo",
+      "position": 3,
+      "color": "#F59E0B",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Proposal Sent",
+      "position": 4,
+      "color": "#F97316",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Negotiation",
+      "position": 5,
+      "color": "#EF4444",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Closed Won",
+      "position": 6,
+      "color": "#10B981",
+      "wip_limit": null,
+      "allow_card_creation": false
+    },
+    {
+      "name": "Closed Lost",
+      "position": 7,
+      "color": "#9CA3AF",
+      "wip_limit": null,
+      "allow_card_creation": false
+    }
+  ],
+  "swimlanes": [
+    {
+      "name": "TechNova Inc",
+      "position": 0,
+      "color": "#3B82F6",
+      "contact_email": "procurement@technova.example",
+      "notes": "Series C SaaS, 500-seat target. Champion: VP Engineering. Pain: outgrown Jira."
+    },
+    {
+      "name": "Apex Retail Group",
+      "position": 1,
+      "color": "#F59E0B",
+      "contact_email": "tech@apexretail.example",
+      "notes": "200-location retail chain. Decision maker: CTO. Seasonal budget freeze Jan-Mar."
+    },
+    {
+      "name": "FinEdge Ltd",
+      "position": 2,
+      "color": "#8B5CF6",
+      "contact_email": "procurement@finedge.example",
+      "notes": "Fintech startup, 80 staff. Compliance-heavy. VP Product is champion."
+    },
+    {
+      "name": "BlueSky Health",
+      "position": 3,
+      "color": "#10B981",
+      "contact_email": "procurement@blueskyhealth.example",
+      "notes": "Regional healthcare provider. HIPAA BAA required. 200-seat potential."
+    },
+    {
+      "name": "Mosaic Creative",
+      "position": 4,
+      "color": "#EC4899",
+      "contact_email": "ops@mosaiccreative.example",
+      "notes": "Creative agency, 30 staff. Fast-moving. Decision in days, not weeks."
+    }
+  ],
+  "labels": [
+    {
+      "name": "Enterprise",
+      "color": "#6366F1"
+    },
+    {
+      "name": "SMB",
+      "color": "#14B8A6"
+    },
+    {
+      "name": "Strategic",
+      "color": "#F59E0B"
+    },
+    {
+      "name": "Renewal",
+      "color": "#10B981"
+    }
+  ],
+  "cards": [
+    {
+      "title": "Analytics Add-on Upsell",
+      "description": "TechNova data team interested in the analytics module. Current deal is base license only.\n\nEstimated uplift: +$12k ARR.",
+      "priority": "low",
+      "column": "Qualified",
+      "swimlane": "TechNova Inc",
+      "due_date": "2026-04-14",
+      "weight": 2,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Identify analytics champion in data team",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Engineering Hub Expansion — 200 Seats",
+      "description": "Expansion deal targeting the infrastructure and platform teams not included in the original pilot.\n\nUpsell conversation triggered by strong pilot NPS (62).",
+      "priority": "medium",
+      "column": "Discovery",
+      "swimlane": "TechNova Inc",
+      "due_date": "2026-04-05",
+      "weight": 4,
+      "labels": [
+        "Enterprise",
+        "Renewal"
+      ],
+      "checklist": [
+        {
+          "text": "Map out teams not yet on platform",
+          "is_checked": true
+        },
+        {
+          "text": "Book discovery call with infra lead",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Pilot NPS is 62. Good timing to bring up expansion.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Platform Migration — 500 Seats",
+      "description": "Opportunity to displace Jira across all engineering teams. Champion is the VP Engineering. Budget approved for Q2.\n\n## Situation\n\n- 12 engineering teams, ~500 users\n- Current pain: Jira too rigid for cross-team swimlane workflows\n- Decision by 2026-04-30",
+      "priority": "high",
+      "column": "Proposal Sent",
+      "swimlane": "TechNova Inc",
+      "due_date": "2026-03-29",
+      "weight": 5,
+      "labels": [
+        "Enterprise",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Send custom proposal deck",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm security questionnaire complete",
+          "is_checked": true
+        },
+        {
+          "text": "Schedule executive sign-off call",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "VP Engineering confirmed budget. Legal review starts Monday.",
+          "author": "demo1"
+        },
+        {
+          "body": "They want swimlane-level WIP limits — confirm this is on the roadmap.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "TechNova Inc",
+          "to_swimlane": "TechNova Inc",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ]
+    },
+    {
+      "title": "Seasonal Campaign Tracker Pilot",
+      "description": "Pilot for the marketing team tracking seasonal campaign tasks. 10 seats, 60 days. Success criteria: all Q3 campaigns tracked in Visiban.",
+      "priority": "medium",
+      "column": "Qualified",
+      "swimlane": "Apex Retail Group",
+      "due_date": "2026-04-04",
+      "weight": 3,
+      "labels": [
+        "SMB"
+      ],
+      "checklist": [
+        {
+          "text": "Qualify with marketing lead",
+          "is_checked": true
+        },
+        {
+          "text": "Provision 10 trial seats",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Operations Board Rollout — 200 Locations",
+      "description": "Each retail location tracks their own ops tasks on a shared board. Swimlane-per-region model.\n\nDemo focused on the mobile card creation flow and daily standup view.",
+      "priority": "high",
+      "column": "Demo",
+      "swimlane": "Apex Retail Group",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [
+        "SMB",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Prepare retail-specific demo board",
+          "is_checked": true
+        },
+        {
+          "text": "Run live demo with CTO",
+          "is_checked": true
+        },
+        {
+          "text": "Send follow-up with pricing options",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Demo landed well. CTO liked the per-region swimlane view.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ]
+    },
+    {
+      "title": "Full Org Rollout — 300 Seats",
+      "description": "Following successful pilot, Apex wants to roll out to all ops, marketing, and logistics teams.\n\nNegotiating a 3-year enterprise agreement.",
+      "priority": "urgent",
+      "column": "Negotiation",
+      "swimlane": "Apex Retail Group",
+      "due_date": "2026-03-20",
+      "weight": 5,
+      "labels": [
+        "Renewal",
+        "SMB",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Draft 3-year MSA",
+          "is_checked": true
+        },
+        {
+          "text": "Get legal sign-off on SLA clause",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm seat count with Apex procurement",
+          "is_checked": false
+        },
+        {
+          "text": "Execute agreement",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "CTO pushing hard to close before Q2 budget cycle closes.",
+          "author": "demo1"
+        },
+        {
+          "body": "Legal flagged the liability cap — escalated to VP Sales.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-01-05T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-04T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Proposal Sent",
+          "to_column": "Negotiation",
+          "from_swimlane": "Apex Retail Group",
+          "to_swimlane": "Apex Retail Group",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Compliance Workflow License — 80 Seats",
+      "description": "FinEdge tracks regulatory submissions and internal audit cycles. Primary use case: legal/compliance boards per regulation.\n\nCompeting against Notion and a custom Airtable setup.",
+      "priority": "high",
+      "column": "Discovery",
+      "swimlane": "FinEdge Ltd",
+      "due_date": "2026-03-27",
+      "weight": 4,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Send SOC 2 Type II report",
+          "is_checked": true
+        },
+        {
+          "text": "Complete GDPR data processing addendum",
+          "is_checked": false
+        },
+        {
+          "text": "Book technical deep-dive with their engineering team",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "VP Product confirmed Notion is a weak competitor here — they need structure.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Engineering Team Add-on — 40 Seats",
+      "description": "After closing the compliance deal, the engineering team wants to adopt Visiban for sprint planning.\n\nUpsell opportunity: +40 seats at standard rate.",
+      "priority": "medium",
+      "column": "Proposal Sent",
+      "swimlane": "FinEdge Ltd",
+      "due_date": "2026-03-23",
+      "weight": 3,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Send add-on order form",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm provisioning date",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Engineering lead wants to start before the compliance rollout completes.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ]
+    },
+    {
+      "title": "Risk Dashboard Integration — Lost",
+      "description": "FinEdge wanted native integration with their risk management platform. We could not commit to a timeline.\n\nDeal lost to a competitor with out-of-the-box integration.",
+      "priority": "low",
+      "column": "Closed Lost",
+      "swimlane": "FinEdge Ltd",
+      "due_date": null,
+      "weight": 1,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Log loss reason in CRM",
+          "is_checked": true
+        },
+        {
+          "text": "Flag integration gap to product team",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Loss reason: missing native risk tool integration. Adding to product backlog.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2025-12-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2025-12-31T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-01-07T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-04T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Proposal Sent",
+          "to_column": "Negotiation",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Negotiation",
+          "to_column": "Closed Won",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Closed Won",
+          "to_column": "Closed Lost",
+          "from_swimlane": "FinEdge Ltd",
+          "to_swimlane": "FinEdge Ltd",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Clinical Project Tracking — Initial Outreach",
+      "description": "Inbound inquiry from IT Director. Interested in tracking clinical IT projects across 5 hospitals.\n\nHIPAA BAA will be required before any data sharing.",
+      "priority": "medium",
+      "column": "Prospect",
+      "swimlane": "BlueSky Health",
+      "due_date": "2026-04-09",
+      "weight": 2,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Respond to inbound inquiry",
+          "is_checked": true
+        },
+        {
+          "text": "Send HIPAA BAA for review",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "IT Operations Board — 50 Seats",
+      "description": "Opportunity with the IT ops team tracking infrastructure changes. Separate from the clinical project deal.\n\nChampion: IT Director. Decision maker: CIO.",
+      "priority": "medium",
+      "column": "Qualified",
+      "swimlane": "BlueSky Health",
+      "due_date": "2026-04-02",
+      "weight": 3,
+      "labels": [
+        "Enterprise",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Qualify with IT Director",
+          "is_checked": true
+        },
+        {
+          "text": "Request intro to CIO",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "IT Director is strong champion. CIO meeting requested for next week.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Enterprise Renewal — 200 Seats",
+      "description": "Annual renewal coming up for existing 200-seat enterprise contract. Opportunity to upsell analytics module (+$18k ARR).\n\nRenewal date: 2026-05-01.",
+      "priority": "urgent",
+      "column": "Negotiation",
+      "swimlane": "BlueSky Health",
+      "due_date": "2026-03-10",
+      "weight": 5,
+      "labels": [
+        "Enterprise",
+        "Renewal",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Send renewal quote with analytics upsell",
+          "is_checked": true
+        },
+        {
+          "text": "Schedule QBR with CIO",
+          "is_checked": true
+        },
+        {
+          "text": "Get signed renewal order form",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "QBR went well. CIO open to analytics module — needs board approval.",
+          "author": "demo1"
+        },
+        {
+          "body": "OVERDUE — renewal date is in 5 days. Escalated to VP Sales.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Proposal Sent",
+          "to_column": "Negotiation",
+          "from_swimlane": "BlueSky Health",
+          "to_swimlane": "BlueSky Health",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ]
+    },
+    {
+      "title": "Content Calendar Boards — 30 Seats",
+      "description": "Mosaic tracks every client content campaign on shared boards. Use case: one swimlane per client, columns = content stages.\n\nEvaluating Trello, Asana, and Visiban.",
+      "priority": "medium",
+      "column": "Discovery",
+      "swimlane": "Mosaic Creative",
+      "due_date": "2026-03-22",
+      "weight": 3,
+      "labels": [
+        "SMB"
+      ],
+      "checklist": [
+        {
+          "text": "Send content agency template",
+          "is_checked": true
+        },
+        {
+          "text": "Run 30-min discovery call",
+          "is_checked": true
+        },
+        {
+          "text": "Provide trial access",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "They love the swimlane-per-client model. Trello can not do this cleanly.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    },
+    {
+      "title": "Campaign Sprint Boards — Closed Won",
+      "description": "Mosaic signed for 30 seats on a monthly plan. Primary use: campaign sprint boards per client.\n\nUpsell opportunity at 90-day check-in: annual plan + 10 extra seats.",
+      "priority": "low",
+      "column": "Closed Won",
+      "swimlane": "Mosaic Creative",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Renewal",
+        "SMB"
+      ],
+      "checklist": [
+        {
+          "text": "Provision 30 seats",
+          "is_checked": true
+        },
+        {
+          "text": "Send onboarding guide",
+          "is_checked": true
+        },
+        {
+          "text": "Set 90-day upsell reminder",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Closed in 4 days from first contact. Fastest close this quarter.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-01-10T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Proposal Sent",
+          "to_column": "Negotiation",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Negotiation",
+          "to_column": "Closed Won",
+          "from_swimlane": "Mosaic Creative",
+          "to_swimlane": "Mosaic Creative",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ]
+    }
+  ]
+}
