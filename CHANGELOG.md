@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Site admins can now enable or disable file uploads instance-wide via **Admin Panel → Settings → Features**. When uploads are disabled, all attachment upload attempts return `403 feature_disabled`; existing attachments remain accessible. The toggle is reflected in `GET /api/auth/me/` as `uploads_enabled` and in `GET /api/admin/settings/` (issue #312).
 - API reference documentation for the notifications endpoints (`GET /api/notifications/`, `POST /api/notifications/mark-read/`, `GET /api/notifications/unread-count/`) — these endpoints existed but had no API docs
 - `seed_template_boards` management command seeds all six board templates (`sales_pipeline`, `customer_support`, `customer_success`, `simple_kanban`, `product_roadmap`, `project_delivery`) with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement history (#254). Seed files are exported to `backend/boards/seed_data/<slug>/seed.{json,csv}`.
 - Four new board templates are available: Content Production, Hiring & Recruiting, Legal & Compliance, and Infrastructure & DevOps — each with domain-specific swimlanes, cards, labels, and column structures

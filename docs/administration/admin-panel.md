@@ -4,7 +4,7 @@ The admin panel at `/admin` is the primary interface for managing your Visiban i
 
 ## Settings tab
 
-Controls instance-wide registration behavior.
+Controls instance-wide registration behavior and feature availability.
 
 ### Registration mode
 
@@ -15,6 +15,14 @@ Controls instance-wide registration behavior.
 | **Closed** | Nobody — all self-registration disabled |
 
 Changes take effect immediately with no restart required. Existing user sessions and OAuth-linked accounts are never affected — only new sign-ups are gated.
+
+### Features
+
+| Toggle | Default | Effect |
+|---|---|---|
+| **File uploads** | On | When turned off, all users (including board admins) receive `403 Forbidden` when attempting to upload an attachment. Existing attachments are preserved and can still be viewed and downloaded. |
+
+Feature changes take effect within approximately 60 seconds due to server-side caching. Toggling a feature does not delete or alter any existing data.
 
 ## Users tab
 

@@ -1,7 +1,7 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
-from .models import User
+from .models import User, get_uploads_enabled
 
 
 class RegistrationSerializer(RegisterSerializer):
@@ -71,3 +71,22 @@ class UserSerializer(serializers.ModelSerializer):
             "default_board_id",
         ]
         read_only_fields = ["id", "is_site_admin", "must_change_password", "has_usable_password"]
+
+
+class CurrentUserSerializer(UserSerializer):
+    """Extends UserSerializer with site-wide settings for the /api/auth/me/ endpoint.
+
+    Kept separate from UserSerializer because UserSerializer is embedded in
+    board/card serializers for assignee, author, and member fields — calling
+    get_uploads_enabled() there would issue a SiteSetting DB query on every
+    board full response before the cache is warm.
+    """
+
+    uploads_enabled = serializers.SerializerMethodField()
+
+    def get_uploads_enabled(self, obj):
+        return get_uploads_enabled()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ["uploads_enabled"]
+        read_only_fields = UserSerializer.Meta.read_only_fields + ["uploads_enabled"]

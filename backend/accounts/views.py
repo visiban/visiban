@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from .models import SiteSetting
-from .serializers import PublicUserSerializer, UserSerializer
+from .serializers import CurrentUserSerializer, PublicUserSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -65,11 +65,11 @@ class CurrentUserView(APIView):
     """Retrieve or update the currently authenticated user's profile."""
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
 
     def patch(self, request):
-        serializer = UserSerializer(request.user, data=request.data, partial=True,
-                                    context={"request": request})
+        serializer = CurrentUserSerializer(request.user, data=request.data, partial=True,
+                                           context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

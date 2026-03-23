@@ -78,6 +78,7 @@ const regularUser: User = {
 
 const fakeSettings: SiteSettings = {
   registration_mode: 'open',
+  uploads_enabled: true,
 }
 
 const fakeAdminUsers: AdminUser[] = [

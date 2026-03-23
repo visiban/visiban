@@ -6,10 +6,29 @@ from django.db import models
 REGISTRATION_MODE_CACHE_KEY = "site_setting_registration_mode"
 REGISTRATION_MODE_CACHE_TTL = 60  # seconds
 
+UPLOADS_ENABLED_CACHE_KEY = "site_setting_uploads_enabled"
+UPLOADS_ENABLED_CACHE_TTL = 60  # seconds
+
 
 def invalidate_registration_mode_cache():
     """Evict the cached registration_mode so the next read hits the DB."""
     cache.delete(REGISTRATION_MODE_CACHE_KEY)
+
+
+def get_uploads_enabled() -> bool:
+    """Return whether file uploads are enabled, using a short-lived cache to
+    avoid a DB hit on every attachment request."""
+    cached = cache.get(UPLOADS_ENABLED_CACHE_KEY)
+    if cached is not None:
+        return cached
+    value = SiteSetting.get().uploads_enabled
+    cache.set(UPLOADS_ENABLED_CACHE_KEY, value, UPLOADS_ENABLED_CACHE_TTL)
+    return value
+
+
+def invalidate_uploads_enabled_cache():
+    """Evict the cached uploads_enabled so the next read hits the DB."""
+    cache.delete(UPLOADS_ENABLED_CACHE_KEY)
 
 
 class SiteSetting(models.Model):
@@ -26,6 +45,10 @@ class SiteSetting(models.Model):
         default=RegistrationMode.OPEN,
         help_text="Controls who can self-register. 'open' = anyone; 'invite_only' = valid invite link required; 'closed' = admin-created accounts only.",
     )
+    uploads_enabled = models.BooleanField(
+        default=True,
+        help_text="When False, attachment uploads are disabled for all users.",
+    )
 
     class Meta:
         db_table = "site_settings"
@@ -34,9 +57,10 @@ class SiteSetting(models.Model):
         # Enforce singleton: the row always has pk=1.
         self.pk = 1
         super().save(*args, **kwargs)
-        # Invalidate the adapter's cache so the new mode takes effect
-        # immediately without waiting for the TTL to expire.
+        # Invalidate caches so the new values take effect immediately without
+        # waiting for the TTL to expire.
         invalidate_registration_mode_cache()
+        invalidate_uploads_enabled_cache()
 
     @classmethod
     def get(cls):
