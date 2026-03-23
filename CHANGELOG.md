@@ -19,6 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Removed-member WebSocket connections now closed immediately when a `member.removed` broadcast is received, preventing the evicted user from continuing to see board events (#318)
+- Board update and delete mutations now broadcast `board.updated` and `board.deleted` events so connected clients reflect changes in real time (#318)
+- Attachment upload is now wrapped in `transaction.atomic()` so the file record and its broadcast are rolled back together on error (#318)
 - `flatted` npm dependency bumped past 3.4.1 to resolve GHSA-rf6f-7fwh-wjgh (prototype pollution, high severity)
 - API docs corrected: archive/unarchive/archived card endpoints documented; `weight_limit_exceeded` error response now includes `card_weight` field; attachment download via authenticated `/media/` route documented; summary endpoint response shape expanded with `stage_distribution` and `color`; CSV/JSON export formats fully described; writable fields listed for column, swimlane, and label `PUT`; `display_name` added to `PATCH /api/auth/me/` writable fields
 - Scheduled `cleanup-merged-branches` CI job no longer fails when all merged branches have already been deleted — `grep -v` returning exit 1 on an empty result set was propagated as a job failure under `pipefail`; fixed with `|| true`

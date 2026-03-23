@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from .models import SiteSetting
-from .serializers import CurrentUserSerializer, PublicUserSerializer, UserSerializer
+from .serializers import CurrentUserSerializer, PublicUserSerializer
 
 User = get_user_model()
 
