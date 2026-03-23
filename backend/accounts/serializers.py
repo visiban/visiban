@@ -31,7 +31,6 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
-    uploads_enabled = serializers.SerializerMethodField()
     # default_board_id is injected as a writable PrimaryKeyRelatedField in
     # __init__ rather than at class level to avoid a premature import of
     # boards.models during test collection (app registry may not be ready when
@@ -60,11 +59,6 @@ class UserSerializer(serializers.ModelSerializer):
     def get_has_usable_password(self, obj):
         return obj.has_usable_password()
 
-    def get_uploads_enabled(self, obj):
-        # Embed the site-wide uploads toggle so the frontend can gate the UI
-        # without a separate API call.
-        return get_uploads_enabled()
-
     class Meta:
         model = User
         fields = [
@@ -75,6 +69,24 @@ class UserSerializer(serializers.ModelSerializer):
             "notif_card_assigned", "notif_mentioned", "notif_due_soon",
             "notif_card_moved", "notif_comment_added",
             "default_board_id",
-            "uploads_enabled",
         ]
-        read_only_fields = ["id", "is_site_admin", "must_change_password", "has_usable_password", "uploads_enabled"]
+        read_only_fields = ["id", "is_site_admin", "must_change_password", "has_usable_password"]
+
+
+class CurrentUserSerializer(UserSerializer):
+    """Extends UserSerializer with site-wide settings for the /api/auth/me/ endpoint.
+
+    Kept separate from UserSerializer because UserSerializer is embedded in
+    board/card serializers for assignee, author, and member fields — calling
+    get_uploads_enabled() there would issue a SiteSetting DB query on every
+    board full response before the cache is warm.
+    """
+
+    uploads_enabled = serializers.SerializerMethodField()
+
+    def get_uploads_enabled(self, obj):
+        return get_uploads_enabled()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ["uploads_enabled"]
+        read_only_fields = UserSerializer.Meta.read_only_fields + ["uploads_enabled"]
