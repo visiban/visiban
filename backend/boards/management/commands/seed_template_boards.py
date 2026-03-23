@@ -831,442 +831,293 @@ TEMPLATE_DATA: dict[str, dict] = {
         ],
         "swimlanes": [
             {
-                "name": "Acme Corp",
+                "name": "Americas",
                 "color": "#3B82F6",
-                "contact_email": "ops@acme.example",
-                "notes": "Mid-market. 50 seats. Champion: Head of Ops. 90-day onboarding started 2026-02-01.",
+                "contact_email": "csm-americas@visiban.example",
+                "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera.",
                 "cards": [
                     {
-                        "title": "Admin training session — 2 teams",
+                        "title": "TechNova Inc",
                         "description": (
-                            "Schedule and deliver two 60-min admin training sessions covering:\n\n"
-                            "- Board setup and swimlane configuration\n"
-                            "- User management and roles\n"
-                            "- Integrations (Slack, webhooks)\n\n"
-                            "Target: Ops team (25 users) and Engineering team (25 users)."
+                            "500-seat enterprise account. Onboarding completed ahead of schedule.\n\n"
+                            "## Health signals\n\n"
+                            "- WAU: 78% (target: 70%)\n"
+                            "- NPS: 62\n"
+                            "- Open support tickets: 2 (both minor)\n\n"
+                            "Expansion conversation in progress — 200 additional seats."
                         ),
-                        "col_idx": 0,
+                        "col_idx": 3,
                         "priority": "high",
-                        "due_offset": 5,
-                        "weight": 3,
-                        "labels": [],
-                        "checklist": [
-                            {"text": "Book session 1 (Ops team)", "is_checked": True},
-                            {"text": "Book session 2 (Engineering team)", "is_checked": False},
-                            {"text": "Send pre-session setup checklist", "is_checked": True},
-                            {"text": "Share recording after each session", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Session 1 done — great turnout (22/25 attended). Session 2 booked for next Tuesday.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Import historical project data from Trello",
-                        "description": (
-                            "Acme has 3 years of project history in Trello they want imported. "
-                            "Estimated: 800 cards across 6 boards.\n\n"
-                            "Use the CSV import tool. Map Trello lists → Visiban columns."
-                        ),
-                        "col_idx": 0,
-                        "priority": "medium",
-                        "due_offset": 10,
-                        "weight": 4,
-                        "labels": [],
-                        "checklist": [
-                            {"text": "Export Trello JSON", "is_checked": True},
-                            {"text": "Convert to Visiban CSV format", "is_checked": False},
-                            {"text": "Test import with 50-card sample", "is_checked": False},
-                            {"text": "Full import and verify", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Trello JSON exported. Working on conversion script.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "First board created and team invited",
-                        "description": (
-                            "Acme Ops team has created their first board and invited all 25 members. "
-                            "Initial adoption looks strong — 18/25 users active in week 1.\n\n"
-                            "Next: ensure Engineering team mirrors the structure."
-                        ),
-                        "col_idx": 1,
-                        "priority": "medium",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": ["Champion"],
-                        "checklist": [
-                            {"text": "Confirm all users can log in", "is_checked": True},
-                            {"text": "Review board structure with champion", "is_checked": True},
-                        ],
-                        "comments": [
-                            "Head of Ops is a strong champion — already coaching colleagues on WIP limits.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "45-day QBR — health check",
-                        "description": (
-                            "Quarterly Business Review at the 45-day mark.\n\n"
-                            "## Agenda\n\n"
-                            "1. Usage metrics review (WAU, boards created, cards moved)\n"
-                            "2. Feedback on pain points\n"
-                            "3. Expansion discussion (5 additional seats for Design team)\n"
-                            "4. Renewal timeline (due 2026-08-01)"
-                        ),
-                        "col_idx": 2,
-                        "priority": "high",
-                        "due_offset": 30,
-                        "weight": 3,
-                        "labels": ["QBR Needed", "Expansion Opportunity"],
-                        "checklist": [
-                            {"text": "Pull usage report from admin panel", "is_checked": False},
-                            {"text": "Prepare QBR deck", "is_checked": False},
-                            {"text": "Book 60-min call with champion", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 4,
-                    },
-                ],
-            },
-            {
-                "name": "Brightfield Energy",
-                "color": "#F59E0B",
-                "contact_email": "digital@brightfield.example",
-                "notes": "At-risk account. Usage dropped 40% MoM. Champion: Lisa Markov (Digital Director).",
-                "cards": [
-                    {
-                        "title": "Usage dropped 40% — intervention needed",
-                        "description": (
-                            "Monthly active users fell from 35 to 21 between February and March. "
-                            "No boards created in the last 3 weeks.\n\n"
-                            "Hypothesis: team restructure following M&A activity. "
-                            "Champion Lisa Markov is still in role — schedule urgent call."
-                        ),
-                        "col_idx": 2,
-                        "priority": "urgent",
-                        "due_offset": 3,
+                        "due_offset": 14,
                         "weight": 5,
-                        "labels": ["At Risk"],
+                        "labels": ["Enterprise", "Expansion"],
                         "checklist": [
-                            {"text": "Confirm champion is still in role", "is_checked": True},
-                            {"text": "Pull full usage breakdown by user", "is_checked": True},
-                            {"text": "Schedule intervention call within 48h", "is_checked": False},
-                            {"text": "Prepare re-engagement plan", "is_checked": False},
+                            {"text": "Schedule QBR with VP Engineering", "is_checked": True},
+                            {"text": "Present expansion ROI deck", "is_checked": True},
+                            {"text": "Get verbal commitment on 200 seat expansion", "is_checked": False},
+                            {"text": "Send expansion order form", "is_checked": False},
                         ],
                         "comments": [
-                            "Lisa confirmed she's still in role but team reorg has slowed adoption.",
-                            "Call booked for Thursday. Preparing tailored re-engagement deck.",
+                            "QBR went great. VP Engineering openly mentioned expansion plans.",
+                            "NPS 62 — best in the Americas portfolio this quarter.",
                         ],
-                        "assignee_idx": 4,
+                        "assignee_idx": 0,
                     },
                     {
-                        "title": "Re-engagement call with Lisa Markov",
+                        "title": "Summit Logistics",
                         "description": (
-                            "Outcome of intervention call:\n\n"
-                            "- Reorg is complete — 3 new team leads added\n"
-                            "- Lisa will personally onboard the new leads\n"
-                            "- Usage expected to recover within 30 days\n\n"
-                            "Risk level: reduced from Critical to Watch."
-                        ),
-                        "col_idx": 1,
-                        "priority": "high",
-                        "due_offset": -2,
-                        "weight": 3,
-                        "labels": ["Champion"],
-                        "checklist": [
-                            {"text": "Send onboarding resources to new leads", "is_checked": True},
-                            {"text": "Set 2-week follow-up reminder", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Call went well. Lisa is re-engaged and confident in recovery.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "At-risk recovery plan — 30-day milestones",
-                        "description": (
-                            "Documented recovery plan agreed with Lisa Markov:\n\n"
-                            "- Week 1: New team leads onboarded\n"
-                            "- Week 2: First board created by each new lead\n"
-                            "- Week 4: WAU back to ≥ 30\n\n"
-                            "CS will check in weekly."
+                            "25-seat SMB account. Month 2 of annual plan.\n\n"
+                            "Low engagement — WAU sitting at 35%. Risk of churn at renewal."
                         ),
                         "col_idx": 1,
                         "priority": "high",
                         "due_offset": 7,
-                        "weight": 4,
+                        "weight": 3,
                         "labels": ["At Risk"],
                         "checklist": [
-                            {"text": "Week 1: onboard 3 new leads", "is_checked": False},
-                            {"text": "Week 2: first board per lead", "is_checked": False},
-                            {"text": "Week 4: WAU check", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Expansion: 3 additional teams (60 seats)",
-                        "description": (
-                            "Following recovery, Brightfield wants to expand to 3 additional teams. "
-                            "Current: 35 seats. Proposed: 95 seats.\n\n"
-                            "Opportunity ACV uplift: +$14,400."
-                        ),
-                        "col_idx": 3,
-                        "priority": "medium",
-                        "due_offset": 45,
-                        "weight": 3,
-                        "labels": ["Expansion Opportunity"],
-                        "checklist": [
-                            {"text": "Send expansion proposal", "is_checked": False},
-                            {"text": "Get procurement approval", "is_checked": False},
-                            {"text": "Provision additional seats", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 0,
-                    },
-                ],
-            },
-            {
-                "name": "NovaTech Solutions",
-                "color": "#10B981",
-                "contact_email": "cto@novatech.example",
-                "notes": "Healthy account. Expanding organically. CTO is a vocal advocate.",
-                "cards": [
-                    {
-                        "title": "Onboarding complete — all 3 teams active",
-                        "description": (
-                            "NovaTech completed onboarding ahead of schedule. "
-                            "All 3 teams (Engineering, Product, Design) have active boards.\n\n"
-                            "WAU: 42/45 users. NPS at 30-day mark: 67."
-                        ),
-                        "col_idx": 1,
-                        "priority": "medium",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": ["Champion"],
-                        "checklist": [
-                            {"text": "Complete onboarding survey", "is_checked": True},
-                            {"text": "Confirm all users activated", "is_checked": True},
+                            {"text": "Book check-in call with ops manager", "is_checked": True},
+                            {"text": "Share adoption guide for mobile card creation", "is_checked": False},
+                            {"text": "Set 30-day re-check reminder", "is_checked": False},
                         ],
                         "comments": [
-                            "CTO mentioned Visiban in a company all-hands. Great advocate.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Expansion: 3 new teams want access",
-                        "description": (
-                            "Inbound request from CTO: Sales, Support, and HR teams want Visiban boards. "
-                            "Current contract: 45 seats. New request: 90 seats total.\n\n"
-                            "Route to AE for expansion proposal."
-                        ),
-                        "col_idx": 3,
-                        "priority": "medium",
-                        "due_offset": 14,
-                        "weight": 3,
-                        "labels": ["Expansion Opportunity"],
-                        "checklist": [
-                            {"text": "Brief AE on expansion opportunity", "is_checked": True},
-                            {"text": "Send pricing for additional 45 seats", "is_checked": False},
-                        ],
-                        "comments": [
-                            "AE briefed. Sending expansion proposal this week.",
+                            "Ops manager on leave until next week. Booking call for return.",
                         ],
                         "assignee_idx": 0,
                     },
                     {
-                        "title": "Renewal — 2-year deal discussion",
+                        "title": "BlueSky Health",
                         "description": (
-                            "Current contract expires 2026-09-01. CTO interested in a 2-year deal "
-                            "with the expanded seat count.\n\n"
-                            "Potential ACV: $28,800/year for 90 seats on 2-year term."
+                            "200-seat healthcare account. In renewal cycle (2026-05-01).\n\n"
+                            "Healthy engagement but pushing for analytics add-on at no extra cost."
                         ),
                         "col_idx": 4,
-                        "priority": "high",
-                        "due_offset": 60,
-                        "weight": 4,
-                        "labels": ["Renewal Due", "Expansion Opportunity"],
+                        "priority": "urgent",
+                        "due_offset": -3,
+                        "weight": 5,
+                        "labels": ["Enterprise", "Renewal"],
                         "checklist": [
-                            {"text": "Prepare 2-year renewal proposal", "is_checked": False},
-                            {"text": "Include expansion seats in proposal", "is_checked": False},
-                            {"text": "Present to CTO and CFO", "is_checked": False},
+                            {"text": "Send renewal quote", "is_checked": True},
+                            {"text": "Negotiate analytics add-on pricing", "is_checked": True},
+                            {"text": "Get signed renewal form", "is_checked": False},
                         ],
-                        "comments": [],
-                        "assignee_idx": 0,
+                        "comments": [
+                            "OVERDUE — renewal is past due. CIO is travelling. Escalated to VP CS.",
+                        ],
+                        "assignee_idx": 4,
                     },
                 ],
             },
             {
-                "name": "Clearwater Bank",
-                "color": "#6366F1",
-                "contact_email": "vendor-mgmt@clearwaterbank.example",
-                "notes": "Financial sector — slow procurement. CISO approval required for all vendor tools.",
+                "name": "EMEA",
+                "color": "#8B5CF6",
+                "contact_email": "csm-emea@visiban.example",
+                "notes": "Europe, Middle East, Africa. CSM: Jordan Patel.",
                 "cards": [
                     {
-                        "title": "CISO approval for data residency",
+                        "title": "FinEdge Ltd",
                         "description": (
-                            "Clearwater Bank requires CISO sign-off before any data is entered. "
-                            "Key requirement: all data must reside in their approved AWS region (us-east-1).\n\n"
-                            "Provide architecture diagram and data flow documentation."
-                        ),
-                        "col_idx": 0,
-                        "priority": "urgent",
-                        "due_offset": 7,
-                        "weight": 5,
-                        "labels": [],
-                        "checklist": [
-                            {"text": "Share architecture diagram", "is_checked": True},
-                            {"text": "Confirm us-east-1 data residency in writing", "is_checked": False},
-                            {"text": "Schedule CISO review call", "is_checked": False},
-                        ],
-                        "comments": [
-                            "CISO review call booked for next Wednesday.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Security questionnaire (47 questions)",
-                        "description": (
-                            "Clearwater InfoSec sent their standard 47-question vendor security form. "
-                            "Deadline: 2026-03-10 (OVERDUE).\n\n"
-                            "Coordinate with InfoSec lead to complete within 2 business days."
+                            "80-seat compliance-focused account. Adopted Visiban for "
+                            "regulatory workflow tracking.\n\n"
+                            "Engineering team (40 seats) just provisioned — still in onboarding."
                         ),
                         "col_idx": 0,
                         "priority": "high",
-                        "due_offset": -5,
+                        "due_offset": 10,
                         "weight": 4,
-                        "labels": ["At Risk"],
+                        "labels": ["Enterprise"],
                         "checklist": [
-                            {"text": "Sections 1–10: infrastructure", "is_checked": True},
-                            {"text": "Sections 11–20: access controls", "is_checked": True},
-                            {"text": "Sections 21–47: compliance", "is_checked": False},
+                            {"text": "Run onboarding session 1: board setup", "is_checked": True},
+                            {"text": "Run onboarding session 2: workflows and WIP limits", "is_checked": False},
+                            {"text": "Confirm all 80 users have logged in", "is_checked": False},
                         ],
                         "comments": [
-                            "OVERDUE by 5 days. Escalated to InfoSec lead — expediting.",
+                            "Session 1 complete. Engineering lead very engaged.",
                         ],
                         "assignee_idx": 2,
                     },
                     {
-                        "title": "Adoption stalled at 30% — new team leads not onboarded",
+                        "title": "Mosaic Creative",
                         "description": (
-                            "3 weeks post-launch, only 15/50 users are active (30%). "
-                            "Root cause: 4 team leads have not completed setup, so their teams are waiting.\n\n"
-                            "Action: direct outreach to each team lead with a personalised setup guide."
-                        ),
-                        "col_idx": 1,
-                        "priority": "high",
-                        "due_offset": 14,
-                        "weight": 4,
-                        "labels": ["At Risk"],
-                        "checklist": [
-                            {"text": "Identify the 4 blocked team leads", "is_checked": True},
-                            {"text": "Send personalised setup guides", "is_checked": False},
-                            {"text": "Offer 1:1 setup calls", "is_checked": False},
-                            {"text": "Check adoption rate at 2-week mark", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Outreach sent to all 4 leads. Two have responded and booked setup calls.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Executive sponsor re-engaged after champion call",
-                        "description": (
-                            "The Head of Digital Banking (executive sponsor) attended the recovery call "
-                            "and is now actively promoting Visiban internally.\n\n"
-                            "He has mandated all 8 project teams adopt Visiban by end of Q2."
+                            "30-seat creative agency. 3 months post-close, strong adoption.\n\n"
+                            "WAU: 88%. Using swimlane-per-client model effectively."
                         ),
                         "col_idx": 2,
-                        "priority": "medium",
-                        "due_offset": None,
-                        "weight": 3,
-                        "labels": ["Champion"],
+                        "priority": "low",
+                        "due_offset": 30,
+                        "weight": 2,
+                        "labels": ["SMB"],
                         "checklist": [
-                            {"text": "Send executive overview deck", "is_checked": True},
-                            {"text": "Book Q2 rollout planning session", "is_checked": False},
+                            {"text": "Send 90-day check-in survey", "is_checked": True},
+                            {"text": "Propose annual plan upgrade (currently monthly)", "is_checked": False},
                         ],
                         "comments": [
-                            "This changes the trajectory. Q2 mandate will drive adoption without CS intervention.",
+                            "Happy account. Good candidate for a case study.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Apex Retail Group",
+                        "description": (
+                            "300-seat enterprise account, newly signed. Rollout across 200 locations.\n\n"
+                            "Complex onboarding — need swimlane template for each region."
+                        ),
+                        "col_idx": 0,
+                        "priority": "urgent",
+                        "due_offset": 5,
+                        "weight": 5,
+                        "labels": ["Enterprise"],
+                        "checklist": [
+                            {"text": "Assign dedicated onboarding specialist", "is_checked": True},
+                            {"text": "Create region swimlane template", "is_checked": False},
+                            {"text": "Run kickoff session with Apex ops leadership", "is_checked": False},
+                            {"text": "Provision all 300 seats", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Large rollout — dedicated onboarding specialist assigned.",
                         ],
                         "assignee_idx": 4,
                     },
                 ],
             },
             {
-                "name": "Zephyr Logistics",
-                "color": "#EF4444",
-                "contact_email": "it@zephyrlogistics.example",
-                "notes": "Churned 2026-02-28. Contract not renewed. Re-engagement planned for Q4.",
+                "name": "APAC",
+                "color": "#10B981",
+                "contact_email": "csm-apac@visiban.example",
+                "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu.",
                 "cards": [
                     {
-                        "title": "Contract not renewed — churn confirmed",
+                        "title": "DataStream AU",
                         "description": (
-                            "Zephyr Logistics did not renew their contract (expired 2026-02-28). "
-                            "Primary reason given: 'Tool too complex for our ops team.'\n\n"
-                            "Secondary reason: budget cuts across the company."
+                            "45-seat analytics firm. Adopted Visiban for sprint tracking.\n\n"
+                            "Healthy engagement. Champion is Head of Engineering."
                         ),
-                        "col_idx": 5,
+                        "col_idx": 2,
                         "priority": "medium",
-                        "due_offset": None,
+                        "due_offset": 21,
                         "weight": 2,
-                        "labels": [],
+                        "labels": ["SMB"],
                         "checklist": [
-                            {"text": "Log churn reason in CRM", "is_checked": True},
-                            {"text": "Deprovision accounts", "is_checked": True},
-                            {"text": "Archive board data per retention policy", "is_checked": True},
-                        ],
-                        "comments": [
-                            "Churn logged. Primary reason: complexity. Consider flagging UX feedback to product.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Exit interview completed",
-                        "description": (
-                            "30-min exit interview with IT Manager.\n\n"
-                            "Key feedback:\n"
-                            "- Onboarding was too long (took 6 weeks)\n"
-                            "- Mobile experience was poor for field workers\n"
-                            "- Would consider returning if mobile UX improves\n\n"
-                            "Filed UX feedback for product team: issues #312, #313."
-                        ),
-                        "col_idx": 5,
-                        "priority": "low",
-                        "due_offset": None,
-                        "weight": 1,
-                        "labels": [],
-                        "checklist": [
-                            {"text": "Document feedback verbatim", "is_checked": True},
-                            {"text": "File product issues from feedback", "is_checked": True},
-                        ],
-                        "comments": [
-                            "Good feedback. Mobile UX is a known gap — this reinforces the priority.",
-                        ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Q4 re-engagement campaign",
-                        "description": (
-                            "Plan outreach to Zephyr for Q4 2026 based on:\n\n"
-                            "1. Improved mobile UX (roadmap item for Q3)\n"
-                            "2. New simplified onboarding flow\n"
-                            "3. Pricing flexibility for logistics sector\n\n"
-                            "Target contact: same IT Manager who gave positive exit feedback."
-                        ),
-                        "col_idx": 0,
-                        "priority": "low",
-                        "due_offset": 90,
-                        "weight": 2,
-                        "labels": [],
-                        "checklist": [
-                            {"text": "Monitor mobile UX roadmap progress", "is_checked": False},
-                            {"text": "Draft re-engagement email template", "is_checked": False},
-                            {"text": "Set Q4 calendar reminder", "is_checked": True},
+                            {"text": "Send quarterly product update digest", "is_checked": True},
+                            {"text": "Invite to APAC customer roundtable", "is_checked": False},
                         ],
                         "comments": [],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "NexGen Fintech JP",
+                        "description": (
+                            "60-seat Japanese fintech. Churned from previous provider.\n\n"
+                            "Still in early adoption — ensuring they see value before 90 days."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 8,
+                        "weight": 4,
+                        "labels": ["At Risk"],
+                        "checklist": [
+                            {"text": "Complete onboarding checklist with eng lead", "is_checked": True},
+                            {"text": "Set up weekly check-in for first 90 days", "is_checked": True},
+                            {"text": "Confirm WAU target met by day 60", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Previous provider churned them due to poor support. We need to overcommunicate.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                ],
+            },
+            {
+                "name": "Enterprise Accounts",
+                "color": "#F59E0B",
+                "contact_email": "enterprise-cs@visiban.example",
+                "notes": "200+ seat strategic accounts managed directly by VP CS.",
+                "cards": [
+                    {
+                        "title": "GlobalBank Corp",
+                        "description": (
+                            "400-seat banking enterprise. Year 2 of a 3-year agreement.\n\n"
+                            "Renewal not at risk but annual business review is overdue."
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": 5,
+                        "weight": 4,
+                        "labels": ["Enterprise", "Renewal"],
+                        "checklist": [
+                            {"text": "Schedule annual business review", "is_checked": True},
+                            {"text": "Prepare YoY usage and ROI report", "is_checked": False},
+                            {"text": "Present roadmap preview", "is_checked": False},
+                        ],
+                        "comments": [
+                            "ABR overdue by 3 weeks. CIO has been traveling. Meeting confirmed for Friday.",
+                        ],
                         "assignee_idx": 0,
+                    },
+                    {
+                        "title": "PharmaCo Ltd",
+                        "description": (
+                            "350-seat pharma enterprise. Clinical and regulatory teams on separate boards.\n\n"
+                            "Expansion conversation for 150 additional seats (R&D division)."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": 20,
+                        "weight": 3,
+                        "labels": ["Enterprise", "Expansion"],
+                        "checklist": [
+                            {"text": "Map R&D team use cases", "is_checked": True},
+                            {"text": "Send expansion proposal", "is_checked": False},
+                        ],
+                        "comments": [
+                            "R&D director wants Visiban — IT procurement is the gatekeeper.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                ],
+            },
+            {
+                "name": "Mid-Market",
+                "color": "#EF4444",
+                "contact_email": "midmarket-cs@visiban.example",
+                "notes": "20-200 seat accounts. CSM coverage pooled.",
+                "cards": [
+                    {
+                        "title": "GreenLeaf Agency",
+                        "description": (
+                            "50-seat digital marketing agency. Strong adoption, all teams active.\n\n"
+                            "Renewal in 4 months. Low risk."
+                        ),
+                        "col_idx": 2,
+                        "priority": "low",
+                        "due_offset": 45,
+                        "weight": 1,
+                        "labels": ["SMB", "Renewal"],
+                        "checklist": [
+                            {"text": "Send renewal reminder at T-60", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Ironclad Manufacturing",
+                        "description": (
+                            "80-seat industrial firm. Low product adoption — WAU at 22%.\n\n"
+                            "Risk: renewal in 60 days. Operations team not fully onboarded."
+                        ),
+                        "col_idx": 5,
+                        "priority": "urgent",
+                        "due_offset": None,
+                        "weight": 4,
+                        "labels": ["At Risk"],
+                        "checklist": [
+                            {"text": "Identify adoption blockers in ops team", "is_checked": True},
+                            {"text": "Offer complimentary re-onboarding session", "is_checked": True},
+                            {"text": "Set 2-week re-engagement goal", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Account manager says ops team resists new tools. Need exec sponsor.",
+                        ],
+                        "assignee_idx": 4,
                     },
                 ],
             },
@@ -2425,659 +2276,280 @@ TEMPLATE_DATA: dict[str, dict] = {
         ],
         "swimlanes": [
             {
-                "name": "Website Relaunch",
+                "name": "Mobile App Relaunch",
                 "color": "#3B82F6",
-                "contact_email": "marketing@internal.example",
-                "notes": "Brand refresh + CMS migration. Go-live target: 2026-05-01. Owner: Head of Marketing.",
+                "contact_email": "mobile-team@internal.example",
+                "notes": "Full redesign of iOS and Android apps. Target launch: 2026-06-01.",
                 "cards": [
                     {
-                        "title": "Define brand refresh scope and deliverables",
+                        "title": "UX Research & Design",
                         "description": (
-                            "Align stakeholders on what the brand refresh covers:\n\n"
-                            "- New logo and colour palette ✓\n"
-                            "- Updated typography\n"
-                            "- Revised tone of voice guide\n"
-                            "- Photography / illustration style\n\n"
-                            "Out of scope: product UI changes (separate project)."
-                        ),
-                        "col_idx": 0,
-                        "priority": "high",
-                        "due_offset": 7,
-                        "weight": 4,
-                        "labels": ["On Track"],
-                        "checklist": [
-                            {"text": "Draft scope document", "is_checked": True},
-                            {"text": "Stakeholder sign-off (CMO + CEO)", "is_checked": False},
-                            {"text": "Share with design agency", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Scope doc drafted. Waiting on CEO calendar for sign-off meeting.",
-                        ],
-                        "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Stakeholder sign-off on new wireframes",
-                        "description": (
-                            "Design agency delivered 12 wireframe screens for review. "
-                            "Feedback due by 2026-03-12 (OVERDUE).\n\n"
-                            "Key reviewers: CMO, Head of Product, Head of Engineering."
-                        ),
-                        "col_idx": 1,
-                        "priority": "high",
-                        "due_offset": -3,
-                        "weight": 3,
-                        "labels": ["Blocked"],
-                        "checklist": [
-                            {"text": "CMO review", "is_checked": True},
-                            {"text": "Head of Product review", "is_checked": False},
-                            {"text": "Head of Engineering review", "is_checked": False},
-                            {"text": "Consolidate feedback and send to agency", "is_checked": False},
-                        ],
-                        "comments": [
-                            "CMO approved with minor changes. Engineering review still pending.",
-                            "BLOCKED: Head of Engineering on leave until Monday.",
-                        ],
-                        "assignee_idx": 1,
-                    },
-                    {
-                        "title": "Content migration: 150 pages to new CMS",
-                        "description": (
-                            "Migrate all 150 public-facing pages from the legacy CMS (Drupal 7) "
-                            "to the new CMS (Contentful).\n\n"
-                            "Migration plan:\n"
-                            "1. Export Drupal content as JSON\n"
-                            "2. Transform and import via Contentful API\n"
-                            "3. QA each page in staging\n"
-                            "4. Redirect legacy URLs"
-                        ),
-                        "col_idx": 2,
-                        "priority": "urgent",
-                        "due_offset": 14,
-                        "weight": 5,
-                        "labels": ["Milestone"],
-                        "checklist": [
-                            {"text": "Export Drupal content (150 pages)", "is_checked": True},
-                            {"text": "Import 50 priority pages to Contentful", "is_checked": True},
-                            {"text": "Import remaining 100 pages", "is_checked": False},
-                            {"text": "QA all pages in staging", "is_checked": False},
-                            {"text": "Set up URL redirects", "is_checked": False},
-                        ],
-                        "comments": [
-                            "50 priority pages migrated. On track for full migration.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "SEO audit of new site before go-live",
-                        "description": (
-                            "Run a full SEO audit before launch:\n\n"
-                            "- Verify all canonical URLs\n"
-                            "- Check meta titles and descriptions\n"
-                            "- Validate sitemap.xml\n"
-                            "- Confirm no broken internal links\n"
-                            "- Check Core Web Vitals (LCP < 2.5s, CLS < 0.1)"
+                            "User research, wireframing, and final design system for the relaunched app.\n\n"
+                            "## Scope\n\n"
+                            "- 8 user interviews (existing customers)\n"
+                            "- Wireframes for all 12 core screens\n"
+                            "- Design system tokens aligned to web platform\n"
+                            "- Handoff to engineering via Figma"
                         ),
                         "col_idx": 3,
-                        "priority": "medium",
-                        "due_offset": 21,
-                        "weight": 3,
-                        "labels": ["Milestone"],
-                        "checklist": [
-                            {"text": "Run Screaming Frog crawl", "is_checked": True},
-                            {"text": "Fix broken internal links (found 8)", "is_checked": False},
-                            {"text": "Core Web Vitals check via PageSpeed Insights", "is_checked": False},
-                        ],
-                        "comments": [
-                            "8 broken links found. Fixing before milestone review.",
-                        ],
-                        "assignee_idx": 1,
-                    },
-                    {
-                        "title": "Go-live: DNS cutover and legacy redirects",
-                        "description": (
-                            "Final go-live steps:\n\n"
-                            "1. Update DNS to point to new infrastructure\n"
-                            "2. Verify SSL certificate auto-renews\n"
-                            "3. Confirm all legacy URLs redirect (301) correctly\n"
-                            "4. Monitor error rate for 24h post-launch"
-                        ),
-                        "col_idx": 4,
                         "priority": "high",
-                        "due_offset": 5,
-                        "weight": 4,
-                        "labels": ["Milestone", "On Track"],
-                        "checklist": [
-                            {"text": "Update DNS TTL to 60s (24h before cutover)", "is_checked": True},
-                            {"text": "Cutover DNS", "is_checked": False},
-                            {"text": "Verify SSL", "is_checked": False},
-                            {"text": "Smoke test all redirects", "is_checked": False},
-                        ],
-                        "comments": [
-                            "TTL reduced. Cutover scheduled for Saturday 2am PT.",
-                        ],
-                        "assignee_idx": 3,
-                    },
-                ],
-            },
-            {
-                "name": "ERP Migration",
-                "color": "#F97316",
-                "contact_email": "erp-project@internal.example",
-                "notes": "SAP → NetSuite migration. 6-month project. Cutover target: 2026-09-01. High risk.",
-                "cards": [
-                    {
-                        "title": "Vendor selection complete: NetSuite chosen",
-                        "description": (
-                            "After a 6-week RFP process, NetSuite was selected over Oracle Fusion.\n\n"
-                            "Decision factors:\n"
-                            "- Total cost of ownership 20% lower\n"
-                            "- Faster implementation timeline\n"
-                            "- Better mid-market fit\n\n"
-                            "SOW signed 2026-02-15."
-                        ),
-                        "col_idx": 1,
-                        "priority": "medium",
-                        "due_offset": None,
-                        "weight": 3,
-                        "labels": ["On Track"],
-                        "checklist": [
-                            {"text": "SOW signed", "is_checked": True},
-                            {"text": "Project kick-off scheduled", "is_checked": True},
-                            {"text": "Internal project team assembled", "is_checked": True},
-                        ],
-                        "comments": [
-                            "SOW signed. Implementation partner onboarding next week.",
-                        ],
-                        "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Data mapping: legacy SAP schema → NetSuite",
-                        "description": (
-                            "Map all 340 SAP data objects to their NetSuite equivalents.\n\n"
-                            "## Status\n\n"
-                            "- Finance module: 85/120 objects mapped ✓\n"
-                            "- HR module: 30/90 objects mapped\n"
-                            "- Inventory module: 0/130 objects mapped — not started\n\n"
-                            "Blocked on HR: data privacy review required."
-                        ),
-                        "col_idx": 2,
-                        "priority": "urgent",
                         "due_offset": -5,
-                        "weight": 5,
-                        "labels": ["Blocked", "Milestone"],
-                        "checklist": [
-                            {"text": "Finance module mapping", "is_checked": True},
-                            {"text": "HR module: data privacy review", "is_checked": False},
-                            {"text": "HR module mapping", "is_checked": False},
-                            {"text": "Inventory module mapping", "is_checked": False},
-                        ],
-                        "comments": [
-                            "OVERDUE: HR privacy review delayed by legal. Escalated.",
-                            "Legal cleared HR review. Resuming HR mapping.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Parallel run: both systems live simultaneously",
-                        "description": (
-                            "Run SAP and NetSuite simultaneously for 30 days to validate:\n\n"
-                            "- All transactions reconcile between systems\n"
-                            "- Month-end close works in NetSuite\n"
-                            "- Reports match within 0.1% tolerance\n\n"
-                            "Start date: 2026-07-01."
-                        ),
-                        "col_idx": 2,
-                        "priority": "high",
-                        "due_offset": 30,
-                        "weight": 5,
-                        "labels": ["Milestone"],
-                        "checklist": [
-                            {"text": "Set up NetSuite parallel environment", "is_checked": False},
-                            {"text": "Define reconciliation report", "is_checked": False},
-                            {"text": "Run first weekly reconciliation", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 3,
-                    },
-                    {
-                        "title": "User acceptance testing (UAT) — Finance team",
-                        "description": (
-                            "Finance team UAT covering 45 test scenarios:\n\n"
-                            "- Invoice creation and approval workflow\n"
-                            "- Month-end close process\n"
-                            "- Multi-currency transactions\n"
-                            "- Expense report submission"
-                        ),
-                        "col_idx": 3,
-                        "priority": "high",
-                        "due_offset": 45,
                         "weight": 4,
-                        "labels": ["Milestone"],
+                        "labels": ["Design", "On Track"],
                         "checklist": [
-                            {"text": "Prepare 45 UAT test scripts", "is_checked": False},
-                            {"text": "Run UAT with Finance team (5 days)", "is_checked": False},
-                            {"text": "Triage and fix UAT defects", "is_checked": False},
-                            {"text": "Finance team sign-off", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": None,
-                    },
-                    {
-                        "title": "Cutover weekend plan and rollback procedure",
-                        "description": (
-                            "Document the cutover plan for the 2026-09-01 weekend:\n\n"
-                            "- Friday EOD: freeze SAP transactions\n"
-                            "- Saturday: final data migration run\n"
-                            "- Sunday: validation and smoke tests\n"
-                            "- Monday 08:00: go-live on NetSuite\n\n"
-                            "Rollback: revert to SAP if critical issues found before 10:00 Monday."
-                        ),
-                        "col_idx": 0,
-                        "priority": "high",
-                        "due_offset": 60,
-                        "weight": 5,
-                        "labels": [],
-                        "checklist": [
-                            {"text": "Write cutover runbook", "is_checked": False},
-                            {"text": "Write rollback procedure", "is_checked": False},
-                            {"text": "Get CFO sign-off on cutover plan", "is_checked": False},
-                            {"text": "Brief all team leads on weekend plan", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 0,
-                    },
-                ],
-            },
-            {
-                "name": "Mobile App Launch",
-                "color": "#8B5CF6",
-                "contact_email": "mobile-pm@internal.example",
-                "notes": "iOS and Android launch. App Store review target: 2026-04-15.",
-                "cards": [
-                    {
-                        "title": "App Store metadata and screenshots",
-                        "description": (
-                            "Prepare App Store and Google Play listing assets:\n\n"
-                            "- App name, subtitle, description (all locales)\n"
-                            "- 10 screenshots per device size\n"
-                            "- App preview video (30s)\n"
-                            "- Privacy policy URL"
-                        ),
-                        "col_idx": 3,
-                        "priority": "medium",
-                        "due_offset": 7,
-                        "weight": 3,
-                        "labels": ["On Track"],
-                        "checklist": [
-                            {"text": "Write App Store description (EN)", "is_checked": True},
-                            {"text": "Create screenshots for iPhone 15 Pro", "is_checked": True},
-                            {"text": "Create screenshots for iPad Pro", "is_checked": False},
-                            {"text": "Record 30s preview video", "is_checked": False},
+                            {"text": "Complete 8 user interviews", "is_checked": True},
+                            {"text": "Wireframes reviewed by PM", "is_checked": True},
+                            {"text": "Final designs approved", "is_checked": True},
+                            {"text": "Figma handoff to engineering", "is_checked": False},
                         ],
                         "comments": [
-                            "iPhone screenshots done. iPad and video still needed.",
+                            "Designs approved. Engineering handoff scheduled for Monday.",
                         ],
                         "assignee_idx": 1,
                     },
                     {
-                        "title": "Beta TestFlight cohort (200 users)",
+                        "title": "API v3 Integration",
                         "description": (
-                            "Recruit 200 beta testers via TestFlight for a 2-week closed beta.\n\n"
-                            "Focus areas:\n"
-                            "- Drag-and-drop on iOS\n"
-                            "- Push notification reliability\n"
-                            "- Offline sync behaviour\n\n"
-                            "NPS target: ≥ 45."
+                            "Migrate the mobile app from REST API v2 to the new v3 GraphQL API.\n\n"
+                            "Breaking changes in auth token format and pagination. "
+                            "Requires coordinated release with backend team."
                         ),
                         "col_idx": 2,
-                        "priority": "high",
-                        "due_offset": -2,
-                        "weight": 4,
-                        "labels": ["Milestone"],
+                        "priority": "urgent",
+                        "due_offset": 10,
+                        "weight": 5,
+                        "labels": ["Engineering", "Blocked"],
                         "checklist": [
-                            {"text": "Distribute TestFlight invites to 200 testers", "is_checked": True},
-                            {"text": "Monitor crash reports daily", "is_checked": True},
-                            {"text": "Collect NPS survey at end of beta", "is_checked": False},
+                            {"text": "Map v2 → v3 endpoint changes", "is_checked": True},
+                            {"text": "Update auth token handler", "is_checked": True},
+                            {"text": "Update pagination across all list views", "is_checked": False},
+                            {"text": "End-to-end smoke tests on staging", "is_checked": False},
                         ],
                         "comments": [
-                            "200 testers active. Crash rate at 0.3% — need to get below 0.1%.",
+                            "BLOCKED: waiting on backend team to finalize v3 pagination spec.",
                         ],
                         "assignee_idx": 0,
                     },
                     {
-                        "title": "Crash rate: must be below 0.1% before GA",
+                        "title": "App Store Submission",
                         "description": (
-                            "Current crash rate: 0.3% (TestFlight). Target: < 0.1%.\n\n"
-                            "Top crashes from Sentry:\n"
-                            "1. NullPointerException in DragDropController (Android) — 60%\n"
-                            "2. IndexOutOfBoundsException in SwimlaneAdapter — 25%\n"
-                            "3. Network timeout not handled on reconnect — 15%"
+                            "Submit updated app to Apple App Store and Google Play.\n\n"
+                            "Apple review typically 3-5 business days. "
+                            "Coordinate marketing announcement timing with comms team."
                         ),
-                        "col_idx": 3,
-                        "priority": "urgent",
-                        "due_offset": 5,
-                        "weight": 5,
-                        "labels": ["Blocked"],
-                        "checklist": [
-                            {"text": "Fix DragDropController NPE", "is_checked": True},
-                            {"text": "Fix SwimlaneAdapter IOOB", "is_checked": False},
-                            {"text": "Handle network timeout gracefully", "is_checked": False},
-                            {"text": "Confirm crash rate < 0.1% for 48h", "is_checked": False},
-                        ],
-                        "comments": [
-                            "NPE fixed. Crash rate dropped to 0.15%. Two more to go.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Marketing launch plan sign-off",
-                        "description": (
-                            "Marketing has prepared the launch plan:\n\n"
-                            "- Press release to 12 tech publications\n"
-                            "- Product Hunt launch on GA day\n"
-                            "- Email campaign to existing web users (8,000)\n"
-                            "- Social media content calendar (2 weeks)\n\n"
-                            "Needs CEO and CMO sign-off."
-                        ),
-                        "col_idx": 1,
+                        "col_idx": 0,
                         "priority": "medium",
-                        "due_offset": None,
+                        "due_offset": 35,
                         "weight": 3,
-                        "labels": ["On Track"],
+                        "labels": ["Release"],
                         "checklist": [
-                            {"text": "CMO sign-off", "is_checked": True},
-                            {"text": "CEO sign-off", "is_checked": True},
-                            {"text": "Embargo dates confirmed with press contacts", "is_checked": False},
+                            {"text": "Prepare App Store screenshots", "is_checked": False},
+                            {"text": "Write release notes", "is_checked": False},
+                            {"text": "Submit to TestFlight first", "is_checked": False},
+                            {"text": "Submit to production stores", "is_checked": False},
                         ],
-                        "comments": [
-                            "Both signed off. Press embargoes being coordinated.",
-                        ],
+                        "comments": [],
                         "assignee_idx": 4,
                     },
+                ],
+            },
+            {
+                "name": "Data Platform Migration",
+                "color": "#8B5CF6",
+                "contact_email": "data-team@internal.example",
+                "notes": "Migrate from legacy Redshift to Snowflake. Zero-downtime required.",
+                "cards": [
                     {
-                        "title": "Post-launch retrospective",
+                        "title": "Schema Mapping & Data Audit",
                         "description": (
-                            "30-min retro with the mobile team one week post-launch.\n\n"
-                            "Agenda:\n"
-                            "- What went well\n"
-                            "- What slowed us down\n"
-                            "- One thing to change for the next launch\n\n"
-                            "Document outcomes in Confluence."
+                            "Audit all 340 tables in Redshift and map each to Snowflake schema.\n\n"
+                            "Identify tables with breaking type changes, deprecated tables, and backfill needs."
                         ),
-                        "col_idx": 5,
-                        "priority": "low",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": [],
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 7,
+                        "weight": 4,
+                        "labels": ["Engineering", "On Track"],
                         "checklist": [
-                            {"text": "Run retro session", "is_checked": True},
-                            {"text": "Document outcomes", "is_checked": True},
-                            {"text": "Share with wider team", "is_checked": True},
+                            {"text": "Export Redshift schema", "is_checked": True},
+                            {"text": "Flag type-change tables to DBA", "is_checked": True},
+                            {"text": "Confirm drop list with data owners", "is_checked": False},
+                            {"text": "Final schema mapping signed off", "is_checked": False},
                         ],
                         "comments": [
-                            "Retro done. Key outcome: start App Store asset prep 4 weeks earlier next time.",
+                            "280/340 tables mapped. 12 have breaking type changes.",
                         ],
-                        "assignee_idx": 0,
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Dual-Write Validation Phase",
+                        "description": (
+                            "Run Redshift and Snowflake in parallel for 2 weeks. "
+                            "Compare row counts and checksums. "
+                            "Cutover only after 5 consecutive days of zero discrepancies."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 21,
+                        "weight": 5,
+                        "labels": ["Engineering"],
+                        "checklist": [
+                            {"text": "Deploy dual-write middleware", "is_checked": False},
+                            {"text": "Build checksum comparison dashboard", "is_checked": False},
+                            {"text": "Define discrepancy alert thresholds", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Production Cutover",
+                        "description": (
+                            "Zero-downtime cutover from Redshift to Snowflake.\n\n"
+                            "Plan: dual-write phase complete → route 10% reads → 100% reads → "
+                            "decommission Redshift writes."
+                        ),
+                        "col_idx": 0,
+                        "priority": "urgent",
+                        "due_offset": 42,
+                        "weight": 5,
+                        "labels": ["Engineering", "Release"],
+                        "checklist": [
+                            {"text": "Cutover runbook written and reviewed", "is_checked": False},
+                            {"text": "Rollback plan documented", "is_checked": False},
+                            {"text": "Schedule maintenance window with ops", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 3,
                     },
                 ],
             },
             {
-                "name": "Security Audit",
+                "name": "Security Compliance Audit",
                 "color": "#EF4444",
                 "contact_email": "security@internal.example",
-                "notes": "Annual pen test + SOC 2 Type II evidence collection. Vendor: CrowdStrike.",
+                "notes": "Annual SOC 2 Type II + pen test. Audit window: 2026-04-01 to 2026-04-30.",
                 "cards": [
                     {
-                        "title": "Pen test scope approved by CrowdStrike",
+                        "title": "SOC 2 Type II Evidence Collection",
                         "description": (
-                            "Scope agreed with CrowdStrike:\n\n"
-                            "- External web application (production)\n"
-                            "- API endpoints\n"
-                            "- Authentication and authorisation flows\n"
-                            "- WebSocket layer\n\n"
-                            "Out of scope: internal infrastructure, employee workstations."
-                        ),
-                        "col_idx": 1,
-                        "priority": "high",
-                        "due_offset": -7,
-                        "weight": 4,
-                        "labels": ["On Track"],
-                        "checklist": [
-                            {"text": "Scope document signed by both parties", "is_checked": True},
-                            {"text": "Whitelist CrowdStrike IP ranges", "is_checked": True},
-                            {"text": "Pen test start date confirmed: 2026-03-17", "is_checked": True},
-                        ],
-                        "comments": [
-                            "Pen test started on schedule.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "CrowdStrike engagement: active pen testing",
-                        "description": (
-                            "Active pen test running 2026-03-17 to 2026-03-21.\n\n"
-                            "Daily check-ins with CrowdStrike lead. Monitor production logs "
-                            "for anomalies during test window.\n\n"
-                            "All findings will be reported in the final report."
+                            "Collect all evidence for the SOC 2 Type II audit.\n\n"
+                            "Evidence categories: access control logs (90 days), change management, "
+                            "incident response logs, vendor assessments, backup test results."
                         ),
                         "col_idx": 2,
                         "priority": "high",
-                        "due_offset": 14,
+                        "due_offset": 10,
                         "weight": 4,
-                        "labels": ["On Track"],
+                        "labels": ["Compliance", "On Track"],
                         "checklist": [
-                            {"text": "Daily stand-up with CrowdStrike", "is_checked": True},
-                            {"text": "Monitor prod logs for anomalies", "is_checked": True},
-                            {"text": "Receive preliminary findings", "is_checked": False},
+                            {"text": "Pull access control logs from IAM", "is_checked": True},
+                            {"text": "Compile change management records", "is_checked": True},
+                            {"text": "Document incident response log", "is_checked": False},
+                            {"text": "Vendor security assessment summary", "is_checked": False},
                         ],
                         "comments": [
-                            "Day 3: 2 medium findings flagged so far. No criticals.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Remediate 3 HIGH severity findings",
-                        "description": (
-                            "CrowdStrike report delivered. 3 HIGH findings to remediate:\n\n"
-                            "1. **Insecure Direct Object Reference** on `/api/cards/{id}/` "
-                            "— no ownership check\n"
-                            "2. **Missing rate limiting** on password reset endpoint\n"
-                            "3. **Verbose error messages** leaking stack traces in 500 responses\n\n"
-                            "All 3 must be remediated before SOC 2 evidence collection."
-                        ),
-                        "col_idx": 2,
-                        "priority": "urgent",
-                        "due_offset": -1,
-                        "weight": 5,
-                        "labels": ["Blocked", "Milestone"],
-                        "checklist": [
-                            {"text": "Fix IDOR: add board membership check on card endpoint", "is_checked": True},
-                            {"text": "Add rate limiting to password reset", "is_checked": False},
-                            {"text": "Strip stack traces from 500 responses", "is_checked": False},
-                            {"text": "Retest with CrowdStrike to confirm fixes", "is_checked": False},
-                        ],
-                        "comments": [
-                            "IDOR fix deployed. Rate limiting and stack traces in progress.",
+                            "IAM logs and change records complete. Incident log in progress.",
                         ],
                         "assignee_idx": 3,
                     },
                     {
-                        "title": "SOC 2 evidence collection — Q1 2026",
+                        "title": "External Penetration Test",
                         "description": (
-                            "Collect evidence for the following SOC 2 Type II controls:\n\n"
-                            "- CC6.1: Logical access controls\n"
-                            "- CC7.2: Security incident procedures\n"
-                            "- CC8.1: Change management\n"
-                            "- A1.1: Availability commitments\n\n"
-                            "Evidence period: 2026-01-01 to 2026-03-31."
-                        ),
-                        "col_idx": 3,
-                        "priority": "high",
-                        "due_offset": 21,
-                        "weight": 4,
-                        "labels": ["Milestone", "External Dependency"],
-                        "checklist": [
-                            {"text": "CC6.1: export access review logs", "is_checked": True},
-                            {"text": "CC7.2: document incident response runbook", "is_checked": False},
-                            {"text": "CC8.1: export MR audit trail from GitLab", "is_checked": False},
-                            {"text": "A1.1: export uptime data from PagerDuty", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Audit report delivered to leadership",
-                        "description": (
-                            "CrowdStrike delivered the final pen test report. "
-                            "All 3 HIGH findings confirmed remediated.\n\n"
-                            "Report summary shared with CEO, CTO, and Board of Directors.\n\n"
-                            "Next audit: Q1 2027."
+                            "Annual pen test scoped to public web app, API, WebSocket layer, and auth flows."
                         ),
                         "col_idx": 4,
                         "priority": "medium",
-                        "due_offset": None,
+                        "due_offset": 5,
                         "weight": 3,
-                        "labels": ["On Track"],
+                        "labels": ["Compliance"],
                         "checklist": [
-                            {"text": "Receive final report from CrowdStrike", "is_checked": True},
-                            {"text": "Share executive summary with leadership", "is_checked": True},
-                            {"text": "File report in compliance system", "is_checked": True},
+                            {"text": "Agree scope with vendor", "is_checked": True},
+                            {"text": "Provide staging access", "is_checked": True},
+                            {"text": "Receive final report", "is_checked": True},
+                            {"text": "Remediate findings", "is_checked": False},
                         ],
                         "comments": [
-                            "Report filed. No open findings. Clean bill of health.",
+                            "Report received — 2 medium findings, 0 critical. Remediation underway.",
                         ],
-                        "assignee_idx": 0,
+                        "assignee_idx": 3,
                     },
                 ],
             },
             {
-                "name": "Data Center Move",
-                "color": "#6B7280",
-                "contact_email": "infra@internal.example",
-                "notes": "Relocate from legacy co-lo to AWS. Target: zero-downtime migration. Q3 2026.",
+                "name": "Customer Portal v2",
+                "color": "#F59E0B",
+                "contact_email": "portal-team@internal.example",
+                "notes": "Self-service portal for enterprise customers. Target launch: 2026-07-01.",
                 "cards": [
                     {
-                        "title": "Network topology design for AWS VPC",
+                        "title": "Requirements & Stakeholder Sign-off",
                         "description": (
-                            "Design the AWS VPC network topology:\n\n"
-                            "- 3 AZs for high availability\n"
-                            "- Private subnets for app servers and RDS\n"
-                            "- Public subnets for load balancers only\n"
-                            "- VPN gateway for on-prem connectivity during migration\n\n"
-                            "Review with network team before provisioning."
-                        ),
-                        "col_idx": 0,
-                        "priority": "high",
-                        "due_offset": 14,
-                        "weight": 5,
-                        "labels": ["On Track"],
-                        "checklist": [
-                            {"text": "Draft VPC architecture diagram", "is_checked": True},
-                            {"text": "Security group rules reviewed", "is_checked": False},
-                            {"text": "Network team sign-off", "is_checked": False},
-                            {"text": "Provision VPC in AWS", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Architecture diagram ready for review.",
-                        ],
-                        "assignee_idx": 3,
-                    },
-                    {
-                        "title": "Hardware decommission: racks 14–22",
-                        "description": (
-                            "After migration, decommission racks 14–22 in the legacy co-lo:\n\n"
-                            "- Wipe all disks (DoD 5220.22-M standard)\n"
-                            "- Return leased hardware to vendor\n"
-                            "- Cancel co-lo contract (30-day notice required)\n\n"
-                            "Estimated savings: $8,400/month."
-                        ),
-                        "col_idx": 1,
-                        "priority": "high",
-                        "due_offset": 30,
-                        "weight": 5,
-                        "labels": [],
-                        "checklist": [
-                            {"text": "Confirm all services off legacy hardware", "is_checked": False},
-                            {"text": "Wipe disks (certified)", "is_checked": False},
-                            {"text": "Return hardware to vendor", "is_checked": False},
-                            {"text": "Send 30-day co-lo contract notice", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Application dependency mapping",
-                        "description": (
-                            "Map all 38 applications and their dependencies before migration:\n\n"
-                            "- Which apps talk to each other?\n"
-                            "- Which apps have hard-coded IP addresses (need updating)?\n"
-                            "- Which apps have co-lo-specific config?\n\n"
-                            "Use network traffic analysis + manual interviews with app owners."
-                        ),
-                        "col_idx": 2,
-                        "priority": "medium",
-                        "due_offset": -8,
-                        "weight": 4,
-                        "labels": ["Blocked"],
-                        "checklist": [
-                            {"text": "Network traffic analysis (5-day capture)", "is_checked": True},
-                            {"text": "Interview app owners for 20 critical apps", "is_checked": True},
-                            {"text": "Document dependency map", "is_checked": False},
-                            {"text": "Identify hard-coded IPs to update", "is_checked": False},
-                        ],
-                        "comments": [
-                            "OVERDUE: 3 app owners unavailable. Blocked on Finance apps.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Failover test: production traffic to DR site",
-                        "description": (
-                            "Simulate a primary site failure and verify that:\n\n"
-                            "1. Traffic fails over to the AWS DR site within 60 seconds\n"
-                            "2. All data is consistent (RDS read replica is current)\n"
-                            "3. Recovery time objective (RTO) < 5 minutes is met\n\n"
-                            "Schedule maintenance window: Sunday 02:00–04:00 PT."
+                            "Capture all requirements from account management, support, and enterprise customers.\n\n"
+                            "Key stakeholders: VP CS, Head of Support, 3 enterprise customer advisors."
                         ),
                         "col_idx": 3,
-                        "priority": "urgent",
-                        "due_offset": 7,
-                        "weight": 5,
-                        "labels": ["Milestone"],
+                        "priority": "high",
+                        "due_offset": 3,
+                        "weight": 3,
+                        "labels": ["On Track"],
                         "checklist": [
-                            {"text": "Set up AWS DR environment", "is_checked": True},
-                            {"text": "Configure Route 53 health checks", "is_checked": True},
-                            {"text": "Run failover test in maintenance window", "is_checked": False},
-                            {"text": "Document actual RTO achieved", "is_checked": False},
+                            {"text": "Stakeholder workshops complete", "is_checked": True},
+                            {"text": "Requirements document written", "is_checked": True},
+                            {"text": "Sign-off from VP CS and Head of Support", "is_checked": False},
                         ],
                         "comments": [
-                            "DR environment ready. Test scheduled for Sunday.",
+                            "47 requirements captured. Sign-off call Thursday.",
                         ],
-                        "assignee_idx": 3,
+                        "assignee_idx": 0,
                     },
                     {
-                        "title": "Live migration weekend: zero-downtime cutover",
+                        "title": "Frontend Development",
                         "description": (
-                            "Zero-downtime cutover plan:\n\n"
-                            "1. Enable active-active mode (traffic to both co-lo and AWS)\n"
-                            "2. Drain co-lo gradually (10% → 50% → 100% AWS)\n"
-                            "3. Monitor error rate at each step — abort if > 0.5%\n"
-                            "4. Decommission co-lo load balancer after 48h stability\n\n"
-                            "Migration weekend: 2026-08-15."
+                            "Build the React frontend: dashboard, board list, user management, billing, support."
                         ),
                         "col_idx": 0,
-                        "priority": "urgent",
-                        "due_offset": 90,
-                        "weight": 5,
-                        "labels": ["Milestone"],
+                        "priority": "medium",
+                        "due_offset": 45,
+                        "weight": 4,
+                        "labels": ["Engineering"],
                         "checklist": [
-                            {"text": "Active-active mode tested", "is_checked": False},
-                            {"text": "Runbook written and reviewed", "is_checked": False},
-                            {"text": "All stakeholders notified of migration weekend", "is_checked": False},
-                            {"text": "On-call rota confirmed for migration weekend", "is_checked": False},
+                            {"text": "Design handoff received", "is_checked": False},
+                            {"text": "Component library setup", "is_checked": False},
                         ],
                         "comments": [],
-                        "assignee_idx": 4,
+                        "assignee_idx": 1,
+                    },
+                ],
+            },
+            {
+                "name": "GDPR Deletion Pipeline",
+                "color": "#14B8A6",
+                "contact_email": "legal-eng@internal.example",
+                "notes": "Automate right-to-erasure workflow. Legal deadline: 2026-05-25.",
+                "cards": [
+                    {
+                        "title": "Deletion Request API",
+                        "description": (
+                            "API endpoint to process GDPR erasure requests.\n\n"
+                            "Must cascade across all user-owned data: boards, cards, comments, "
+                            "activity logs, and exports."
+                        ),
+                        "col_idx": 5,
+                        "priority": "high",
+                        "due_offset": None,
+                        "weight": 5,
+                        "labels": ["Engineering", "On Track"],
+                        "checklist": [
+                            {"text": "Enumerate all user-owned tables", "is_checked": True},
+                            {"text": "Implement cascading deletion logic", "is_checked": True},
+                            {"text": "Write unit tests covering all table deletes", "is_checked": True},
+                            {"text": "Legal review of deletion coverage", "is_checked": True},
+                            {"text": "Deploy to production", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Deployed. Legal confirmed full coverage. Retro scheduled.",
+                        ],
+                        "assignee_idx": 2,
                     },
                 ],
             },
