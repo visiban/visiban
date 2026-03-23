@@ -189,12 +189,20 @@ class GroupViewSet(viewsets.ModelViewSet):
     def subgroups(self, request, pk=None):
         group = self.get_object()
         _require_group_member(request.user, group)
-        # Filter subgroups to only those the requesting user is a member of —
-        # a user with access to the parent group should not automatically see all
-        # subgroups if they are not a member of those subgroups.
-        from .models import get_accessible_group_ids
-        accessible_ids = get_accessible_group_ids(request.user)
-        subgroups = group.subgroups.filter(id__in=accessible_ids)
+        # Filter subgroups to only those the requesting user is a direct member of
+        # (or owns, or is a site admin). get_accessible_group_ids includes descendants
+        # of groups the user is a member of, which would expose subgroups the user
+        # has no explicit membership in. Use a direct-membership filter instead.
+        if getattr(request.user, "is_site_admin", False):
+            subgroups = group.subgroups.all()
+        else:
+            from django.db.models import Q
+            accessible_ids = set(
+                Group.objects.filter(
+                    Q(owner=request.user) | Q(memberships__user=request.user)
+                ).values_list("id", flat=True)
+            )
+            subgroups = group.subgroups.filter(id__in=accessible_ids)
         return Response(GroupSerializer(subgroups, many=True, context={"request": request}).data)
 
     # ------------------------------------------------------------------
