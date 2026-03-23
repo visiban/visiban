@@ -36,6 +36,28 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M3 12h4l3-8 4 16 3-8h4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  content_production: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+      <path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19.5 7.125L18 8.625" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 20.25h18" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  hiring_recruiting: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+      <path d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  legal_compliance: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+      <path d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  infra_devops: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+      <path d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
   project_delivery: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
       <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" strokeLinecap="round" strokeLinejoin="round" />
@@ -82,6 +104,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
   const [name, setName] = useState("");
   const [templates, setTemplates] = useState<BoardTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesError, setTemplatesError] = useState(false);
   const [selectedSlug, setSelectedSlug] = useState("simple_kanban");
   const [swimlaneName, setSwimlaneName] = useState("");
   const [setAsDefault, setSetAsDefault] = useState(false);
@@ -99,8 +122,9 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
         if (preferred) setSelectedSlug(preferred.slug);
       })
       .catch(() => {
-        // If the API is unreachable, fall back to an empty list with just "Blank Board"
+        // If the API is unreachable, show an error and fall back to Blank Board only
         // so the user can still create a board without columns.
+        setTemplatesError(true);
         setTemplates([{
           id: "fallback-blank",
           name: "Blank Board",
@@ -149,15 +173,26 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
       onClick={handleBackdrop}
     >
       <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
 
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-800">
-          <h2 className="text-white text-lg font-semibold">New Board</h2>
-          <p className="text-slate-400 text-sm mt-0.5">Name your board, pick a template, then optionally add a swimlane.</p>
+        <div className="px-6 pt-6 pb-4 border-b border-slate-800 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-white text-lg font-semibold">New Board</h2>
+            <p className="text-slate-400 text-sm mt-0.5">Name your board, pick a template, then optionally add a swimlane.</p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="flex-shrink-0 text-slate-400 hover:text-white hover:bg-slate-700 rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
 
         {/* Body — scrollable */}
@@ -177,7 +212,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="e.g. Q3 Pipeline, Acme Onboarding…"
-              className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-2.5 outline-none text-sm placeholder-slate-500 transition"
+              className="w-full bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white rounded-xl px-4 py-2.5 text-sm placeholder-slate-500 transition"
             />
           </div>
 
@@ -187,7 +222,13 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               Template
             </label>
             {templatesLoading ? (
-              <div className="text-slate-500 text-sm py-4 text-center">Loading templates…</div>
+              <div className="flex items-center justify-center py-8">
+                <span className="w-5 h-5 border-2 border-slate-600 border-t-slate-400 rounded-full animate-spin" />
+              </div>
+            ) : templatesError ? (
+              <p className="text-red-400 text-sm py-4 text-center">
+                Could not load templates. You can still create a blank board.
+              </p>
             ) : (() => {
               const namedTemplates = templates.filter((t) => t.slug !== "blank");
               const blankTemplate = templates.find((t) => t.slug === "blank") ?? null;
@@ -202,7 +243,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                           key={t.slug}
                           onClick={() => handleSelectTemplate(t.slug)}
                           className={[
-                            "text-left rounded-xl p-3.5 border transition-all",
+                            "text-left rounded-xl p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900",
                             isSelected
                               ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
                               : "border-slate-700 bg-slate-800 hover:border-slate-500",
@@ -243,7 +284,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                         <button
                           onClick={() => handleSelectTemplate(blankTemplate.slug)}
                           className={[
-                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4",
+                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900",
                             isSelected
                               ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
                               : "border-slate-700 bg-slate-800 hover:border-slate-500",
@@ -256,7 +297,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                             <span className="text-white text-sm font-medium">{blankTemplate.name}</span>
                             <p className="text-slate-400 text-xs leading-snug mt-0.5">{blankTemplate.description}</p>
                           </div>
-                          <span className="text-slate-600 text-xs flex-shrink-0">No preset columns</span>
+                          <span className="text-slate-500 text-xs flex-shrink-0">No preset columns</span>
                         </button>
                       </div>
                     );
@@ -286,7 +327,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-600 text-xs">No preset columns — add your own after creating the board.</p>
+                <p className="text-slate-500 text-xs">No preset columns — add your own after creating the board.</p>
               )}
             </div>
           )}
@@ -307,9 +348,9 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder={selected?.lane_placeholder || "e.g. General"}
-              className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-2.5 outline-none text-sm placeholder-slate-500 transition"
+              className="w-full bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white rounded-xl px-4 py-2.5 text-sm placeholder-slate-500 transition"
             />
-            <p className="text-slate-600 text-xs mt-1">
+            <p className="text-slate-500 text-xs mt-1">
               Leave blank to start with no swimlanes — you can add them later.
             </p>
           </div>

@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `seed_template_boards` management command seeds all six board templates (`sales_pipeline`, `customer_support`, `customer_success`, `simple_kanban`, `product_roadmap`, `project_delivery`) with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement history (#254). Seed files are exported to `backend/boards/seed_data/<slug>/seed.{json,csv}`.
 - Four new board templates are available: Content Production, Hiring & Recruiting, Legal & Compliance, and Infrastructure & DevOps — each with domain-specific swimlanes, cards, labels, and column structures
 - Card JSON exports from `seed_template_boards --export` now include a `movements` array per card, enabling imported boards to display realistic History tab data
+- Icons added for the four new board templates (Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps) in the Create Board modal template picker
 
 ### Changed
 
@@ -31,6 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `simple_kanban` template expanded from 5 to 7 columns: Backlog → Refined → Sprint Ready → In Dev → In Review → QA/Testing → Done
 - `product_roadmap` template redesigned from 6 to 8 columns: Idea → Validated → Scoped → Prioritized → In Build → Beta → Launched → Monitoring
 - Seed data cards now each represent the primary tracked item for their workflow (deals in sales, tickets in support, accounts in customer success, features in roadmap, candidates in recruiting, etc.) rather than individual sub-tasks
+- Create Board modal: loading state now shows a spinner instead of plain text, template cards have keyboard focus rings (`focus-visible:ring-2`), API failure shows an inline error instead of silently hiding templates, input focus ring updated to `focus:ring-2 focus:ring-blue-500 focus:border-transparent`, hint text color standardized to `text-slate-500`, and an X close button added to the header
 
 ---
 
