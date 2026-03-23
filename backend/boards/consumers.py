@@ -29,7 +29,18 @@ class BoardConsumer(AsyncWebsocketConsumer):
         pass  # server-push only
 
     async def board_event(self, event):
-        await self.send(text_data=json.dumps(event["payload"]))
+        payload = event["payload"]
+        # If this user was just removed from the board, close their WebSocket
+        # connection immediately so they stop receiving board events.  The
+        # membership deletion has already committed by the time this handler
+        # runs (broadcast_board_event is always called via transaction.on_commit).
+        if (
+            payload.get("event") == "member.removed"
+            and payload.get("data", {}).get("user_id") == self.scope["user"].id
+        ):
+            await self.close()
+            return
+        await self.send(text_data=json.dumps(payload))
 
     @database_sync_to_async
     def _has_access(self, user, board_id):

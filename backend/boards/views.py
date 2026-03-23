@@ -215,13 +215,22 @@ class BoardViewSet(viewsets.ModelViewSet):
         if admin_only_fields & set(self.request.data) and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied("Only board admins can change enforcement settings.")
         serializer.save()
+        board_id = board.id
+        board_data = BoardSerializer(board, context={"request": self.request}).data
+        transaction.on_commit(
+            lambda: broadcast_board_event(board_id, "board.updated", board_data)
+        )
 
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
         role = get_board_role(request.user, board)
         if board.owner != request.user and role != SITE_ADMIN:
             raise PermissionDenied
+        board_id = board.id
         board.delete()
+        transaction.on_commit(
+            lambda: broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post", "delete"], url_path="star")
@@ -258,6 +267,11 @@ class BoardViewSet(viewsets.ModelViewSet):
             board.group = None
 
         board.save()
+        board_id = board.id
+        board_data = BoardSerializer(board, context={"request": request}).data
+        transaction.on_commit(
+            lambda: broadcast_board_event(board_id, "board.updated", board_data)
+        )
         return Response(BoardSerializer(board).data)
 
     @extend_schema(
@@ -1430,10 +1444,15 @@ class CardViewSet(viewsets.ModelViewSet):
         if card.archived_at is not None:
             board_id = card.board_id
 
+            # Capture board_id (an integer) rather than closing over card.board
+            # (an ORM instance) — consistent with every other broadcast site and
+            # avoids a stale-instance dependency after the atomic block exits.
+            card_pk = card.pk
+
             def card_data_fn():
                 return CardSerializer(
-                    _card_queryset(Card.objects.filter(pk=card.id)).get(),
-                    context={"request": request, "board": card.board},
+                    _card_queryset(Card.objects.filter(pk=card_pk)).get(),
+                    context={"request": request},
                 ).data
 
             with transaction.atomic():
@@ -1843,17 +1862,23 @@ class CardViewSet(viewsets.ModelViewSet):
         if mime_error:
             return Response({"detail": mime_error}, status=status.HTTP_400_BAD_REQUEST)
 
-        attachment = CardAttachment.objects.create(
-            card=card,
-            file=file,
-            filename=file.name,
-            size=file.size,
-            uploaded_by=request.user,
-        )
-        card.refresh_from_db()
-        card_data = CardSerializer(card, context={"request": request, "board": board}).data
-        board_id = board.id
-        transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
+        # Wrap create + broadcast in an atomic block so that on_commit only fires
+        # after both the CardAttachment row and the serialized card_data are
+        # consistent.  Without this, on_commit fires immediately on Django's
+        # default ATOMIC_REQUESTS=False configuration, which can broadcast a
+        # partial card state if the serializer raises after the row is saved.
+        with transaction.atomic():
+            attachment = CardAttachment.objects.create(
+                card=card,
+                file=file,
+                filename=file.name,
+                size=file.size,
+                uploaded_by=request.user,
+            )
+            card.refresh_from_db()
+            card_data = CardSerializer(card, context={"request": request, "board": board}).data
+            board_id = board.id
+            transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         serializer = CardAttachmentSerializer(attachment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
