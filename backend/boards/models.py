@@ -1,5 +1,6 @@
 import uuid
 
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.conf import settings
 
@@ -229,6 +230,12 @@ class Card(models.Model):
             # then filter active cards (archived_at IS NULL). Avoids a full table scan
             # when enforcement is enabled and card moves are frequent.
             models.Index(fields=["board", "column", "archived_at"], name="card_board_col_archived_idx"),
+            # Trigram indexes for server-side card search (icontains on title and
+            # description). pg_trgm supports ILIKE with leading wildcards — without
+            # these a full sequential scan runs on every search request.
+            # Requires: CREATE EXTENSION IF NOT EXISTS pg_trgm (migration 0030).
+            GinIndex(fields=["title"], name="card_title_trgm_idx", opclasses=["gin_trgm_ops"]),
+            GinIndex(fields=["description"], name="card_desc_trgm_idx", opclasses=["gin_trgm_ops"]),
         ]
 
     def __str__(self):

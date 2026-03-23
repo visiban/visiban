@@ -119,12 +119,17 @@ def _card_queryset(qs):
     from .models import CardMovement as _CM
     return (
         qs
-        .select_related("board", "assignee")
+        .select_related("board", "assignee", "created_by")
         .prefetch_related(
             "labels",
             "attachments",
             "checklist_items",
-            Prefetch("movements", queryset=_CM.objects.order_by("-moved_at")),
+            Prefetch(
+                "movements",
+                queryset=_CM.objects.select_related(
+                    "moved_by", "from_column", "to_column", "from_swimlane", "to_swimlane"
+                ).order_by("-moved_at"),
+            ),
         )
     )
 
@@ -354,6 +359,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
         return get_board_role(request.user, obj)
 
     def get_is_starred(self, obj):
+        # Use the prefetched _user_favorites attr when available (set by
+        # get_board_for_user via Prefetch(to_attr="_user_favorites")) to avoid
+        # a per-request favorites query on the full board endpoint.
+        if hasattr(obj, "_user_favorites"):
+            return len(obj._user_favorites) > 0
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False

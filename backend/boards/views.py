@@ -7,7 +7,7 @@ import statistics
 import django_filters
 from django.conf import settings as django_settings
 from django.db import transaction
-from django.db.models import Count, Exists, F, Max, OuterRef, Q, Sum
+from django.db.models import Count, Exists, F, Max, OuterRef, Prefetch, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -143,8 +143,28 @@ def _sanitize_csv_field(value: str) -> str:
 
 
 def get_board_for_user(board_id, user):
-    """Return (board, role) for board_id if user has access; raise 404 or 403 otherwise."""
-    board = get_object_or_404(Board, pk=board_id)
+    """Return (board, role) for board_id if user has access; raise 404 or 403 otherwise.
+
+    Loads the board with select_related for owner and the group ancestor chain
+    (up to 6 levels) so that get_board_role() and BoardFullSerializer.get_members()
+    can traverse the hierarchy without issuing one query per level.
+
+    Also prefetches the requesting user's BoardFavorite rows (to_attr="_user_favorites")
+    so BoardFullSerializer.get_is_starred() avoids a per-request EXISTS query.
+    """
+    board = get_object_or_404(
+        Board.objects.select_related(
+            "owner",
+            "group__parent__parent__parent__parent__parent__parent",
+        ).prefetch_related(
+            Prefetch(
+                "favorites",
+                queryset=BoardFavorite.objects.filter(user=user),
+                to_attr="_user_favorites",
+            )
+        ),
+        pk=board_id,
+    )
     role = get_board_role(user, board)
     if role is None:
         raise PermissionDenied
@@ -206,15 +226,22 @@ class BoardViewSet(viewsets.ModelViewSet):
             Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
     def perform_update(self, serializer):
-        """Guard board-level settings updates: only admins can write enforcement flags."""
+        """Guard board-level settings updates: only admins can write any board fields."""
         board = serializer.instance
         role = get_board_role(self.request.user, board)
-        # enforce_wip_limits and enforce_weight_limits are admin-only fields —
-        # block non-admins from toggling them even if they construct a PATCH request.
+        # Any board mutation requires at least admin role — viewers, members, and
+        # collaborators must not be able to alter board settings even via a crafted
+        # PATCH request.
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only board admins can edit board settings.")
+        # enforce_wip_limits and enforce_weight_limits are admin-only fields.
+        # The check below is now redundant (all updates require admin above) but
+        # kept for documentation: these fields are especially sensitive.
         admin_only_fields = {"enforce_wip_limits", "enforce_weight_limits"}
         if admin_only_fields & set(self.request.data) and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied("Only board admins can change enforcement settings.")
         serializer.save()
+        board = serializer.instance
         board_id = board.id
         board_data = BoardSerializer(board, context={"request": self.request}).data
         transaction.on_commit(
@@ -272,7 +299,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         transaction.on_commit(
             lambda: broadcast_board_event(board_id, "board.updated", board_data)
         )
-        return Response(BoardSerializer(board).data)
+        return Response(board_data)
 
     @extend_schema(
         request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
@@ -1237,6 +1264,11 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         order = request.data.get("order", [])
         with transaction.atomic():
+            # Single-pass update is safe here: Swimlane has unique_together on
+            # (board, name), NOT (board, position), so mid-update position
+            # collisions cannot cause an IntegrityError.  Contrast with
+            # ColumnViewSet.reorder which requires a two-pass approach because
+            # Column has unique_together = ["board", "position"].
             for pos, swimlane_id in enumerate(order):
                 Swimlane.objects.filter(board=board, pk=swimlane_id).update(position=pos)
         lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
@@ -1360,8 +1392,11 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
-            raise PermissionDenied
+        # Allow-list: only member+, admin, or site-admin may create cards.
+        # Using a positive allow-list is safer than a block-list because newly
+        # introduced roles will be denied by default rather than accidentally permitted.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("You do not have permission to perform this action.")
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
         if not column.allow_card_creation:
             raise ValidationError({"column": "Card creation is not allowed in this column."})
@@ -1396,8 +1431,11 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
-            raise PermissionDenied
+        # Allow-list: only member+, admin, or site-admin may delete cards.
+        # Using a positive allow-list is safer than a block-list because newly
+        # introduced roles will be denied by default rather than accidentally permitted.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("You do not have permission to perform this action.")
         board_id = instance.board_id
         card_id = instance.id
         instance.delete()
@@ -1443,6 +1481,10 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
         if card.archived_at is not None:
             board_id = card.board_id
+            # Capture the board object now (not via card.board inside the lambda)
+            # so the closure holds a plain reference rather than a deferred FK
+            # accessor that may re-query or reference a stale object at call time.
+            _board = board
 
             # Capture board_id (an integer) rather than closing over card.board
             # (an ORM instance) — consistent with every other broadcast site and
@@ -1452,7 +1494,7 @@ class CardViewSet(viewsets.ModelViewSet):
             def card_data_fn():
                 return CardSerializer(
                     _card_queryset(Card.objects.filter(pk=card_pk)).get(),
-                    context={"request": request},
+                    context={"request": request, "board": _board},
                 ).data
 
             with transaction.atomic():
@@ -1607,13 +1649,20 @@ class CardViewSet(viewsets.ModelViewSet):
         column_changed = card.column_id != target_column.pk
         swimlane_changed = card.swimlane_id != target_swimlane.pk
 
+        # Lock the target column row once before both limit checks to prevent
+        # concurrent moves from racing past either check. A single lock covers
+        # both WIP and weight enforcement; acquiring it twice on the same row
+        # would be a redundant round-trip.
+        if column_changed and (
+            (board.enforce_wip_limits and target_column.wip_limit is not None)
+            or (board.enforce_weight_limits and target_column.weight_limit is not None)
+        ):
+            Column.objects.select_for_update().get(pk=target_column.pk)
+
         # WIP limit enforcement — only checked when the card is entering a different
         # column (pure swimlane moves within the same column also count). Pure
         # position reorders within the same column+swimlane are exempt.
         if board.enforce_wip_limits and column_changed and target_column.wip_limit is not None:
-            # Lock the target column row to prevent concurrent moves from racing
-            # past the limit check before any of them commits.
-            Column.objects.select_for_update().get(pk=target_column.pk)
             wip_count = (
                 Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
                 .exclude(pk=card.pk)
@@ -1641,10 +1690,8 @@ class CardViewSet(viewsets.ModelViewSet):
                     )
 
         # Weight limit enforcement — same pattern as WIP: checked only on column
-        # change, skipped for pure reorders. Uses select_for_update on the target
-        # column to prevent concurrent moves from racing past the check.
+        # change, skipped for pure reorders. Column row already locked above.
         if board.enforce_weight_limits and column_changed and target_column.weight_limit is not None:
-            Column.objects.select_for_update().get(pk=target_column.pk)
             current_weight = (
                 Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
                 .exclude(pk=card.pk)
@@ -1694,17 +1741,20 @@ class CardViewSet(viewsets.ModelViewSet):
         # select_for_update with consistent ordering ensures transactions wait
         # rather than deadlock when bulk operations fire parallel requests.
         if column_changed or swimlane_changed:
-            # Lock source cell cards, then reorder to fill gap
+            # Lock source cell cards, then compact the gap left by the moved card.
+            # Using a single bulk UPDATE (decrement positions after the moved card)
+            # instead of a per-row save() loop avoids O(N) queries when the source
+            # cell is large.  Positions are always kept compact by this endpoint so
+            # a simple -1 decrement is equivalent to a full renumber.
             list(Card.objects.filter(
                 board=board, column=card.column, swimlane=card.swimlane
             ).exclude(pk=card.pk).order_by("pk").select_for_update())
-            source_siblings = Card.objects.filter(
-                board=board, column=card.column, swimlane=card.swimlane
-            ).exclude(pk=card.pk).order_by("position")
-            for i, sibling in enumerate(source_siblings):
-                if sibling.position != i:
-                    sibling.position = i
-                    sibling.save(update_fields=["position"])
+            Card.objects.filter(
+                board=board, column=card.column, swimlane=card.swimlane,
+                archived_at__isnull=True,
+            ).exclude(pk=card.pk).filter(position__gt=card.position).update(
+                position=F("position") - 1
+            )
 
         # Lock target cell cards, then shift to make room
         list(Card.objects.filter(
@@ -1721,7 +1771,13 @@ class CardViewSet(viewsets.ModelViewSet):
         card.position = new_position
         card.save(update_fields=["column", "swimlane", "position"])
 
-        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        # Re-fetch the card through _card_queryset so CardSerializer has all
+        # prefetches populated — the card instance at this point is bare (loaded
+        # by get_object_or_404 earlier) and would trigger ~7 extra queries.
+        card_data = CardSerializer(
+            _card_queryset(Card.objects.filter(pk=card.pk)).get(),
+            context={"request": request, "board": board},
+        ).data
         response_data = {"card": card_data}
         if movement:
             response_data["movement"] = CardMovementSerializer(movement).data
@@ -1893,6 +1949,12 @@ class CardViewSet(viewsets.ModelViewSet):
             )
         card = get_object_or_404(Card, pk=pk, board=board)
         attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
+        # Collaborators may only delete their own attachments; member+ can delete any.
+        if role == BoardMembership.Role.COLLABORATOR and attachment.uploaded_by != request.user:
+            return Response(
+                {"detail": "You can only delete your own attachments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         attachment.file.delete(save=False)
         attachment.delete()
         card_data = CardSerializer(card, context={"request": request, "board": board}).data
