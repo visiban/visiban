@@ -17,12 +17,12 @@ class BoardCreationTests(TestCase):
         payload.update(kwargs)
         return self.client.post("/api/boards/", payload)
 
-    def test_creates_five_default_columns_simple_kanban(self):
-        """simple_kanban now has 5 columns: Backlog / To Do / In Progress / In Review / Done."""
+    def test_creates_seven_default_columns_simple_kanban(self):
+        """simple_kanban has 7 columns: Backlog / Refined / Sprint Ready / In Dev / In Review / QA/Testing / Done."""
         resp = self._create_board()
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         board_id = resp.data["id"]
-        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 5)
+        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 7)
 
     def test_default_column_names(self):
         resp = self._create_board()
@@ -30,7 +30,7 @@ class BoardCreationTests(TestCase):
         names = list(
             Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
         )
-        self.assertEqual(names, ["Backlog", "To Do", "In Progress", "In Review", "Done"])
+        self.assertEqual(names, ["Backlog", "Refined", "Sprint Ready", "In Dev", "In Review", "QA/Testing", "Done"])
 
     def test_only_first_column_allows_card_creation(self):
         resp = self._create_board()
@@ -91,7 +91,7 @@ class BoardCreationTests(TestCase):
         names = list(
             Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
         )
-        self.assertEqual(names, ["Lead", "Qualified", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"])
+        self.assertEqual(names, ["Prospect", "Qualified", "Discovery", "Demo", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"])
 
     def test_customer_support_columns(self):
         """Customer Support template creates the correct 6 columns."""
@@ -100,7 +100,7 @@ class BoardCreationTests(TestCase):
         names = list(
             Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
         )
-        self.assertEqual(names, ["New", "Triaged", "Investigating", "Awaiting Customer", "Resolved", "Closed"])
+        self.assertEqual(names, ["New", "Triaged", "Investigating", "Awaiting Customer", "Escalated", "Resolved", "Closed"])
 
     def test_customer_success_columns(self):
         """Customer Success template creates the correct 6 columns."""
@@ -118,7 +118,7 @@ class BoardCreationTests(TestCase):
         names = list(
             Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
         )
-        self.assertEqual(names, ["Idea", "Scored", "Roadmapped", "In Dev", "Beta/QA", "GA"])
+        self.assertEqual(names, ["Idea", "Validated", "Scoped", "Prioritized", "In Build", "Beta", "Launched", "Monitoring"])
 
     def test_project_delivery_columns(self):
         """Project Delivery template creates the correct 6 columns."""
@@ -136,10 +136,10 @@ class BoardCreationTests(TestCase):
         self.assertEqual(Column.objects.filter(board_id=board_id).count(), 0)
 
     def test_unknown_template_falls_back_to_simple_kanban(self):
-        """An unknown template key falls back to simple_kanban (5 columns)."""
+        """An unknown template key falls back to simple_kanban (7 columns)."""
         resp = self._create_board(template="does_not_exist")
         board_id = resp.data["id"]
-        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 5)
+        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 7)
 
 
 class BoardTemplateAPITests(TestCase):
@@ -155,7 +155,9 @@ class BoardTemplateAPITests(TestCase):
     def _seed_templates(self):
         slugs = [
             "sales_pipeline", "customer_support", "customer_success",
-            "simple_kanban", "product_roadmap", "project_delivery", "blank",
+            "simple_kanban", "product_roadmap", "project_delivery",
+            "content_production", "hiring_recruiting", "legal_compliance",
+            "infra_devops", "blank",
         ]
         for i, slug in enumerate(slugs):
             BoardTemplate.objects.get_or_create(
@@ -180,9 +182,9 @@ class BoardTemplateAPITests(TestCase):
         self.assertIn("sales_pipeline", slugs)
         self.assertIn("blank", slugs)
 
-    def test_returns_seven_templates(self):
+    def test_returns_eleven_templates(self):
         resp = self.client.get("/api/boards/templates/")
-        self.assertEqual(len(resp.data), 7)
+        self.assertEqual(len(resp.data), 11)
 
     def test_inactive_templates_excluded(self):
         BoardTemplate.objects.filter(slug="blank").update(is_active=False)
