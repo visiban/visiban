@@ -142,7 +142,7 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Americas",
-          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_at": "2026-02-15T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -150,8 +150,8 @@
           "to_column": "Adoption",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-03-10T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
@@ -198,7 +198,7 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Americas",
-          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_at": "2026-02-17T00:00:00+00:00",
           "moved_by": "demo2"
         },
         {
@@ -206,24 +206,24 @@
           "to_column": "Adoption",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-02-15T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-02-22T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Healthy",
           "to_column": "Expansion",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -262,7 +262,7 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Americas",
-          "moved_at": "2026-01-05T00:00:00+00:00",
+          "moved_at": "2026-02-05T00:00:00+00:00",
           "moved_by": "demo4"
         },
         {
@@ -270,23 +270,23 @@
           "to_column": "Adoption",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-01-23T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-02-06T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Healthy",
           "to_column": "Expansion",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_at": "2026-03-04T00:00:00+00:00",
           "moved_by": "demo2"
         },
         {
@@ -294,8 +294,8 @@
           "to_column": "Renewal",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-03-08T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ]
     },
@@ -334,7 +334,7 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "EMEA",
-          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo2"
         }
       ]
@@ -378,8 +378,8 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "EMEA",
-          "moved_at": "2026-03-05T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -414,15 +414,15 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "EMEA",
-          "moved_at": "2026-02-11T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
-          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_at": "2026-03-03T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -430,8 +430,8 @@
           "to_column": "Healthy",
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
@@ -472,15 +472,15 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "APAC",
-          "moved_at": "2026-02-19T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo4"
         }
       ]
@@ -511,23 +511,23 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "APAC",
-          "moved_at": "2026-02-11T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
-          "moved_at": "2026-02-26T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo3"
         }
       ]
@@ -567,24 +567,24 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-02-10T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-03-05T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-03-13T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
@@ -619,23 +619,23 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-02-09T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-02-22T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-02T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -643,8 +643,8 @@
           "to_column": "Expansion",
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-03-13T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -670,24 +670,24 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-17T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-03-08T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-03-13T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
@@ -728,7 +728,7 @@
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_at": "2026-01-11T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -736,7 +736,7 @@
           "to_column": "Adoption",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-01-29T00:00:00+00:00",
+          "moved_at": "2026-01-31T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -745,22 +745,22 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-11T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo4"
         },
         {
           "from_column": "Healthy",
           "to_column": "Expansion",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-17T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Expansion",
           "to_column": "Renewal",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
@@ -769,7 +769,7 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-03-10T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo1"
         }
       ]
     }

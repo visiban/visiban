@@ -79,6 +79,22 @@ class SeedStructureTests(TestCase):
         self.assertIn("Seeded", out)
         self.assertIn("Template: Sales Pipeline", out)
 
+    def test_cards_have_activity_history(self):
+        """Every card with an assignee, labels, or due date must have activity records."""
+        cards_with_assignee = self.board.cards.filter(assignee__isnull=False)
+        for card in cards_with_assignee[:3]:  # spot-check first 3
+            count = card.activities.count()
+            self.assertGreater(count, 0, f"'{card.title}' has no activity records")
+
+    def test_comment_activities_created(self):
+        """Cards with comments must have comment_added activity records."""
+        from boards.models import CardActivity
+        comment_acts = CardActivity.objects.filter(
+            card__board=self.board,
+            event_type=CardActivity.EventType.COMMENT_ADDED,
+        )
+        self.assertGreater(comment_acts.count(), 0, "No comment_added activities found")
+
 
 # ---------------------------------------------------------------------------
 # Demo users
@@ -382,16 +398,16 @@ class SeedExportTests(TestCase):
         )
 
         with tempfile.TemporaryDirectory() as tmp:
-            seed_dir = Path(tmp)
+            out_path = Path(tmp) / "seed.json"
             cmd._export_json(
                 board,
                 cols,
                 template_data["swimlanes"],
                 template_data["labels"],
                 card_qs,
-                seed_dir,
+                out_path,
             )
-            data = json.loads((seed_dir / "seed.json").read_text())
+            data = json.loads(out_path.read_text())
 
         for key in ("name", "columns", "swimlanes", "labels", "cards"):
             self.assertIn(key, data)
@@ -428,9 +444,9 @@ class SeedExportTests(TestCase):
         cmd.style.SUCCESS = lambda s: s
 
         with tempfile.TemporaryDirectory() as tmp:
-            seed_dir = Path(tmp)
-            cmd._export_csv(card_qs, seed_dir)
-            with (seed_dir / "seed.csv").open() as f:
+            out_path = Path(tmp) / "seed.csv"
+            cmd._export_csv(card_qs, out_path)
+            with out_path.open() as f:
                 reader = csv_module.DictReader(f)
                 rows = list(reader)
 

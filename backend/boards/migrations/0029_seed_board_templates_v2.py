@@ -119,13 +119,11 @@ UPDATED_COLUMNS = {
         {"name": "Closed",            "color": "#9CA3AF", "position": 6},
     ],
     "simple_kanban": [
-        {"name": "Backlog",      "color": "#6B7280", "position": 0},
-        {"name": "Refined",      "color": "#3B82F6", "position": 1},
-        {"name": "Sprint Ready", "color": "#8B5CF6", "position": 2},
-        {"name": "In Dev",       "color": "#F59E0B", "position": 3},
-        {"name": "In Review",    "color": "#F97316", "position": 4},
-        {"name": "QA/Testing",   "color": "#EC4899", "position": 5},
-        {"name": "Done",         "color": "#10B981", "position": 6},
+        {"name": "Backlog", "color": "#6B7280", "position": 0},
+        {"name": "To Do",   "color": "#3B82F6", "position": 1},
+        {"name": "Doing",   "color": "#F59E0B", "position": 2},
+        {"name": "Review",  "color": "#8B5CF6", "position": 3},
+        {"name": "Done",    "color": "#10B981", "position": 4},
     ],
     "product_roadmap": [
         {"name": "Idea",        "color": "#8B5CF6", "position": 0},

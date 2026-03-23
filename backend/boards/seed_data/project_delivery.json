@@ -139,8 +139,8 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -185,23 +185,23 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-11T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-26T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo3"
         }
       ]
@@ -247,31 +247,31 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-01T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-16T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-23T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo4"
         }
       ]
@@ -307,7 +307,7 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-03-08T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo1"
         }
       ]
     },
@@ -341,16 +341,16 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-03-13T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
@@ -395,15 +395,15 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-01-29T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_at": "2026-02-09T00:00:00+00:00",
           "moved_by": "demo4"
         },
         {
@@ -411,16 +411,16 @@
           "to_column": "Execution",
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-03-01T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-03-10T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ]
     },
@@ -465,24 +465,24 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-02T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -525,7 +525,7 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-01-13T00:00:00+00:00",
+          "moved_at": "2026-01-21T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -533,32 +533,32 @@
           "to_column": "Kickoff",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-01-31T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-07T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Milestone Review",
           "to_column": "Wrap-up",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-03-08T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -588,8 +588,8 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-03-04T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -630,32 +630,32 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-02-02T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-02-18T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-02-28T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-03-08T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -704,32 +704,32 @@
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-01-17T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-01-31T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-02-09T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-02-15T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Milestone Review",
@@ -737,15 +737,15 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-28T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo4"
         },
         {
           "from_column": "Wrap-up",
           "to_column": "Retro",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-03-08T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     }

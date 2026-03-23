@@ -9,7 +9,12 @@ from column 0 through each intermediate stage so the History tab is populated.
 
 Uses a fixed SEED_ANCHOR_DATE so exported JSON/CSV files are git-stable across runs.
 
-Export path: backend/boards/seed_data/<slug>/seed.{json,csv}
+Export path: backend/boards/seed_data/<slug>.json   (JSON — includes full movement history)
+             backend/boards/seed_data/<slug>.csv    (CSV — column summary only, no history)
+
+JSON is the recommended export format: it preserves the complete CardMovement history
+so seeded boards display a realistic History tab. CSV omits movement history and is
+suitable only for importing card data into spreadsheet tools.
 
 
 Usage:
@@ -44,6 +49,7 @@ from boards.models import (
     Board,
     BoardMembership,
     Card,
+    CardActivity,
     CardChecklist,
     CardComment,
     CardMovement,
@@ -1132,13 +1138,11 @@ TEMPLATE_DATA: dict[str, dict] = {
             "Each swimlane is a team or workstream; each card is a work item."
         ),
         "columns": [
-            {"name": "Backlog",      "color": "#6B7280", "allow_card_creation": True},
-            {"name": "Refined",      "color": "#3B82F6", "allow_card_creation": True},
-            {"name": "Sprint Ready", "color": "#8B5CF6", "allow_card_creation": False},
-            {"name": "In Dev",       "color": "#F59E0B", "allow_card_creation": False},
-            {"name": "In Review",    "color": "#F97316", "allow_card_creation": False},
-            {"name": "QA/Testing",   "color": "#EC4899", "allow_card_creation": False},
-            {"name": "Done",         "color": "#10B981", "allow_card_creation": False},
+            {"name": "Backlog", "color": "#6B7280", "allow_card_creation": True},
+            {"name": "To Do",   "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Doing",   "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Review",  "color": "#8B5CF6", "allow_card_creation": False},
+            {"name": "Done",    "color": "#10B981", "allow_card_creation": False},
         ],
         "labels": [
             {"name": "Bug",       "color": "#EF4444"},
@@ -1164,7 +1168,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "- Collapse checklist by default\n\n"
                             "Acceptance: passes WCAG AA at 375px viewport."
                         ),
-                        "col_idx": 3,
+                        "col_idx": 2,
                         "priority": "medium",
                         "due_offset": 7,
                         "weight": 3,
@@ -1187,7 +1191,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "Column names longer than 20 characters overflow the header chip.\n\n"
                             "Fix: truncate with ellipsis and show full name in a tooltip."
                         ),
-                        "col_idx": 5,
+                        "col_idx": 3,
                         "priority": "low",
                         "due_offset": None,
                         "weight": 1,
@@ -1235,7 +1239,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "Users with 100+ boards hit performance issues.\n\n"
                             "Switch to cursor pagination with a default page size of 25."
                         ),
-                        "col_idx": 4,
+                        "col_idx": 3,
                         "priority": "high",
                         "due_offset": 5,
                         "weight": 4,
@@ -1258,7 +1262,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "At high concurrency this creates lock contention.\n\n"
                             "Batch inserts in the drag handler using bulk_create."
                         ),
-                        "col_idx": 2,
+                        "col_idx": 1,
                         "priority": "medium",
                         "due_offset": 14,
                         "weight": 3,
@@ -1279,7 +1283,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "PATCH /api/boards/{id}/ with is_archived=true has no test coverage. "
                             "Add tests: happy path, non-member rejected, already archived."
                         ),
-                        "col_idx": 6,
+                        "col_idx": 4,
                         "priority": "low",
                         "due_offset": None,
                         "weight": 2,
@@ -1331,7 +1335,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "Card drag-drop broken on iOS Safari 17.4 — card snaps back on drop. "
                             "Workaround sent to customers. Need permanent fix."
                         ),
-                        "col_idx": 3,
+                        "col_idx": 2,
                         "priority": "urgent",
                         "due_offset": 3,
                         "weight": 4,
@@ -1361,7 +1365,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "canary instance for 30 minutes.\n\n"
                             "Promote automatically if error rate stays below 0.1%."
                         ),
-                        "col_idx": 2,
+                        "col_idx": 1,
                         "priority": "high",
                         "due_offset": 12,
                         "weight": 4,
@@ -1382,7 +1386,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "All app secrets currently live in .env files on each server. "
                             "Migrate to HashiCorp Vault with automatic secret rotation."
                         ),
-                        "col_idx": 6,
+                        "col_idx": 4,
                         "priority": "medium",
                         "due_offset": None,
                         "weight": 3,
@@ -1414,7 +1418,7 @@ TEMPLATE_DATA: dict[str, dict] = {
                             "Audit: surface, border, text, interactive, and status tokens. "
                             "Produce a Figma page with all light/dark pairs."
                         ),
-                        "col_idx": 4,
+                        "col_idx": 3,
                         "priority": "medium",
                         "due_offset": 10,
                         "weight": 3,
@@ -3580,6 +3584,7 @@ class Command(BaseCommand):
 
             # Back-fill movement history from col 0 → current col
             self._add_movement_history(card, col_idx, columns, users)
+            self._add_activity_history(card, users)
 
             cards.append(card)
 
@@ -3661,6 +3666,117 @@ class Command(BaseCommand):
             )
             CardMovement.objects.filter(pk=mv.pk).update(moved_at=moved_at)
 
+    def _add_activity_history(self, card, users):
+        """
+        Simulate field-change activity entries for a seeded card.
+
+        Creates CardActivity records for assignee set, labels applied, due date
+        set, priority escalations, checklist item additions/checks, and comment
+        events — all backdated via update() so they appear at realistic points
+        in the card's timeline.
+
+        auto_now_add=True blocks explicit values at create time, so created_at
+        is back-filled via update() after creation — same pattern as moved_at
+        on CardMovement.
+        """
+        creation_mv = CardMovement.objects.filter(
+            card=card, from_column__isnull=True
+        ).first()
+        if not creation_mv:
+            return
+
+        anchor_dt = creation_mv.moved_at
+        day_offset = 1
+
+        def _backdate(act, days):
+            ts = anchor_dt + datetime.timedelta(days=days)
+            CardActivity.objects.filter(pk=act.pk).update(created_at=ts)
+
+        # Assignee set when the card was picked up
+        if card.assignee:
+            assignee_name = card.assignee.get_full_name() or card.assignee.username
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.ASSIGNEE_CHANGE,
+                from_value="",
+                to_value=assignee_name,
+                actor=random.choice(users),
+            )
+            _backdate(act, day_offset)
+            day_offset += random.randint(1, 2)
+
+        # Labels applied shortly after creation
+        label_names = list(card.labels.values_list("name", flat=True))
+        if label_names:
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.LABEL_CHANGE,
+                from_value="",
+                to_value=", ".join(label_names),
+                actor=random.choice(users),
+            )
+            _backdate(act, day_offset)
+            day_offset += random.randint(1, 2)
+
+        # Due date set
+        if card.due_date:
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.DUE_DATE_CHANGE,
+                from_value="",
+                to_value=card.due_date.isoformat(),
+                actor=random.choice(users),
+            )
+            _backdate(act, day_offset)
+            day_offset += random.randint(1, 3)
+
+        # Priority escalation for high/urgent cards (simulates triage bump)
+        if card.priority in ("high", "urgent"):
+            from_priority = "medium" if card.priority == "high" else "high"
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.PRIORITY_CHANGE,
+                from_value=from_priority,
+                to_value=card.priority,
+                actor=random.choice(users),
+            )
+            _backdate(act, day_offset + random.randint(2, 5))
+            day_offset += random.randint(3, 6)
+
+        # Checklist items added one by one, checked items get a checked event
+        for item in card.checklist_items.all().order_by("position"):
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
+                from_value="",
+                to_value=item.text,
+                actor=random.choice(users),
+            )
+            _backdate(act, day_offset)
+            day_offset += 1
+
+            if item.is_checked:
+                act = CardActivity.objects.create(
+                    card=card,
+                    event_type=CardActivity.EventType.CHECKLIST_ITEM_CHECKED,
+                    from_value="",
+                    to_value=item.text,
+                    actor=random.choice(users),
+                )
+                _backdate(act, day_offset + random.randint(1, 4))
+
+        # Comment added event for each comment
+        for comment in card.comments.all():
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.COMMENT_ADDED,
+                from_value="",
+                to_value="",
+                actor=comment.author,
+            )
+            _backdate(act, day_offset)
+            day_offset += random.randint(1, 3)
+
     # ── Export ─────────────────────────────────────────────────────────────
 
     def _export(self, slug, board, columns, swimlane_specs, label_specs, cards):
@@ -3683,15 +3799,15 @@ class Command(BaseCommand):
         )
 
         # Export path: BASE_DIR = .../backend/, so seed_data lives at
-        # .../backend/boards/seed_data/<slug>/
-        seed_dir = settings.BASE_DIR / "boards" / "seed_data" / slug
-        seed_dir.mkdir(parents=True, exist_ok=True)
+        # .../backend/boards/seed_data/
+        seed_data_dir = settings.BASE_DIR / "boards" / "seed_data"
+        seed_data_dir.mkdir(parents=True, exist_ok=True)
 
-        self._export_json(board, columns, swimlane_specs, label_specs, card_qs, seed_dir)
-        self._export_csv(card_qs, seed_dir)
-        self.stdout.write(self.style.SUCCESS(f"  Exported seed files to {seed_dir}/"))
+        self._export_json(board, columns, swimlane_specs, label_specs, card_qs, seed_data_dir / f"{slug}.json")
+        self._export_csv(card_qs, seed_data_dir / f"{slug}.csv")
+        self.stdout.write(self.style.SUCCESS(f"  Exported seed data to {seed_data_dir}/{slug}.{{json,csv}}"))
 
-    def _export_json(self, board, columns, swimlane_specs, label_specs, cards, seed_dir):
+    def _export_json(self, board, columns, swimlane_specs, label_specs, cards, out_path):
         data = {
             "name": board.name,
             "description": board.description,
@@ -3755,18 +3871,16 @@ class Command(BaseCommand):
                 for card in cards
             ],
         }
-        out = seed_dir / "seed.json"
-        out.write_text(json.dumps(data, indent=2, ensure_ascii=False))
-        self.stdout.write(f"    → {out}")
+        out_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        self.stdout.write(f"    → {out_path}")
 
-    def _export_csv(self, cards, seed_dir):
+    def _export_csv(self, cards, out_path):
         fieldnames = [
             "title", "column", "swimlane", "priority", "due_date",
             "weight", "labels", "assignee", "checklist_total",
             "checklist_done", "comment_count", "description_preview",
         ]
-        out = seed_dir / "seed.csv"
-        with out.open("w", newline="", encoding="utf-8") as f:
+        with out_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for card in cards:
@@ -3786,4 +3900,4 @@ class Command(BaseCommand):
                     "comment_count": len(comments),
                     "description_preview": card.description[:80].replace("\n", " "),
                 })
-        self.stdout.write(f"    → {out}")
+        self.stdout.write(f"    → {out_path}")

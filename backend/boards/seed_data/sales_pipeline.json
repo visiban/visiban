@@ -139,15 +139,15 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-19T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
         }
       ]
@@ -186,7 +186,7 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_at": "2026-02-10T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
@@ -194,15 +194,15 @@
           "to_column": "Qualified",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-24T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo2"
         }
       ]
@@ -249,7 +249,7 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-01-21T00:00:00+00:00",
+          "moved_at": "2026-01-30T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -257,32 +257,32 @@
           "to_column": "Qualified",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-06T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-19T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-03-01T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
@@ -314,15 +314,15 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo5"
         }
       ]
@@ -365,8 +365,8 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-03T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Prospect",
@@ -374,22 +374,22 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-20T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo4"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-25T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo3"
         }
       ]
@@ -441,23 +441,23 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-01-13T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-01-05T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-01-30T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_at": "2026-02-04T00:00:00+00:00",
           "moved_by": "demo2"
         },
         {
@@ -465,24 +465,24 @@
           "to_column": "Demo",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-23T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-03T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Proposal Sent",
           "to_column": "Negotiation",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-10T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ]
     },
@@ -523,8 +523,8 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-08T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Prospect",
@@ -532,14 +532,14 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-22T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo1"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo2"
         }
       ]
@@ -577,40 +577,40 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-01-06T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-01-27T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-11T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-20T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ]
     },
@@ -647,55 +647,55 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2025-12-24T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2025-12-14T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-01-10T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2025-12-31T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-01-25T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-07T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-04T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-19T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-04T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Proposal Sent",
           "to_column": "Negotiation",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-24T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Negotiation",
           "to_column": "Closed Won",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
@@ -703,8 +703,8 @@
           "to_column": "Closed Lost",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
@@ -736,8 +736,8 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -776,15 +776,15 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-20T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo3"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-03-10T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -831,47 +831,47 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-01-23T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-02-02T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-02-07T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-02-27T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Proposal Sent",
           "to_column": "Negotiation",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo2"
         }
       ]
@@ -913,24 +913,24 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-14T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-03-06T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
@@ -972,7 +972,7 @@
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-01-01T00:00:00+00:00",
+          "moved_at": "2026-01-10T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -980,7 +980,7 @@
           "to_column": "Qualified",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_at": "2026-01-24T00:00:00+00:00",
           "moved_by": "demo4"
         },
         {
@@ -988,39 +988,39 @@
           "to_column": "Discovery",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-01T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-13T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-20T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Proposal Sent",
           "to_column": "Negotiation",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-28T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Negotiation",
           "to_column": "Closed Won",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo5"
         }
       ]

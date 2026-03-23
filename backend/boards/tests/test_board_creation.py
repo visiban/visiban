@@ -17,12 +17,12 @@ class BoardCreationTests(TestCase):
         payload.update(kwargs)
         return self.client.post("/api/boards/", payload)
 
-    def test_creates_seven_default_columns_simple_kanban(self):
-        """simple_kanban has 7 columns: Backlog / Refined / Sprint Ready / In Dev / In Review / QA/Testing / Done."""
+    def test_creates_five_default_columns_simple_kanban(self):
+        """simple_kanban has 5 columns: Backlog / To Do / Doing / Review / Done."""
         resp = self._create_board()
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         board_id = resp.data["id"]
-        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 7)
+        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 5)
 
     def test_default_column_names(self):
         resp = self._create_board()
@@ -30,7 +30,7 @@ class BoardCreationTests(TestCase):
         names = list(
             Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
         )
-        self.assertEqual(names, ["Backlog", "Refined", "Sprint Ready", "In Dev", "In Review", "QA/Testing", "Done"])
+        self.assertEqual(names, ["Backlog", "To Do", "Doing", "Review", "Done"])
 
     def test_only_first_column_allows_card_creation(self):
         resp = self._create_board()
@@ -136,10 +136,10 @@ class BoardCreationTests(TestCase):
         self.assertEqual(Column.objects.filter(board_id=board_id).count(), 0)
 
     def test_unknown_template_falls_back_to_simple_kanban(self):
-        """An unknown template key falls back to simple_kanban (7 columns)."""
+        """An unknown template key falls back to simple_kanban (5 columns)."""
         resp = self._create_board(template="does_not_exist")
         board_id = resp.data["id"]
-        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 7)
+        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 5)
 
 
 class BoardTemplateAPITests(TestCase):

@@ -140,7 +140,7 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_at": "2026-02-21T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -148,8 +148,8 @@
           "to_column": "Triaged",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-03-09T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -194,24 +194,24 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-09T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-26T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Triaged",
           "to_column": "Investigating",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-03-13T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -261,16 +261,16 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-01-25T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-01-21T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-14T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Triaged",
@@ -278,23 +278,23 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-19T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo1"
         },
         {
           "from_column": "Investigating",
           "to_column": "Awaiting Customer",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-02-28T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Awaiting Customer",
           "to_column": "Escalated",
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
-          "moved_at": "2026-03-12T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ]
     },
@@ -339,23 +339,23 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-01-31T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-13T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Triaged",
           "to_column": "Investigating",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_at": "2026-03-03T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -363,7 +363,7 @@
           "to_column": "Awaiting Customer",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo5"
         }
       ]
@@ -405,7 +405,7 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-01-12T00:00:00+00:00",
+          "moved_at": "2026-01-23T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
@@ -413,15 +413,15 @@
           "to_column": "Triaged",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-02T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Triaged",
           "to_column": "Investigating",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_at": "2026-02-13T00:00:00+00:00",
           "moved_by": "demo2"
         },
         {
@@ -429,24 +429,24 @@
           "to_column": "Awaiting Customer",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-20T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Awaiting Customer",
           "to_column": "Escalated",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-04T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Escalated",
           "to_column": "Resolved",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-13T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
@@ -487,15 +487,15 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-01-03T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2025-12-25T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_at": "2026-01-13T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -503,15 +503,15 @@
           "to_column": "Investigating",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-01-28T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Investigating",
           "to_column": "Awaiting Customer",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_at": "2026-02-07T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -519,7 +519,7 @@
           "to_column": "Escalated",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_at": "2026-02-20T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -527,15 +527,15 @@
           "to_column": "Resolved",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Resolved",
           "to_column": "Closed",
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo4"
         }
       ]
@@ -577,32 +577,32 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-01T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Triaged",
           "to_column": "Investigating",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-05T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Investigating",
           "to_column": "Awaiting Customer",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-12T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -656,40 +656,40 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-01-20T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-08T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Triaged",
           "to_column": "Investigating",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-02-19T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Investigating",
           "to_column": "Awaiting Customer",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-03T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Awaiting Customer",
           "to_column": "Escalated",
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     },
@@ -730,7 +730,7 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-02-13T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -738,8 +738,8 @@
           "to_column": "Triaged",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ]
     },
@@ -776,24 +776,24 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-02-14T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-03-06T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Triaged",
           "to_column": "Investigating",
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -821,8 +821,8 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-03-06T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ]
     },
@@ -863,15 +863,15 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-01-07T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-01-14T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_at": "2026-01-30T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -879,23 +879,23 @@
           "to_column": "Investigating",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-01-31T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Investigating",
           "to_column": "Awaiting Customer",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-14T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Awaiting Customer",
           "to_column": "Escalated",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_at": "2026-03-03T00:00:00+00:00",
           "moved_by": "demo4"
         },
         {
@@ -941,31 +941,31 @@
           "to_column": "New",
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2025-12-23T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-11T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "New",
           "to_column": "Triaged",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-01-13T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-01-28T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Triaged",
           "to_column": "Investigating",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-01-25T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Investigating",
           "to_column": "Awaiting Customer",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-12T00:00:00+00:00",
           "moved_by": "demo2"
         },
         {
@@ -974,23 +974,23 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-18T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo3"
         },
         {
           "from_column": "Escalated",
           "to_column": "Resolved",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-03-05T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Resolved",
           "to_column": "Closed",
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
-          "moved_at": "2026-03-12T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ]
     }

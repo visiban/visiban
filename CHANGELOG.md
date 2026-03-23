@@ -17,6 +17,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+- `simple_kanban` template revised to the classic 5-column layout: Backlog → To Do → Doing → Review → Done
+- Seed command now generates `CardActivity` records (assignee, labels, due date, priority escalations, checklist events, comments) for each card so the History tab shows rich activity alongside column movements
+- Seed data files flattened from `seed_data/<slug>/seed.json` to `seed_data/<slug>.json` (one directory, one file per template)
+- JSON export recommended over CSV: JSON includes the full CardMovement history; CSV contains column-level data only and is noted as such in the export output
 - The first-boot and installation getting-started pages now include a "Password file not found?" note explaining that a missing `/tmp/visiban_admin_password` means the admin account was already bootstrapped on a previous boot, and giving the `python manage.py changepassword admin` command to reset it
 - Board view scrollbar is now 10 px wide and higher-contrast (slate-500 at rest, slate-400 on hover) for better discoverability on macOS and Windows
 - Hover-reveal controls (add-subgroup button, swimlane drag handle, card checkbox) now gain `focus:opacity-100` and a focus ring so keyboard users can reach and activate them without a mouse
