@@ -15,22 +15,23 @@ Return the current instance-wide settings.
 
 **Response**
 ```json
-{ "registration_mode": "open" }
+{ "registration_mode": "open", "uploads_enabled": true }
 ```
 
-| Field | Values | Description |
+| Field | Type | Description |
 |---|---|---|
 | `registration_mode` | `"open"` / `"invite_only"` / `"closed"` | Controls who can self-register |
+| `uploads_enabled` | boolean | When `false`, attachment uploads are blocked for all users |
 
 ### `PATCH /api/admin/settings/`
 Update site settings. All fields are optional.
 
 **Request**
 ```json
-{ "registration_mode": "invite_only" }
+{ "registration_mode": "invite_only", "uploads_enabled": false }
 ```
 
-Changes take effect immediately — no restart required.
+Changes take effect within approximately 60 seconds (server-side cache TTL) — no restart required.
 
 ---
 

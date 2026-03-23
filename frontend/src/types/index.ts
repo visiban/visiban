@@ -21,6 +21,8 @@ export interface User {
   close_editor_on_enter?: boolean;
   /** PK of the board to open automatically on login, or null if not set. */
   default_board_id?: number | null;
+  /** Whether file uploads are enabled instance-wide. Reflects SiteSetting.uploads_enabled. */
+  uploads_enabled?: boolean;
 }
 
 export interface BoardTemplateColumn {
@@ -265,6 +267,7 @@ export type RegistrationMode = "open" | "invite_only" | "closed";
 
 export interface SiteSettings {
   registration_mode: RegistrationMode;
+  uploads_enabled: boolean;
 }
 
 export interface AdminUser {

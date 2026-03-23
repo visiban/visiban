@@ -82,6 +82,27 @@ class AdminSettingsViewTests(TestCase):
         r = self.client.patch("/api/admin/settings/", {"registration_mode": "closed"})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_get_returns_uploads_enabled(self):
+        r = self.client.get("/api/admin/settings/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("uploads_enabled", r.json())
+        self.assertTrue(r.json()["uploads_enabled"])
+
+    def test_patch_uploads_enabled_false(self):
+        r = self.client.patch("/api/admin/settings/", {"uploads_enabled": False})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(r.json()["uploads_enabled"])
+        self.assertFalse(SiteSetting.get().uploads_enabled)
+
+    def test_patch_uploads_enabled_true(self):
+        s = SiteSetting.get()
+        s.uploads_enabled = False
+        s.save(update_fields=["uploads_enabled"])
+        r = self.client.patch("/api/admin/settings/", {"uploads_enabled": True})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertTrue(r.json()["uploads_enabled"])
+        self.assertTrue(SiteSetting.get().uploads_enabled)
+
 
 # ---------------------------------------------------------------------------
 # AdminUsersView — GET

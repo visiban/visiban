@@ -271,6 +271,28 @@ function SettingsTab() {
     }
   };
 
+  const handleUploadsToggle = async () => {
+    if (!settings || saving) return;
+    const prev = settings.uploads_enabled;
+    const next = !prev;
+    setSettings((s) => s ? { ...s, uploads_enabled: next } : s);
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const updated = await patchAdminSettings({ uploads_enabled: next });
+      setSettings(updated);
+      setSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setSettings((s) => s ? { ...s, uploads_enabled: prev } : s);
+      setError("Failed to save settings.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-slate-400 text-sm">Loading…</div>;
   }
@@ -312,6 +334,33 @@ function SettingsTab() {
               </span>
             </button>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">
+          Features
+        </p>
+        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-slate-700 bg-slate-800">
+          <div>
+            <span className="block text-sm font-medium text-slate-200">File uploads</span>
+            <span className="block text-xs text-slate-500">Allow members to attach files to cards</span>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings?.uploads_enabled ?? true}
+            onClick={handleUploadsToggle}
+            disabled={saving}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              settings?.uploads_enabled ? "bg-blue-600" : "bg-slate-600"
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${
+                settings?.uploads_enabled ? "translate-x-4" : "translate-x-1"
+              }`}
+            />
+          </button>
         </div>
       </div>
 

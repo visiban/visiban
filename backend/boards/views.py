@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 
-from accounts.models import User
+from accounts.models import User, get_uploads_enabled
 from groups.models import Group, GroupMembership, get_accessible_group_ids
 
 from .broadcast import broadcast_board_event
@@ -1814,6 +1814,14 @@ class CardViewSet(viewsets.ModelViewSet):
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Check instance-wide feature toggle. This applies to all users
+        # including admins — disabling uploads halts all new uploads.
+        if not get_uploads_enabled():
+            return Response(
+                {"code": "feature_disabled", "detail": "File uploads are disabled by the site administrator."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

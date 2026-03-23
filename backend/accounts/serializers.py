@@ -1,7 +1,7 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
-from .models import User
+from .models import User, get_uploads_enabled
 
 
 class RegistrationSerializer(RegisterSerializer):
@@ -31,6 +31,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
+    uploads_enabled = serializers.SerializerMethodField()
     # default_board_id is injected as a writable PrimaryKeyRelatedField in
     # __init__ rather than at class level to avoid a premature import of
     # boards.models during test collection (app registry may not be ready when
@@ -59,6 +60,11 @@ class UserSerializer(serializers.ModelSerializer):
     def get_has_usable_password(self, obj):
         return obj.has_usable_password()
 
+    def get_uploads_enabled(self, obj):
+        # Embed the site-wide uploads toggle so the frontend can gate the UI
+        # without a separate API call.
+        return get_uploads_enabled()
+
     class Meta:
         model = User
         fields = [
@@ -69,5 +75,6 @@ class UserSerializer(serializers.ModelSerializer):
             "notif_card_assigned", "notif_mentioned", "notif_due_soon",
             "notif_card_moved", "notif_comment_added",
             "default_board_id",
+            "uploads_enabled",
         ]
-        read_only_fields = ["id", "is_site_admin", "must_change_password", "has_usable_password"]
+        read_only_fields = ["id", "is_site_admin", "must_change_password", "has_usable_password", "uploads_enabled"]

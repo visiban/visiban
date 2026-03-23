@@ -686,14 +686,25 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   </button>
                   {attachmentsOpen && (
                     <>
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50 transition"
-                      >
-                        {uploading ? "Uploading…" : "+ Upload"}
-                      </button>
-                      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                      {currentUser?.uploads_enabled === false ? (
+                        <span
+                          title="File uploads are disabled by the site administrator."
+                          className="text-xs text-slate-600 font-medium cursor-not-allowed"
+                        >
+                          + Upload
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50 transition"
+                          >
+                            {uploading ? "Uploading…" : "+ Upload"}
+                          </button>
+                          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                        </>
+                      )}
                     </>
                   )}
                 </div>

@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .adapter import invalidate_registration_mode_cache
-from .models import SiteSetting
+from .models import SiteSetting, invalidate_uploads_enabled_cache
 from .permissions import IsSiteAdmin
 
 User = get_user_model()
@@ -23,6 +23,7 @@ class SiteSettingSerializer(drf_serializers.Serializer):
     registration_mode = drf_serializers.ChoiceField(
         choices=SiteSetting.RegistrationMode.choices,
     )
+    uploads_enabled = drf_serializers.BooleanField(required=False)
 
 
 class AdminUserSerializer(drf_serializers.ModelSerializer):
@@ -100,11 +101,21 @@ class AdminSettingsView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         validated = serializer.validated_data
+        update_fields = []
+
         if "registration_mode" in validated:
             setting.registration_mode = validated["registration_mode"]
-            setting.save(update_fields=["registration_mode"])
-            # Flush the cached value so the adapter picks up the change within ~1 s.
+            update_fields.append("registration_mode")
+
+        if "uploads_enabled" in validated:
+            setting.uploads_enabled = validated["uploads_enabled"]
+            update_fields.append("uploads_enabled")
+
+        if update_fields:
+            setting.save(update_fields=update_fields)
+            # Flush caches so changes take effect immediately.
             invalidate_registration_mode_cache()
+            invalidate_uploads_enabled_cache()
 
         return Response(SiteSettingSerializer(setting).data)
 
