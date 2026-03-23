@@ -37,6 +37,31 @@ Delete a card. Requires member or above.
 
 ---
 
+## Archive
+
+### `POST /api/boards/{board_id}/cards/{id}/archive/`
+Soft-delete a card. Sets `archived_at` to the current timestamp. The card is removed from the active board view and excluded from WIP/weight counts. **Minimum role: Member.**
+
+If the card is already archived this is a no-op — `200 OK` is returned with the current card state.
+
+**Response** — full card object with `archived_at` set.
+
+Broadcasts `card.archived` to all board WebSocket subscribers.
+
+### `POST /api/boards/{board_id}/cards/{id}/unarchive/`
+Restore an archived card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
+
+**Response** — full card object with `archived_at: null`.
+
+Broadcasts `card.unarchived` to all board WebSocket subscribers.
+
+### `GET /api/boards/{board_id}/cards/archived/`
+List all archived cards for the board, newest archived first. Available to all board members including viewers.
+
+**Response** — array of card objects, each with `archived_at` set.
+
+---
+
 ## Move
 
 ### `POST /api/boards/{board_id}/cards/{id}/move/`
@@ -83,7 +108,7 @@ When `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board and
 ```
 
 ```json
-{ "code": "weight_limit_exceeded", "detail": "Column 'Doing' is at its weight limit (10).", "column_id": 3, "weight_limit": 10, "current_weight": 10 }
+{ "code": "weight_limit_exceeded", "detail": "Column 'Doing' is at its weight limit (10).", "column_id": 3, "weight_limit": 10, "current_weight": 10, "card_weight": 2 }
 ```
 
 Board admins may override the limit by appending `?force=true` to the move URL:
@@ -126,7 +151,14 @@ Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete 
 ## Attachments
 
 ### `GET /api/boards/{board_id}/cards/{id}/attachments/`
-List attachments.
+List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `file` (relative URL), `uploaded_by` (user object), `created_at`.
+
+To download an attachment file, fetch its `file` URL with the same `Authorization` header used for API requests — attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests and requests from users without board membership return `403 Forbidden`.
+
+```bash
+curl -O -J http://localhost:8000/media/attachments/abc123.pdf \
+  -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"
+```
 
 ### `POST /api/boards/{board_id}/cards/{id}/attachments/`
 Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB. **Minimum role: Collaborator.**
