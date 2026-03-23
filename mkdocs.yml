@@ -72,6 +72,7 @@ nav:
     - Boards: api/boards.md
     - Cards: api/cards.md
     - Groups: api/groups.md
+    - Notifications: api/notifications.md
     - Admin: api/admin.md
     - Health Checks: api/health.md
     - OpenAPI Spec: api/openapi.md

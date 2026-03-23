@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- API reference documentation for the notifications endpoints (`GET /api/notifications/`, `POST /api/notifications/mark-read/`, `GET /api/notifications/unread-count/`) — these endpoints existed but had no API docs
 - `seed_template_boards` management command seeds all six board templates (`sales_pipeline`, `customer_support`, `customer_success`, `simple_kanban`, `product_roadmap`, `project_delivery`) with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement history (#254). Seed files are exported to `backend/boards/seed_data/<slug>/seed.{json,csv}`.
 - Four new board templates are available: Content Production, Hiring & Recruiting, Legal & Compliance, and Infrastructure & DevOps — each with domain-specific swimlanes, cards, labels, and column structures
 - Card JSON exports from `seed_template_boards --export` now include a `movements` array per card, enabling imported boards to display realistic History tab data
@@ -18,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Fixed
 
 - `flatted` npm dependency bumped past 3.4.1 to resolve GHSA-rf6f-7fwh-wjgh (prototype pollution, high severity)
+- API docs corrected: archive/unarchive/archived card endpoints documented; `weight_limit_exceeded` error response now includes `card_weight` field; attachment download via authenticated `/media/` route documented; summary endpoint response shape expanded with `stage_distribution` and `color`; CSV/JSON export formats fully described; writable fields listed for column, swimlane, and label `PUT`; `display_name` added to `PATCH /api/auth/me/` writable fields
 - Scheduled `cleanup-merged-branches` CI job no longer fails when all merged branches have already been deleted — `grep -v` returning exit 1 on an empty result set was propagated as a job failure under `pipefail`; fixed with `|| true`
 - Analytics period filter (7d / 30d / 90d) now correctly scopes dwell times and velocity calculations to movements within the selected window — previously all three periods returned identical results because the `days` parameter was parsed but never applied to the movement query
 - Stalled card rows in the Analytics view are now clickable and open the card detail panel directly on the board — previously the rows were non-interactive `<div>` elements with no navigation

@@ -95,16 +95,33 @@ List all active board templates. Requires authentication. Used by the board crea
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Blank Board**.
 
 ### `GET /api/boards/{id}/summary/`
-Board health summary — swimlane card counts and velocity figures.
+Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.
 
-**Response fields per swimlane:**
+**Response shape:**
+
+```json
+{
+  "swimlanes": [
+    {
+      "id": 1,
+      "name": "Acme Corp",
+      "color": "#3B82F6",
+      "total_cards": 5,
+      "stage_distribution": { "Backlog": 2, "In Progress": 3, "Done": 0 },
+      "velocity_7d": 1,
+      "velocity_30d": 4
+    }
+  ]
+}
+```
 
 | Field | Description |
 |---|---|
-| `id`, `name` | Swimlane identifier and name |
-| `card_count` | Total active (non-archived) cards |
-| `velocity_7d` | Cards that moved to the final column in the last 7 days |
-| `velocity_30d` | Cards that moved to the final column in the last 30 days |
+| `id`, `name`, `color` | Swimlane identifier, name, and color |
+| `total_cards` | Total active (non-archived) cards in this swimlane |
+| `stage_distribution` | Card count per column for this swimlane (all columns, including zero counts) |
+| `velocity_7d` | Cards that moved into the board's last column in the last 7 days |
+| `velocity_30d` | Cards that moved into the board's last column in the last 30 days |
 
 ---
 
@@ -150,10 +167,44 @@ CSV export (`Export CSV` button) is available to `admin` and `site_admin` roles 
 ## Export & Import
 
 ### `GET /api/boards/{id}/export/`
-Export the board as CSV. Returns a downloadable file with one row per card including metadata and movement history. Available to all board members.
+Export the board as CSV. Returns a downloadable `text/csv` file. Available to all board members.
+
+**CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
+
+`Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`.
 
 ### `GET /api/boards/{id}/export/?format=json`
-Export the board as JSON. Returns a structured object with columns, swimlanes, labels, and cards (including comments and checklists). All objects include their `uid`. Available to all board members.
+Export the board as JSON. Returns `application/json`. Available to all board members.
+
+**Response shape:**
+
+```json
+{
+  "name": "Sales Pipeline",
+  "description": "",
+  "columns": [{ "name": "Backlog", "position": 0, "color": "#64748B", "wip_limit": null, "weight_limit": null, "allow_card_creation": true }],
+  "swimlanes": [{ "name": "Acme Corp", "position": 0, "color": "#3B82F6", "contact_email": "", "notes": "" }],
+  "labels": [{ "name": "Bug", "color": "#EF4444" }],
+  "cards": [
+    {
+      "title": "Fix login bug",
+      "description": "",
+      "column": "Backlog",
+      "swimlane": "Acme Corp",
+      "priority": "high",
+      "assignee": "alice",
+      "labels": ["Bug"],
+      "due_date": "2026-04-01",
+      "weight": 2,
+      "position": 0,
+      "created_at": "2026-03-01T10:00:00Z",
+      "created_by": "alice",
+      "comments": [{ "author": "bob", "body": "On it.", "created_at": "2026-03-02T09:00:00Z" }],
+      "checklist": [{ "text": "Write tests", "is_checked": false }]
+    }
+  ]
+}
+```
 
 ### `POST /api/boards/import/`
 Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group (requires group admin). Creates a new board atomically. Requires authentication.
@@ -190,6 +241,8 @@ Create a column. Requires board admin.
 ### `PUT /api/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.
 
+**Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean)
+
 ### `DELETE /api/boards/{id}/columns/{col_id}/`
 Delete a column. Requires board admin.
 
@@ -216,6 +269,8 @@ Create a swimlane. Requires board admin.
 ### `PUT /api/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin.
 
+**Writable fields:** `name`, `color`, `contact_email`, `notes`
+
 ### `DELETE /api/boards/{id}/swimlanes/{swimlane_id}/`
 Delete a swimlane. Requires board admin.
 
@@ -240,6 +295,8 @@ Create a label. Requires board admin.
 
 ### `PUT /api/boards/{id}/labels/{label_id}/`
 Update a label. Requires board admin.
+
+**Writable fields:** `name`, `color`
 
 ### `DELETE /api/boards/{id}/labels/{label_id}/`
 Delete a label. Requires board admin.
