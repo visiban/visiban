@@ -28,6 +28,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Viewer and collaborator role members can no longer update board settings, columns, swimlanes, labels, or card fields that require at least member-level access — the missing write-permission gate is now enforced at the viewset level (#316)
 - Attachment deletion now requires the requesting user to own the attachment or hold a member-or-higher role on the board; collaborators can only delete their own attachments (#316)
 - Subgroups list (`GET /api/groups/<id>/subgroups/`) now filters to subgroups the requesting user is directly a member of, instead of returning all subgroups that descend from accessible groups (#316)
+- Board filter bar now shows a "No cards match the active filters" banner when the active filters produce zero results, instead of silently rendering an empty grid (#263 #319)
+- Column trash zone "Delete" label now uses `text-red-200` when active (dragging over), replacing the illegible `text-red-700` on a dark red background (#319)
+- Hover-reveal board action buttons (move-to-group, delete board) on the Dashboard now include `focus-within:opacity-100` and individual focus rings so keyboard users can reach them (#319)
+- Checklist item and attachment delete buttons in the card detail panel now include `focus:opacity-100` and a focus ring, making them reachable without a mouse (#319)
+- Board load error now shows a Retry button alongside the error message (#319)
+- Dashboard modal dialogs (Join Group, Delete Board) updated to `rounded-lg` + `border border-slate-700` to match the design system (#319)
+- `ErrorBoundary` Reload button corrected from the undefined `bg-primary` token to `bg-blue-600` (#319)
+- Onboarding empty state heading corrected from `text-2xl font-bold` to `text-xl font-semibold` to match typography scale (#319)
+- `+ Add card` affordance in board cells corrected from `text-[11px]` to `text-xs` to use the standard Tailwind scale (#319)
 - `flatted` npm dependency bumped past 3.4.1 to resolve GHSA-rf6f-7fwh-wjgh (prototype pollution, high severity)
 - API docs corrected: archive/unarchive/archived card endpoints documented; `weight_limit_exceeded` error response now includes `card_weight` field; attachment download via authenticated `/media/` route documented; summary endpoint response shape expanded with `stage_distribution` and `color`; CSV/JSON export formats fully described; writable fields listed for column, swimlane, and label `PUT`; `display_name` added to `PATCH /api/auth/me/` writable fields
 - Scheduled `cleanup-merged-branches` CI job no longer fails when all merged branches have already been deleted — `grep -v` returning exit 1 on an empty result set was propagated as a job failure under `pipefail`; fixed with `|| true`

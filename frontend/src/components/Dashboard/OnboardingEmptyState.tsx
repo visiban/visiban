@@ -17,7 +17,7 @@ export default function OnboardingEmptyState({ onCreateBoard, onJoinGroup }: Pro
         </svg>
       </div>
 
-      <h1 className="text-white text-2xl font-bold mb-2">Welcome to Visiban</h1>
+      <h1 className="text-white text-xl font-semibold mb-2">Welcome to Visiban</h1>
       <p className="text-slate-400 text-sm max-w-sm mb-8 leading-relaxed">
         Your team's kanban workspace. Create a board to start tracking work, or join an existing group to collaborate.
       </p>

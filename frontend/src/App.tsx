@@ -179,7 +179,17 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           />
         )}
         {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading board…</div>}
-        {error && <div className="flex items-center justify-center h-full text-red-400">{error}</div>}
+        {error && (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <p className="text-red-400 text-sm">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {board && (
           <BoardView
             board={board}
