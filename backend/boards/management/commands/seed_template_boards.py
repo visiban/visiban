@@ -2716,6 +2716,642 @@ TEMPLATE_DATA: dict[str, dict] = {
             },
         ],
     },
+
+    # ── Legal & Compliance ────────────────────────────────────────────────────
+    "legal_compliance": {
+        "board_name": "Template: Legal & Compliance",
+        "description": (
+            "Track compliance requests and approvals per department. "
+            "Each swimlane is a department; each card is a compliance request or review."
+        ),
+        "columns": [
+            {"name": "Submitted",           "color": "#6B7280", "allow_card_creation": True},
+            {"name": "Under Review",        "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Needs Clarification", "color": "#F97316", "allow_card_creation": False},
+            {"name": "Approved",            "color": "#10B981", "allow_card_creation": False},
+            {"name": "Denied",              "color": "#EF4444", "allow_card_creation": False},
+            {"name": "Archived",            "color": "#9CA3AF", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "GDPR",        "color": "#3B82F6"},
+            {"name": "SOC 2",       "color": "#8B5CF6"},
+            {"name": "Contract",    "color": "#F59E0B"},
+            {"name": "Policy",      "color": "#10B981"},
+            {"name": "Vendor",      "color": "#F97316"},
+        ],
+        "swimlanes": [
+            {
+                "name": "Engineering",
+                "color": "#3B82F6",
+                "contact_email": "legal@internal.example",
+                "notes": "Infra, security, and product engineering compliance requests.",
+                "cards": [
+                    {
+                        "title": "GDPR data deletion pipeline — legal sign-off",
+                        "description": (
+                            "Request for legal sign-off on the automated GDPR erasure pipeline.\n\n"
+                            "Pipeline cascades deletion across boards, cards, comments, "
+                            "activity logs, and exports.\n\n"
+                            "Legal must confirm full coverage before pipeline goes live."
+                        ),
+                        "col_idx": 3,
+                        "priority": "urgent",
+                        "due_offset": None,
+                        "weight": 5,
+                        "labels": ["GDPR", "Policy"],
+                        "checklist": [
+                            {"text": "Technical spec submitted to legal", "is_checked": True},
+                            {"text": "Legal reviewed data flow diagram", "is_checked": True},
+                            {"text": "Sign-off received", "is_checked": True},
+                            {"text": "Archived in compliance system", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Legal confirmed full GDPR coverage. Pipeline cleared for production.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "New AWS vendor agreement — DPA review",
+                        "description": (
+                            "AWS updated its Data Processing Addendum. "
+                            "Legal must review against current GDPR obligations.\n\n"
+                            "Deadline: 2026-04-15 (AWS contract renewal date)."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 10,
+                        "weight": 4,
+                        "labels": ["GDPR", "Vendor"],
+                        "checklist": [
+                            {"text": "Receive updated DPA from AWS", "is_checked": True},
+                            {"text": "Legal review in progress", "is_checked": False},
+                        ],
+                        "comments": [
+                            "DPA received 2026-03-18. Review started.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Penetration test scope approval",
+                        "description": (
+                            "Annual pen test scope requires legal review before external firm "
+                            "is granted staging access.\n\n"
+                            "Scope: web app, API, WebSocket layer, and auth flows."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["SOC 2"],
+                        "checklist": [
+                            {"text": "Scope document submitted", "is_checked": True},
+                            {"text": "Legal approved", "is_checked": True},
+                            {"text": "Archived", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Approved same day. Pen test firm granted access.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Finance",
+                "color": "#F59E0B",
+                "contact_email": "legal@internal.example",
+                "notes": "Contract reviews, financial compliance, and vendor agreements.",
+                "cards": [
+                    {
+                        "title": "Customer MSA redline review — TechNova",
+                        "description": (
+                            "TechNova's legal team proposed two redlines on the MSA:\n\n"
+                            "1. Liability cap: 2x ARR (we proposed 1x)\n"
+                            "2. Data deletion SLA: 30 days (we proposed 90 days)\n\n"
+                            "Finance and legal must agree before counter-proposal is sent."
+                        ),
+                        "col_idx": 2,
+                        "priority": "urgent",
+                        "due_offset": 3,
+                        "weight": 5,
+                        "labels": ["Contract"],
+                        "checklist": [
+                            {"text": "Receive TechNova redlines", "is_checked": True},
+                            {"text": "Finance review of liability cap impact", "is_checked": True},
+                            {"text": "Engineering confirm 30-day deletion feasibility", "is_checked": False},
+                            {"text": "Send counter-proposal", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Finance approved 2x ARR cap. Waiting on engineering for deletion SLA.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Accounts payable policy update",
+                        "description": (
+                            "Updated AP policy requiring dual approval for any invoice > $10k. "
+                            "Policy change requires legal review and board sign-off."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 3,
+                        "labels": ["Policy"],
+                        "checklist": [
+                            {"text": "Policy draft submitted", "is_checked": True},
+                            {"text": "Legal reviewed", "is_checked": True},
+                            {"text": "Board sign-off obtained", "is_checked": True},
+                            {"text": "Policy published internally", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Board approved 2026-03-12. Publishing to all staff next week.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                ],
+            },
+            {
+                "name": "HR & People",
+                "color": "#10B981",
+                "contact_email": "legal@internal.example",
+                "notes": "Employment law, policy reviews, and people compliance.",
+                "cards": [
+                    {
+                        "title": "Remote work policy — legal review",
+                        "description": (
+                            "Updated remote work policy covering 14 countries. "
+                            "Legal must confirm compliance with each country's employment law.\n\n"
+                            "Focus areas: expense policy, tax nexus, and equipment ownership."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 14,
+                        "weight": 4,
+                        "labels": ["Policy"],
+                        "checklist": [
+                            {"text": "HR submitted draft policy", "is_checked": True},
+                            {"text": "Legal review: UK and EU", "is_checked": True},
+                            {"text": "Legal review: APAC", "is_checked": False},
+                            {"text": "Final policy approved", "is_checked": False},
+                        ],
+                        "comments": [
+                            "UK and EU sections clear. APAC review (Australia + Japan) in progress.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Employee data retention policy",
+                        "description": (
+                            "Define and document how long employee records are retained, "
+                            "segmented by record type (payroll, performance, disciplinary).\n\n"
+                            "Triggered by GDPR audit finding."
+                        ),
+                        "col_idx": 5,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["GDPR", "Policy"],
+                        "checklist": [
+                            {"text": "Record types catalogued", "is_checked": True},
+                            {"text": "Retention periods defined", "is_checked": True},
+                            {"text": "Policy approved and published", "is_checked": True},
+                            {"text": "Archived in compliance system", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Policy archived. GDPR audit finding closed.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+            {
+                "name": "Sales & Customer Contracts",
+                "color": "#8B5CF6",
+                "contact_email": "legal@internal.example",
+                "notes": "Enterprise contract reviews, NDA requests, and DPA processing.",
+                "cards": [
+                    {
+                        "title": "NDA request — GlobalBank Corp",
+                        "description": (
+                            "GlobalBank requires a mutual NDA before sharing their IT architecture "
+                            "diagrams for the integration scoping call.\n\n"
+                            "Standard mutual NDA template. Turnaround target: 24 hours."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Contract"],
+                        "checklist": [
+                            {"text": "NDA submitted by account team", "is_checked": True},
+                            {"text": "Legal reviewed — standard terms, no issues", "is_checked": True},
+                            {"text": "Both parties executed", "is_checked": True},
+                            {"text": "Filed in contract management system", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Executed in 18 hours. Filed.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "HIPAA BAA — BlueSky Health",
+                        "description": (
+                            "BlueSky Health requires a HIPAA Business Associate Agreement "
+                            "before any trial data can be provisioned.\n\n"
+                            "Standard Visiban BAA covers PHI in transit and at rest."
+                        ),
+                        "col_idx": 2,
+                        "priority": "urgent",
+                        "due_offset": 5,
+                        "weight": 4,
+                        "labels": ["Contract"],
+                        "checklist": [
+                            {"text": "BAA sent to BlueSky legal", "is_checked": True},
+                            {"text": "BlueSky redlines received", "is_checked": True},
+                            {"text": "Legal reviewing redlines", "is_checked": False},
+                            {"text": "Execute and file signed BAA", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Two minor redlines received. Legal reviewing now.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Product & Engineering Policy",
+                "color": "#EC4899",
+                "contact_email": "legal@internal.example",
+                "notes": "OSS license reviews, open-source contribution policy, IP assignments.",
+                "cards": [
+                    {
+                        "title": "Apache 2.0 vs ELv2 boundary review",
+                        "description": (
+                            "Annual review of the OSS/enterprise license boundary. "
+                            "Confirm all files in enterprise/ have ELv2 headers and "
+                            "no Apache 2.0 code has been inadvertently mixed in."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 12,
+                        "weight": 3,
+                        "labels": ["Policy"],
+                        "checklist": [
+                            {"text": "Automated license header scan run", "is_checked": True},
+                            {"text": "Manual review of enterprise/ directory", "is_checked": False},
+                            {"text": "Any mixed-license files corrected", "is_checked": False},
+                            {"text": "Legal sign-off on clean state", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Automated scan: 3 files flagged. Manual review in progress.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "New dependency license review — celery 5.4",
+                        "description": (
+                            "celery 5.4 has been proposed as a dependency. "
+                            "BSD 3-Clause license — confirm compatible with Apache 2.0 distribution."
+                        ),
+                        "col_idx": 3,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 1,
+                        "labels": ["Policy"],
+                        "checklist": [
+                            {"text": "License confirmed: BSD 3-Clause", "is_checked": True},
+                            {"text": "Compatible with Apache 2.0 — approved", "is_checked": True},
+                            {"text": "Archived", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Approved. BSD 3-Clause is compatible with Apache 2.0.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+        ],
+    },
+
+    # ── Infrastructure & DevOps ────────────────────────────────────────────────
+    "infra_devops": {
+        "board_name": "Template: Infrastructure & DevOps",
+        "description": (
+            "Track incidents and change requests per service from report through verification. "
+            "Each swimlane is a service or system; each card is an incident or change."
+        ),
+        "columns": [
+            {"name": "Reported",      "color": "#6B7280", "allow_card_creation": True},
+            {"name": "Triaged",       "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Assigned",      "color": "#8B5CF6", "allow_card_creation": False},
+            {"name": "In Progress",   "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Testing",       "color": "#F97316", "allow_card_creation": False},
+            {"name": "Change Window", "color": "#EC4899", "allow_card_creation": False},
+            {"name": "Deployed",      "color": "#14B8A6", "allow_card_creation": False},
+            {"name": "Verified",      "color": "#10B981", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "P0 - Critical", "color": "#EF4444"},
+            {"name": "P1 - High",     "color": "#F97316"},
+            {"name": "P2 - Medium",   "color": "#F59E0B"},
+            {"name": "Change",        "color": "#3B82F6"},
+            {"name": "Security",      "color": "#8B5CF6"},
+        ],
+        "swimlanes": [
+            {
+                "name": "API Gateway",
+                "color": "#3B82F6",
+                "contact_email": "ops@internal.example",
+                "notes": "Kong API gateway. Handles all external API traffic. SLA: 99.95% uptime.",
+                "cards": [
+                    {
+                        "title": "Rate limit bypass on /api/export/ endpoint",
+                        "description": (
+                            "Reported by security scan: the /api/export/ endpoint bypasses "
+                            "the standard rate limiter. Large boards can be exported in a tight loop "
+                            "causing elevated DB load.\n\n"
+                            "Severity: P1 — service degradation, not outage."
+                        ),
+                        "col_idx": 5,
+                        "priority": "urgent",
+                        "due_offset": 1,
+                        "weight": 5,
+                        "labels": ["P1 - High", "Security"],
+                        "checklist": [
+                            {"text": "Confirm rate limit bypass is reproducible", "is_checked": True},
+                            {"text": "Add rate limiter to /api/export/ in Kong config", "is_checked": True},
+                            {"text": "Test rate limit enforcement in staging", "is_checked": True},
+                            {"text": "Deploy during off-peak window", "is_checked": True},
+                            {"text": "Verify rate limit is active in production", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Fix tested in staging. Deploying tonight 02:00-04:00 UTC.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Upgrade Kong from 3.1 to 3.6",
+                        "description": (
+                            "Kong 3.1 reaches end of life 2026-05-01. "
+                            "Upgrade to 3.6 for security patches and performance improvements.\n\n"
+                            "Breaking changes: plugin API changes in 3.4. Test all custom plugins."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 14,
+                        "weight": 4,
+                        "labels": ["Change", "P2 - Medium"],
+                        "checklist": [
+                            {"text": "Audit custom plugins for 3.4 breaking changes", "is_checked": True},
+                            {"text": "Update plugins in staging", "is_checked": True},
+                            {"text": "Staging smoke test", "is_checked": False},
+                            {"text": "Schedule production change window", "is_checked": False},
+                        ],
+                        "comments": [
+                            "2 custom plugins need minor updates for 3.4 API changes.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Add circuit breaker for downstream DB connections",
+                        "description": (
+                            "During last month's DB failover, the API gateway continued routing "
+                            "traffic, causing request queuing and timeout cascades.\n\n"
+                            "Add a circuit breaker that opens after 3 consecutive DB timeouts."
+                        ),
+                        "col_idx": 1,
+                        "priority": "high",
+                        "due_offset": 21,
+                        "weight": 4,
+                        "labels": ["Change"],
+                        "checklist": [
+                            {"text": "Design circuit breaker logic", "is_checked": True},
+                            {"text": "Implement in Kong config", "is_checked": False},
+                            {"text": "Chaos test: simulate DB failure", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 3,
+                    },
+                ],
+            },
+            {
+                "name": "PostgreSQL Cluster",
+                "color": "#8B5CF6",
+                "contact_email": "ops@internal.example",
+                "notes": "Primary RDS PostgreSQL 15. Read replica in APAC. WAL streaming to S3.",
+                "cards": [
+                    {
+                        "title": "Unplanned failover — primary DB unreachable",
+                        "description": (
+                            "2026-03-10 01:47 UTC: Primary RDS instance became unreachable. "
+                            "Failover to replica completed in 4m 22s.\n\n"
+                            "Root cause: AZ-level network event in us-east-1b. "
+                            "Postmortem required."
+                        ),
+                        "col_idx": 7,
+                        "priority": "urgent",
+                        "due_offset": None,
+                        "weight": 5,
+                        "labels": ["P0 - Critical"],
+                        "checklist": [
+                            {"text": "Incident declared and team paged", "is_checked": True},
+                            {"text": "Traffic rerouted to replica", "is_checked": True},
+                            {"text": "Primary restored", "is_checked": True},
+                            {"text": "Postmortem written", "is_checked": True},
+                            {"text": "Action items tracked", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Incident resolved. Postmortem published 2026-03-11. 3 action items.",
+                            "Action items: (1) lower failover time SLA (2) add AZ redundancy (3) page SRE faster.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Add connection pooling via PgBouncer",
+                        "description": (
+                            "During peak traffic (Monday mornings) we approach the max_connections "
+                            "limit. Adding PgBouncer in transaction mode will reduce connection overhead.\n\n"
+                            "Expected: support 2x current peak traffic without hitting the limit."
+                        ),
+                        "col_idx": 4,
+                        "priority": "high",
+                        "due_offset": 7,
+                        "weight": 4,
+                        "labels": ["Change", "P1 - High"],
+                        "checklist": [
+                            {"text": "Provision PgBouncer EC2 instance", "is_checked": True},
+                            {"text": "Configure transaction pooling mode", "is_checked": True},
+                            {"text": "Load test: simulate Monday peak", "is_checked": True},
+                            {"text": "Migrate app connections to PgBouncer in staging", "is_checked": True},
+                            {"text": "Production deployment scheduled", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Load test passed. Peak connection count down 68%. Ready for prod.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+            {
+                "name": "CI/CD Pipeline",
+                "color": "#10B981",
+                "contact_email": "ops@internal.example",
+                "notes": "GitLab CI. Average pipeline: 12 min. Target: < 8 min.",
+                "cards": [
+                    {
+                        "title": "Backend test suite taking 18+ minutes",
+                        "description": (
+                            "The backend test suite grew from 8 min to 18 min over the last quarter. "
+                            "Blocking developer velocity.\n\n"
+                            "Investigation: serial test execution, no DB fixtures caching."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 10,
+                        "weight": 4,
+                        "labels": ["P1 - High", "Change"],
+                        "checklist": [
+                            {"text": "Profile slow tests (> 500ms each)", "is_checked": True},
+                            {"text": "Parallelize test runner across 4 workers", "is_checked": True},
+                            {"text": "Add setUpTestData for fixture-heavy test classes", "is_checked": False},
+                            {"text": "Verify pipeline drops below 8 min target", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Parallelization alone cut from 18 min to 11 min. setUpTestData should get us to ~7.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Add SAST scan (Bandit + semgrep) to all MRs",
+                        "description": (
+                            "Static analysis security scanning is currently optional. "
+                            "Make it a required CI gate that blocks merge on high-severity findings."
+                        ),
+                        "col_idx": 7,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 3,
+                        "labels": ["Change", "Security"],
+                        "checklist": [
+                            {"text": "Add bandit job to .gitlab-ci.yml", "is_checked": True},
+                            {"text": "Add semgrep job with python ruleset", "is_checked": True},
+                            {"text": "Set job as required for merge", "is_checked": True},
+                            {"text": "Clear all pre-existing findings", "is_checked": True},
+                        ],
+                        "comments": [
+                            "SAST gate live. 0 pre-existing findings after cleanup sprint.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Object Storage (S3)",
+                "color": "#F59E0B",
+                "contact_email": "ops@internal.example",
+                "notes": "AWS S3. Stores board exports, card attachments, and WAL backups.",
+                "cards": [
+                    {
+                        "title": "WAL backup verification failure",
+                        "description": (
+                            "Automated WAL backup verification failed on 3 consecutive days. "
+                            "Backups are uploading but the checksum verification Lambda is timing out.\n\n"
+                            "Actual backups appear intact — this is a monitoring issue, not a data loss risk."
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": 2,
+                        "weight": 4,
+                        "labels": ["P1 - High"],
+                        "checklist": [
+                            {"text": "Confirm backups are intact (manual spot check)", "is_checked": True},
+                            {"text": "Identify Lambda timeout root cause", "is_checked": True},
+                            {"text": "Increase Lambda timeout from 30s to 120s", "is_checked": False},
+                            {"text": "Verify verification passes for 3 consecutive runs", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Backups confirmed intact. Lambda timeout is the issue — fix in staging.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "Enable S3 Intelligent-Tiering for attachment bucket",
+                        "description": (
+                            "Card attachments older than 90 days are rarely accessed. "
+                            "Enable Intelligent-Tiering to automatically move cold objects "
+                            "to lower-cost storage.\n\n"
+                            "Estimated saving: $180/month."
+                        ),
+                        "col_idx": 7,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Change", "P2 - Medium"],
+                        "checklist": [
+                            {"text": "Enable Intelligent-Tiering on attachment bucket", "is_checked": True},
+                            {"text": "Confirm no access pattern disruption", "is_checked": True},
+                            {"text": "Monitor costs for 30 days", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Enabled 2026-02-01. Month 1 saving: $193. Verified complete.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                ],
+            },
+            {
+                "name": "Kubernetes Cluster",
+                "color": "#EF4444",
+                "contact_email": "ops@internal.example",
+                "notes": "EKS on AWS. Runs all backend services. Auto-scaling 3-12 nodes.",
+                "cards": [
+                    {
+                        "title": "Node group OOM kill during Monday traffic spike",
+                        "description": (
+                            "2026-03-17 08:45 UTC: 2 backend pods OOM-killed during Monday traffic spike.\n\n"
+                            "Root cause: default memory limit (512Mi) too low for current board query patterns. "
+                            "Increase to 1Gi and add vertical pod autoscaler."
+                        ),
+                        "col_idx": 6,
+                        "priority": "urgent",
+                        "due_offset": None,
+                        "weight": 5,
+                        "labels": ["P0 - Critical", "Change"],
+                        "checklist": [
+                            {"text": "Increase memory limits to 1Gi in deployment manifest", "is_checked": True},
+                            {"text": "Deploy updated manifest", "is_checked": True},
+                            {"text": "Install VPA and configure for backend deployment", "is_checked": True},
+                            {"text": "Verify no OOM kills in next Monday spike", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Memory limits updated and VPA configured. Monitoring next Monday.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Upgrade Kubernetes from 1.28 to 1.30",
+                        "description": (
+                            "EKS 1.28 support ends 2026-11-01. "
+                            "Plan the upgrade path: 1.28 → 1.29 → 1.30 in separate change windows.\n\n"
+                            "Test all Helm charts and custom operators against 1.30 API changes."
+                        ),
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": 60,
+                        "weight": 4,
+                        "labels": ["Change", "P2 - Medium"],
+                        "checklist": [
+                            {"text": "Audit deprecated APIs in current Helm charts", "is_checked": False},
+                            {"text": "Test 1.29 upgrade in staging cluster", "is_checked": False},
+                            {"text": "Test 1.30 upgrade in staging cluster", "is_checked": False},
+                            {"text": "Schedule 1.29 production change window", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+        ],
+    },
 }
 
 VALID_SLUGS = list(TEMPLATE_DATA.keys())
