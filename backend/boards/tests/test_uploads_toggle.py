@@ -1,6 +1,4 @@
 """Tests for feature toggle: uploads_enabled (issue #312)."""
-import io
-
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework import status
