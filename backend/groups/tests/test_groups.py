@@ -424,3 +424,72 @@ class SubgroupMemberInheritanceTests(TestCase):
         self.client.force_authenticate(self.parent_member)
         r = self.client.get(f"/api/groups/{self.child.id}/invite-links/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+
+class SubgroupVisibilityTests(TestCase):
+    """Finding 4: subgroups action must only return subgroups the requesting user is a member of."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_sgv", password="pass")
+        self.outsider = User.objects.create_user(username="outsider_sgv", password="pass")
+        # parent group — owner is admin
+        self.parent = _make_group(self.owner, "Parent SGV")
+        # subgroup_visible: outsider is a member
+        self.subgroup_visible = _make_group(self.owner, "Visible Sub")
+        self.subgroup_visible.parent = self.parent
+        self.subgroup_visible.save()
+        GroupMembership.objects.create(
+            group=self.subgroup_visible, user=self.outsider, role=GroupMembership.Role.MEMBER
+        )
+        # Add outsider to parent so they can call the endpoint
+        GroupMembership.objects.create(
+            group=self.parent, user=self.outsider, role=GroupMembership.Role.MEMBER
+        )
+        # subgroup_hidden: outsider is NOT a member
+        self.subgroup_hidden = _make_group(self.owner, "Hidden Sub")
+        self.subgroup_hidden.parent = self.parent
+        self.subgroup_hidden.save()
+        self.client = APIClient()
+        self.client.force_authenticate(self.outsider)
+
+    def test_subgroups_only_shows_accessible_subgroups(self):
+        """Outsider should see subgroup_visible but not subgroup_hidden."""
+        r = self.client.get(f"/api/groups/{self.parent.id}/subgroups/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        ids = [g["id"] for g in r.json()]
+        self.assertIn(self.subgroup_visible.id, ids)
+        self.assertNotIn(self.subgroup_hidden.id, ids)
+
+    def test_owner_sees_all_subgroups(self):
+        """Owner is a member of all groups they create, so sees all subgroups."""
+        self.client.force_authenticate(self.owner)
+        r = self.client.get(f"/api/groups/{self.parent.id}/subgroups/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        ids = [g["id"] for g in r.json()]
+        self.assertIn(self.subgroup_visible.id, ids)
+        self.assertIn(self.subgroup_hidden.id, ids)
+
+
+class GroupStarMembershipTests(TestCase):
+    """Finding 5: non-members must not be able to star a group."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_star", password="pass")
+        self.non_member = User.objects.create_user(username="nomember_star", password="pass")
+        self.group = _make_group(self.owner, "Star Group")
+        self.client = APIClient()
+
+    def test_non_member_cannot_star_group(self):
+        """A user who is not a member of the group must receive 403 or 404."""
+        self.client.force_authenticate(self.non_member)
+        r = self.client.post(f"/api/groups/{self.group.id}/star/")
+        # 404 is acceptable: the group is not in non-member's accessible set
+        self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+    def test_member_can_star_group(self):
+        """A member of the group can star it."""
+        member = User.objects.create_user(username="member_star", password="pass")
+        GroupMembership.objects.create(group=self.group, user=member, role=GroupMembership.Role.MEMBER)
+        self.client.force_authenticate(member)
+        r = self.client.post(f"/api/groups/{self.group.id}/star/")
+        self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
