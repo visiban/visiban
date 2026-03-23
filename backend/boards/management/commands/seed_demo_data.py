@@ -690,15 +690,28 @@ class Command(BaseCommand):
             CardMovement.objects.filter(pk=mv.pk).update(moved_at=moved_at)
 
     def _add_activity(self, card, users):
-        """Add one field-change activity record (priority or assignee change)."""
+        """Add one field-change activity record (priority or assignee change).
+
+        created_at is anchored to SEED_ANCHOR_DATE so regenerated exports are
+        git-stable — auto_now_add=True ignores explicit values, so we back-fill
+        with filter().update() after creation, same pattern as movements.
+        """
         actor = random.choice(users)
         event = random.choice([
             CardActivity.EventType.PRIORITY_CHANGE,
             CardActivity.EventType.ASSIGNEE_CHANGE,
         ])
+        # Anchor timestamp so exports are deterministic regardless of run date.
+        anchor = datetime.datetime(
+            SEED_ANCHOR_DATE.year,
+            SEED_ANCHOR_DATE.month,
+            SEED_ANCHOR_DATE.day,
+            tzinfo=datetime.timezone.utc,
+        )
+        activity_at = anchor - datetime.timedelta(days=random.randint(1, 30))
         if event == CardActivity.EventType.PRIORITY_CHANGE:
             old_priority = random.choice(["low", "medium", "high"])
-            CardActivity.objects.create(
+            act = CardActivity.objects.create(
                 card=card,
                 event_type=event,
                 from_value=old_priority,
@@ -707,13 +720,15 @@ class Command(BaseCommand):
             )
         else:
             old_user = random.choice(users)
-            CardActivity.objects.create(
+            act = CardActivity.objects.create(
                 card=card,
                 event_type=event,
                 from_value=old_user.username,
                 to_value=card.assignee.username if card.assignee else "",
                 actor=actor,
             )
+        # Back-fill created_at; auto_now_add=True ignores values at create time.
+        CardActivity.objects.filter(pk=act.pk).update(created_at=activity_at)
 
     def _archive_some_cards(self, cards):
         """
