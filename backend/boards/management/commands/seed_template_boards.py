@@ -2105,6 +2105,617 @@ TEMPLATE_DATA: dict[str, dict] = {
             },
         ],
     },
+
+    # ── Content Production ───────────────────────────────────────────────────
+    "content_production": {
+        "board_name": "Template: Content Production",
+        "description": (
+            "Track content pieces from idea through publication. "
+            "Each swimlane is a content type; each card is a piece of content."
+        ),
+        "columns": [
+            {"name": "Idea",            "color": "#8B5CF6", "allow_card_creation": True},
+            {"name": "Assigned",        "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Draft",           "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Internal Review", "color": "#F97316", "allow_card_creation": False},
+            {"name": "Edits",           "color": "#EF4444", "allow_card_creation": False},
+            {"name": "Final Approval",  "color": "#EC4899", "allow_card_creation": False},
+            {"name": "Scheduled",       "color": "#14B8A6", "allow_card_creation": False},
+            {"name": "Published",       "color": "#10B981", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "SEO",        "color": "#3B82F6"},
+            {"name": "Thought Leadership", "color": "#8B5CF6"},
+            {"name": "Product",    "color": "#F59E0B"},
+            {"name": "Customer Story", "color": "#10B981"},
+            {"name": "Evergreen",  "color": "#14B8A6"},
+        ],
+        "swimlanes": [
+            {
+                "name": "Blog Posts",
+                "color": "#3B82F6",
+                "contact_email": "content@internal.example",
+                "notes": "Long-form articles. Target: 2 per week. Min length: 1,000 words.",
+                "cards": [
+                    {
+                        "title": "How Visiban's swimlane model reduces handoff delays",
+                        "description": (
+                            "Thought leadership piece explaining how grouping work by account "
+                            "or team in swimlanes reduces the handoff friction common in "
+                            "column-only kanban tools.\n\n"
+                            "Target keywords: kanban swimlane, reduce handoffs, team kanban."
+                        ),
+                        "col_idx": 7,
+                        "priority": "high",
+                        "due_offset": None,
+                        "weight": 4,
+                        "labels": ["Thought Leadership", "SEO", "Evergreen"],
+                        "checklist": [
+                            {"text": "Keyword research complete", "is_checked": True},
+                            {"text": "Outline approved by marketing lead", "is_checked": True},
+                            {"text": "First draft written", "is_checked": True},
+                            {"text": "SEO review", "is_checked": True},
+                            {"text": "Published and indexed", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Published 2026-03-05. Ranking on page 2 for target keyword after 10 days.",
+                        ],
+                        "assignee_idx": 1,
+                    },
+                    {
+                        "title": "5 ways to run a better sprint retrospective",
+                        "description": (
+                            "Practical tips for engineering teams running retros. "
+                            "Tie in Visiban retro board template as a CTA."
+                        ),
+                        "col_idx": 5,
+                        "priority": "medium",
+                        "due_offset": 5,
+                        "weight": 3,
+                        "labels": ["SEO", "Product"],
+                        "checklist": [
+                            {"text": "Outline approved", "is_checked": True},
+                            {"text": "Draft written (1,200 words)", "is_checked": True},
+                            {"text": "Internal review by content lead", "is_checked": True},
+                            {"text": "SEO edits applied", "is_checked": True},
+                            {"text": "Final approval from marketing director", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Good draft. Reviewer requested 2 more concrete examples.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Why your CRM and project tool shouldn't be the same app",
+                        "description": (
+                            "Opinion piece differentiating Visiban from tools that try to do too much. "
+                            "Target audience: ops and sales leaders."
+                        ),
+                        "col_idx": 2,
+                        "priority": "low",
+                        "due_offset": 18,
+                        "weight": 2,
+                        "labels": ["Thought Leadership"],
+                        "checklist": [
+                            {"text": "Assigned to writer", "is_checked": True},
+                            {"text": "Draft due", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 1,
+                    },
+                ],
+            },
+            {
+                "name": "Case Studies",
+                "color": "#10B981",
+                "contact_email": "content@internal.example",
+                "notes": "Customer success stories. Requires customer approval before publishing.",
+                "cards": [
+                    {
+                        "title": "How TechNova cut sprint planning time by 40%",
+                        "description": (
+                            "Case study featuring TechNova's adoption of Visiban for engineering "
+                            "sprint tracking. Interview VP Engineering and 2 team leads.\n\n"
+                            "Customer approved. Embargo until 2026-04-01."
+                        ),
+                        "col_idx": 6,
+                        "priority": "high",
+                        "due_offset": 15,
+                        "weight": 5,
+                        "labels": ["Customer Story", "Product"],
+                        "checklist": [
+                            {"text": "Customer interview recorded", "is_checked": True},
+                            {"text": "Draft written", "is_checked": True},
+                            {"text": "Customer review and approval", "is_checked": True},
+                            {"text": "Legal cleared", "is_checked": True},
+                            {"text": "Scheduled for 2026-04-01 publish", "is_checked": True},
+                        ],
+                        "comments": [
+                            "TechNova approved final copy on 2026-03-20. Embargo in place.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Mosaic Creative: managing 12 client campaigns on one board",
+                        "description": (
+                            "Short-form case study (500 words) on Mosaic Creative's swimlane-per-client "
+                            "workflow. Quick win — customer is enthusiastic."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": 10,
+                        "weight": 3,
+                        "labels": ["Customer Story"],
+                        "checklist": [
+                            {"text": "Phone interview with Mosaic ops manager", "is_checked": True},
+                            {"text": "Draft written", "is_checked": True},
+                            {"text": "Internal review", "is_checked": True},
+                            {"text": "Send to customer for approval", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Great quote in the interview. Sending draft to customer today.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Video & Webinars",
+                "color": "#8B5CF6",
+                "contact_email": "content@internal.example",
+                "notes": "Product demo videos, webinars, and YouTube tutorials.",
+                "cards": [
+                    {
+                        "title": "Getting started with Visiban — 5-min explainer video",
+                        "description": (
+                            "Onboarding video covering: creating a board, adding swimlanes, "
+                            "creating cards, and inviting teammates.\n\n"
+                            "Target: YouTube + embedded in the onboarding flow."
+                        ),
+                        "col_idx": 4,
+                        "priority": "high",
+                        "due_offset": 7,
+                        "weight": 4,
+                        "labels": ["Product", "Evergreen"],
+                        "checklist": [
+                            {"text": "Script written and approved", "is_checked": True},
+                            {"text": "Screen recording completed", "is_checked": True},
+                            {"text": "Voiceover recorded", "is_checked": True},
+                            {"text": "Edited and captioned", "is_checked": True},
+                            {"text": "Awaiting final approval from marketing director", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Video looks great. Awaiting director sign-off before upload.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Live webinar: Kanban for customer success teams",
+                        "description": (
+                            "60-minute webinar targeting CS leaders. "
+                            "Demo Visiban's customer_success template with account health tracking."
+                        ),
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": 30,
+                        "weight": 3,
+                        "labels": ["Thought Leadership", "Product"],
+                        "checklist": [
+                            {"text": "Date confirmed (2026-04-15)", "is_checked": False},
+                            {"text": "Speaker lineup confirmed", "is_checked": False},
+                            {"text": "Registration page live", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 4,
+                    },
+                ],
+            },
+            {
+                "name": "Email & Newsletter",
+                "color": "#F59E0B",
+                "contact_email": "content@internal.example",
+                "notes": "Weekly newsletter (Fri) + product update emails. List: 12k subscribers.",
+                "cards": [
+                    {
+                        "title": "March product update email",
+                        "description": (
+                            "Monthly product update email covering: template library v2, "
+                            "new Slack integration, and cursor pagination improvements."
+                        ),
+                        "col_idx": 7,
+                        "priority": "high",
+                        "due_offset": None,
+                        "weight": 3,
+                        "labels": ["Product"],
+                        "checklist": [
+                            {"text": "Copy written", "is_checked": True},
+                            {"text": "Design reviewed", "is_checked": True},
+                            {"text": "A/B subject line test set up", "is_checked": True},
+                            {"text": "Sent to 12k subscribers", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Open rate: 34.2% (above 28% benchmark). Click-through: 8.1%.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Weekly newsletter — week of 2026-03-23",
+                        "description": (
+                            "Friday newsletter: 3 kanban tips, 1 customer spotlight (Mosaic), "
+                            "and the upcoming webinar announcement."
+                        ),
+                        "col_idx": 3,
+                        "priority": "medium",
+                        "due_offset": 2,
+                        "weight": 2,
+                        "labels": ["Evergreen"],
+                        "checklist": [
+                            {"text": "Tips section written", "is_checked": True},
+                            {"text": "Customer spotlight section written", "is_checked": True},
+                            {"text": "Internal review", "is_checked": True},
+                            {"text": "Scheduled in Mailchimp", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 1,
+                    },
+                ],
+            },
+            {
+                "name": "Social & Short-form",
+                "color": "#EC4899",
+                "contact_email": "content@internal.example",
+                "notes": "LinkedIn, X/Twitter, and short-form posts. Cadence: 3x per week per channel.",
+                "cards": [
+                    {
+                        "title": "LinkedIn carousel: swimlane vs. simple list",
+                        "description": (
+                            "10-slide LinkedIn carousel explaining when to use swimlanes vs. "
+                            "a simple columnar board. "
+                            "Visual-first. Each slide = one data point or scenario."
+                        ),
+                        "col_idx": 5,
+                        "priority": "medium",
+                        "due_offset": 4,
+                        "weight": 2,
+                        "labels": ["SEO", "Thought Leadership"],
+                        "checklist": [
+                            {"text": "Outline approved", "is_checked": True},
+                            {"text": "Slides designed", "is_checked": True},
+                            {"text": "Copy written and reviewed", "is_checked": True},
+                            {"text": "Final approval", "is_checked": True},
+                            {"text": "Scheduled in Buffer", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Ready to schedule. Targeting Tuesday 9am for peak LinkedIn engagement.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "X thread: 5 kanban anti-patterns",
+                        "description": (
+                            "Thread covering common mistakes teams make on kanban boards: "
+                            "infinite WIP, no swimlanes, stale cards, etc."
+                        ),
+                        "col_idx": 1,
+                        "priority": "low",
+                        "due_offset": 12,
+                        "weight": 1,
+                        "labels": ["Thought Leadership"],
+                        "checklist": [
+                            {"text": "Draft 10-tweet thread", "is_checked": False},
+                            {"text": "Review by marketing lead", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+        ],
+    },
+
+    # ── Hiring & Recruiting ───────────────────────────────────────────────────
+    "hiring_recruiting": {
+        "board_name": "Template: Hiring & Recruiting",
+        "description": (
+            "Track candidates from application through hire or rejection. "
+            "Each swimlane is an open role; each card is a candidate."
+        ),
+        "columns": [
+            {"name": "Applied",          "color": "#6B7280", "allow_card_creation": True},
+            {"name": "Phone Screen",     "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Technical Screen", "color": "#8B5CF6", "allow_card_creation": False},
+            {"name": "Interview",        "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Reference Check",  "color": "#F97316", "allow_card_creation": False},
+            {"name": "Offer Extended",   "color": "#EC4899", "allow_card_creation": False},
+            {"name": "Hired",            "color": "#10B981", "allow_card_creation": False},
+            {"name": "Rejected",         "color": "#9CA3AF", "allow_card_creation": False},
+        ],
+        "labels": [
+            {"name": "Strong Yes",  "color": "#10B981"},
+            {"name": "Yes",         "color": "#3B82F6"},
+            {"name": "Maybe",       "color": "#F59E0B"},
+            {"name": "No",          "color": "#EF4444"},
+            {"name": "Referred",    "color": "#8B5CF6"},
+        ],
+        "swimlanes": [
+            {
+                "name": "Senior Backend Engineer",
+                "color": "#3B82F6",
+                "contact_email": "hiring@internal.example",
+                "notes": "Django + DRF. 5+ yrs. Hiring manager: Alex Rivera. Target: hire by 2026-05-01.",
+                "cards": [
+                    {
+                        "title": "Priya Sharma",
+                        "description": (
+                            "7 years Python/Django. Previous: Staff Engineer at FinEdge.\n\n"
+                            "Referred by Casey Osei. Strong GitHub presence — Django contrib.\n\n"
+                            "**Recruiter note:** Very communicative. Responds within hours."
+                        ),
+                        "col_idx": 5,
+                        "priority": "high",
+                        "due_offset": 3,
+                        "weight": 5,
+                        "labels": ["Strong Yes", "Referred"],
+                        "checklist": [
+                            {"text": "Phone screen passed", "is_checked": True},
+                            {"text": "Technical screen passed (scored 92/100)", "is_checked": True},
+                            {"text": "On-site loop completed", "is_checked": True},
+                            {"text": "References called (2/3 complete)", "is_checked": True},
+                            {"text": "Offer letter sent", "is_checked": True},
+                            {"text": "Awaiting candidate response", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Hiring loop unanimous strong yes. References glowing.",
+                            "Offer sent 2026-03-18. Response deadline 2026-03-25.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Marcus Jeon",
+                        "description": (
+                            "5 years Python. Previous: Backend Lead at DataStream.\n\n"
+                            "Applied via LinkedIn. Strong system design answers in phone screen."
+                        ),
+                        "col_idx": 2,
+                        "priority": "medium",
+                        "due_offset": 7,
+                        "weight": 3,
+                        "labels": ["Yes"],
+                        "checklist": [
+                            {"text": "Phone screen passed", "is_checked": True},
+                            {"text": "Technical screen scheduled", "is_checked": True},
+                            {"text": "Technical screen completed", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Technical screen tomorrow at 2pm. Interviewer: Jordan Patel.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Rachel Torres",
+                        "description": (
+                            "4 years Python, 2 years Django. Previous: Backend Engineer at Summit.\n\n"
+                            "Inbound application. Passed initial resume screen."
+                        ),
+                        "col_idx": 1,
+                        "priority": "low",
+                        "due_offset": 10,
+                        "weight": 2,
+                        "labels": ["Maybe"],
+                        "checklist": [
+                            {"text": "Resume reviewed", "is_checked": True},
+                            {"text": "Phone screen scheduled", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Product Designer (Senior)",
+                "color": "#EC4899",
+                "contact_email": "hiring@internal.example",
+                "notes": "Figma, design systems, user research. Hiring manager: Casey Osei. Urgent fill.",
+                "cards": [
+                    {
+                        "title": "Anika Obi",
+                        "description": (
+                            "6 years UX/product design. Previous: Lead Designer at Mosaic Creative.\n\n"
+                            "Portfolio standout: redesigned Mosaic's client dashboard — NPS +18."
+                        ),
+                        "col_idx": 6,
+                        "priority": "high",
+                        "due_offset": None,
+                        "weight": 5,
+                        "labels": ["Strong Yes"],
+                        "checklist": [
+                            {"text": "Portfolio review passed", "is_checked": True},
+                            {"text": "Phone screen passed", "is_checked": True},
+                            {"text": "Design challenge submitted and scored (94/100)", "is_checked": True},
+                            {"text": "Full panel interview passed", "is_checked": True},
+                            {"text": "References clear", "is_checked": True},
+                            {"text": "Offer accepted", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Hired! Start date 2026-04-14. Exceptional candidate.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Leo Bergman",
+                        "description": (
+                            "4 years UX. Previous: mid-level designer at a fintech startup.\n\n"
+                            "Good craft but portfolio lacks systems-level design thinking."
+                        ),
+                        "col_idx": 7,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 1,
+                        "labels": ["No"],
+                        "checklist": [
+                            {"text": "Portfolio review — not moved forward", "is_checked": True},
+                            {"text": "Rejection email sent", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Good fundamentals but not at senior level yet. Encourage to apply again in 12 months.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Fatima Al-Hassan",
+                        "description": (
+                            "5 years product design. Previous: design systems lead at a B2B SaaS company.\n\n"
+                            "Referred by a Visiban customer. Strong design systems background."
+                        ),
+                        "col_idx": 3,
+                        "priority": "high",
+                        "due_offset": 5,
+                        "weight": 4,
+                        "labels": ["Yes", "Referred"],
+                        "checklist": [
+                            {"text": "Portfolio review passed", "is_checked": True},
+                            {"text": "Phone screen passed", "is_checked": True},
+                            {"text": "Design challenge submitted", "is_checked": True},
+                            {"text": "Panel interview scheduled", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Design challenge score: 88/100. Strong systems thinking.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+            {
+                "name": "Customer Success Manager",
+                "color": "#10B981",
+                "contact_email": "hiring@internal.example",
+                "notes": "B2B SaaS CS experience required. EMEA coverage preferred.",
+                "cards": [
+                    {
+                        "title": "Nour El-Amin",
+                        "description": (
+                            "4 years CS at a B2B SaaS company. Fluent Arabic, French, English.\n\n"
+                            "EMEA-based. Strong renewals track record (98% retention)."
+                        ),
+                        "col_idx": 4,
+                        "priority": "high",
+                        "due_offset": 8,
+                        "weight": 4,
+                        "labels": ["Strong Yes"],
+                        "checklist": [
+                            {"text": "Phone screen passed", "is_checked": True},
+                            {"text": "Case study interview passed", "is_checked": True},
+                            {"text": "Panel interview passed", "is_checked": True},
+                            {"text": "Reference check in progress (2/3)", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Panel loved her. Reference check almost done.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "James Okonkwo",
+                        "description": (
+                            "3 years CS at an enterprise software firm. UK-based.\n\n"
+                            "Good phone screen but case study interview was average."
+                        ),
+                        "col_idx": 7,
+                        "priority": "low",
+                        "due_offset": None,
+                        "weight": 1,
+                        "labels": ["Maybe"],
+                        "checklist": [
+                            {"text": "Phone screen passed", "is_checked": True},
+                            {"text": "Case study interview — not progressing", "is_checked": True},
+                            {"text": "Rejection sent", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Not strong enough on strategic account planning. Polite rejection sent.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                ],
+            },
+            {
+                "name": "DevOps Engineer",
+                "color": "#14B8A6",
+                "contact_email": "hiring@internal.example",
+                "notes": "Kubernetes, Terraform, AWS. Ideally 4+ yrs. Hiring manager: Morgan Wu.",
+                "cards": [
+                    {
+                        "title": "Kenji Nakamura",
+                        "description": (
+                            "5 years DevOps/SRE. Previous: SRE at a high-traffic API company.\n\n"
+                            "Kubernetes CKA certified. Strong incident management background."
+                        ),
+                        "col_idx": 2,
+                        "priority": "high",
+                        "due_offset": 6,
+                        "weight": 4,
+                        "labels": ["Yes"],
+                        "checklist": [
+                            {"text": "Phone screen passed", "is_checked": True},
+                            {"text": "Technical screen: K8s + Terraform — scheduled", "is_checked": True},
+                            {"text": "Technical screen completed", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Technical screen tomorrow. Strong phone screen.",
+                        ],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Sara Lundqvist",
+                        "description": (
+                            "3 years DevOps. Previous: cloud infra engineer.\n\n"
+                            "Good fundamentals but limited Kubernetes experience."
+                        ),
+                        "col_idx": 0,
+                        "priority": "low",
+                        "due_offset": 15,
+                        "weight": 1,
+                        "labels": ["Maybe"],
+                        "checklist": [
+                            {"text": "Resume reviewed — moving to phone screen", "is_checked": True},
+                            {"text": "Phone screen scheduled", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 3,
+                    },
+                ],
+            },
+            {
+                "name": "Head of Marketing",
+                "color": "#F97316",
+                "contact_email": "hiring@internal.example",
+                "notes": "VP-level. B2B SaaS growth marketing. Reports to CEO. Confidential search.",
+                "cards": [
+                    {
+                        "title": "Diana Ferreira",
+                        "description": (
+                            "VP Marketing at a Series B SaaS company for 3 years. "
+                            "Grew pipeline 4x. Content + demand gen background.\n\n"
+                            "Introduced via executive search firm. Confidential — do not reference internally."
+                        ),
+                        "col_idx": 3,
+                        "priority": "urgent",
+                        "due_offset": 7,
+                        "weight": 5,
+                        "labels": ["Strong Yes"],
+                        "checklist": [
+                            {"text": "Intro call with CEO", "is_checked": True},
+                            {"text": "Exec panel (CEO + CTO + VP CS)", "is_checked": True},
+                            {"text": "Presentation: 90-day marketing plan", "is_checked": True},
+                            {"text": "Reference check (confidential)", "is_checked": False},
+                        ],
+                        "comments": [
+                            "Exec panel strong consensus. References underway (confidential).",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+        ],
+    },
 }
 
 VALID_SLUGS = list(TEMPLATE_DATA.keys())
