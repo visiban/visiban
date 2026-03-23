@@ -29,6 +29,8 @@ type DaysOption = 7 | 30 | 90;
 interface Props {
   boardId: number;
   currentUserRole: string | null;
+  /** Called with a card ID when the user clicks a stalled card row. */
+  onOpenCard?: (cardId: number) => void;
 }
 
 function cellColor(avg: number | null, median: number | null, isOutlier: boolean): string {
@@ -57,7 +59,7 @@ function exportCsv(data: AnalyticsData) {
   URL.revokeObjectURL(url);
 }
 
-export default function AnalyticsView({ boardId, currentUserRole }: Props) {
+export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: Props) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [days, setDays] = useState<DaysOption>(30);
   const [loading, setLoading] = useState(true);
@@ -162,11 +164,17 @@ export default function AnalyticsView({ boardId, currentUserRole }: Props) {
             {allStalled
               .sort((a, b) => b.days_since_move - a.days_since_move)
               .map((c) => (
-                <div key={c.id} className="flex items-center gap-3 text-sm py-1 border-b border-slate-700">
+                <button
+                  key={c.id}
+                  onClick={() => onOpenCard?.(c.id)}
+                  disabled={!onOpenCard}
+                  className="flex items-center gap-3 text-sm py-1 border-b border-slate-700 w-full text-left transition hover:bg-slate-800 disabled:cursor-default px-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
                   <span className="text-slate-400 text-xs w-16 shrink-0">{c.swimlane}</span>
                   <span className="text-slate-300 flex-1">{c.title}</span>
                   <span className="text-amber-600 font-medium text-xs shrink-0">{c.days_since_move}d stalled</span>
-                </div>
+                  {onOpenCard && <span className="text-slate-600 text-xs shrink-0">↗</span>}
+                </button>
               ))}
           </div>
         </div>

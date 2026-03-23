@@ -143,6 +143,28 @@ describe('AnalyticsView', () => {
     expect(screen.getByText('14d stalled')).toBeInTheDocument()
   })
 
+  it('calls onOpenCard when a stalled card row is clicked', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      board_medians: { 'To Do': 3 },
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 5 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [{ id: 42, title: 'Stale Card', days_since_move: 14 }],
+        },
+      ],
+      stalled_threshold_days: 7,
+    })
+    const onOpenCard = vi.fn()
+    render(<AnalyticsView boardId={1} currentUserRole="admin" onOpenCard={onOpenCard} />)
+    await userEvent.setup().click(await screen.findByText('Stale Card'))
+    expect(onOpenCard).toHaveBeenCalledWith(42)
+  })
+
   it('changes period on button click', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,

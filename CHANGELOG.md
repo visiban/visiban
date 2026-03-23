@@ -15,6 +15,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card JSON exports from `seed_template_boards --export` now include a `movements` array per card, enabling imported boards to display realistic History tab data
 - Icons added for the four new board templates (Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps) in the Create Board modal template picker
 
+### Fixed
+
+- Analytics period filter (7d / 30d / 90d) now correctly scopes dwell times and velocity calculations to movements within the selected window — previously all three periods returned identical results because the `days` parameter was parsed but never applied to the movement query
+- Stalled card rows in the Analytics view are now clickable and open the card detail panel directly on the board — previously the rows were non-interactive `<div>` elements with no navigation
+
 ### Changed
 
 - `simple_kanban` template revised to the classic 5-column layout: Backlog → To Do → Doing → Review → Done
