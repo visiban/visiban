@@ -91,14 +91,16 @@ TEMPLATE_DATA: dict[str, dict] = {
     "sales_pipeline": {
         "board_name": "Template: Sales Pipeline",
         "description": (
-            "Track deals from first contact through close. "
-            "Each swimlane represents a prospect account."
+            "Track open deals from first contact through close. "
+            "Each swimlane is an account; each card is a deal or opportunity."
         ),
         "columns": [
-            {"name": "Lead",          "color": "#6B7280", "allow_card_creation": True},
+            {"name": "Prospect",      "color": "#6B7280", "allow_card_creation": True},
             {"name": "Qualified",     "color": "#3B82F6", "allow_card_creation": True},
-            {"name": "Proposal Sent", "color": "#F59E0B", "allow_card_creation": False},
-            {"name": "Negotiation",   "color": "#F97316", "allow_card_creation": False},
+            {"name": "Discovery",     "color": "#8B5CF6", "allow_card_creation": False},
+            {"name": "Demo",          "color": "#F59E0B", "allow_card_creation": False},
+            {"name": "Proposal Sent", "color": "#F97316", "allow_card_creation": False},
+            {"name": "Negotiation",   "color": "#EF4444", "allow_card_creation": False},
             {"name": "Closed Won",    "color": "#10B981", "allow_card_creation": False},
             {"name": "Closed Lost",   "color": "#9CA3AF", "allow_card_creation": False},
         ],
@@ -113,490 +115,337 @@ TEMPLATE_DATA: dict[str, dict] = {
                 "name": "TechNova Inc",
                 "color": "#3B82F6",
                 "contact_email": "procurement@technova.example",
-                "notes": "Series C SaaS company — 500 seats target. Champion: VP Engineering.",
+                "notes": "Series C SaaS, 500-seat target. Champion: VP Engineering. Pain: outgrown Jira.",
                 "cards": [
                     {
-                        "title": "Intro call with VP Engineering",
+                        "title": "Platform Migration — 500 Seats",
                         "description": (
-                            "## Goal\n\nEstablish rapport and identify pain points with current "
-                            "project tracking tooling.\n\n## Key questions\n\n"
-                            "- How many teams would use Visiban?\n"
-                            "- What does the current Jira setup look like?\n"
-                            "- Who has budget authority?"
+                            "Opportunity to displace Jira across all engineering teams. "
+                            "Champion is the VP Engineering. Budget approved for Q2.\n\n"
+                            "## Situation\n\n"
+                            "- 12 engineering teams, ~500 users\n"
+                            "- Current pain: Jira too rigid for cross-team swimlane workflows\n"
+                            "- Decision by 2026-04-30"
                         ),
-                        "col_idx": 1,
+                        "col_idx": 4,
                         "priority": "high",
-                        "due_offset": 7,
+                        "due_offset": 14,
                         "weight": 5,
-                        "labels": ["Enterprise"],
+                        "labels": ["Enterprise", "Strategic"],
                         "checklist": [
-                            {"text": "Send calendar invite", "is_checked": True},
-                            {"text": "Prepare discovery questions", "is_checked": True},
-                            {"text": "Research company LinkedIn", "is_checked": False},
+                            {"text": "Send custom proposal deck", "is_checked": True},
+                            {"text": "Confirm security questionnaire complete", "is_checked": True},
+                            {"text": "Schedule executive sign-off call", "is_checked": False},
                         ],
                         "comments": [
-                            "Confirmed for Thursday 2pm PT. Sam will join as SE.",
-                            "They mentioned migrating off Jira — this is a strong signal.",
+                            "VP Engineering confirmed budget. Legal review starts Monday.",
+                            "They want swimlane-level WIP limits — confirm this is on the roadmap.",
                         ],
                         "assignee_idx": 0,
                     },
                     {
-                        "title": "Product demo: board visualization",
+                        "title": "Engineering Hub Expansion — 200 Seats",
                         "description": (
-                            "Run the standard board demo tailored to engineering use case. "
-                            "Focus on swimlane-per-team, WIP limits, and the analytics view.\n\n"
-                            "Time-box to 45 min. Leave 15 min for Q&A."
+                            "Expansion deal targeting the infrastructure and platform teams "
+                            "not included in the original pilot.\n\n"
+                            "Upsell conversation triggered by strong pilot NPS (62)."
                         ),
                         "col_idx": 2,
                         "priority": "medium",
-                        "due_offset": -3,
-                        "weight": 3,
-                        "labels": ["Enterprise", "Strategic"],
+                        "due_offset": 21,
+                        "weight": 4,
+                        "labels": ["Enterprise", "Renewal"],
                         "checklist": [
-                            {"text": "Customise demo board with TechNova branding", "is_checked": True},
-                            {"text": "Prepare engineering-specific use case slides", "is_checked": True},
-                            {"text": "Send follow-up summary email", "is_checked": False},
+                            {"text": "Map out teams not yet on platform", "is_checked": True},
+                            {"text": "Book discovery call with infra lead", "is_checked": False},
                         ],
                         "comments": [
-                            "Demo went well. They loved the card movement history view.",
-                            "Action item: send pricing deck by EOD Friday.",
+                            "Pilot NPS is 62. Good timing to bring up expansion.",
                         ],
                         "assignee_idx": 1,
                     },
                     {
-                        "title": "Security review questionnaire",
+                        "title": "Analytics Add-on Upsell",
                         "description": (
-                            "TechNova InfoSec requires a completed vendor security questionnaire "
-                            "before legal can proceed.\n\n"
-                            "## Required sections\n\n"
-                            "- Data residency and encryption at rest\n"
-                            "- SOC 2 Type II report (attach)\n"
-                            "- Pen test summary (last 12 months)\n"
-                            "- Incident response SLA"
+                            "TechNova data team interested in the analytics module. "
+                            "Current deal is base license only.\n\n"
+                            "Estimated uplift: +$12k ARR."
+                        ),
+                        "col_idx": 1,
+                        "priority": "low",
+                        "due_offset": 30,
+                        "weight": 2,
+                        "labels": ["Enterprise"],
+                        "checklist": [
+                            {"text": "Identify analytics champion in data team", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "Apex Retail Group",
+                "color": "#F59E0B",
+                "contact_email": "tech@apexretail.example",
+                "notes": "200-location retail chain. Decision maker: CTO. Seasonal budget freeze Jan-Mar.",
+                "cards": [
+                    {
+                        "title": "Operations Board Rollout — 200 Locations",
+                        "description": (
+                            "Each retail location tracks their own ops tasks on a shared board. "
+                            "Swimlane-per-region model.\n\n"
+                            "Demo focused on the mobile card creation flow and daily standup view."
                         ),
                         "col_idx": 3,
                         "priority": "high",
-                        "due_offset": 14,
+                        "due_offset": 10,
                         "weight": 4,
-                        "labels": ["Enterprise"],
+                        "labels": ["SMB", "Strategic"],
                         "checklist": [
-                            {"text": "Complete CAIQ questionnaire", "is_checked": True},
-                            {"text": "Attach SOC 2 Type II report", "is_checked": True},
-                            {"text": "Get pen test summary signed off", "is_checked": False},
-                            {"text": "Return to TechNova InfoSec team", "is_checked": False},
+                            {"text": "Prepare retail-specific demo board", "is_checked": True},
+                            {"text": "Run live demo with CTO", "is_checked": True},
+                            {"text": "Send follow-up with pricing options", "is_checked": False},
                         ],
                         "comments": [
-                            "Jordan filled out sections 1–4. Waiting on InfoSec to countersign the pen test summary.",
+                            "Demo landed well. CTO liked the per-region swimlane view.",
                         ],
-                        "assignee_idx": 2,
+                        "assignee_idx": 1,
                     },
                     {
-                        "title": "Legal review of MSA",
+                        "title": "Seasonal Campaign Tracker Pilot",
                         "description": (
-                            "Master Service Agreement sent to TechNova legal on 2026-03-10. "
-                            "Their counsel requested two redlines:\n\n"
-                            "1. Liability cap: 2× ARR (we proposed 1×)\n"
-                            "2. Data deletion timeline: 30 days (we proposed 90 days)\n\n"
-                            "Escalate to VP Sales if no resolution by due date."
+                            "Pilot for the marketing team tracking seasonal campaign tasks. "
+                            "10 seats, 60 days. Success criteria: all Q3 campaigns tracked in Visiban."
                         ),
-                        "col_idx": 3,
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 20,
+                        "weight": 3,
+                        "labels": ["SMB"],
+                        "checklist": [
+                            {"text": "Qualify with marketing lead", "is_checked": True},
+                            {"text": "Provision 10 trial seats", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 0,
+                    },
+                    {
+                        "title": "Full Org Rollout — 300 Seats",
+                        "description": (
+                            "Following successful pilot, Apex wants to roll out to all ops, "
+                            "marketing, and logistics teams.\n\n"
+                            "Negotiating a 3-year enterprise agreement."
+                        ),
+                        "col_idx": 5,
                         "priority": "urgent",
                         "due_offset": 5,
                         "weight": 5,
-                        "labels": ["Enterprise", "Strategic"],
+                        "labels": ["SMB", "Strategic", "Renewal"],
                         "checklist": [
-                            {"text": "Review their redlines with legal counsel", "is_checked": True},
-                            {"text": "Counter-propose on liability cap", "is_checked": False},
-                            {"text": "Agree data deletion timeline", "is_checked": False},
-                            {"text": "Execute final MSA", "is_checked": False},
+                            {"text": "Draft 3-year MSA", "is_checked": True},
+                            {"text": "Get legal sign-off on SLA clause", "is_checked": True},
+                            {"text": "Confirm seat count with Apex procurement", "is_checked": False},
+                            {"text": "Execute agreement", "is_checked": False},
                         ],
                         "comments": [
-                            "Legal: we can accept 2× ARR cap. Holding on 30-day deletion — check with engineering.",
-                            "Engineering confirmed 30 days is feasible. Updating counter-proposal.",
+                            "CTO pushing hard to close before Q2 budget cycle closes.",
+                            "Legal flagged the liability cap — escalated to VP Sales.",
                         ],
                         "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Confirm pilot program (50 seats, 90 days)",
-                        "description": (
-                            "TechNova signed. Pilot starts 2026-04-01 with the Platform Engineering "
-                            "team (50 seats). Success criteria agreed:\n\n"
-                            "- ≥70% weekly active users\n"
-                            "- NPS ≥ 40 at 45-day check-in\n"
-                            "- Expand to full org if criteria met"
-                        ),
-                        "col_idx": 4,
-                        "priority": "medium",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": ["Enterprise", "Strategic"],
-                        "checklist": [
-                            {"text": "Provision 50 seats", "is_checked": True},
-                            {"text": "Schedule kick-off with champion", "is_checked": True},
-                            {"text": "Set 45-day check-in calendar reminder", "is_checked": True},
-                        ],
-                        "comments": [
-                            "Pilot confirmed! Handoff to CS team — assign to Casey.",
-                        ],
-                        "assignee_idx": 4,
                     },
                 ],
             },
             {
-                "name": "BlueRidge Financial",
-                "color": "#6366F1",
-                "contact_email": "vendor@blueridge.example",
-                "notes": "Compliance-heavy financial firm. Procurement is slow — expect 90-day cycle.",
+                "name": "FinEdge Ltd",
+                "color": "#8B5CF6",
+                "contact_email": "procurement@finedge.example",
+                "notes": "Fintech startup, 80 staff. Compliance-heavy. VP Product is champion.",
                 "cards": [
                     {
-                        "title": "Cold outreach — CISO intro",
+                        "title": "Compliance Workflow License — 80 Seats",
                         "description": (
-                            "Initial outreach via LinkedIn to CISO Sarah Ng. "
-                            "Referenced their recent SOC 2 certification news.\n\n"
-                            "Follow up with email if no response in 5 business days."
-                        ),
-                        "col_idx": 0,
-                        "priority": "low",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": ["Enterprise"],
-                        "checklist": [
-                            {"text": "Send LinkedIn connection request", "is_checked": True},
-                            {"text": "Follow up with email", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Discovery call completed",
-                        "description": (
-                            "30-min call with CISO and IT Director. "
-                            "Pain: current spreadsheet tracking breaks down for cross-team work.\n\n"
-                            "They need on-prem or private-cloud option — flag for product team."
-                        ),
-                        "col_idx": 1,
-                        "priority": "medium",
-                        "due_offset": 10,
-                        "weight": 3,
-                        "labels": ["Enterprise"],
-                        "checklist": [
-                            {"text": "Send meeting notes", "is_checked": True},
-                            {"text": "Flag on-prem requirement to product", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Strong interest but private cloud is a hard requirement for them.",
-                        ],
-                        "assignee_idx": 1,
-                    },
-                    {
-                        "title": "Compliance questionnaire review",
-                        "description": (
-                            "BlueRidge sent a 47-page compliance questionnaire. "
-                            "Sections covering PCI-DSS, GDPR, and FINRA record-keeping.\n\n"
-                            "Coordinate with legal and InfoSec to complete."
+                            "FinEdge tracks regulatory submissions and internal audit cycles. "
+                            "Primary use case: legal/compliance boards per regulation.\n\n"
+                            "Competing against Notion and a custom Airtable setup."
                         ),
                         "col_idx": 2,
                         "priority": "high",
-                        "due_offset": -7,
-                        "weight": 5,
+                        "due_offset": 12,
+                        "weight": 4,
                         "labels": ["Enterprise"],
                         "checklist": [
-                            {"text": "Route to InfoSec for FINRA section", "is_checked": True},
-                            {"text": "Complete GDPR data flow diagram", "is_checked": True},
-                            {"text": "PCI-DSS section — confirm scope with engineering", "is_checked": False},
-                            {"text": "Return completed questionnaire", "is_checked": False},
+                            {"text": "Send SOC 2 Type II report", "is_checked": True},
+                            {"text": "Complete GDPR data processing addendum", "is_checked": False},
+                            {"text": "Book technical deep-dive with their engineering team", "is_checked": False},
                         ],
                         "comments": [
-                            "OVERDUE — InfoSec is backed up. Escalated to CTO.",
-                            "CTO approved expedited review. Engineering confirmed PCI out-of-scope.",
+                            "VP Product confirmed Notion is a weak competitor here — they need structure.",
                         ],
                         "assignee_idx": 2,
                     },
                     {
-                        "title": "Negotiate SLA terms",
+                        "title": "Engineering Team Add-on — 40 Seats",
                         "description": (
-                            "BlueRidge requires 99.95% uptime SLA with financial penalties. "
-                            "Current standard offer is 99.9%.\n\n"
-                            "Options:\n"
-                            "1. Upgrade to enterprise tier (99.95% SLA included)\n"
-                            "2. Custom SLA addendum at +15% ACV"
+                            "After closing the compliance deal, the engineering team wants "
+                            "to adopt Visiban for sprint planning.\n\n"
+                            "Upsell opportunity: +40 seats at standard rate."
                         ),
-                        "col_idx": 3,
-                        "priority": "high",
-                        "due_offset": 3,
-                        "weight": 4,
-                        "labels": ["Enterprise", "Strategic"],
+                        "col_idx": 4,
+                        "priority": "medium",
+                        "due_offset": 8,
+                        "weight": 3,
+                        "labels": ["Enterprise"],
                         "checklist": [
-                            {"text": "Get VP approval for 99.95% SLA", "is_checked": True},
-                            {"text": "Draft SLA addendum", "is_checked": False},
-                            {"text": "Send final pricing with SLA options", "is_checked": False},
+                            {"text": "Send add-on order form", "is_checked": True},
+                            {"text": "Confirm provisioning date", "is_checked": False},
                         ],
                         "comments": [
-                            "VP approved enterprise tier upgrade path. Drafting addendum.",
+                            "Engineering lead wants to start before the compliance rollout completes.",
                         ],
-                        "assignee_idx": 0,
-                    },
-                ],
-            },
-            {
-                "name": "Apex Retail",
-                "color": "#F59E0B",
-                "contact_email": "tech@apexretail.example",
-                "notes": "Mid-market retail chain. Seasonal budget freeze Dec–Feb. Decision maker: CTO.",
-                "cards": [
-                    {
-                        "title": "Q3 seasonal pitch deck",
-                        "description": (
-                            "Prepare a retail-focused pitch showing how Visiban tracks "
-                            "seasonal campaigns and store rollout projects.\n\n"
-                            "Highlight swimlane-per-region use case."
-                        ),
-                        "col_idx": 1,
-                        "priority": "medium",
-                        "due_offset": 15,
-                        "weight": 3,
-                        "labels": ["SMB"],
-                        "checklist": [
-                            {"text": "Adapt standard deck for retail use case", "is_checked": True},
-                            {"text": "Add region swimlane screenshot", "is_checked": False},
-                            {"text": "Review with AE before sending", "is_checked": False},
-                        ],
-                        "comments": [],
                         "assignee_idx": 1,
                     },
                     {
-                        "title": "Proposal for 50 seats",
+                        "title": "Risk Dashboard Integration — Lost",
                         "description": (
-                            "Formal proposal sent 2026-03-12. Includes:\n\n"
-                            "- 50 seats @ standard SMB pricing\n"
-                            "- 30-day free trial extension\n"
-                            "- Onboarding package (2 sessions)\n\n"
-                            "CTO is reviewing with procurement."
+                            "FinEdge wanted native integration with their risk management platform. "
+                            "We could not commit to a timeline.\n\n"
+                            "Deal lost to a competitor with out-of-the-box integration."
                         ),
-                        "col_idx": 2,
-                        "priority": "high",
-                        "due_offset": -2,
-                        "weight": 4,
-                        "labels": ["SMB"],
-                        "checklist": [
-                            {"text": "Send proposal PDF", "is_checked": True},
-                            {"text": "Follow up after 3 business days", "is_checked": True},
-                            {"text": "Book follow-up call", "is_checked": False},
-                        ],
-                        "comments": [
-                            "CTO out of office until Monday. Following up then.",
-                        ],
-                        "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Deal lost — budget frozen until Q4",
-                        "description": (
-                            "Apex Retail CTO confirmed budget freeze effective immediately. "
-                            "Revisit in Q4 (October). Flagged for re-engagement campaign.\n\n"
-                            "Reason: parent company M&A activity."
-                        ),
-                        "col_idx": 5,
+                        "col_idx": 7,
                         "priority": "low",
                         "due_offset": None,
                         "weight": 1,
-                        "labels": ["SMB"],
+                        "labels": ["Enterprise"],
                         "checklist": [
-                            {"text": "Log reason in CRM", "is_checked": True},
-                            {"text": "Set Q4 re-engagement reminder", "is_checked": True},
+                            {"text": "Log loss reason in CRM", "is_checked": True},
+                            {"text": "Flag integration gap to product team", "is_checked": True},
                         ],
                         "comments": [
-                            "Not a product rejection — purely budget. Good candidate for Q4 outreach.",
+                            "Loss reason: missing native risk tool integration. Adding to product backlog.",
                         ],
-                        "assignee_idx": 0,
+                        "assignee_idx": 2,
                     },
                 ],
             },
             {
-                "name": "Meridian Health",
+                "name": "BlueSky Health",
                 "color": "#10B981",
-                "contact_email": "procurement@meridianhealth.example",
-                "notes": "Healthcare network — HIPAA BAA required. 200-seat potential. Long procurement cycle.",
+                "contact_email": "procurement@blueskyhealth.example",
+                "notes": "Regional healthcare provider. HIPAA BAA required. 200-seat potential.",
                 "cards": [
                     {
-                        "title": "Identify champion at Meridian",
+                        "title": "Clinical Project Tracking — Initial Outreach",
                         "description": (
-                            "Need an internal champion with authority to push the deal. "
-                            "Current contact (IT Director) lacks budget sign-off.\n\n"
-                            "Candidates: VP of Clinical Operations, CIO."
+                            "Inbound inquiry from IT Director. Interested in tracking "
+                            "clinical IT projects across 5 hospitals.\n\n"
+                            "HIPAA BAA will be required before any data sharing."
                         ),
                         "col_idx": 0,
                         "priority": "medium",
-                        "due_offset": 20,
+                        "due_offset": 25,
                         "weight": 2,
                         "labels": ["Enterprise"],
                         "checklist": [
-                            {"text": "Map org chart via LinkedIn", "is_checked": True},
-                            {"text": "Request intro to CIO via IT Director", "is_checked": False},
+                            {"text": "Respond to inbound inquiry", "is_checked": True},
+                            {"text": "Send HIPAA BAA for review", "is_checked": False},
                         ],
                         "comments": [],
                         "assignee_idx": 0,
                     },
                     {
-                        "title": "HIPAA Business Associate Agreement",
+                        "title": "IT Operations Board — 50 Seats",
                         "description": (
-                            "Meridian requires a signed HIPAA BAA before any data can be shared "
-                            "or a trial provisioned.\n\n"
-                            "Our standard BAA covers PHI in transit and at rest. "
-                            "Have legal countersign and return within 5 business days."
+                            "Opportunity with the IT ops team tracking infrastructure changes. "
+                            "Separate from the clinical project deal.\n\n"
+                            "Champion: IT Director. Decision maker: CIO."
                         ),
-                        "col_idx": 2,
-                        "priority": "urgent",
-                        "due_offset": 7,
-                        "weight": 5,
-                        "labels": ["Enterprise"],
-                        "checklist": [
-                            {"text": "Send standard BAA to their legal", "is_checked": True},
-                            {"text": "Review any redlines", "is_checked": False},
-                            {"text": "Execute and file signed BAA", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Their legal team has a 5-day turnaround. Starting clock today.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Pilot: 10 seats for 90 days",
-                        "description": (
-                            "Pilot scoped to the Care Coordination team (10 seats). "
-                            "Success metrics:\n\n"
-                            "- All active projects tracked in Visiban by day 30\n"
-                            "- Monthly check-in NPS ≥ 35\n"
-                            "- Expand to 200 seats if successful"
-                        ),
-                        "col_idx": 3,
-                        "priority": "high",
-                        "due_offset": 14,
-                        "weight": 4,
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 18,
+                        "weight": 3,
                         "labels": ["Enterprise", "Strategic"],
                         "checklist": [
-                            {"text": "Provision pilot environment", "is_checked": True},
-                            {"text": "Schedule onboarding session", "is_checked": False},
-                            {"text": "Set 30-day check-in reminder", "is_checked": False},
+                            {"text": "Qualify with IT Director", "is_checked": True},
+                            {"text": "Request intro to CIO", "is_checked": False},
                         ],
                         "comments": [
-                            "CIO approved pilot. Care Coordination team excited to start.",
+                            "IT Director is strong champion. CIO meeting requested for next week.",
                         ],
-                        "assignee_idx": 4,
+                        "assignee_idx": 0,
                     },
                     {
-                        "title": "Contract signed — 200 seats",
+                        "title": "Enterprise Renewal — 200 Seats",
                         "description": (
-                            "Meridian Health signed a 2-year contract for 200 seats. "
-                            "Annual value: $48k. Effective 2026-04-01.\n\n"
-                            "Handoff to Customer Success for onboarding."
+                            "Annual renewal coming up for existing 200-seat enterprise contract. "
+                            "Opportunity to upsell analytics module (+$18k ARR).\n\n"
+                            "Renewal date: 2026-05-01."
                         ),
-                        "col_idx": 4,
-                        "priority": "medium",
-                        "due_offset": None,
-                        "weight": 3,
-                        "labels": ["Enterprise", "Strategic", "Renewal"],
+                        "col_idx": 5,
+                        "priority": "urgent",
+                        "due_offset": -5,
+                        "weight": 5,
+                        "labels": ["Enterprise", "Renewal", "Strategic"],
                         "checklist": [
-                            {"text": "Provision 200 seats", "is_checked": True},
-                            {"text": "Schedule onboarding kick-off", "is_checked": True},
-                            {"text": "Hand off to CS team", "is_checked": True},
+                            {"text": "Send renewal quote with analytics upsell", "is_checked": True},
+                            {"text": "Schedule QBR with CIO", "is_checked": True},
+                            {"text": "Get signed renewal order form", "is_checked": False},
                         ],
                         "comments": [
-                            "Closed! 2-year deal. This is our biggest healthcare win to date.",
+                            "QBR went well. CIO open to analytics module — needs board approval.",
+                            "OVERDUE — renewal date is in 5 days. Escalated to VP Sales.",
                         ],
                         "assignee_idx": 4,
                     },
                 ],
             },
             {
-                "name": "Summit Logistics",
-                "color": "#F97316",
-                "contact_email": "ops@summitlogistics.example",
-                "notes": "Fast-moving mid-market. Decision in < 2 weeks. 25-seat deal.",
+                "name": "Mosaic Creative",
+                "color": "#EC4899",
+                "contact_email": "ops@mosaiccreative.example",
+                "notes": "Creative agency, 30 staff. Fast-moving. Decision in days, not weeks.",
                 "cards": [
                     {
-                        "title": "Inbound lead — website form",
+                        "title": "Content Calendar Boards — 30 Seats",
                         "description": (
-                            "Lead submitted via the website contact form. "
-                            "Message: 'Looking for a Trello replacement for our ops team.'\n\n"
-                            "Assign to AE for same-day follow-up."
+                            "Mosaic tracks every client content campaign on shared boards. "
+                            "Use case: one swimlane per client, columns = content stages.\n\n"
+                            "Evaluating Trello, Asana, and Visiban."
                         ),
-                        "col_idx": 0,
+                        "col_idx": 2,
                         "priority": "medium",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": ["SMB"],
-                        "checklist": [
-                            {"text": "Respond within 1 business hour", "is_checked": True},
-                            {"text": "Qualify via email before booking call", "is_checked": True},
-                        ],
-                        "comments": [
-                            "Responded within 20 min. They're evaluating 3 tools — we're in the mix.",
-                        ],
-                        "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Qualification call",
-                        "description": (
-                            "15-min discovery call. Confirmed:\n\n"
-                            "- 25 users across 3 ops teams\n"
-                            "- Budget: ~$5k/year\n"
-                            "- Decision by end of month\n"
-                            "- Pain: Trello too simple, Jira too complex"
-                        ),
-                        "col_idx": 1,
-                        "priority": "medium",
-                        "due_offset": -1,
+                        "due_offset": 7,
                         "weight": 3,
                         "labels": ["SMB"],
                         "checklist": [
-                            {"text": "Log BANT in CRM", "is_checked": True},
-                            {"text": "Send trial invite (25 seats)", "is_checked": False},
+                            {"text": "Send content agency template", "is_checked": True},
+                            {"text": "Run 30-min discovery call", "is_checked": True},
+                            {"text": "Provide trial access", "is_checked": False},
                         ],
                         "comments": [
-                            "Great fit. Sending trial today.",
+                            "They love the swimlane-per-client model. Trello can not do this cleanly.",
                         ],
                         "assignee_idx": 1,
                     },
                     {
-                        "title": "Pricing discussion",
+                        "title": "Campaign Sprint Boards — Closed Won",
                         "description": (
-                            "Summit wants a 10% discount for annual pre-pay. "
-                            "Standard ACV for 25 seats is $3,000.\n\n"
-                            "Approved to offer 10% for annual. No further discounting."
+                            "Mosaic signed for 30 seats on a monthly plan. "
+                            "Primary use: campaign sprint boards per client.\n\n"
+                            "Upsell opportunity at 90-day check-in: annual plan + 10 extra seats."
                         ),
-                        "col_idx": 3,
-                        "priority": "high",
-                        "due_offset": 5,
-                        "weight": 4,
-                        "labels": ["SMB"],
-                        "checklist": [
-                            {"text": "Send updated pricing PDF", "is_checked": True},
-                            {"text": "Confirm decision timeline", "is_checked": False},
-                        ],
-                        "comments": [
-                            "They accepted the 10% annual pre-pay offer. Sending contract.",
-                        ],
-                        "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Closed — 25 seats annual",
-                        "description": (
-                            "Summit Logistics signed for 25 seats on an annual plan. "
-                            "ACV: $2,700. Payment received. Provisioning complete.\n\n"
-                            "Time to close: 9 days from inbound lead."
-                        ),
-                        "col_idx": 4,
+                        "col_idx": 6,
                         "priority": "low",
                         "due_offset": None,
                         "weight": 2,
                         "labels": ["SMB", "Renewal"],
                         "checklist": [
-                            {"text": "Provision 25 seats", "is_checked": True},
-                            {"text": "Send welcome email", "is_checked": True},
-                            {"text": "Set renewal reminder (11 months)", "is_checked": True},
+                            {"text": "Provision 30 seats", "is_checked": True},
+                            {"text": "Send onboarding guide", "is_checked": True},
+                            {"text": "Set 90-day upsell reminder", "is_checked": True},
                         ],
                         "comments": [
-                            "Fastest close this quarter. Good template for SMB inbound.",
+                            "Closed in 4 days from first contact. Fastest close this quarter.",
                         ],
                         "assignee_idx": 4,
                     },
@@ -610,491 +459,348 @@ TEMPLATE_DATA: dict[str, dict] = {
         "board_name": "Template: Customer Support",
         "description": (
             "Track support tickets from first report through resolution. "
-            "Each swimlane represents a customer account."
+            "Each swimlane is a customer account; each card is an open ticket."
         ),
         "columns": [
             {"name": "New",               "color": "#6B7280", "allow_card_creation": True},
             {"name": "Triaged",           "color": "#3B82F6", "allow_card_creation": True},
             {"name": "Investigating",     "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Awaiting Customer", "color": "#F97316", "allow_card_creation": False},
+            {"name": "Escalated",         "color": "#EF4444", "allow_card_creation": False},
             {"name": "Resolved",          "color": "#10B981", "allow_card_creation": False},
             {"name": "Closed",            "color": "#9CA3AF", "allow_card_creation": False},
         ],
         "labels": [
-            {"name": "P1 Critical", "color": "#EF4444"},
-            {"name": "P2 High",     "color": "#F97316"},
-            {"name": "P3 Normal",   "color": "#3B82F6"},
-            {"name": "Data Loss",   "color": "#7C3AED"},
-            {"name": "Integration", "color": "#0891B2"},
-            {"name": "Billing",     "color": "#D97706"},
+            {"name": "Bug",             "color": "#EF4444"},
+            {"name": "Feature Request", "color": "#8B5CF6"},
+            {"name": "Billing",         "color": "#F59E0B"},
+            {"name": "Security",        "color": "#EC4899"},
+            {"name": "Performance",     "color": "#14B8A6"},
         ],
         "swimlanes": [
             {
-                "name": "Globex Corp",
-                "color": "#EF4444",
-                "contact_email": "support@globex.example",
-                "notes": "Enterprise SLA — 4h response, 24h resolution for P1. Primary contact: IT Director.",
+                "name": "TechNova Inc",
+                "color": "#3B82F6",
+                "contact_email": "support@technova.example",
+                "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1.",
                 "cards": [
                     {
-                        "title": "API returns 500 on bulk card export",
+                        "title": "Board loads blank after login on Firefox 124",
                         "description": (
-                            "## Reported\n\nPOST `/api/boards/{id}/export/` returns HTTP 500 when "
-                            "the board has more than 500 cards.\n\n"
+                            "Reported by 3 users. Board appears empty immediately after login "
+                            "on Firefox 124.0. Works on Chrome and Safari.\n\n"
                             "## Steps to reproduce\n\n"
-                            "1. Open board with 600+ cards\n"
-                            "2. Click Export → CSV\n"
-                            "3. Response: `500 Internal Server Error`\n\n"
-                            "## Impact\n\nBlocks weekly reporting for all 12 teams."
+                            "1. Log in on Firefox 124\n"
+                            "2. Navigate to any board\n"
+                            "3. Board renders blank — no columns visible\n"
+                            "4. Hard refresh fixes it"
                         ),
                         "col_idx": 2,
-                        "priority": "urgent",
-                        "due_offset": -1,
-                        "weight": 5,
-                        "labels": ["P1 Critical"],
-                        "checklist": [
-                            {"text": "Reproduce in staging", "is_checked": True},
-                            {"text": "Identify root cause (query timeout?)", "is_checked": True},
-                            {"text": "Deploy fix to production", "is_checked": False},
-                            {"text": "Confirm resolution with customer", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Reproduced. The export query times out at 30s — no pagination on that endpoint.",
-                            "Fix: stream the CSV in chunks. MR open, awaiting review.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "SSO login fails for new users after v1.2 deploy",
-                        "description": (
-                            "New users provisioned via SAML after the v1.2 deploy cannot log in. "
-                            "Existing users are unaffected.\n\n"
-                            "Error in browser: `Invalid SAML assertion — missing NameID format`\n\n"
-                            "Regression introduced in v1.2 — NameID format handling changed."
-                        ),
-                        "col_idx": 1,
                         "priority": "high",
-                        "due_offset": 2,
+                        "due_offset": 1,
                         "weight": 4,
-                        "labels": ["P2 High", "Integration"],
+                        "labels": ["Bug"],
                         "checklist": [
-                            {"text": "Confirm affected user count", "is_checked": True},
-                            {"text": "Check SAML assertion diff between v1.1 and v1.2", "is_checked": False},
-                            {"text": "Deploy hotfix", "is_checked": False},
+                            {"text": "Reproduce locally on Firefox 124", "is_checked": True},
+                            {"text": "Check browser console for JS errors", "is_checked": True},
+                            {"text": "Confirm fix in staging", "is_checked": False},
+                            {"text": "Deploy patch and notify customer", "is_checked": False},
                         ],
                         "comments": [
-                            "Affects ~30 new users provisioned since Monday. Existing users unaffected.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Webhooks not firing on card moves",
-                        "description": (
-                            "Globex has a Zapier integration that listens for `card.moved` webhook events. "
-                            "Since Tuesday, events are not being delivered.\n\n"
-                            "Webhook logs show events queued but not dispatched. "
-                            "Worker appears healthy."
-                        ),
-                        "col_idx": 3,
-                        "priority": "medium",
-                        "due_offset": 5,
-                        "weight": 3,
-                        "labels": ["P2 High", "Integration"],
-                        "checklist": [
-                            {"text": "Check webhook worker logs", "is_checked": True},
-                            {"text": "Test webhook delivery in staging", "is_checked": True},
-                            {"text": "Send test payload to Globex endpoint", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Worker is running but Redis queue is backed up — unrelated deploy caused slowdown.",
-                            "Awaiting Globex to confirm their endpoint is ready to receive test payload.",
+                            "Reproduced. Root cause: race condition in board hydration on Firefox. Fix in progress.",
                         ],
                         "assignee_idx": 1,
                     },
                     {
-                        "title": "Feature request: CSV export include archived cards",
+                        "title": "CSV export returns 500 for boards with 500+ cards",
                         "description": (
-                            "Customer requests that the CSV export include archived cards "
-                            "with an `is_archived` column.\n\n"
-                            "Currently, archived cards are silently excluded from all exports."
+                            "TechNova's largest board has 620 cards. CSV export times out and "
+                            "returns HTTP 500.\n\n"
+                            "Smaller boards (< 200 cards) export fine. Likely a query timeout."
                         ),
                         "col_idx": 4,
-                        "priority": "low",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": ["P3 Normal"],
+                        "priority": "urgent",
+                        "due_offset": -1,
+                        "weight": 5,
+                        "labels": ["Bug", "Performance"],
                         "checklist": [
-                            {"text": "Log as feature request in backlog", "is_checked": True},
-                            {"text": "Confirm workaround (restore → export → re-archive)", "is_checked": True},
+                            {"text": "Reproduce with a 500+ card board", "is_checked": True},
+                            {"text": "Profile query — identify N+1", "is_checked": True},
+                            {"text": "Add select_related and pagination", "is_checked": True},
+                            {"text": "Load test fix before deploying", "is_checked": False},
                         ],
                         "comments": [
-                            "Workaround communicated. Feature filed as #287 in backlog.",
+                            "P1 escalated by account team. Engineering lead assigned.",
+                            "Root cause: N+1 on label fetch. Fix ready — deploying tonight.",
                         ],
-                        "assignee_idx": 0,
+                        "assignee_idx": 2,
                     },
                     {
-                        "title": "Board load time regression after v1.2",
+                        "title": "Column WIP limit not enforcing for board admins",
                         "description": (
-                            "Large boards (800+ cards) are taking 4–6 s to load since v1.2. "
-                            "Previous baseline was ~1.5 s.\n\n"
-                            "Profiling points to a new `get_member_roles()` call in "
-                            "`BoardFullSerializer` that runs once per member."
+                            "Board admins can drag cards into WIP-limited columns beyond the limit. "
+                            "Members (non-admins) are blocked correctly.\n\n"
+                            "Customer reports this defeats the purpose of WIP limits."
                         ),
-                        "col_idx": 2,
-                        "priority": "high",
-                        "due_offset": -3,
-                        "weight": 4,
-                        "labels": ["P2 High"],
+                        "col_idx": 1,
+                        "priority": "medium",
+                        "due_offset": 5,
+                        "weight": 3,
+                        "labels": ["Bug"],
                         "checklist": [
-                            {"text": "Profile with django-silk on staging", "is_checked": True},
-                            {"text": "Add prefetch_related for member roles", "is_checked": False},
-                            {"text": "Benchmark before/after", "is_checked": False},
-                            {"text": "Deploy and confirm with customer", "is_checked": False},
+                            {"text": "Confirm behavior in prod", "is_checked": True},
+                            {"text": "Check permission bypass logic in drag handler", "is_checked": False},
                         ],
-                        "comments": [
-                            "Confirmed N+1: 14 extra queries for a 14-member board. Fix is straightforward.",
-                        ],
+                        "comments": [],
                         "assignee_idx": 3,
                     },
                 ],
             },
             {
-                "name": "Pinnacle Media",
-                "color": "#F97316",
-                "contact_email": "helpdesk@pinnaclemedia.example",
-                "notes": "Mid-market. Standard SLA. Primary contact: Project Manager.",
+                "name": "Apex Retail Group",
+                "color": "#F59E0B",
+                "contact_email": "support@apexretail.example",
+                "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager.",
                 "cards": [
                     {
-                        "title": "Permission error when creating swimlanes",
+                        "title": "Card drag-drop broken on iOS Safari",
                         "description": (
-                            "Board members with Member role get a 403 when trying to add a swimlane, "
-                            "even though the board is configured to allow member-level swimlane creation.\n\n"
-                            "Regression: this worked before v1.1."
+                            "Store managers using iPads cannot drag cards between columns. "
+                            "The drag starts but the card snaps back on drop.\n\n"
+                            "iOS 17.4, Safari. Chrome on iOS works."
                         ),
-                        "col_idx": 1,
+                        "col_idx": 3,
                         "priority": "high",
-                        "due_offset": 1,
-                        "weight": 3,
-                        "labels": ["P2 High"],
+                        "due_offset": 2,
+                        "weight": 4,
+                        "labels": ["Bug"],
                         "checklist": [
-                            {"text": "Reproduce with member-role test account", "is_checked": True},
-                            {"text": "Check permission check in SwimlaneViewSet", "is_checked": False},
-                            {"text": "Fix and deploy", "is_checked": False},
+                            {"text": "Reproduce on iOS 17.4 Safari", "is_checked": True},
+                            {"text": "Check touch event handling in drag library", "is_checked": True},
+                            {"text": "Send workaround to customer (use Chrome iOS)", "is_checked": True},
+                            {"text": "Ship permanent fix", "is_checked": False},
                         ],
                         "comments": [
-                            "Reproduced. The v1.1 permission refactor accidentally tightened swimlane creation to Admin-only.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Labels not persisting on card edit",
-                        "description": (
-                            "When a card is edited and saved, labels are cleared. "
-                            "The UI shows them momentarily but they disappear after the API response.\n\n"
-                            "Observed in Chrome and Firefox. Not reproducible in Safari."
-                        ),
-                        "col_idx": 2,
-                        "priority": "medium",
-                        "due_offset": -5,
-                        "weight": 3,
-                        "labels": ["P2 High"],
-                        "checklist": [
-                            {"text": "Check PATCH payload includes label IDs", "is_checked": True},
-                            {"text": "Verify serializer handles partial update for M2M", "is_checked": False},
-                        ],
-                        "comments": [
-                            "The PATCH payload is correct. The serializer is not saving M2M on partial=True — known Django quirk.",
+                            "Workaround sent. Permanent fix tracked in eng backlog — ETA 2 sprints.",
                         ],
                         "assignee_idx": 1,
                     },
                     {
-                        "title": "Email notifications for @mentions not delivered",
+                        "title": "Email notifications delayed by 2+ hours",
                         "description": (
-                            "Users are not receiving email notifications when @mentioned in card comments. "
-                            "In-app notifications work correctly.\n\n"
-                            "Mail logs show the notification task is enqueued but no SMTP activity."
+                            "Apex staff report card assignment notifications arrive hours late. "
+                            "Checked our queue — jobs are processing but SMTP relay is slow.\n\n"
+                            "Affecting all email notifications, not just assignments."
+                        ),
+                        "col_idx": 5,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Bug"],
+                        "checklist": [
+                            {"text": "Identify delay in SMTP relay logs", "is_checked": True},
+                            {"text": "Switch to backup relay", "is_checked": True},
+                            {"text": "Confirm notifications now timely", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Resolved. SMTP relay was throttling. Switched to backup — delays gone.",
+                        ],
+                        "assignee_idx": 4,
+                    },
+                    {
+                        "title": "Board invite link returns 404",
+                        "description": (
+                            "Apex is inviting new store managers via board share links. "
+                            "Half the links are returning 404.\n\n"
+                            "Hypothesis: links generated before the subdomain migration are broken."
+                        ),
+                        "col_idx": 6,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 1,
+                        "labels": ["Bug"],
+                        "checklist": [
+                            {"text": "Confirm old subdomain links are broken", "is_checked": True},
+                            {"text": "Add redirect rule for old subdomain", "is_checked": True},
+                            {"text": "Re-generate invite links for Apex", "is_checked": True},
+                        ],
+                        "comments": [
+                            "Resolved. Old subdomain redirect added. Existing links now work.",
+                        ],
+                        "assignee_idx": 0,
+                    },
+                ],
+            },
+            {
+                "name": "FinEdge Ltd",
+                "color": "#8B5CF6",
+                "contact_email": "support@finedge.example",
+                "notes": "Compliance-sensitive. All support comms may be audited. Use formal language.",
+                "cards": [
+                    {
+                        "title": "2FA not triggering on new device login",
+                        "description": (
+                            "FinEdge reports that 2FA challenges are not appearing when users "
+                            "log in from a new device.\n\n"
+                            "This is a security regression — escalated to security team immediately."
+                        ),
+                        "col_idx": 4,
+                        "priority": "urgent",
+                        "due_offset": -2,
+                        "weight": 5,
+                        "labels": ["Security", "Bug"],
+                        "checklist": [
+                            {"text": "Confirm 2FA bypass is reproducible", "is_checked": True},
+                            {"text": "Identify root cause in session fingerprint logic", "is_checked": True},
+                            {"text": "Deploy hotfix to production", "is_checked": True},
+                            {"text": "Audit logs for any suspicious logins", "is_checked": False},
+                            {"text": "Send customer security incident report", "is_checked": False},
+                        ],
+                        "comments": [
+                            "P0 — Security team engaged immediately. Hotfix deployed at 03:14 UTC.",
+                            "Root cause: device fingerprint cache key collision after last deployment.",
+                        ],
+                        "assignee_idx": 2,
+                    },
+                    {
+                        "title": "Webhook events arriving out of order",
+                        "description": (
+                            "FinEdge's automation pipeline receives card move events out of sequence. "
+                            "Their compliance logs then show incorrect state transitions.\n\n"
+                            "Events are delivered but not guaranteed ordered — they need ordering."
                         ),
                         "col_idx": 3,
                         "priority": "high",
                         "due_offset": 7,
                         "weight": 4,
-                        "labels": ["P2 High"],
+                        "labels": ["Bug"],
                         "checklist": [
-                            {"text": "Check Celery worker is running email tasks", "is_checked": True},
-                            {"text": "Test SMTP connection from worker host", "is_checked": True},
-                            {"text": "Confirm customer SMTP allowlist includes our IP", "is_checked": False},
+                            {"text": "Confirm event ordering issue in webhook logs", "is_checked": True},
+                            {"text": "Discuss sequencing guarantee options with eng", "is_checked": False},
+                            {"text": "Provide workaround (use event timestamp to reorder)", "is_checked": False},
                         ],
                         "comments": [
-                            "SMTP test from worker succeeds. Suspecting IP allowlist issue on their side.",
-                            "Awaiting Pinnacle IT to confirm their allowlist — sent instructions.",
+                            "Awaiting engineering input on whether ordered delivery is feasible.",
                         ],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Resolved: browser cache causing stale board state",
-                        "description": (
-                            "Customer reported boards showing cards in wrong columns. "
-                            "Root cause: browser cached the old board snapshot.\n\n"
-                            "Resolution: hard-refresh clears the issue. Added cache-busting "
-                            "headers to the board API response."
-                        ),
-                        "col_idx": 5,
-                        "priority": "low",
-                        "due_offset": None,
-                        "weight": 1,
-                        "labels": ["P3 Normal"],
-                        "checklist": [
-                            {"text": "Add Cache-Control: no-store to board endpoint", "is_checked": True},
-                            {"text": "Communicate workaround to customer", "is_checked": True},
-                            {"text": "Verify fix in v1.2.1", "is_checked": True},
-                        ],
-                        "comments": [
-                            "Deployed in v1.2.1. Customer confirmed resolved.",
-                        ],
-                        "assignee_idx": 0,
+                        "assignee_idx": 3,
                     },
                 ],
             },
             {
-                "name": "Orion Software",
-                "color": "#8B5CF6",
-                "contact_email": "ops@orionsoftware.example",
-                "notes": "Technical team — prefers async communication. Escalate P1s to Slack #orion-support.",
+                "name": "BlueSky Health",
+                "color": "#10B981",
+                "contact_email": "support@blueskyhealth.example",
+                "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal.",
                 "cards": [
                     {
-                        "title": "SAML assertion fails intermittently (1 in 20 logins)",
+                        "title": "Card comments missing after board migration",
                         "description": (
-                            "~5% of SAML logins fail with `InResponseTo mismatch`. "
-                            "Affects all users, not just new ones.\n\n"
-                            "Suspicion: clock skew between their IdP and our service. "
-                            "Their IdP is on-prem; NTP sync uncertain."
-                        ),
-                        "col_idx": 2,
-                        "priority": "urgent",
-                        "due_offset": -2,
-                        "weight": 5,
-                        "labels": ["P1 Critical", "Integration"],
-                        "checklist": [
-                            {"text": "Check NTP sync on their IdP", "is_checked": True},
-                            {"text": "Widen our SAML clock tolerance to ±5 min", "is_checked": False},
-                            {"text": "Deploy and monitor error rate", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Their IdP has a 4-min clock drift. Widening tolerance is the right fix.",
-                        ],
-                        "assignee_idx": 2,
-                    },
-                    {
-                        "title": "Board export missing checklist data",
-                        "description": (
-                            "CSV and JSON exports do not include checklist items. "
-                            "The API response includes them, but the export serializer omits them.\n\n"
-                            "Impacting their reporting workflow."
+                            "BlueSky migrated boards from their old instance. "
+                            "Card comments imported but are not visible in the UI.\n\n"
+                            "Data is present in the database — this is a display bug."
                         ),
                         "col_idx": 1,
-                        "priority": "medium",
+                        "priority": "high",
                         "due_offset": 3,
                         "weight": 3,
-                        "labels": ["P3 Normal"],
+                        "labels": ["Bug"],
                         "checklist": [
-                            {"text": "Add checklist_items to export serializer", "is_checked": False},
-                            {"text": "Update CSV fieldnames", "is_checked": False},
-                            {"text": "Test with 200-item checklist", "is_checked": False},
+                            {"text": "Confirm comments exist in DB", "is_checked": True},
+                            {"text": "Trace why UI is not rendering them", "is_checked": False},
+                            {"text": "Deploy fix and validate all comments visible", "is_checked": False},
                         ],
                         "comments": [
-                            "Quick fix — checklist_items just needs to be added to the prefetch and serializer.",
+                            "Confirmed: comments have a null author_id from migration script. UI filters these out.",
                         ],
                         "assignee_idx": 1,
                     },
                     {
-                        "title": "WIP limit not enforced when dragging from archived view",
+                        "title": "Board member cannot see swimlane after role change",
                         "description": (
-                            "Cards restored from the archived panel bypass WIP limit checks "
-                            "and are placed in the destination column even when the limit is exceeded.\n\n"
-                            "The restore endpoint does not call the column's WIP validation."
+                            "A user promoted from Member to Admin lost visibility of one swimlane. "
+                            "Logging out and back in resolves it — stale session permissions."
                         ),
-                        "col_idx": 4,
+                        "col_idx": 2,
                         "priority": "medium",
-                        "due_offset": None,
+                        "due_offset": 4,
                         "weight": 2,
-                        "labels": ["P3 Normal"],
+                        "labels": ["Bug"],
                         "checklist": [
-                            {"text": "Add WIP check to restore endpoint", "is_checked": True},
-                            {"text": "Add test for restore-to-full-column", "is_checked": True},
-                            {"text": "Deploy", "is_checked": True},
+                            {"text": "Reproduce role-change permission refresh bug", "is_checked": True},
+                            {"text": "Force-clear permission cache on role update", "is_checked": False},
                         ],
                         "comments": [
-                            "Fixed in v1.2.1. Restore now respects WIP limits.",
+                            "Workaround: ask user to log out and back in. Permanent fix in progress.",
                         ],
-                        "assignee_idx": 3,
+                        "assignee_idx": 0,
                     },
                 ],
             },
             {
-                "name": "Vertex Trading",
-                "color": "#0891B2",
-                "contact_email": "compliance@vertextrading.example",
-                "notes": "Financial sector — strict data residency. All data must stay in EU region.",
+                "name": "Mosaic Creative",
+                "color": "#EC4899",
+                "contact_email": "support@mosaiccreative.example",
+                "notes": "SMB tier. Self-serve. Generally quick to resolve — low SLA pressure.",
                 "cards": [
                     {
-                        "title": "Compliance audit — provide access logs for Q1",
+                        "title": "Label colors not saving on Safari 17",
                         "description": (
-                            "Vertex requires a full access log export for Q1 2026 for their "
-                            "internal compliance audit.\n\n"
-                            "Needed: timestamp, user, action, resource for all board operations.\n\n"
-                            "CardMovement history covers moves; other actions need a separate pull."
+                            "Users on Safari 17 report that custom label colors revert to default "
+                            "on page reload. Chrome users are unaffected."
                         ),
-                        "col_idx": 1,
-                        "priority": "high",
-                        "due_offset": 10,
-                        "weight": 5,
-                        "labels": ["P2 High"],
+                        "col_idx": 0,
+                        "priority": "medium",
+                        "due_offset": 7,
+                        "weight": 2,
+                        "labels": ["Bug"],
                         "checklist": [
-                            {"text": "Confirm scope with Vertex compliance team", "is_checked": True},
-                            {"text": "Export CardMovement records for Q1", "is_checked": False},
-                            {"text": "Export CardActivity records for Q1", "is_checked": False},
-                            {"text": "Deliver via encrypted file share", "is_checked": False},
+                            {"text": "Reproduce on Safari 17", "is_checked": False},
+                        ],
+                        "comments": [],
+                        "assignee_idx": 3,
+                    },
+                    {
+                        "title": "Due date filter returning no results",
+                        "description": (
+                            "The due date filter on the board view returns 0 cards even when "
+                            "cards have due dates set.\n\n"
+                            "Reported after the 2026-03-01 release. Likely a regression."
+                        ),
+                        "col_idx": 5,
+                        "priority": "medium",
+                        "due_offset": None,
+                        "weight": 2,
+                        "labels": ["Bug"],
+                        "checklist": [
+                            {"text": "Confirm regression in 2026-03-01 release", "is_checked": True},
+                            {"text": "Fix filter query and deploy", "is_checked": True},
+                            {"text": "Confirm fix with customer", "is_checked": True},
                         ],
                         "comments": [
-                            "They need the raw data, not a UI report. Will export directly from DB.",
+                            "Resolved. Date comparison was using UTC vs local timezone mismatch.",
                         ],
                         "assignee_idx": 4,
                     },
                     {
-                        "title": "Historical card movements not visible in History tab",
+                        "title": "Request: bulk card archive",
                         "description": (
-                            "Cards moved before 2026-01-01 show no movement history. "
-                            "The History tab displays 'No history yet' for these cards.\n\n"
-                            "Root cause: the CardMovement table was introduced in v1.0 — "
-                            "older moves have no records."
+                            "Mosaic wants to archive all cards in a column at once at campaign end. "
+                            "Currently must archive one card at a time.\n\n"
+                            "Logged as a feature request."
                         ),
-                        "col_idx": 2,
-                        "priority": "medium",
-                        "due_offset": -4,
-                        "weight": 3,
-                        "labels": ["P3 Normal"],
-                        "checklist": [
-                            {"text": "Explain data limitation to customer", "is_checked": True},
-                            {"text": "Check if any legacy activity logs can be imported", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Expected behaviour — pre-v1.0 moves were not tracked. Communicated to customer.",
-                        ],
-                        "assignee_idx": 0,
-                    },
-                    {
-                        "title": "Data export times out on board with 2,000+ cards",
-                        "description": (
-                            "The JSON export endpoint times out (30s Nginx limit) for their "
-                            "largest board. The board has 2,100 cards across 8 swimlanes.\n\n"
-                            "Fix: implement streaming export with chunked transfer encoding."
-                        ),
-                        "col_idx": 3,
-                        "priority": "high",
-                        "due_offset": 14,
-                        "weight": 4,
-                        "labels": ["P2 High"],
-                        "checklist": [
-                            {"text": "Implement StreamingHttpResponse for export", "is_checked": True},
-                            {"text": "Test with 2,000-card board in staging", "is_checked": False},
-                            {"text": "Increase Nginx timeout as temporary mitigation", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Temporary mitigation: bumped Nginx timeout to 120s. Streaming fix in progress.",
-                        ],
-                        "assignee_idx": 3,
-                    },
-                    {
-                        "title": "Resolved: increased Nginx timeout for large exports",
-                        "description": (
-                            "Interim resolution applied: Nginx proxy timeout increased from 30s to 120s "
-                            "for the export endpoint.\n\n"
-                            "Permanent fix (streaming export) tracked in engineering backlog."
-                        ),
-                        "col_idx": 5,
+                        "col_idx": 6,
                         "priority": "low",
                         "due_offset": None,
                         "weight": 1,
-                        "labels": ["P3 Normal"],
+                        "labels": ["Feature Request"],
                         "checklist": [
-                            {"text": "Deploy Nginx config change", "is_checked": True},
-                            {"text": "Confirm export completes for 2,000-card board", "is_checked": True},
-                            {"text": "File permanent fix as engineering ticket", "is_checked": True},
+                            {"text": "Log in product backlog", "is_checked": True},
+                            {"text": "Notify customer when shipped", "is_checked": False},
                         ],
                         "comments": [
-                            "Customer confirmed export now completes (~45s). Permanent fix tracked separately.",
+                            "Feature request acknowledged. Added to backlog — no ETA yet.",
                         ],
                         "assignee_idx": 0,
-                    },
-                ],
-            },
-            {
-                "name": "Cascade Dynamics",
-                "color": "#10B981",
-                "contact_email": "it@cascadedynamics.example",
-                "notes": "New customer — onboarded 2026-02-15. Mostly onboarding questions so far.",
-                "cards": [
-                    {
-                        "title": "Onboarding: how to bulk-import cards from CSV?",
-                        "description": (
-                            "New customer asking about the bulk import feature. "
-                            "They have 300 cards in a spreadsheet they want to load.\n\n"
-                            "Point to: Settings → Import → CSV template."
-                        ),
-                        "col_idx": 0,
-                        "priority": "low",
-                        "due_offset": None,
-                        "weight": 2,
-                        "labels": ["P3 Normal"],
-                        "checklist": [
-                            {"text": "Send import documentation link", "is_checked": False},
-                            {"text": "Offer 30-min onboarding call if needed", "is_checked": False},
-                        ],
-                        "comments": [],
-                        "assignee_idx": 4,
-                    },
-                    {
-                        "title": "Mobile: cards overlap on small screens (< 375px)",
-                        "description": (
-                            "On iPhone SE (375px wide), cards in the board view overflow and overlap "
-                            "adjacent cards in the same column.\n\n"
-                            "Reproducible in Chrome DevTools mobile emulation."
-                        ),
-                        "col_idx": 1,
-                        "priority": "medium",
-                        "due_offset": 5,
-                        "weight": 3,
-                        "labels": ["P3 Normal"],
-                        "checklist": [
-                            {"text": "Reproduce in DevTools at 375px", "is_checked": True},
-                            {"text": "Fix column min-width on mobile breakpoint", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Confirmed. The column grid doesn't collapse below 400px. CSS fix needed.",
-                        ],
-                        "assignee_idx": 1,
-                    },
-                    {
-                        "title": "Drag handle unresponsive in Firefox 124",
-                        "description": (
-                            "Card drag-and-drop stops working after the first successful drop in "
-                            "Firefox 124. Subsequent drag attempts do nothing.\n\n"
-                            "Root cause: Firefox handles `pointermove` differently when a CSS "
-                            "transition is active on the column."
-                        ),
-                        "col_idx": 2,
-                        "priority": "medium",
-                        "due_offset": -8,
-                        "weight": 3,
-                        "labels": ["P2 High"],
-                        "checklist": [
-                            {"text": "Reproduce in Firefox 124", "is_checked": True},
-                            {"text": "Disable column transition during drag", "is_checked": False},
-                            {"text": "Test on Firefox + Chrome + Safari", "is_checked": False},
-                        ],
-                        "comments": [
-                            "Confirmed in FF 124. Disabling the column resize transition during drag fixes it.",
-                        ],
-                        "assignee_idx": 2,
                     },
                 ],
             },
