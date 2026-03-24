@@ -118,7 +118,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
       {/* Heatmap */}
       <div className="overflow-x-auto">
         {!hasHeatmapData && (
-          <p className="text-xs text-slate-500 italic mb-3">
+          <p className="text-sm text-slate-400 mb-4">
             No card movements recorded in the last {days} days. Try a longer period to see dwell time data.
           </p>
         )}

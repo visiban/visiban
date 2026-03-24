@@ -907,15 +907,18 @@ class BoardViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         now = timezone.now()
-        stall_cutoff = now - datetime.timedelta(days=stalled_days)
-        # Only count dwell time for column entries that occurred within the chosen
-        # period window. This makes 7d / 30d / 90d produce meaningfully different
-        # heatmaps: a 7-day view shows only very recent activity, while 90d gives
-        # the full historical picture.
+        # Default stall threshold to the board's configured value so it is
+        # independent of the chosen heatmap period. The query param can still
+        # override it for ad-hoc queries.
+        effective_stalled_days = stalled_days if "stalled_days" in request.query_params else board.staleness_threshold_days
+        stall_cutoff = now - datetime.timedelta(days=effective_stalled_days)
+        # The period window controls which dwell-time data feeds the heatmap.
         period_cutoff = now - datetime.timedelta(days=days)
 
         columns = list(board.columns.order_by("position"))
         col_id_to_name = {c.id: c.name for c in columns}
+        # Set of current column names for the denormalized-name fallback below.
+        col_name_set = {c.name for c in columns}
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
@@ -943,16 +946,24 @@ class BoardViewSet(viewsets.ModelViewSet):
                     continue
                 for i, mv in enumerate(movements):
                     col_name = col_id_to_name.get(mv.to_column_id)
+                    # Fall back to the denormalized name field so dwell times
+                    # are not lost if a column was deleted and recreated (causing
+                    # the FK to point to a now-missing ID while the name survives).
+                    if not col_name and mv.to_column_name in col_name_set:
+                        col_name = mv.to_column_name
                     if not col_name:
                         continue
-                    # Skip movements that started before the analysis window — they
-                    # don't belong in the chosen period's dwell time calculations.
-                    if mv.moved_at < period_cutoff:
-                        continue
-                    entry = mv.moved_at
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
                     exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else (card.archived_at or now)
+                    # Skip cards that were fully in-and-out before the window started.
+                    if exit_ <= period_cutoff:
+                        continue
+                    # Cap entry at period_cutoff so cards that entered before the
+                    # window still contribute their in-window dwell time. Without
+                    # this, a card sitting in a column for 45 days shows as empty
+                    # on the 30d heatmap even though 30 of those days are in scope.
+                    entry = max(mv.moved_at, period_cutoff)
                     dwell_days = (exit_ - entry).total_seconds() / 86400
                     col_dwells[col_name].append(dwell_days)
                     all_col_dwells[col_name].append(dwell_days)
@@ -1013,7 +1024,7 @@ class BoardViewSet(viewsets.ModelViewSet):
             "columns": [c.name for c in columns],
             "board_medians": board_medians,  # kept for backward compat
             "swimlanes": swimlane_results,
-            "stalled_threshold_days": stalled_days,
+            "stalled_threshold_days": effective_stalled_days,
             "staleness_threshold_days": board.staleness_threshold_days,
             "stale_warning_pct": board.stale_warning_pct,
         })

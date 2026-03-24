@@ -75,9 +75,11 @@ export const reorderSwimlanes = (boardId: number, order: number[]) =>
 export const getBoardSummary = (id: number) =>
   client.get(`/api/boards/${id}/summary/`).then((r) => r.data);
 
-export const getBoardAnalytics = (id: number, days = 30, stalledDays = 7) =>
+export const getBoardAnalytics = (id: number, days = 30, stalledDays?: number) =>
   client
-    .get(`/api/boards/${id}/analytics/`, { params: { days, stalled_days: stalledDays } })
+    .get(`/api/boards/${id}/analytics/`, {
+      params: { days, ...(stalledDays !== undefined && { stalled_days: stalledDays }) },
+    })
     .then((r) => r.data);
 
 // Export

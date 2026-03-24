@@ -145,6 +145,14 @@ describe('Board API wrappers', () => {
     })
   })
 
+  it('getBoardAnalytics omits stalled_days when not specified', async () => {
+    mockClient.get.mockResolvedValue({ data: {} })
+    await getBoardAnalytics(1)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/boards/1/analytics/', {
+      params: { days: 30 },
+    })
+  })
+
   it('createColumn sends POST to board columns endpoint', async () => {
     mockClient.post.mockResolvedValue({ data: { id: 1 } })
     await createColumn(3, { name: 'To Do', color: '#ff0000' })
@@ -183,11 +191,11 @@ describe('Board API wrappers', () => {
     expect(result).toEqual({ total_cards: 5 })
   })
 
-  it('getBoardAnalytics uses default days=30 stalled_days=7 when not specified', async () => {
+  it('getBoardAnalytics uses default days=30 when not specified', async () => {
     mockClient.get.mockResolvedValue({ data: {} })
-    await getBoardAnalytics(1)
+    await getBoardAnalytics(1, 30, 14)
     expect(mockClient.get).toHaveBeenCalledWith('/api/boards/1/analytics/', {
-      params: { days: 30, stalled_days: 7 },
+      params: { days: 30, stalled_days: 14 },
     })
   })
 
