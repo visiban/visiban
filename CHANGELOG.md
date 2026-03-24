@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- `is_site_admin` no longer implicitly grants access to all boards and groups — a new `can_access_all_content` flag controls omniscient board/group access; existing site admins are automatically migrated to `can_access_all_content=True` so no access is lost on upgrade (#247)
 - Removed-member WebSocket connections now closed immediately when a `member.removed` broadcast is received, preventing the evicted user from continuing to see board events (#318)
 - Board update and delete mutations now broadcast `board.updated` and `board.deleted` events so connected clients reflect changes in real time (#318)
 - Attachment upload is now wrapped in `transaction.atomic()` so the file record and its broadcast are rolled back together on error (#318)

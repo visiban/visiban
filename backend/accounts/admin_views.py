@@ -41,6 +41,7 @@ class AdminUserSerializer(drf_serializers.ModelSerializer):
             "avatar_url",
             "is_active",
             "is_site_admin",
+            "can_access_all_content",
             "must_change_password",
             "date_joined",
         ]
@@ -69,6 +70,7 @@ class AdminPatchUserSerializer(drf_serializers.Serializer):
     """Validates partial updates allowed by site admins."""
     is_active = drf_serializers.BooleanField(required=False)
     is_site_admin = drf_serializers.BooleanField(required=False)
+    can_access_all_content = drf_serializers.BooleanField(required=False)
     must_change_password = drf_serializers.BooleanField(required=False)
 
 
@@ -211,6 +213,10 @@ class AdminUserDetailView(APIView):
         if "is_site_admin" in validated:
             target.is_site_admin = validated["is_site_admin"]
             update_fields.append("is_site_admin")
+
+        if "can_access_all_content" in validated:
+            target.can_access_all_content = validated["can_access_all_content"]
+            update_fields.append("can_access_all_content")
 
         if "must_change_password" in validated:
             target.must_change_password = validated["must_change_password"]

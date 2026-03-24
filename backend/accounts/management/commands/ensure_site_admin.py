@@ -37,6 +37,7 @@ class Command(BaseCommand):
         )
         user.set_password(password)
         user.is_site_admin = True
+        user.can_access_all_content = True
         user.is_staff = True
         user.is_superuser = True
         user.must_change_password = True

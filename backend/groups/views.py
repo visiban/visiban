@@ -24,7 +24,7 @@ def _require_group_admin(user, group):
     """
     from rest_framework.exceptions import PermissionDenied
     from .models import _GROUP_TRAVERSAL_MAX_DEPTH
-    if getattr(user, "is_site_admin", False):
+    if getattr(user, "can_access_all_content", False):
         return
     # Walk from the group up through its ancestors — direct membership with admin
     # role at any level grants admin on all descendants.
@@ -53,7 +53,7 @@ def _require_group_member(user, group):
     """
     from rest_framework.exceptions import PermissionDenied
     from .models import _GROUP_TRAVERSAL_MAX_DEPTH
-    if getattr(user, "is_site_admin", False):
+    if getattr(user, "can_access_all_content", False):
         return
     if group.owner_id == user.id:
         return
@@ -133,7 +133,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         group = self.get_object()
-        if group.owner != request.user and not getattr(request.user, "is_site_admin", False):
+        if group.owner != request.user and not getattr(request.user, "can_access_all_content", False):
             return Response(status=status.HTTP_403_FORBIDDEN)
         group.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -217,7 +217,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         # (or owns, or is a site admin). get_accessible_group_ids includes descendants
         # of groups the user is a member of, which would expose subgroups the user
         # has no explicit membership in. Use a direct-membership filter instead.
-        if getattr(request.user, "is_site_admin", False):
+        if getattr(request.user, "can_access_all_content", False):
             subgroups = group.subgroups.all()
         else:
             from django.db.models import Q

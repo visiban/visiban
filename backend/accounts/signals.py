@@ -21,6 +21,10 @@ def _connect_user_signals():
         step.  We use update_fields to avoid a recursive save loop.
         """
         if instance.is_superuser and not instance.is_site_admin:
-            sender.objects.filter(pk=instance.pk).update(is_site_admin=True)
-            # Refresh the in-memory instance so callers see the updated value.
+            sender.objects.filter(pk=instance.pk).update(
+                is_site_admin=True,
+                can_access_all_content=True,
+            )
+            # Refresh the in-memory instance so callers see the updated values.
             instance.is_site_admin = True
+            instance.can_access_all_content = True

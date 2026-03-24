@@ -23,7 +23,7 @@ def _get_effective_member_ids(board):
 
     eff_ids = set(board.memberships.values_list("user_id", flat=True))
     eff_ids.add(board.owner_id)
-    eff_ids.update(User.objects.filter(is_site_admin=True).values_list("id", flat=True))
+    eff_ids.update(User.objects.filter(can_access_all_content=True).values_list("id", flat=True))
     if board.group_id:
         node = board.group
         depth = 0

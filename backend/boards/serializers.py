@@ -329,8 +329,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if obj.owner_id and obj.owner_id not in seen:
             seen[obj.owner_id] = {"id": None, "user": obj.owner, "role": "admin", "joined_at": obj.created_at}
 
-        # Include site admins so they appear in @mention autocomplete
-        for u in User.objects.filter(is_site_admin=True):
+        # Include users with can_access_all_content so they appear in @mention autocomplete
+        for u in User.objects.filter(can_access_all_content=True):
             if u.pk not in seen:
                 seen[u.pk] = {"id": None, "user": u, "role": "site_admin", "joined_at": obj.created_at}
 

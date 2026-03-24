@@ -66,6 +66,7 @@ const adminUser: User = {
   avatar_url: '',
   display_name: 'Admin User',
   is_site_admin: true,
+  can_access_all_content: false,
   must_change_password: false,
 }
 
@@ -74,6 +75,7 @@ const regularUser: User = {
   id: 2,
   username: 'regular',
   is_site_admin: false,
+  can_access_all_content: false,
 }
 
 const fakeSettings: SiteSettings = {
@@ -92,6 +94,7 @@ const fakeAdminUsers: AdminUser[] = [
     avatar_url: '',
     is_active: true,
     is_site_admin: true,
+  can_access_all_content: false,
     must_change_password: false,
     date_joined: '2024-01-01T00:00:00Z',
   },
@@ -105,6 +108,7 @@ const fakeAdminUsers: AdminUser[] = [
     avatar_url: '',
     is_active: true,
     is_site_admin: false,
+  can_access_all_content: false,
     must_change_password: false,
     date_joined: '2024-02-01T00:00:00Z',
   },
@@ -234,6 +238,7 @@ describe('AdminPage — Users tab', () => {
       avatar_url: '',
       is_active: true,
       is_site_admin: false,
+  can_access_all_content: false,
       must_change_password: true,
       date_joined: '2024-03-01T00:00:00Z',
     }
