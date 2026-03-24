@@ -67,7 +67,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
   useEffect(() => {
     setLoading(true);
-    getBoardAnalytics(boardId, days)
+    getBoardAnalytics(boardId, days, days)
       .then((d: AnalyticsData) => { setData(d); setLoading(false); })
       .catch(() => { setError("Failed to load analytics."); setLoading(false); });
   }, [boardId, days]);

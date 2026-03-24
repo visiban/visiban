@@ -176,7 +176,7 @@ describe('AnalyticsView', () => {
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     await screen.findByText('Period:')
     await userEvent.setup().click(screen.getByText('7d'))
-    expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7)
+    expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7, 7)
   })
 
   it('shows empty-period message when no heatmap data exists', async () => {
