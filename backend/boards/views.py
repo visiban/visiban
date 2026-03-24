@@ -183,7 +183,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_site_admin:
+        if user.can_access_all_content:
             qs = Board.objects.all()
         else:
             qs = Board.objects.filter(
@@ -337,7 +337,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         group = get_object_or_404(Group, pk=group_id)
         is_member = (
             group.owner_id == request.user.id
-            or request.user.is_site_admin
+            or request.user.can_access_all_content
             or GroupMembership.objects.filter(group=group, user=request.user).exists()
         )
         if not is_member:

@@ -7,6 +7,7 @@ export interface User {
   avatar_url: string;
   display_name: string;
   is_site_admin: boolean;
+  can_access_all_content?: boolean;
   must_change_password: boolean;
   has_usable_password?: boolean;
   timezone?: string;
@@ -283,6 +284,7 @@ export interface AdminUser {
   avatar_url: string;
   is_active: boolean;
   is_site_admin: boolean;
+  can_access_all_content: boolean;
   must_change_password: boolean;
   date_joined: string;
 }

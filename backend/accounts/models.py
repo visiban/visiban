@@ -78,6 +78,10 @@ class User(AbstractUser):
     avatar_url = models.URLField(blank=True)
     display_name = models.CharField(max_length=150, blank=True)
     is_site_admin = models.BooleanField(default=False)
+    can_access_all_content = models.BooleanField(
+        default=False,
+        help_text="Grants read/write access to all boards and groups on this instance regardless of membership. Independent of is_site_admin.",
+    )
     must_change_password = models.BooleanField(default=False)
     timezone = models.CharField(max_length=64, blank=True, default="")
     notif_card_assigned = models.BooleanField(default=True)

@@ -424,7 +424,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
 
   const applyPatch = async (
     userId: number,
-    patch: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "must_change_password">>
+    patch: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "can_access_all_content" | "must_change_password">>
   ) => {
     setActionError(null);
     try {
@@ -457,6 +457,20 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     confirmAndRun(
       `Remove site admin role from ${user.display_name || user.username}?`,
       () => applyPatch(user.id, { is_site_admin: false })
+    );
+  };
+
+  const handleGrantContentAccess = (user: AdminUser) => {
+    confirmAndRun(
+      `Grant "${user.display_name || user.username}" access to all boards and groups regardless of membership?`,
+      () => applyPatch(user.id, { can_access_all_content: true })
+    );
+  };
+
+  const handleRevokeContentAccess = (user: AdminUser) => {
+    confirmAndRun(
+      `Revoke all-content access from ${user.display_name || user.username}? They will only see boards they are a member of.`,
+      () => applyPatch(user.id, { can_access_all_content: false })
     );
   };
 
@@ -523,6 +537,11 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                                 Admin
                               </span>
                             )}
+                            {u.can_access_all_content && (
+                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-violet-500/20 text-violet-400">
+                                All content
+                              </span>
+                            )}
                             {u.must_change_password && (
                               <span className="px-1.5 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400">
                                 Reset req.
@@ -583,6 +602,25 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                               Make admin
                             </button>
                           )
+                        )}
+
+                        {/* Can access all content */}
+                        {u.can_access_all_content ? (
+                          <button
+                            onClick={() => handleRevokeContentAccess(u)}
+                            title="Revoke access to all boards and groups"
+                            className="text-xs text-slate-400 hover:text-amber-400 transition"
+                          >
+                            Revoke all-content
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleGrantContentAccess(u)}
+                            title="Grants read/write access to all boards and groups regardless of membership"
+                            className="text-xs text-slate-400 hover:text-violet-400 transition"
+                          >
+                            Grant all-content
+                          </button>
                         )}
 
                         {/* Force password reset */}

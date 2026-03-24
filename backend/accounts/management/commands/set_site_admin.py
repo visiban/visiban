@@ -24,9 +24,11 @@ class Command(BaseCommand):
 
         if revoke:
             user.is_site_admin = False
-            user.save(update_fields=["is_site_admin"])
+            user.can_access_all_content = False
+            user.save(update_fields=["is_site_admin", "can_access_all_content"])
             self.stdout.write(self.style.WARNING(f'Revoked site admin from "{username}"'))
         else:
             user.is_site_admin = True
-            user.save(update_fields=["is_site_admin"])
+            user.can_access_all_content = True
+            user.save(update_fields=["is_site_admin", "can_access_all_content"])
             self.stdout.write(self.style.SUCCESS(f'Granted site admin to "{username}"'))

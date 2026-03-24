@@ -49,7 +49,99 @@ class GetBoardRoleTests(TestCase):
         admin = User.objects.create_user(username="siteadmin", password="pass")
         admin.is_site_admin = True
         admin.save()
+        # is_site_admin alone no longer grants board access — must also have can_access_all_content
+        self.assertIsNone(get_board_role(admin, self.board))
+
+    def test_can_access_all_content_gets_site_admin_role(self):
+        """can_access_all_content=True grants SITE_ADMIN board role regardless of is_site_admin."""
+        admin = User.objects.create_user(username="content_admin", password="pass")
+        admin.can_access_all_content = True
+        admin.save()
         self.assertEqual(get_board_role(admin, self.board), SITE_ADMIN)
+
+    def test_both_flags_gets_site_admin_role(self):
+        """is_site_admin=True and can_access_all_content=True together also return SITE_ADMIN."""
+        admin = User.objects.create_user(username="full_admin", password="pass")
+        admin.is_site_admin = True
+        admin.can_access_all_content = True
+        admin.save()
+        self.assertEqual(get_board_role(admin, self.board), SITE_ADMIN)
+
+    def test_is_site_admin_without_can_access_all_content_returns_none(self):
+        """is_site_admin=True with can_access_all_content=False does NOT grant board access."""
+        admin = User.objects.create_user(username="admin_no_content", password="pass")
+        admin.is_site_admin = True
+        admin.can_access_all_content = False
+        admin.save()
+        self.assertIsNone(get_board_role(admin, self.board))
+
+
+class CanAccessAllContentBoardQuerysetTests(TestCase):
+    """BoardViewSet.get_queryset() returns boards based on can_access_all_content, not is_site_admin."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.board, _, _ = make_board(self.owner)
+
+    def test_can_access_all_content_false_does_not_return_unjoined_boards(self):
+        """A user with is_site_admin=True but can_access_all_content=False cannot list unjoined boards."""
+        admin = User.objects.create_user(username="admin_only", password="pass")
+        admin.is_site_admin = True
+        admin.can_access_all_content = False
+        admin.save()
+        self.client.force_authenticate(admin)
+        resp = self.client.get("/api/boards/")
+        self.assertEqual(resp.status_code, 200)
+        # Normalise: API may return list or paginated dict
+        results = resp.data.get("results", resp.data) if isinstance(resp.data, dict) else resp.data
+        self.assertNotIn(self.board.id, [b["id"] for b in results])
+
+    def test_can_access_all_content_true_returns_all_boards(self):
+        """A user with can_access_all_content=True sees all boards even without membership."""
+        admin = User.objects.create_user(username="content_admin2", password="pass")
+        admin.can_access_all_content = True
+        admin.save()
+        self.client.force_authenticate(admin)
+        resp = self.client.get("/api/boards/")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.data.get("results", resp.data) if isinstance(resp.data, dict) else resp.data
+        self.assertIn(self.board.id, [b["id"] for b in results])
+
+
+class AdminCanAccessAllContentPatchTests(TestCase):
+    """Admin API can toggle can_access_all_content."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.site_admin = User.objects.create_user(username="siteadmin_patch", password="pass")
+        self.site_admin.is_site_admin = True
+        self.site_admin.save()
+        self.target = User.objects.create_user(username="target_user", password="pass")
+
+    def test_patch_can_access_all_content_true(self):
+        self.client.force_authenticate(self.site_admin)
+        resp = self.client.patch(
+            f"/api/admin/users/{self.target.pk}/",
+            {"can_access_all_content": True},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.target.refresh_from_db()
+        self.assertTrue(self.target.can_access_all_content)
+
+    def test_patch_can_access_all_content_false(self):
+        self.target.can_access_all_content = True
+        self.target.save()
+        self.client.force_authenticate(self.site_admin)
+        resp = self.client.patch(
+            f"/api/admin/users/{self.target.pk}/",
+            {"can_access_all_content": False},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.target.refresh_from_db()
+        self.assertFalse(self.target.can_access_all_content)
 
 
 class CardCreationRBACTests(TestCase):

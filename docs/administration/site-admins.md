@@ -2,9 +2,44 @@
 
 ## What is a site admin?
 
-A site admin has unrestricted access to every board and group on the instance. They are protected — no regular admin can remove or demote them.
+The term "site admin" covers two distinct privileges that are now tracked by separate flags:
+
+| Flag | What it controls |
+|---|---|
+| `is_site_admin` | Access to the `/admin` admin panel and admin API (`/api/admin/*`). Required to manage users, settings, and instance configuration. |
+| `can_access_all_content` | Read/write access to **every board and group** on the instance, regardless of membership. This is the "omniscient" content access. |
+
+Before Visiban 1.1 (issue #247) these two were coupled — `is_site_admin` implied content access. They are now independent so operators can grant admin panel access without also granting board/group omniscience, and vice versa.
+
+!!! note
+    Existing site admins are **automatically migrated**: the database migration sets `can_access_all_content=True` for every row where `is_site_admin=True`, so no access is lost on upgrade.
 
 See [Roles & Permissions](../features/rbac/roles.md) for the full permission table.
+
+## Granting and revoking content access separately
+
+If you want a user to manage the admin panel **without** seeing all boards and groups, grant `is_site_admin` but leave `can_access_all_content` off:
+
+```bash
+# Grant admin panel access only — board/group access unchanged
+python manage.py set_site_admin <username>
+# Then immediately revoke content access if the user should not have it:
+# (use the admin panel toggle, or Django admin to uncheck can_access_all_content)
+```
+
+If you want a user to see all boards (e.g. a support engineer) **without** admin panel access, you can enable `can_access_all_content` via the admin panel (**Site Admin → Users → Grant all-content**) without enabling `is_site_admin`.
+
+The `set_site_admin` management command always sets **both** flags together for convenience:
+
+```bash
+# Grant both flags
+python manage.py set_site_admin <username>
+
+# Revoke both flags
+python manage.py set_site_admin <username> --revoke
+```
+
+To manage the flags independently, use **Site Admin → Users** in the admin panel.
 
 ## First site admin
 
