@@ -158,8 +158,8 @@ See [Analytics](analytics.md) for details.
 
 Click **Export** in the board toolbar to download the board data:
 
-- **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history
-- **JSON** — full board structure including columns, swimlanes, labels, and cards with comments and checklists; all objects include their `uid` field, making the export suitable for diffing snapshots or importing into external systems while preserving identity
+- **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log.
+- **JSON** — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. **Use JSON to preserve full card history across an export/import cycle.**
 
 Export is available to all board members (viewer and above). The export endpoints are:
 
@@ -168,7 +168,17 @@ Export is available to all board members (viewer and above). The export endpoint
 
 ### Import
 
-Click **Import** on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards (including comments and checklist items for JSON imports). An optional board name override can be specified.
+Click **Import** on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards.
+
+**JSON import** restores full card history:
+
+- Assignee (matched by username; cards whose assignee username is not found in this instance are imported unassigned)
+- Movement history — every column transition appears in the card's **History** tab
+- Activity log — assignee changes, label changes, priority changes, due-date changes, checklist events, and comments all appear in the activity feed
+
+**CSV import** creates cards with their current field values only. Movement history and activity log are not restored.
+
+An optional board name override can be specified at import time.
 
 !!! warning "Import limits"
     To prevent runaway server load, imports are rejected if the file exceeds any of these limits:
@@ -182,8 +192,8 @@ Click **Import** on the dashboard to create a new board from a previously export
 
     Boards exported from Visiban stay well within these limits in normal use. If you are migrating from an external tool and your board exceeds a limit, split it into smaller boards before importing.
 
-!!! note "Assignees not preserved"
-    Card assignees are not carried over on import — all cards are imported as unassigned. Reassign cards manually after import, or use the bulk assign action.
+!!! note "JSON vs CSV import fidelity"
+    JSON imports restore movement history, activity log, and assignees (matched by username). CSV imports create cards with their current field values only — no history or activity log is restored.
 
 - `POST /api/boards/import/` — multipart file upload
 

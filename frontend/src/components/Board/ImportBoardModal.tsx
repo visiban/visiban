@@ -80,7 +80,7 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
         <div className="px-6 pt-6 pb-4 border-b border-slate-800">
           <h2 id="import-board-title" className="text-white text-lg font-semibold">Import Board</h2>
           <p className="text-slate-400 text-sm mt-0.5">
-            Upload a Visiban JSON or CSV export to create a new board.
+            Upload a Visiban JSON or CSV export to create a new board. JSON preserves full card history — movements, activity log, and assignees.
           </p>
         </div>
 

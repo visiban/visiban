@@ -150,6 +150,20 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - Collapse/expand chevron: prominent, `text-slate-400 hover:text-white transition` — must clearly communicate interactivity
 - Edit (✎) button: `group-hover:opacity-100 opacity-0 transition` — visible at full opacity on hover, not discoverable by accident
 
+## Radio groups
+
+Never render browser-default radio circles. Use `sr-only` native `<input type="radio">` inside a `label` container — this preserves native keyboard navigation (arrow keys, Tab, Space) while hiding the visual control.
+
+Represent selection state on the container:
+- Selected: `border-blue-500 bg-blue-500/10`
+- Unselected: `border-slate-600 hover:bg-slate-700/40`
+- Keyboard focus: `focus-within:ring-2 focus-within:ring-blue-500 rounded-lg` on the `label`
+- Transition: `transition-colors duration-150`
+
+Option text: `text-sm text-slate-200 font-medium` for the label, `text-xs text-slate-500 mt-0.5` for the description line below it.
+
+The action button following a radio group uses the primary variant (`bg-blue-600 hover:bg-blue-700 text-white`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
+
 ## Tooltips
 
 - Consistent delay: 300 ms show, immediate hide
