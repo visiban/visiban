@@ -4,7 +4,7 @@ import type { Group, GroupLabel, GroupMembership, GroupInviteLink, Board, Priori
 export const listGroups = () =>
   client.get<{ results: Group[] }>("/api/groups/").then((r) => r.data.results);
 
-export const createGroup = (data: { name: string; parent?: number | null }) =>
+export const createGroup = (data: { name: string; description?: string; parent?: number | null }) =>
   client.post<Group>("/api/groups/", data).then((r) => r.data);
 
 export const getGroup = (id: number) =>

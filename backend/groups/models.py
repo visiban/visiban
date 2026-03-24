@@ -67,6 +67,7 @@ class Group(models.Model):
         VIEWER = "viewer"
 
     name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_groups"
     )

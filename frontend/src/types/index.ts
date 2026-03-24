@@ -241,6 +241,7 @@ export interface GroupLabel {
 export interface Group {
   id: number;
   name: string;
+  description: string;
   owner: User;
   parent: number | null;
   parent_name: string | null;
@@ -252,6 +253,8 @@ export interface Group {
   allowed_priorities: Priority[];
   shared_labels: GroupLabel[];
   is_starred: boolean;
+  // Only present on the retrieve endpoint (GroupDetailSerializer); absent on list.
+  ancestors?: { id: number; name: string }[];
 }
 
 export interface GroupMembership {

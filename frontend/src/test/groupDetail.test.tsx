@@ -50,7 +50,7 @@ const fakeUser: User = {
 }
 
 const fakeGroup: Group = {
-  id: 1, name: 'Engineering', owner: fakeUser,
+  id: 1, name: 'Engineering', description: '', owner: fakeUser,
   parent: null, parent_name: null,
   member_count: 2, board_count: 1, subgroup_count: 0, created_at: '',
   default_board_member_role: 'member', allowed_priorities: [], shared_labels: [],
@@ -272,6 +272,107 @@ describe('GroupDetail', () => {
 
     await screen.findByRole('heading', { name: 'Engineering' }) // wait for load
     expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
+  })
+
+  it('renders ancestor breadcrumb when ancestors array is present', async () => {
+    mockGetGroup.mockResolvedValue({
+      ...fakeGroup,
+      ancestors: [{ id: 10, name: 'RootOrg' }, { id: 11, name: 'PlatformTeam' }],
+    })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    // Both the Navbar and in-page breadcrumbs render the ancestor links
+    expect((await screen.findAllByText('RootOrg')).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('PlatformTeam').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('does not render breadcrumb for root-level groups', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, ancestors: [] })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    await screen.findByRole('heading', { name: 'Engineering' })
+    expect(screen.queryByRole('navigation', { name: 'Group breadcrumb' })).not.toBeInTheDocument()
+  })
+
+  it('admin sees description edit placeholder when description is empty', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: '' })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    await screen.findByRole('heading', { name: 'Engineering' })
+    expect(screen.getByText('Add a description…')).toBeInTheDocument()
+  })
+
+  it('admin can click description area to edit it', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: 'Our main engineering group' })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    const descText = await screen.findByText('Our main engineering group')
+    fireEvent.click(descText)
+
+    const textarea = screen.getByRole('textbox', { name: '' })
+    expect((textarea as HTMLTextAreaElement).value).toBe('Our main engineering group')
+  })
+
+  it('description edit saves on blur and calls updateGroup', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: 'Original' })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroup.mockResolvedValue({ ...fakeGroup, description: 'Updated' })
+    renderGroupDetail()
+
+    const descText = await screen.findByText('Original')
+    fireEvent.click(descText)
+
+    const textarea = screen.getByRole('textbox', { name: '' })
+    fireEvent.change(textarea, { target: { value: 'Updated' } })
+    fireEvent.blur(textarea)
+
+    expect(mockUpdateGroup).toHaveBeenCalledWith(1, { description: 'Updated' })
+  })
+
+  it('description edit cancels on Escape', async () => {
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: 'Original' })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    const descText = await screen.findByText('Original')
+    fireEvent.click(descText)
+
+    const textarea = screen.getByRole('textbox', { name: '' })
+    fireEvent.change(textarea, { target: { value: 'Should not save' } })
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+
+    expect(screen.queryByRole('textbox', { name: '' })).not.toBeInTheDocument()
+    expect(mockUpdateGroup).not.toHaveBeenCalled()
+  })
+
+  it('non-admin with description sees plain text, no edit affordance', async () => {
+    const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, description: 'Team description', owner: otherOwner })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'member', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    expect(await screen.findByText('Team description')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Team description'))
+    // No textarea should appear for non-admin
+    expect(screen.queryByRole('textbox', { name: '' })).not.toBeInTheDocument()
   })
 
   it('admin can click heading to start inline rename', async () => {
