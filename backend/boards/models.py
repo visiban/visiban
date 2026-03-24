@@ -1,6 +1,7 @@
 import uuid
 
 from django.contrib.postgres.indexes import GinIndex
+from django.core.validators import MaxValueValidator
 from django.db import models
 from django.conf import settings
 
@@ -58,6 +59,14 @@ class Board(models.Model):
         "groups.Group", null=True, blank=True, on_delete=models.SET_NULL, related_name="boards"
     )
     staleness_threshold_days = models.PositiveIntegerField(default=7)
+    stale_warning_pct = models.PositiveSmallIntegerField(
+        default=50,
+        validators=[MaxValueValidator(100)],
+        help_text=(
+            "Percentage of staleness_threshold_days at which heatmap cells turn yellow. "
+            "At 100% of the threshold they turn red. Must be 0–100."
+        ),
+    )
     allowed_priorities = models.JSONField(
         default=list,
         help_text="Allowed card priorities on this board. Empty list means all priorities are allowed.",

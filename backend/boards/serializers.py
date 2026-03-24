@@ -211,8 +211,13 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "allowed_priorities", "enforce_wip_limits", "enforce_weight_limits", "created_at", "updated_at", "is_starred"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_weight_limits", "created_at", "updated_at", "is_starred"]
         read_only_fields = ["uid", "created_at", "updated_at"]
+
+    def validate_stale_warning_pct(self, value):
+        if value < 0 or value > 100:
+            raise serializers.ValidationError("stale_warning_pct must be between 0 and 100.")
+        return value
 
     def get_member_count(self, obj):
         # Use the annotation injected by BoardViewSet.get_queryset() when available
@@ -249,7 +254,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         model = Board
         fields = [
             "id", "uid", "name", "description", "group", "group_name", "columns", "swimlanes",
-            "cards", "labels", "members", "staleness_threshold_days",
+            "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred",
         ]
         read_only_fields = ["uid"]

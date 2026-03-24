@@ -19,9 +19,10 @@ interface SwimlaneStat {
 interface AnalyticsData {
   days: number;
   columns: string[];
-  board_medians: Record<string, number | null>;
   swimlanes: SwimlaneStat[];
   stalled_threshold_days: number;
+  staleness_threshold_days: number;
+  stale_warning_pct: number;
 }
 
 type DaysOption = 7 | 30 | 90;
@@ -33,10 +34,10 @@ interface Props {
   onOpenCard?: (cardId: number) => void;
 }
 
-function cellColor(avg: number | null, median: number | null, isOutlier: boolean): string {
+function cellColor(avg: number | null, threshold: number, warningPct: number): string {
   if (avg === null) return "bg-slate-800 text-slate-500";
-  if (isOutlier) return "bg-red-900/40 text-red-400 font-semibold";
-  if (median !== null && avg > median) return "bg-yellow-900/30 text-yellow-400";
+  if (avg >= threshold) return "bg-red-900/40 text-red-400 font-semibold";
+  if (avg >= threshold * (1 - warningPct / 100)) return "bg-yellow-900/30 text-yellow-400";
   return "bg-green-900/30 text-green-400";
 }
 
@@ -67,7 +68,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
   useEffect(() => {
     setLoading(true);
-    getBoardAnalytics(boardId, days, days)
+    getBoardAnalytics(boardId, days)
       .then((d: AnalyticsData) => { setData(d); setLoading(false); })
       .catch(() => { setError("Failed to load analytics."); setLoading(false); });
   }, [boardId, days]);
@@ -75,6 +76,8 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
   if (loading) return <div className="flex-1 flex items-center justify-center bg-slate-900 text-slate-400">Loading analytics…</div>;
   if (error) return <div className="flex-1 flex items-center justify-center bg-slate-900 text-red-500">{error}</div>;
   if (!data) return null;
+
+  const { staleness_threshold_days: threshold, stale_warning_pct: warningPct } = data;
 
   const allStalled = data.swimlanes.flatMap((sw) =>
     sw.stalled_cards.map((c) => ({ ...c, swimlane: sw.name }))
@@ -126,11 +129,6 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
               {data.columns.map((col) => (
                 <th key={col} className="pb-2 px-3 font-medium text-center min-w-[90px]">
                   {col}
-                  {data.board_medians[col] !== null && (
-                    <div className="text-slate-400 font-normal normal-case tracking-normal mt-0.5">
-                      med {data.board_medians[col]}d
-                    </div>
-                  )}
                 </th>
               ))}
               <th className="pb-2 px-3 font-medium text-center">Velocity</th>
@@ -142,15 +140,13 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                 <td className="py-1.5 pr-4 font-medium text-slate-200 sticky left-0 bg-slate-900">{sw.name}</td>
                 {data.columns.map((col) => {
                   const avg = sw.avg_days_per_column[col];
-                  const isOut = sw.is_outlier[col];
+                  const capped = avg !== null && avg >= data.days;
                   return (
                     <td
                       key={col}
-                      className={`py-1.5 px-3 text-center rounded text-xs ${cellColor(avg, data.board_medians[col], isOut)}`}
-                      title={isOut ? "Outlier: >2× board median" : undefined}
+                      className={`py-1.5 px-3 text-center rounded text-xs ${cellColor(avg, threshold, warningPct)}`}
                     >
-                      {avg !== null ? `${avg}d` : "—"}
-                      {isOut && <span className="ml-1 text-red-500">⚠</span>}
+                      {avg !== null ? `${capped ? "≥" : ""}${avg}d` : "—"}
                     </td>
                   );
                 })}

@@ -217,6 +217,17 @@ For plain-text description fields that are inline-editable by admins:
 - Error text: `text-red-400`; success text: `text-green-400` — always on a `<span>` inside the reserved container, not directly on the `<p>`
 - **Relabel destructive-escape actions after success** — if a modal stays open after a successful action, relabel "Cancel" to "Close" once success state is set, so the button's semantics match the user's situation
 
+## Paired numeric settings fields
+
+When two related numeric inputs belong to the same conceptual setting (e.g. threshold + warning percentage):
+
+- Group them in a single `<section>` with a shared `<h3>` heading
+- Render each as its own `flex flex-col gap-1.5` block (input row + helper text), stacked in a `flex flex-col gap-3` container
+- Each input row: `flex items-center gap-2` with a `w-20` number input and a `text-sm text-slate-400` unit label
+- Helper text: `text-xs text-slate-500` — explain the relationship between the two values with a concrete example
+- Non-admin read-only view: single `text-sm text-slate-300` line combining both values (e.g. "14 days · 50% warning")
+- `onBlur` saves each field independently via `patchBoard`; clamp values client-side before patching
+
 ## Loading and spinner states
 
 - Consistent spinner: single size per context (e.g. `w-5 h-5` inline, `w-8 h-8` full-page)

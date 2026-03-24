@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- Analytics heatmap now uses absolute threshold-based coloring: green (well under threshold), yellow (within warning %), red (at or above threshold). Both the stale threshold and warning percentage are configurable per board in Board Settings → Stale card settings.
+- New `stale_warning_pct` board setting (0–100, default 50) controls the yellow warning band in the analytics heatmap.
+
+### Changed
+- Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
+- Board Settings stale card section renamed from "Stale card threshold" to "Stale card settings" with a second input for the warning percentage.
+
 ---
 
 ## [1.0.0-rc.9] — 2026-03-24

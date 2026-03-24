@@ -24,7 +24,7 @@ const fakeBoard: BoardFull = {
   cards: [],
   labels: [],
   members: [],
-  staleness_threshold_days: 7, allowed_priorities: [],
+  staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
   enforce_wip_limits: false, enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
 }
 

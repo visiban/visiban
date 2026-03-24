@@ -203,6 +203,7 @@ export interface Board {
   member_count: number;
   card_count: number;
   staleness_threshold_days: number;
+  stale_warning_pct: number;
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
   enforce_weight_limits: boolean;
@@ -224,6 +225,7 @@ export interface BoardFull {
   labels: Label[];
   members: BoardMembership[];
   staleness_threshold_days: number;
+  stale_warning_pct: number;
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
   enforce_weight_limits: boolean;

@@ -77,7 +77,6 @@ describe('AnalyticsView', () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do', 'Done'],
-      board_medians: { 'To Do': 3, 'Done': 1 },
       swimlanes: [
         {
           id: 1, name: 'Customer A',
@@ -88,6 +87,8 @@ describe('AnalyticsView', () => {
         },
       ],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
 
@@ -101,9 +102,10 @@ describe('AnalyticsView', () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: [],
-      board_medians: {},
       swimlanes: [],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('Export CSV')).toBeInTheDocument()
@@ -113,9 +115,10 @@ describe('AnalyticsView', () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: [],
-      board_medians: {},
       swimlanes: [],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="member" />)
     await screen.findByText('Period:')
@@ -126,7 +129,6 @@ describe('AnalyticsView', () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
-      board_medians: { 'To Do': 3 },
       swimlanes: [
         {
           id: 1, name: 'Customer A',
@@ -137,6 +139,8 @@ describe('AnalyticsView', () => {
         },
       ],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('Stale Card')).toBeInTheDocument()
@@ -147,7 +151,6 @@ describe('AnalyticsView', () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
-      board_medians: { 'To Do': 3 },
       swimlanes: [
         {
           id: 1, name: 'Customer A',
@@ -158,6 +161,8 @@ describe('AnalyticsView', () => {
         },
       ],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     const onOpenCard = vi.fn()
     render(<AnalyticsView boardId={1} currentUserRole="admin" onOpenCard={onOpenCard} />)
@@ -169,21 +174,21 @@ describe('AnalyticsView', () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: [],
-      board_medians: {},
       swimlanes: [],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     await screen.findByText('Period:')
     await userEvent.setup().click(screen.getByText('7d'))
-    expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7, 7)
+    expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7)
   })
 
   it('shows empty-period message when no heatmap data exists', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do', 'Done'],
-      board_medians: { 'To Do': null, 'Done': null },
       swimlanes: [
         {
           id: 1, name: 'Customer A',
@@ -194,6 +199,8 @@ describe('AnalyticsView', () => {
         },
       ],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText(/No card movements recorded in the last 30 days/)).toBeInTheDocument()
@@ -203,7 +210,6 @@ describe('AnalyticsView', () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
-      board_medians: { 'To Do': 5 },
       swimlanes: [
         {
           id: 1, name: 'Customer A',
@@ -214,9 +220,100 @@ describe('AnalyticsView', () => {
         },
       ],
       stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     await screen.findByText('Customer A')
     expect(screen.queryByText(/No card movements/)).not.toBeInTheDocument()
+  })
+
+  it('colors cells red when avg meets or exceeds threshold', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 14 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const cell = await screen.findByText('14d')
+    expect(cell.className).toMatch(/red/)
+  })
+
+  it('colors cells yellow when avg is in warning range', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 8 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    // 50% warning of 14d = 7d; avg=8 is >=7 but <14 → yellow
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const cell = await screen.findByText('8d')
+    expect(cell.className).toMatch(/yellow/)
+  })
+
+  it('colors cells green when avg is well below threshold', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 3 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    // avg=3 is below 7d warning boundary → green
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    const cell = await screen.findByText('3d')
+    expect(cell.className).toMatch(/green/)
+  })
+
+  it('shows capped value with ≥ prefix when avg equals period length', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 30 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByText('≥30d')).toBeInTheDocument()
   })
 })
