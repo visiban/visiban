@@ -77,6 +77,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Panel: `bg-slate-800 border border-slate-700 rounded-lg shadow-xl`
 - Consistent padding: `p-6` for content, `pb-4` for header
 - Close button: icon-only variant, top-right corner
+- **Fixed-height tabbed modals** — when a modal contains tabs with variable content height, give the panel a fixed height (`h-[85vh] max-h-[640px] min-h-0`) rather than only a max-height. This prevents layout jumping between tabs. The scrollable content region uses `overflow-y-auto flex-1` and the panel uses `flex flex-col`. Never use `max-h` alone on a tabbed modal panel.
 
 ## Badges and labels
 
