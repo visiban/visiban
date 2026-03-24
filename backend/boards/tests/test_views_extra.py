@@ -1,8 +1,10 @@
 """Extra coverage tests: card move, card activities, attachments, move-group, analytics with movements."""
+import datetime
 import io
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -271,6 +273,98 @@ class BoardAnalyticsWithMovementsTests(TestCase):
         data = r.json()
         self.assertIn("swimlanes", data)
         self.assertIn("columns", data)
+
+
+# ---------------------------------------------------------------------------
+# Analytics dwell-time and stall-threshold tests
+# ---------------------------------------------------------------------------
+
+class AnalyticsDwellTimeTests(TestCase):
+    """Verify that the heatmap includes cards whose column entry predates the
+    analysis window (they should contribute in-window dwell time, not be
+    excluded entirely)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u2", password="pass")
+        self.board, self.col, self.col2, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _movement(self, card, col, swim, moved_at):
+        mv = CardMovement.objects.create(
+            card=card, to_column=col, to_swimlane=swim, moved_by=self.user
+        )
+        mv.moved_at = moved_at
+        mv.save(update_fields=["moved_at"])
+        return mv
+
+    def test_card_entered_before_window_still_shows_dwell_time(self):
+        """A card placed in a column 45 days ago should appear in the 30d heatmap
+        with ~30 days of dwell time (capped at the window start)."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=45))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        # Should be ~30 days, not null — the card is still in col right now
+        avg = sw["avg_days_per_column"].get(self.col.name)
+        self.assertIsNotNone(avg)
+        self.assertAlmostEqual(avg, 30.0, delta=0.5)
+
+    def test_card_fully_before_window_excluded(self):
+        """A card that entered and exited a column entirely before the window
+        must not contribute dwell time to the 7d heatmap."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        # Moved into col1 60 days ago, then to col2 40 days ago — both before 7d window
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=60))
+        self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=40))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        # col was fully in-and-out before the 7d window — should be null
+        self.assertIsNone(sw["avg_days_per_column"].get(self.col.name))
+
+    def test_stall_threshold_uses_board_setting_not_period(self):
+        """The stall threshold must use board.staleness_threshold_days, not the
+        period query param, so 7d heatmap does not flag everything as stalled."""
+        self.board.staleness_threshold_days = 14
+        self.board.save(update_fields=["staleness_threshold_days"])
+
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        # Last movement 10 days ago — stalled under default 7d but not under 14d
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        self.assertEqual(len(sw["stalled_cards"]), 0)
+        self.assertEqual(data["stalled_threshold_days"], 14)
+
+    def test_stall_threshold_query_param_overrides_board_setting(self):
+        """Explicit stalled_days query param overrides the board setting."""
+        self.board.staleness_threshold_days = 30
+        self.board.save(update_fields=["staleness_threshold_days"])
+
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        # Last movement 10 days ago — not stalled under 30d board setting,
+        # but stalled under explicit stalled_days=5 override
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30&stalled_days=5")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        self.assertEqual(len(sw["stalled_cards"]), 1)
+        self.assertEqual(data["stalled_threshold_days"], 5)
 
 
 # ---------------------------------------------------------------------------

@@ -75,6 +75,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Column settings modal now includes a "Delete column" danger button (admin-only), routing through the existing confirmation dialog — previously the only way to delete a column was the undiscoverable drag-to-trash gesture (#267)
 - Group admins can now rename a group inline by clicking the group name heading on the Group detail page — non-admins see a plain, non-editable heading (#323)
 - `PATCH /api/groups/<id>/` and `PUT /api/groups/<id>/` now require group admin role; previously any group member could rename or re-parent a group (#323)
+- Analytics heatmap now shows dwell-time data across all period views (7d, 30d, 90d) — cards that entered a column before the selected window were previously excluded entirely, causing those periods to show dashes; entry time is now capped at the window start so active cards always contribute
+- Analytics stall detection now uses the board's `staleness_threshold_days` setting to decide when a card is stalled, instead of the selected period length — previously 7d incorrectly flagged every unmoved card as stalled regardless of the configured threshold
 
 ### Changed
 

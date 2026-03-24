@@ -907,11 +907,12 @@ class BoardViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         now = timezone.now()
-        stall_cutoff = now - datetime.timedelta(days=stalled_days)
-        # Only count dwell time for column entries that occurred within the chosen
-        # period window. This makes 7d / 30d / 90d produce meaningfully different
-        # heatmaps: a 7-day view shows only very recent activity, while 90d gives
-        # the full historical picture.
+        # Default stall threshold to the board's configured value so it is
+        # independent of the chosen heatmap period. The query param can still
+        # override it for ad-hoc queries.
+        effective_stalled_days = stalled_days if "stalled_days" in request.query_params else board.staleness_threshold_days
+        stall_cutoff = now - datetime.timedelta(days=effective_stalled_days)
+        # The period window controls which dwell-time data feeds the heatmap.
         period_cutoff = now - datetime.timedelta(days=days)
 
         columns = list(board.columns.order_by("position"))
@@ -945,14 +946,17 @@ class BoardViewSet(viewsets.ModelViewSet):
                     col_name = col_id_to_name.get(mv.to_column_id)
                     if not col_name:
                         continue
-                    # Skip movements that started before the analysis window — they
-                    # don't belong in the chosen period's dwell time calculations.
-                    if mv.moved_at < period_cutoff:
-                        continue
-                    entry = mv.moved_at
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
                     exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else (card.archived_at or now)
+                    # Skip cards that were fully in-and-out before the window started.
+                    if exit_ <= period_cutoff:
+                        continue
+                    # Cap entry at period_cutoff so cards that entered before the
+                    # window still contribute their in-window dwell time. Without
+                    # this, a card sitting in a column for 45 days shows as empty
+                    # on the 30d heatmap even though 30 of those days are in scope.
+                    entry = max(mv.moved_at, period_cutoff)
                     dwell_days = (exit_ - entry).total_seconds() / 86400
                     col_dwells[col_name].append(dwell_days)
                     all_col_dwells[col_name].append(dwell_days)
