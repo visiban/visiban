@@ -346,6 +346,8 @@ class GroupMemberSiteAdminTests(TestCase):
         self.site_admin = User.objects.create_user(
             username="sa", password="pass", is_site_admin=True
         )
+        self.site_admin.can_access_all_content = True
+        self.site_admin.save()
         self.client = APIClient()
         self.client.force_authenticate(self.admin)
 

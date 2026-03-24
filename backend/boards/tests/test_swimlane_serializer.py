@@ -65,6 +65,7 @@ class SwimlaneListFieldExposureTests(TestCase):
     def test_site_admin_sees_contact_email_and_notes(self):
         site_admin = User.objects.create_user(username="siteadmin", password="pass")
         site_admin.is_site_admin = True
+        site_admin.can_access_all_content = True
         site_admin.save()
         r = self._get_swimlanes(site_admin)
         self.assertEqual(r.status_code, status.HTTP_200_OK)
