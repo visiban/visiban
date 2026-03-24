@@ -50,8 +50,7 @@ class GetBoardRoleTests(TestCase):
         admin.is_site_admin = True
         admin.can_access_all_content = True
         admin.save()
-        # is_site_admin alone no longer grants board access — must also have can_access_all_content
-        self.assertIsNone(get_board_role(admin, self.board))
+        self.assertEqual(get_board_role(admin, self.board), SITE_ADMIN)
 
     def test_can_access_all_content_gets_site_admin_role(self):
         """can_access_all_content=True grants SITE_ADMIN board role regardless of is_site_admin."""

@@ -236,9 +236,21 @@ describe('CardDetail', () => {
     expect(screen.getByText('No attachments.')).toBeInTheDocument()
   })
 
-  it('renders upload button', () => {
-    render(<CardDetail {...defaultProps()} />)
-    expect(screen.getByText('+ Upload')).toBeInTheDocument()
+  it('renders upload button when uploads_enabled is true', () => {
+    render(<CardDetail {...defaultProps()} currentUser={{ ...fakeUser, uploads_enabled: true }} />)
+    const btn = screen.getByText('+ Upload')
+    expect(btn).toBeInTheDocument()
+    expect(btn.tagName).toBe('BUTTON')
+  })
+
+  it('renders disabled upload text when uploads_enabled is false', () => {
+    render(<CardDetail {...defaultProps()} currentUser={{ ...fakeUser, uploads_enabled: false }} />)
+    const el = screen.getByText('+ Upload')
+    expect(el).toBeInTheDocument()
+    // Must not be an interactive button
+    expect(el.tagName).not.toBe('BUTTON')
+    expect(el.className).toContain('cursor-not-allowed')
+    expect((el as HTMLElement).title).toContain('disabled')
   })
 
   it('renders comments section', () => {
