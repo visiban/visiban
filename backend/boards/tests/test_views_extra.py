@@ -282,6 +282,8 @@ class SiteAdminBoardListTests(TestCase):
         self.site_admin = User.objects.create_user(
             username="sa", password="pass", is_site_admin=True
         )
+        self.site_admin.can_access_all_content = True
+        self.site_admin.save()
         self.owner = User.objects.create_user(username="owner", password="pass")
         self.board, _, _, _ = _make_board(self.owner)
         self.client = APIClient()

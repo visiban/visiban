@@ -167,7 +167,6 @@ def enrich_file(path):
         # Ensure movements cover every column from 0 to current
         if columns and card.get("column") in col_index:
             current_col_idx = col_index[card["column"]]
-            existing_to_cols = {m.get("to_column") for m in movements}
             swimlane = card.get("swimlane", "")
 
             # Build complete movement chain if gaps exist

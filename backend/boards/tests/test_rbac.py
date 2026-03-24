@@ -48,6 +48,7 @@ class GetBoardRoleTests(TestCase):
     def test_site_admin_gets_site_admin_role(self):
         admin = User.objects.create_user(username="siteadmin", password="pass")
         admin.is_site_admin = True
+        admin.can_access_all_content = True
         admin.save()
         self.assertEqual(get_board_role(admin, self.board), SITE_ADMIN)
 
