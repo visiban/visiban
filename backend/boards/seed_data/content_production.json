@@ -166,6 +166,58 @@
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Thought Leadership",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-02",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Assigned to writer",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Assigned to writer",
+          "actor": "demo2",
+          "created_at": "2026-02-09T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft due",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:23:00+00:00"
+        }
       ]
     },
     {
@@ -256,6 +308,100 @@
           "to_swimlane": "Blog Posts",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo4"
+        }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Product, SEO",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Outline approved",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Outline approved",
+          "actor": "demo3",
+          "created_at": "2026-01-09T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft written (1,200 words)",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft written (1,200 words)",
+          "actor": "demo3",
+          "created_at": "2026-01-09T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Internal review by content lead",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Internal review by content lead",
+          "actor": "demo3",
+          "created_at": "2026-01-09T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "SEO edits applied",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "SEO edits applied",
+          "actor": "demo3",
+          "created_at": "2026-01-09T00:27:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Final approval from marketing director",
+          "actor": "demo2",
+          "created_at": "2026-01-09T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Good draft. Reviewer requested 2 more concrete examples.",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:30:00+00:00"
         }
       ]
     },
@@ -365,6 +511,100 @@
           "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo5"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Evergreen, SEO, Thought Leadership",
+          "actor": "demo3",
+          "created_at": "2025-12-16T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2025-12-16T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Keyword research complete",
+          "actor": "demo3",
+          "created_at": "2025-12-16T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Keyword research complete",
+          "actor": "demo4",
+          "created_at": "2025-12-16T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Outline approved by marketing lead",
+          "actor": "demo3",
+          "created_at": "2025-12-16T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Outline approved by marketing lead",
+          "actor": "demo4",
+          "created_at": "2025-12-16T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "First draft written",
+          "actor": "demo3",
+          "created_at": "2025-12-16T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "First draft written",
+          "actor": "demo4",
+          "created_at": "2025-12-16T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "SEO review",
+          "actor": "demo3",
+          "created_at": "2025-12-16T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "SEO review",
+          "actor": "demo4",
+          "created_at": "2025-12-16T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Published and indexed",
+          "actor": "demo3",
+          "created_at": "2025-12-16T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Published and indexed",
+          "actor": "demo4",
+          "created_at": "2025-12-16T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Published 2026-03-05. Ranking on page 2 for target keyword after 10 days.",
+          "actor": "demo1",
+          "created_at": "2025-12-16T00:29:00+00:00"
+        }
       ]
     },
     {
@@ -434,6 +674,86 @@
           "to_swimlane": "Case Studies",
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Customer Story",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone interview with Mosaic ops manager",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone interview with Mosaic ops manager",
+          "actor": "demo5",
+          "created_at": "2026-01-22T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft written",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft written",
+          "actor": "demo5",
+          "created_at": "2026-01-22T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo5",
+          "created_at": "2026-01-22T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send to customer for approval",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Great quote in the interview. Sending draft to customer today.",
+          "actor": "demo1",
+          "created_at": "2026-01-22T00:27:00+00:00"
         }
       ]
     },
@@ -534,6 +854,114 @@
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo5"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Customer Story, Product",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-30",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Customer interview recorded",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Customer interview recorded",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft written",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft written",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Customer review and approval",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Customer review and approval",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal cleared",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:29:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal cleared",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:31:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scheduled for 2026-04-01 publish",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:32:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Scheduled for 2026-04-01 publish",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:34:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "TechNova approved final copy on 2026-03-20. Embargo in place.",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:35:00+00:00"
+        }
       ]
     },
     {
@@ -571,6 +999,51 @@
           "to_swimlane": "Video & Webinars",
           "moved_at": "2026-03-04T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-03-03T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Product, Thought Leadership",
+          "actor": "demo5",
+          "created_at": "2026-03-03T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-14",
+          "actor": "demo5",
+          "created_at": "2026-03-03T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Date confirmed (2026-04-15)",
+          "actor": "demo5",
+          "created_at": "2026-03-03T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Speaker lineup confirmed",
+          "actor": "demo5",
+          "created_at": "2026-03-03T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Registration page live",
+          "actor": "demo5",
+          "created_at": "2026-03-03T00:20:00+00:00"
         }
       ]
     },
@@ -655,6 +1128,107 @@
           "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Evergreen, Product",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Script written and approved",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Script written and approved",
+          "actor": "demo2",
+          "created_at": "2026-01-11T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Screen recording completed",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Screen recording completed",
+          "actor": "demo2",
+          "created_at": "2026-01-11T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Voiceover recorded",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Voiceover recorded",
+          "actor": "demo2",
+          "created_at": "2026-01-11T00:28:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Edited and captioned",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:29:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Edited and captioned",
+          "actor": "demo2",
+          "created_at": "2026-01-11T00:31:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Awaiting final approval from marketing director",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:32:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Video looks great. Awaiting director sign-off before upload.",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:34:00+00:00"
+        }
       ]
     },
     {
@@ -719,6 +1293,72 @@
           "to_swimlane": "Email & Newsletter",
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Evergreen",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-17",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tips section written",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Tips section written",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Customer spotlight section written",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Customer spotlight section written",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scheduled in Mailchimp",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:22:00+00:00"
         }
       ]
     },
@@ -822,6 +1462,93 @@
           "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo1"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2025-12-12T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Product",
+          "actor": "demo2",
+          "created_at": "2025-12-12T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2025-12-12T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Copy written",
+          "actor": "demo2",
+          "created_at": "2025-12-12T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Copy written",
+          "actor": "demo3",
+          "created_at": "2025-12-12T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design reviewed",
+          "actor": "demo2",
+          "created_at": "2025-12-12T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design reviewed",
+          "actor": "demo3",
+          "created_at": "2025-12-12T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "A/B subject line test set up",
+          "actor": "demo2",
+          "created_at": "2025-12-12T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "A/B subject line test set up",
+          "actor": "demo3",
+          "created_at": "2025-12-12T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Sent to 12k subscribers",
+          "actor": "demo2",
+          "created_at": "2025-12-12T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Sent to 12k subscribers",
+          "actor": "demo3",
+          "created_at": "2025-12-12T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Open rate: 34.2% (above 28% benchmark). Click-through: 8.1%.",
+          "actor": "demo1",
+          "created_at": "2025-12-12T00:29:00+00:00"
+        }
       ]
     },
     {
@@ -862,6 +1589,51 @@
           "to_swimlane": "Social & Short-form",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
+        }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Thought Leadership",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft 10-tweet thread",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Review by marketing lead",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:22:00+00:00"
         }
       ]
     },
@@ -954,7 +1726,95 @@
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo3"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SEO, Thought Leadership",
+          "actor": "demo4",
+          "created_at": "2026-01-05T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-19",
+          "actor": "demo4",
+          "created_at": "2026-01-05T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Outline approved",
+          "actor": "demo4",
+          "created_at": "2026-01-05T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Outline approved",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Slides designed",
+          "actor": "demo4",
+          "created_at": "2026-01-05T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Slides designed",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Copy written and reviewed",
+          "actor": "demo4",
+          "created_at": "2026-01-05T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Copy written and reviewed",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Final approval",
+          "actor": "demo4",
+          "created_at": "2026-01-05T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Final approval",
+          "actor": "demo5",
+          "created_at": "2026-01-05T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scheduled in Buffer",
+          "actor": "demo4",
+          "created_at": "2026-01-05T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Ready to schedule. Targeting Tuesday 9am for peak LinkedIn engagement.",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:27:00+00:00"
+        }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }

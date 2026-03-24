@@ -170,6 +170,58 @@
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "UX",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-19",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Finalize dark token spec with design",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Finalize dark token spec with design",
+          "actor": "demo2",
+          "created_at": "2026-02-11T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Apply tokens to all screens",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "QA pass on all 12 core screens",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:21:00+00:00"
+        }
       ]
     },
     {
@@ -247,6 +299,79 @@
           "to_swimlane": "Mobile App",
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Core",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design conflict resolution strategy",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design conflict resolution strategy",
+          "actor": "demo3",
+          "created_at": "2026-02-08T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement local queue (AsyncStorage)",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement local queue (AsyncStorage)",
+          "actor": "demo3",
+          "created_at": "2026-02-08T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Sync-on-reconnect logic",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Beta test with 10 pilot users",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Queue logic done. Sync handler in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-08T00:27:00+00:00"
         }
       ]
     },
@@ -343,6 +468,86 @@
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2025-12-21T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Core, UX",
+          "actor": "demo3",
+          "created_at": "2025-12-21T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2025-12-21T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "FCM + APNs integration",
+          "actor": "demo3",
+          "created_at": "2025-12-21T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "FCM + APNs integration",
+          "actor": "demo4",
+          "created_at": "2025-12-21T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Notification opt-out setting",
+          "actor": "demo3",
+          "created_at": "2025-12-21T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Notification opt-out setting",
+          "actor": "demo4",
+          "created_at": "2025-12-21T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deep link to card on tap",
+          "actor": "demo3",
+          "created_at": "2025-12-21T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deep link to card on tap",
+          "actor": "demo4",
+          "created_at": "2025-12-21T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Monitor delivery rate post-launch",
+          "actor": "demo3",
+          "created_at": "2025-12-21T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Launched to 100% of mobile users. Delivery rate: 97.2%.",
+          "actor": "demo1",
+          "created_at": "2025-12-21T00:28:00+00:00"
+        }
       ]
     },
     {
@@ -413,6 +618,79 @@
           "to_swimlane": "Core Platform",
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Core, UX",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:08:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-12",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Spec approved by PM",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Spec approved by PM",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "DB migration for weight + capacity fields",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "DB migration for weight + capacity fields",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "API endpoints",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Frontend capacity bar component",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:24:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Migration done. API and frontend work starting next sprint.",
+          "actor": "demo1",
+          "created_at": "2026-02-07T00:26:00+00:00"
         }
       ]
     },
@@ -503,6 +781,93 @@
           "to_swimlane": "Core Platform",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Platform",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Boards endpoint",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Boards endpoint",
+          "actor": "demo2",
+          "created_at": "2026-01-24T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Cards endpoint",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Cards endpoint",
+          "actor": "demo2",
+          "created_at": "2026-01-24T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Activity log endpoint",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Activity log endpoint",
+          "actor": "demo2",
+          "created_at": "2026-01-24T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update API docs",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Update API docs",
+          "actor": "demo2",
+          "created_at": "2026-01-24T00:24:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Beta cohort monitoring",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "All endpoints migrated. In beta with enterprise cohort.",
+          "actor": "demo1",
+          "created_at": "2026-01-24T00:27:00+00:00"
         }
       ]
     },
@@ -606,6 +971,86 @@
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo3"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2025-12-30T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Core",
+          "actor": "demo2",
+          "created_at": "2025-12-30T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2025-12-30T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Redesign all 6 existing templates",
+          "actor": "demo2",
+          "created_at": "2025-12-30T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Redesign all 6 existing templates",
+          "actor": "demo3",
+          "created_at": "2025-12-30T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add 4 new templates",
+          "actor": "demo2",
+          "created_at": "2025-12-30T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add 4 new templates",
+          "actor": "demo3",
+          "created_at": "2025-12-30T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Seed data with movement history export",
+          "actor": "demo2",
+          "created_at": "2025-12-30T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Seed data with movement history export",
+          "actor": "demo3",
+          "created_at": "2025-12-30T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Monitor adoption in new installs",
+          "actor": "demo2",
+          "created_at": "2025-12-30T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "All 10 templates live. Early adoption data looks promising.",
+          "actor": "demo1",
+          "created_at": "2025-12-30T00:28:00+00:00"
+        }
       ]
     },
     {
@@ -646,6 +1091,58 @@
           "to_swimlane": "Integrations",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-17T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Platform",
+          "actor": "demo3",
+          "created_at": "2026-02-17T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo3",
+          "created_at": "2026-02-17T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-29",
+          "actor": "demo3",
+          "created_at": "2026-02-17T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Define triggers and actions spec",
+          "actor": "demo3",
+          "created_at": "2026-02-17T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Define triggers and actions spec",
+          "actor": "demo4",
+          "created_at": "2026-02-17T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Submit Zapier app for review",
+          "actor": "demo3",
+          "created_at": "2026-02-17T00:23:00+00:00"
         }
       ]
     },
@@ -716,6 +1213,72 @@
           "to_swimlane": "Integrations",
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo4"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Platform",
+          "actor": "demo4",
+          "created_at": "2026-01-30T00:05:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-04",
+          "actor": "demo4",
+          "created_at": "2026-01-30T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "GitHub App setup and OAuth",
+          "actor": "demo4",
+          "created_at": "2026-01-30T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "GitHub App setup and OAuth",
+          "actor": "demo5",
+          "created_at": "2026-01-30T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Webhook listener for PR events",
+          "actor": "demo4",
+          "created_at": "2026-01-30T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Webhook listener for PR events",
+          "actor": "demo5",
+          "created_at": "2026-01-30T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Card detail: PR status badge",
+          "actor": "demo4",
+          "created_at": "2026-01-30T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Docs + announcement blog post",
+          "actor": "demo4",
+          "created_at": "2026-01-30T00:21:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "GitHub App approved by GitHub Marketplace. Card badge in progress.",
+          "actor": "demo1",
+          "created_at": "2026-01-30T00:23:00+00:00"
         }
       ]
     },
@@ -811,6 +1374,86 @@
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo3"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Core",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "OAuth flow for Slack workspace",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "OAuth flow for Slack workspace",
+          "actor": "demo1",
+          "created_at": "2025-12-28T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Board-level channel config",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Board-level channel config",
+          "actor": "demo1",
+          "created_at": "2025-12-28T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Webhook handler for card events",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Webhook handler for card events",
+          "actor": "demo1",
+          "created_at": "2025-12-28T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Monitor message delivery rate",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Launch successful. 340 workspaces connected in week 1.",
+          "actor": "demo1",
+          "created_at": "2025-12-28T00:28:00+00:00"
+        }
       ]
     },
     {
@@ -843,6 +1486,51 @@
           "to_swimlane": "Analytics",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo4"
+        }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-03-08T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Core",
+          "actor": "demo1",
+          "created_at": "2026-03-08T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo1",
+          "created_at": "2026-03-08T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-05-14",
+          "actor": "demo1",
+          "created_at": "2026-03-08T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Define CSV schema",
+          "actor": "demo1",
+          "created_at": "2026-03-08T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Backend export endpoint",
+          "actor": "demo1",
+          "created_at": "2026-03-08T00:22:00+00:00"
         }
       ]
     },
@@ -923,6 +1611,86 @@
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo1"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Core, UX",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Backend: cycle time aggregation query",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Backend: cycle time aggregation query",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Frontend: column chart component",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Frontend: column chart component",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Date range filter",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Beta test with analytics-tier customers",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Backend aggregation is fast even on 10k card boards.",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:30:00+00:00"
+        }
       ]
     },
     {
@@ -981,6 +1749,65 @@
           "to_swimlane": "Compliance & Security",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo1"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Compliance, Platform",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-02",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Extend CardActivity model for membership events",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Extend CardActivity model for membership events",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Backend signals for add/remove/role change",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit log UI on board settings page",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Model extension done. Signals and UI in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:24:00+00:00"
         }
       ]
     },
@@ -1084,7 +1911,88 @@
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo1"
         }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2025-12-28T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Compliance",
+          "actor": "demo4",
+          "created_at": "2025-12-28T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo4",
+          "created_at": "2025-12-28T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Enumerate all user-owned tables",
+          "actor": "demo4",
+          "created_at": "2025-12-28T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Enumerate all user-owned tables",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement cascading deletion",
+          "actor": "demo4",
+          "created_at": "2025-12-28T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement cascading deletion",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal sign-off on coverage",
+          "actor": "demo4",
+          "created_at": "2025-12-28T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal sign-off on coverage",
+          "actor": "demo5",
+          "created_at": "2025-12-28T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Monitor deletion job success rate",
+          "actor": "demo4",
+          "created_at": "2025-12-28T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Pipeline live. Legal confirmed full coverage.",
+          "actor": "demo1",
+          "created_at": "2025-12-28T00:28:00+00:00"
+        }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }

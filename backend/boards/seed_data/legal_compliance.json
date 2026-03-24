@@ -150,6 +150,65 @@
           "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "GDPR, Vendor",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Receive updated DPA from AWS",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Receive updated DPA from AWS",
+          "actor": "demo2",
+          "created_at": "2026-02-22T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal review in progress",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:23:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "DPA received 2026-03-18. Review started.",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:25:00+00:00"
+        }
       ]
     },
     {
@@ -221,6 +280,86 @@
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo1"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "GDPR, Policy",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Technical spec submitted to legal",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Technical spec submitted to legal",
+          "actor": "demo3",
+          "created_at": "2026-01-26T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal reviewed data flow diagram",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal reviewed data flow diagram",
+          "actor": "demo3",
+          "created_at": "2026-01-26T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Sign-off received",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Sign-off received",
+          "actor": "demo3",
+          "created_at": "2026-01-26T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Archived in compliance system",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Legal confirmed full GDPR coverage. Pipeline cleared for production.",
+          "actor": "demo1",
+          "created_at": "2026-01-26T00:28:00+00:00"
+        }
       ]
     },
     {
@@ -287,6 +426,58 @@
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SOC 2",
+          "actor": "demo3",
+          "created_at": "2026-01-25T00:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scope document submitted",
+          "actor": "demo3",
+          "created_at": "2026-01-25T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Scope document submitted",
+          "actor": "demo4",
+          "created_at": "2026-01-25T00:12:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal approved",
+          "actor": "demo3",
+          "created_at": "2026-01-25T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal approved",
+          "actor": "demo4",
+          "created_at": "2026-01-25T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Archived",
+          "actor": "demo3",
+          "created_at": "2026-01-25T00:16:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Approved same day. Pen test firm granted access.",
+          "actor": "demo1",
+          "created_at": "2026-01-25T00:18:00+00:00"
+        }
       ]
     },
     {
@@ -348,6 +539,86 @@
           "to_swimlane": "Finance",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo5"
+        }
+      ],
+      "assignee": "demo4",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Contract",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-18",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Receive TechNova redlines",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Receive TechNova redlines",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Finance review of liability cap impact",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Finance review of liability cap impact",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Engineering confirm 30-day deletion feasibility",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send counter-proposal",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Finance approved 2x ARR cap. Waiting on engineering for deletion SLA.",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:30:00+00:00"
         }
       ]
     },
@@ -419,6 +690,79 @@
           "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo4"
         }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Policy",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Policy draft submitted",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Policy draft submitted",
+          "actor": "demo1",
+          "created_at": "2026-02-03T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal reviewed",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal reviewed",
+          "actor": "demo1",
+          "created_at": "2026-02-03T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Board sign-off obtained",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Board sign-off obtained",
+          "actor": "demo1",
+          "created_at": "2026-02-03T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Policy published internally",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:22:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Board approved 2026-03-12. Publishing to all staff next week.",
+          "actor": "demo1",
+          "created_at": "2026-02-03T00:24:00+00:00"
+        }
       ]
     },
     {
@@ -472,6 +816,79 @@
           "to_swimlane": "HR & People",
           "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo4"
+        }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Policy",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:10:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "HR submitted draft policy",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "HR submitted draft policy",
+          "actor": "demo2",
+          "created_at": "2026-02-25T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal review: UK and EU",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal review: UK and EU",
+          "actor": "demo2",
+          "created_at": "2026-02-25T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal review: APAC",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Final policy approved",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:25:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "UK and EU sections clear. APAC review (Australia + Japan) in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:27:00+00:00"
         }
       ]
     },
@@ -560,6 +977,86 @@
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo2"
         }
+      ],
+      "assignee": "demo2",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-12T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "GDPR, Policy",
+          "actor": "demo2",
+          "created_at": "2026-01-12T00:08:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Record types catalogued",
+          "actor": "demo2",
+          "created_at": "2026-01-12T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Record types catalogued",
+          "actor": "demo3",
+          "created_at": "2026-01-12T00:15:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Retention periods defined",
+          "actor": "demo2",
+          "created_at": "2026-01-12T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Retention periods defined",
+          "actor": "demo3",
+          "created_at": "2026-01-12T00:18:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Policy approved and published",
+          "actor": "demo2",
+          "created_at": "2026-01-12T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Policy approved and published",
+          "actor": "demo3",
+          "created_at": "2026-01-12T00:21:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Archived in compliance system",
+          "actor": "demo2",
+          "created_at": "2026-01-12T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Archived in compliance system",
+          "actor": "demo3",
+          "created_at": "2026-01-12T00:24:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Policy archived. GDPR audit finding closed.",
+          "actor": "demo1",
+          "created_at": "2026-01-12T00:25:00+00:00"
+        }
       ]
     },
     {
@@ -621,6 +1118,86 @@
           "to_swimlane": "Sales & Customer Contracts",
           "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
+        }
+      ],
+      "assignee": "demo5",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Contract",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "urgent",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "BAA sent to BlueSky legal",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "BAA sent to BlueSky legal",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "BlueSky redlines received",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "BlueSky redlines received",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal reviewing redlines",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:26:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Execute and file signed BAA",
+          "actor": "demo5",
+          "created_at": "2026-02-10T00:28:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Two minor redlines received. Legal reviewing now.",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:30:00+00:00"
         }
       ]
     },
@@ -692,6 +1269,86 @@
           "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo1"
         }
+      ],
+      "assignee": "demo1",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Contract",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:13:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "NDA submitted by account team",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "NDA submitted by account team",
+          "actor": "demo2",
+          "created_at": "2026-02-04T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal reviewed — standard terms, no issues",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal reviewed — standard terms, no issues",
+          "actor": "demo2",
+          "created_at": "2026-02-04T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Both parties executed",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Both parties executed",
+          "actor": "demo2",
+          "created_at": "2026-02-04T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Filed in contract management system",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:26:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Executed in 18 hours. Filed.",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:28:00+00:00"
+        }
       ]
     },
     {
@@ -745,6 +1402,79 @@
           "to_swimlane": "Product & Engineering Policy",
           "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo3"
+        }
+      ],
+      "assignee": "demo3",
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:05:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Policy",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:08:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:13:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Automated license header scan run",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Automated license header scan run",
+          "actor": "demo4",
+          "created_at": "2026-02-20T00:22:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Manual review of enterprise/ directory",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:23:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Any mixed-license files corrected",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:25:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal sign-off on clean state",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:27:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Automated scan: 3 files flagged. Manual review in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-20T00:29:00+00:00"
         }
       ]
     },
@@ -812,7 +1542,67 @@
           "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo3"
         }
+      ],
+      "assignee": null,
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Policy",
+          "actor": "demo4",
+          "created_at": "2026-02-03T00:05:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "low",
+          "actor": "demo4",
+          "created_at": "2026-02-03T00:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "License confirmed: BSD 3-Clause",
+          "actor": "demo4",
+          "created_at": "2026-02-03T00:14:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "License confirmed: BSD 3-Clause",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:16:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Compatible with Apache 2.0 — approved",
+          "actor": "demo4",
+          "created_at": "2026-02-03T00:17:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Compatible with Apache 2.0 — approved",
+          "actor": "demo5",
+          "created_at": "2026-02-03T00:19:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Archived",
+          "actor": "demo4",
+          "created_at": "2026-02-03T00:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Approved. BSD 3-Clause is compatible with Apache 2.0.",
+          "actor": "demo1",
+          "created_at": "2026-02-03T00:22:00+00:00"
+        }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }
