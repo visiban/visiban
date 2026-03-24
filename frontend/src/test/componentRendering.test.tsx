@@ -334,7 +334,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -351,7 +351,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -368,7 +368,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -384,7 +384,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -400,7 +400,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -416,7 +416,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -433,7 +433,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={true}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -450,7 +450,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -468,7 +468,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -485,7 +485,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={false}
         onToggleCollapse={noop}
       />,
@@ -501,7 +501,7 @@ describe('ColumnHeader', () => {
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
-        onColumnDeleted={noop}
+        onRequestDelete={noop}
         collapsed={true}
         onToggleCollapse={noop}
       />,
