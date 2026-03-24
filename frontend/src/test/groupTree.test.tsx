@@ -25,7 +25,7 @@ const fakeOwner: User = {
 
 function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
-    id: 1, name: 'Engineering', owner: fakeOwner,
+    id: 1, name: 'Engineering', description: '', owner: fakeOwner,
     parent: null, parent_name: null,
     member_count: 3, board_count: 2, subgroup_count: 0, created_at: '',
     default_board_member_role: 'member', allowed_priorities: [], shared_labels: [],
