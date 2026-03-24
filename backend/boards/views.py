@@ -997,13 +997,13 @@ class BoardViewSet(viewsets.ModelViewSet):
             )
             for col in columns
         }
+        # Redefine is_outlier using the absolute staleness threshold for backward compat.
+        # The 2× median heuristic is replaced by: avg >= board.staleness_threshold_days.
         for sw in swimlane_results:
             sw["is_outlier"] = {
                 col.name: (
                     sw["avg_days_per_column"][col.name] is not None
-                    and board_medians[col.name] is not None
-                    and board_medians[col.name] > 0
-                    and sw["avg_days_per_column"][col.name] > 2 * board_medians[col.name]
+                    and sw["avg_days_per_column"][col.name] >= board.staleness_threshold_days
                 )
                 for col in columns
             }
@@ -1011,9 +1011,11 @@ class BoardViewSet(viewsets.ModelViewSet):
         return Response({
             "days": days,
             "columns": [c.name for c in columns],
-            "board_medians": board_medians,
+            "board_medians": board_medians,  # kept for backward compat
             "swimlanes": swimlane_results,
             "stalled_threshold_days": stalled_days,
+            "staleness_threshold_days": board.staleness_threshold_days,
+            "stale_warning_pct": board.stale_warning_pct,
         })
 
     @action(detail=True, methods=["get"])

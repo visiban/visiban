@@ -69,6 +69,7 @@ const fakeBoard: BoardFull = {
     { id: 11, user: fakeMember2, role: 'member', joined_at: '' },
   ],
   staleness_threshold_days: 7,
+  stale_warning_pct: 50,
   allowed_priorities: [],
   enforce_wip_limits: false, enforce_weight_limits: false,
   is_starred: false,
@@ -513,9 +514,24 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: 'Rules' }))
 
-    // Should show the value as plain text, not an input
+    // Should show the values as plain text, not inputs
     expect(screen.queryByRole('spinbutton')).toBeNull()
-    expect(screen.getByText(/7 days/i)).toBeInTheDocument()
+    expect(screen.getByText(/7 days.*50%/i)).toBeInTheDocument()
+  })
+
+  it('calls patchBoard on blur with updated stale_warning_pct value', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
+    await user.clear(input)
+    await user.type(input, '25')
+    await user.tab()
+
+    await waitFor(() => {
+      expect(mockPatchBoard).toHaveBeenCalledWith(1, { stale_warning_pct: 25 })
+    })
   })
 
   it('falls back to 14 days when staleness_threshold_days is null', async () => {

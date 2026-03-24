@@ -73,6 +73,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [dropdownAnchor, setDropdownAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const [stalenessThreshold, setStalenessThreshold] = useState(board.staleness_threshold_days ?? 14);
+  const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -166,6 +167,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const handleStalenessBlur = () => {
     patchBoard(board.id, { staleness_threshold_days: stalenessThreshold });
+  };
+
+  const handleStalenessWarningPctBlur = () => {
+    const clamped = Math.max(0, Math.min(100, stalenessWarningPct));
+    setStalenessWarningPct(clamped);
+    patchBoard(board.id, { stale_warning_pct: clamped });
   };
 
   return (
@@ -435,28 +442,50 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </section>
               )}
 
-              {/* Stale card threshold */}
+              {/* Stale card settings */}
               <section>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Stale card threshold</h3>
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Stale card settings</h3>
                 {isAdmin ? (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <input
-                        id="staleness-threshold"
-                        aria-label="Stale card threshold"
-                        type="number"
-                        min="1"
-                        value={stalenessThreshold}
-                        onChange={(e) => setStalenessThreshold(Number(e.target.value))}
-                        onBlur={handleStalenessBlur}
-                        className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <span className="text-sm text-slate-400">days</span>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="staleness-threshold"
+                          aria-label="Stale card threshold"
+                          type="number"
+                          min="1"
+                          value={stalenessThreshold}
+                          onChange={(e) => setStalenessThreshold(Number(e.target.value))}
+                          onBlur={handleStalenessBlur}
+                          className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <span className="text-sm text-slate-400">days threshold</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Cards with no movement after this many days are flagged as stalled.</p>
                     </div>
-                    <p className="text-xs text-slate-500">Cards with no movement after this many days are flagged as stalled.</p>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="staleness-warning-pct"
+                          aria-label="Heatmap warning percentage"
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={stalenessWarningPct}
+                          onChange={(e) => setStalenessWarningPct(Number(e.target.value))}
+                          onBlur={handleStalenessWarningPctBlur}
+                          className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <span className="text-sm text-slate-400">% warning</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Heatmap cells within this percentage of the threshold show yellow; at or above show red.
+                        Example: threshold 14 days, warning 50% → yellow after 7 days, red at 14 days.
+                      </p>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-300">{board.staleness_threshold_days ?? 14} days</p>
+                  <p className="text-sm text-slate-300">{board.staleness_threshold_days ?? 14} days · {board.stale_warning_pct ?? 50}% warning</p>
                 )}
               </section>
             </div>
