@@ -1,6 +1,7 @@
 {
+  "schema_version": 1,
   "name": "Template: Project Delivery",
-  "description": "Track projects from planning through retrospective. Each swimlane represents an active project.",
+  "description": "Track cross-functional projects from planning through retrospective. Each swimlane is a project; each card is a deliverable or milestone.",
   "columns": [
     {
       "name": "Planning",
@@ -26,14 +27,14 @@
     {
       "name": "Milestone Review",
       "position": 3,
-      "color": "#8B5CF6",
+      "color": "#F97316",
       "wip_limit": null,
       "allow_card_creation": false
     },
     {
       "name": "Wrap-up",
       "position": 4,
-      "color": "#F97316",
+      "color": "#8B5CF6",
       "wip_limit": null,
       "allow_card_creation": false
     },
@@ -49,59 +50,59 @@
     {
       "name": "Mobile App Relaunch",
       "position": 0,
-      "color": "#3B82F6",
-      "contact_email": "mobile-team@internal.example",
-      "notes": "Full redesign of iOS and Android apps. Target launch: 2026-06-01."
+      "color": "#EC4899",
+      "contact_email": "pm-mobile@example.com",
+      "notes": "Full redesign + new feature set. Q2 launch target. Sponsor: VP Product."
     },
     {
       "name": "Data Platform Migration",
       "position": 1,
-      "color": "#8B5CF6",
-      "contact_email": "data-team@internal.example",
-      "notes": "Migrate from legacy Redshift to Snowflake. Zero-downtime required."
+      "color": "#3B82F6",
+      "contact_email": "pm-data@example.com",
+      "notes": "Migrate from Redshift to Snowflake. 3 TB data. Zero-downtime required."
     },
     {
       "name": "Security Compliance Audit",
       "position": 2,
       "color": "#EF4444",
-      "contact_email": "security@internal.example",
-      "notes": "Annual SOC 2 Type II + pen test. Audit window: 2026-04-01 to 2026-04-30."
+      "contact_email": "ciso@example.com",
+      "notes": "SOC 2 Type II audit. Auditor engaged. Evidence collection deadline: end of Q2."
     },
     {
       "name": "Customer Portal v2",
       "position": 3,
-      "color": "#F59E0B",
-      "contact_email": "portal-team@internal.example",
-      "notes": "Self-service portal for enterprise customers. Target launch: 2026-07-01."
+      "color": "#10B981",
+      "contact_email": "pm-portal@example.com",
+      "notes": "Self-service portal for invoices, usage, support. Design approved, dev in progress."
     },
     {
       "name": "GDPR Deletion Pipeline",
       "position": 4,
-      "color": "#14B8A6",
-      "contact_email": "legal-eng@internal.example",
-      "notes": "Automate right-to-erasure workflow. Legal deadline: 2026-05-25."
+      "color": "#8B5CF6",
+      "contact_email": "privacy@example.com",
+      "notes": "Automate right-to-erasure requests. Legal deadline: 90 days from receipt."
     }
   ],
   "labels": [
-    {
-      "name": "Blocked",
-      "color": "#EF4444"
-    },
     {
       "name": "On Track",
       "color": "#10B981"
     },
     {
-      "name": "External Dependency",
-      "color": "#F97316"
+      "name": "At Risk",
+      "color": "#F59E0B"
+    },
+    {
+      "name": "Blocked",
+      "color": "#EF4444"
     },
     {
       "name": "Milestone",
-      "color": "#8B5CF6"
+      "color": "#3B82F6"
     },
     {
-      "name": "Budget Risk",
-      "color": "#DC2626"
+      "name": "Dependency",
+      "color": "#8B5CF6"
     }
   ],
   "cards": [
@@ -133,59 +134,59 @@
         }
       ],
       "comments": [],
+      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-03T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2025-12-11T12:00:00+00:00",
+          "moved_by": "demo1"
         }
       ],
-      "assignee": "demo2",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-03-02T00:05:00+00:00"
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2025-12-11T13:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-04-19",
-          "actor": "demo2",
-          "created_at": "2026-03-02T00:08:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-11T15:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Prepare App Store screenshots",
-          "actor": "demo2",
-          "created_at": "2026-03-02T00:11:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-11T16:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Write release notes",
-          "actor": "demo2",
-          "created_at": "2026-03-02T00:13:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-11T16:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Submit to TestFlight first",
-          "actor": "demo2",
-          "created_at": "2026-03-02T00:15:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-11T16:40:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Submit to production stores",
-          "actor": "demo2",
-          "created_at": "2026-03-02T00:17:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-11T17:00:00+00:00"
         }
       ]
     },
@@ -224,21 +225,38 @@
           "author": "demo1"
         }
       ],
+      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-18T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2025-12-28T12:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-01-06T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Planning",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-08T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-15T12:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -246,88 +264,87 @@
           "to_column": "Execution",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-01-18T12:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
-      "assignee": "demo3",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
           "to_value": "demo3",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:05:00+00:00"
+          "created_at": "2025-12-28T13:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Blocked",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:08:00+00:00"
+          "created_at": "2025-12-28T15:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "urgent",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:13:00+00:00"
+          "created_at": "2025-12-28T18:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-25",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:17:00+00:00"
+          "created_at": "2025-12-28T20:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Map v2 → v3 endpoint changes",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:20:00+00:00"
+          "created_at": "2025-12-28T21:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Map v2 → v3 endpoint changes",
           "actor": "demo4",
-          "created_at": "2026-02-17T00:22:00+00:00"
+          "created_at": "2025-12-28T21:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Update auth token handler",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:23:00+00:00"
+          "created_at": "2025-12-28T21:35:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Update auth token handler",
           "actor": "demo4",
-          "created_at": "2026-02-17T00:25:00+00:00"
+          "created_at": "2025-12-28T21:55:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Update pagination across all list views",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:26:00+00:00"
+          "created_at": "2025-12-28T22:10:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "End-to-end smoke tests on staging",
           "actor": "demo3",
-          "created_at": "2026-02-17T00:28:00+00:00"
+          "created_at": "2025-12-28T22:30:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "BLOCKED: waiting on backend team to finalize v3 pagination spec.",
           "actor": "demo1",
-          "created_at": "2026-02-17T00:30:00+00:00"
+          "created_at": "2025-12-28T22:50:00+00:00"
         }
       ]
     },
@@ -366,118 +383,110 @@
           "author": "demo1"
         }
       ],
+      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-11T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-01-26T12:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_at": "2026-02-04T12:00:00+00:00",
           "moved_by": "demo1"
         },
         {
           "from_column": "Kickoff",
-          "to_column": "Execution",
-          "from_swimlane": "Mobile App Relaunch",
-          "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-01T00:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
-          "moved_at": "2026-03-10T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-13T12:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
-      "assignee": null,
       "activities": [
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "On Track",
-          "actor": "demo4",
-          "created_at": "2026-02-10T00:05:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-26T13:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-02-10T00:10:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-26T16:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-10",
-          "actor": "demo4",
-          "created_at": "2026-02-10T00:14:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-26T18:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Complete 8 user interviews",
-          "actor": "demo4",
-          "created_at": "2026-02-10T00:17:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-26T19:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Complete 8 user interviews",
-          "actor": "demo5",
-          "created_at": "2026-02-10T00:19:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-01-26T19:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Wireframes reviewed by PM",
-          "actor": "demo4",
-          "created_at": "2026-02-10T00:20:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-26T19:35:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Wireframes reviewed by PM",
-          "actor": "demo5",
-          "created_at": "2026-02-10T00:22:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-01-26T19:55:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Final designs approved",
-          "actor": "demo4",
-          "created_at": "2026-02-10T00:23:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-26T20:10:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Final designs approved",
-          "actor": "demo5",
-          "created_at": "2026-02-10T00:25:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-01-26T20:30:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Figma handoff to engineering",
-          "actor": "demo4",
-          "created_at": "2026-02-10T00:26:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-26T20:45:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Designs approved. Engineering handoff scheduled for Monday.",
           "actor": "demo1",
-          "created_at": "2026-02-10T00:28:00+00:00"
+          "created_at": "2026-01-26T21:05:00+00:00"
         }
       ]
     },
@@ -505,52 +514,59 @@
         }
       ],
       "comments": [],
+      "assignee": "demo2",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-03-08T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-13T12:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
-      "assignee": null,
       "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-13T13:00:00+00:00"
+        },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "urgent",
-          "actor": "demo3",
-          "created_at": "2026-03-07T00:05:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-13T15:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-04-26",
-          "actor": "demo3",
-          "created_at": "2026-03-07T00:09:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-13T17:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Cutover runbook written and reviewed",
-          "actor": "demo3",
-          "created_at": "2026-03-07T00:12:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-13T18:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Rollback plan documented",
-          "actor": "demo3",
-          "created_at": "2026-03-07T00:14:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-13T18:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Schedule maintenance window with ops",
-          "actor": "demo3",
-          "created_at": "2026-03-07T00:16:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-13T18:40:00+00:00"
         }
       ]
     },
@@ -578,13 +594,14 @@
         }
       ],
       "comments": [],
+      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_at": "2026-02-03T12:00:00+00:00",
           "moved_by": "demo4"
         },
         {
@@ -592,53 +609,52 @@
           "to_column": "Kickoff",
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-03-12T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-10T12:00:00+00:00",
+          "moved_by": "demo5"
         }
       ],
-      "assignee": "demo4",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
           "to_value": "demo4",
           "actor": "demo4",
-          "created_at": "2026-02-22T00:05:00+00:00"
+          "created_at": "2026-02-03T13:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
           "actor": "demo4",
-          "created_at": "2026-02-22T00:08:00+00:00"
+          "created_at": "2026-02-03T15:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-04-05",
           "actor": "demo4",
-          "created_at": "2026-02-22T00:12:00+00:00"
+          "created_at": "2026-02-03T17:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Deploy dual-write middleware",
           "actor": "demo4",
-          "created_at": "2026-02-22T00:15:00+00:00"
+          "created_at": "2026-02-03T18:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Build checksum comparison dashboard",
           "actor": "demo4",
-          "created_at": "2026-02-22T00:17:00+00:00"
+          "created_at": "2026-02-03T18:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Define discrepancy alert thresholds",
           "actor": "demo4",
-          "created_at": "2026-02-22T00:19:00+00:00"
+          "created_at": "2026-02-03T18:40:00+00:00"
         }
       ]
     },
@@ -677,118 +693,110 @@
           "author": "demo1"
         }
       ],
+      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-01-19T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2025-12-21T12:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-02-09T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-01-04T12:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Kickoff",
-          "to_column": "Execution",
-          "from_swimlane": "Data Platform Migration",
-          "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-02-23T00:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
-          "moved_at": "2026-03-09T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-09T12:00:00+00:00",
+          "moved_by": "demo3"
         }
       ],
-      "assignee": "demo5",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo5",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:05:00+00:00"
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2025-12-21T13:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "On Track",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:08:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-21T15:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:13:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-21T18:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-22",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:17:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-21T20:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Export Redshift schema",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:20:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-21T21:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Export Redshift schema",
-          "actor": "demo1",
-          "created_at": "2026-01-18T00:22:00+00:00"
+          "actor": "demo2",
+          "created_at": "2025-12-21T21:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Flag type-change tables to DBA",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:23:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-21T21:35:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Flag type-change tables to DBA",
-          "actor": "demo1",
-          "created_at": "2026-01-18T00:25:00+00:00"
+          "actor": "demo2",
+          "created_at": "2025-12-21T21:55:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Confirm drop list with data owners",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:26:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-21T22:10:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Final schema mapping signed off",
-          "actor": "demo5",
-          "created_at": "2026-01-18T00:28:00+00:00"
+          "actor": "demo1",
+          "created_at": "2025-12-21T22:30:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "280/340 tables mapped. 12 have breaking type changes.",
           "actor": "demo1",
-          "created_at": "2026-01-18T00:30:00+00:00"
+          "created_at": "2025-12-21T22:50:00+00:00"
         }
       ]
     },
@@ -827,110 +835,110 @@
           "author": "demo1"
         }
       ],
+      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-03T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-14T12:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-25T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-01-22T12:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-01-25T12:00:00+00:00",
+          "moved_by": "demo5"
         }
       ],
-      "assignee": "demo5",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo5",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:05:00+00:00"
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-01-14T13:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "On Track",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:08:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-14T15:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:13:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-14T18:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-25",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:17:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-14T20:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Pull access control logs from IAM",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:20:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-14T21:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Pull access control logs from IAM",
-          "actor": "demo1",
-          "created_at": "2026-02-02T00:22:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-01-14T21:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Compile change management records",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:23:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-14T21:35:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Compile change management records",
-          "actor": "demo1",
-          "created_at": "2026-02-02T00:25:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-01-14T21:55:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Document incident response log",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:26:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-14T22:10:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Vendor security assessment summary",
-          "actor": "demo5",
-          "created_at": "2026-02-02T00:28:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-14T22:30:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "IAM logs and change records complete. Incident log in progress.",
           "actor": "demo1",
-          "created_at": "2026-02-02T00:30:00+00:00"
+          "created_at": "2026-01-14T22:50:00+00:00"
         }
       ]
     },
@@ -967,21 +975,22 @@
           "author": "demo1"
         }
       ],
+      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-01-21T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-11T12:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Planning",
           "to_column": "Kickoff",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_at": "2026-02-17T12:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -989,97 +998,89 @@
           "to_column": "Execution",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-02-20T00:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-21T12:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-03-01T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-26T12:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Milestone Review",
           "to_column": "Wrap-up",
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
-          "moved_at": "2026-03-11T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-28T12:00:00+00:00",
+          "moved_by": "demo4"
         }
       ],
-      "assignee": "demo1",
       "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-20T00:05:00+00:00"
-        },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-20",
-          "actor": "demo1",
-          "created_at": "2026-01-20T00:08:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-11T13:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Agree scope with vendor",
-          "actor": "demo1",
-          "created_at": "2026-01-20T00:11:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-11T14:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Agree scope with vendor",
-          "actor": "demo2",
-          "created_at": "2026-01-20T00:13:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-11T14:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Provide staging access",
-          "actor": "demo1",
-          "created_at": "2026-01-20T00:14:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-11T14:35:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Provide staging access",
-          "actor": "demo2",
-          "created_at": "2026-01-20T00:16:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-11T14:55:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Receive final report",
-          "actor": "demo1",
-          "created_at": "2026-01-20T00:17:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-11T15:10:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Receive final report",
-          "actor": "demo2",
-          "created_at": "2026-01-20T00:19:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-11T15:30:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Remediate findings",
-          "actor": "demo1",
-          "created_at": "2026-01-20T00:20:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-11T15:45:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Report received — 2 medium findings, 0 critical. Remediation underway.",
           "actor": "demo1",
-          "created_at": "2026-01-20T00:22:00+00:00"
+          "created_at": "2026-02-11T16:05:00+00:00"
         }
       ]
     },
@@ -1103,45 +1104,45 @@
         }
       ],
       "comments": [],
+      "assignee": "demo2",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_at": "2026-01-14T12:00:00+00:00",
           "moved_by": "demo2"
         }
       ],
-      "assignee": "demo1",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-03-02T00:05:00+00:00"
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-14T13:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-04-29",
-          "actor": "demo1",
-          "created_at": "2026-03-02T00:08:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-14T15:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Design handoff received",
-          "actor": "demo1",
-          "created_at": "2026-03-02T00:11:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-14T16:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Component library setup",
-          "actor": "demo1",
-          "created_at": "2026-03-02T00:13:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-14T16:20:00+00:00"
         }
       ]
     },
@@ -1176,111 +1177,103 @@
           "author": "demo1"
         }
       ],
+      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-01-19T00:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2025-12-22T12:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Planning",
-          "to_column": "Kickoff",
-          "from_swimlane": "Customer Portal v2",
-          "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-02-13T00:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Kickoff",
           "to_column": "Execution",
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-02-24T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2025-12-30T12:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-01-17T12:00:00+00:00",
+          "moved_by": "demo1"
         }
       ],
-      "assignee": "demo2",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-18T00:05:00+00:00"
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2025-12-22T13:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "On Track",
-          "actor": "demo2",
-          "created_at": "2026-01-18T00:08:00+00:00"
+          "actor": "demo4",
+          "created_at": "2025-12-22T15:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo2",
-          "created_at": "2026-01-18T00:13:00+00:00"
+          "actor": "demo4",
+          "created_at": "2025-12-22T18:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-18",
-          "actor": "demo2",
-          "created_at": "2026-01-18T00:17:00+00:00"
+          "actor": "demo4",
+          "created_at": "2025-12-22T20:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Stakeholder workshops complete",
-          "actor": "demo2",
-          "created_at": "2026-01-18T00:20:00+00:00"
+          "actor": "demo4",
+          "created_at": "2025-12-22T21:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Stakeholder workshops complete",
-          "actor": "demo3",
-          "created_at": "2026-01-18T00:22:00+00:00"
+          "actor": "demo5",
+          "created_at": "2025-12-22T21:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Requirements document written",
-          "actor": "demo2",
-          "created_at": "2026-01-18T00:23:00+00:00"
+          "actor": "demo4",
+          "created_at": "2025-12-22T21:35:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Requirements document written",
-          "actor": "demo3",
-          "created_at": "2026-01-18T00:25:00+00:00"
+          "actor": "demo5",
+          "created_at": "2025-12-22T21:55:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Sign-off from VP CS and Head of Support",
-          "actor": "demo2",
-          "created_at": "2026-01-18T00:26:00+00:00"
+          "actor": "demo4",
+          "created_at": "2025-12-22T22:10:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "47 requirements captured. Sign-off call Thursday.",
           "actor": "demo1",
-          "created_at": "2026-01-18T00:28:00+00:00"
+          "created_at": "2025-12-22T22:30:00+00:00"
         }
       ]
     },
@@ -1323,13 +1316,14 @@
           "author": "demo1"
         }
       ],
+      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Planning",
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_at": "2025-12-11T12:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -1337,7 +1331,7 @@
           "to_column": "Kickoff",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_at": "2025-12-21T12:00:00+00:00",
           "moved_by": "demo2"
         },
         {
@@ -1345,23 +1339,2478 @@
           "to_column": "Execution",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-02-14T00:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2025-12-30T12:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Execution",
           "to_column": "Milestone Review",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-02-21T00:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-01T12:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Milestone Review",
           "to_column": "Wrap-up",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_at": "2026-01-13T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Wrap-up",
+          "to_column": "Retro",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-01-21T12:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2025-12-11T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "On Track",
+          "actor": "demo1",
+          "created_at": "2025-12-11T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2025-12-11T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Enumerate all user-owned tables",
+          "actor": "demo1",
+          "created_at": "2025-12-11T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Enumerate all user-owned tables",
+          "actor": "demo2",
+          "created_at": "2025-12-11T20:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement cascading deletion logic",
+          "actor": "demo1",
+          "created_at": "2025-12-11T20:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Implement cascading deletion logic",
+          "actor": "demo2",
+          "created_at": "2025-12-11T20:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write unit tests covering all table deletes",
+          "actor": "demo1",
+          "created_at": "2025-12-11T21:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Write unit tests covering all table deletes",
+          "actor": "demo2",
+          "created_at": "2025-12-11T21:30:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Legal review of deletion coverage",
+          "actor": "demo1",
+          "created_at": "2025-12-11T21:45:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal review of deletion coverage",
+          "actor": "demo2",
+          "created_at": "2025-12-11T22:05:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy to production",
+          "actor": "demo1",
+          "created_at": "2025-12-11T22:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deploy to production",
+          "actor": "demo2",
+          "created_at": "2025-12-11T22:40:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Deployed. Legal confirmed full coverage. Retro scheduled.",
+          "actor": "demo1",
+          "created_at": "2025-12-11T22:55:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Define MVP feature set and success metrics",
+      "description": "Define the minimum viable feature set for the mobile app relaunch and the success metrics that will determine if the relaunch is successful. Requires cross-functional alignment.",
+      "priority": "high",
+      "column": "Retro",
+      "swimlane": "Mobile App Relaunch",
+      "due_date": "2026-02-23",
+      "weight": 5,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Stakeholder alignment workshop",
+          "is_checked": true
+        },
+        {
+          "text": "Feature list reviewed with eng",
+          "is_checked": true
+        },
+        {
+          "text": "Metrics defined (DAU, retention)",
+          "is_checked": true
+        },
+        {
+          "text": "OKRs signed off",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "MVP scope locked to 8 core features. Stretch goal of offline mode deferred to v2.1.",
+          "author": "demo1"
+        },
+        {
+          "body": "OKR: 20% increase in DAU within 60 days of launch. Agreed.",
+          "author": "demo3"
+        }
+      ],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-12T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-24T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-26T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-30T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Milestone Review",
+          "to_column": "Wrap-up",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-02T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Wrap-up",
+          "to_column": "Retro",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-09T12:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-01-12T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo3",
+          "created_at": "2026-01-12T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-01-12T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-23",
+          "actor": "demo3",
+          "created_at": "2026-01-12T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Stakeholder alignment workshop",
+          "actor": "demo3",
+          "created_at": "2026-01-12T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Stakeholder alignment workshop",
+          "actor": "demo4",
+          "created_at": "2026-01-12T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Feature list reviewed with eng",
+          "actor": "demo3",
+          "created_at": "2026-01-12T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Feature list reviewed with eng",
+          "actor": "demo4",
+          "created_at": "2026-01-12T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Metrics defined (DAU, retention)",
+          "actor": "demo3",
+          "created_at": "2026-01-12T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Metrics defined (DAU, retention)",
+          "actor": "demo4",
+          "created_at": "2026-01-12T22:30:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "OKRs signed off",
+          "actor": "demo3",
+          "created_at": "2026-01-12T22:45:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "OKRs signed off",
+          "actor": "demo4",
+          "created_at": "2026-01-12T23:05:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "MVP scope locked to 8 core features. Stretch goal of offline mode deferred to v2.1.",
+          "actor": "demo1",
+          "created_at": "2026-01-12T23:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "OKR: 20% increase in DAU within 60 days of launch. Agreed.",
+          "actor": "demo3",
+          "created_at": "2026-01-13T02:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "UX research synthesis — navigation patterns",
+      "description": "Synthesize findings from 6 user interviews into actionable navigation design decisions. Three prototypes tested; bottom tab navigation selected.",
+      "priority": "high",
+      "column": "Retro",
+      "swimlane": "Mobile App Relaunch",
+      "due_date": "2026-03-05",
+      "weight": 4,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "6 user interviews completed",
+          "is_checked": true
+        },
+        {
+          "text": "Affinity mapping done",
+          "is_checked": true
+        },
+        {
+          "text": "3 navigation concepts prototyped",
+          "is_checked": true
+        },
+        {
+          "text": "Winning pattern selected",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Bottom tab navigation won across all user segments. Hamburger menu eliminated entirely.",
+          "author": "demo2"
+        }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-27T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-06T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-11T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Wrap-up",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-18T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Wrap-up",
+          "to_column": "Retro",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-23T12:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo5",
+          "created_at": "2026-01-27T13:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-01-27T16:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-05",
+          "actor": "demo5",
+          "created_at": "2026-01-27T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "6 user interviews completed",
+          "actor": "demo5",
+          "created_at": "2026-01-27T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "6 user interviews completed",
+          "actor": "demo1",
+          "created_at": "2026-01-27T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Affinity mapping done",
+          "actor": "demo5",
+          "created_at": "2026-01-27T19:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Affinity mapping done",
+          "actor": "demo1",
+          "created_at": "2026-01-27T19:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "3 navigation concepts prototyped",
+          "actor": "demo5",
+          "created_at": "2026-01-27T20:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "3 navigation concepts prototyped",
+          "actor": "demo1",
+          "created_at": "2026-01-27T20:30:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Winning pattern selected",
+          "actor": "demo5",
+          "created_at": "2026-01-27T20:45:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Winning pattern selected",
+          "actor": "demo1",
+          "created_at": "2026-01-27T21:05:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Bottom tab navigation won across all user segments. Hamburger menu eliminated entirely.",
+          "actor": "demo2",
+          "created_at": "2026-01-27T21:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Beta release to 500 internal testers",
+      "description": "Internal beta release to 500 employees and trusted users. Gate criteria: crash rate below 0.5%, P1 bugs zero. Feedback survey required before moving to public beta.",
+      "priority": "high",
+      "column": "Milestone Review",
+      "swimlane": "Mobile App Relaunch",
+      "due_date": "2026-03-20",
+      "weight": 6,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "TestFlight and Play Console beta tracks configured",
+          "is_checked": true
+        },
+        {
+          "text": "500 testers invited",
+          "is_checked": true
+        },
+        {
+          "text": "Crash rate < 0.5% gate passed",
+          "is_checked": false
+        },
+        {
+          "text": "Feedback survey distributed",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Crash rate is 0.9% right now — one known issue with deep links. Fix in review.",
+          "author": "demo4"
+        }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-27T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-04T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-09T12:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-27T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo2",
+          "created_at": "2026-01-27T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-01-27T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo2",
+          "created_at": "2026-01-27T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "TestFlight and Play Console beta tracks configured",
+          "actor": "demo2",
+          "created_at": "2026-01-27T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "TestFlight and Play Console beta tracks configured",
+          "actor": "demo3",
+          "created_at": "2026-01-27T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "500 testers invited",
+          "actor": "demo2",
+          "created_at": "2026-01-27T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "500 testers invited",
+          "actor": "demo3",
+          "created_at": "2026-01-27T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Crash rate < 0.5% gate passed",
+          "actor": "demo2",
+          "created_at": "2026-01-27T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Feedback survey distributed",
+          "actor": "demo2",
+          "created_at": "2026-01-27T22:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Crash rate is 0.9% right now — one known issue with deep links. Fix in review.",
+          "actor": "demo4",
+          "created_at": "2026-01-27T22:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "App store submission and release notes",
+      "description": "Prepare and submit app store listings including screenshots, release notes, and promotional text. Coordinate with marketing for launch announcement timing.",
+      "priority": "medium",
+      "column": "Execution",
+      "swimlane": "Mobile App Relaunch",
+      "due_date": "2026-04-02",
+      "weight": 3,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Write App Store and Play Store release notes",
+          "is_checked": false
+        },
+        {
+          "text": "Prepare app store screenshots",
+          "is_checked": false
+        },
+        {
+          "text": "Submit for review",
+          "is_checked": false
+        },
+        {
+          "text": "Plan launch announcement",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-19T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-01-29T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Mobile App Relaunch",
+          "to_swimlane": "Mobile App Relaunch",
+          "moved_at": "2026-02-08T12:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-01-19T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo4",
+          "created_at": "2026-01-19T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-02",
+          "actor": "demo4",
+          "created_at": "2026-01-19T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Write App Store and Play Store release notes",
+          "actor": "demo4",
+          "created_at": "2026-01-19T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Prepare app store screenshots",
+          "actor": "demo4",
+          "created_at": "2026-01-19T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Submit for review",
+          "actor": "demo4",
+          "created_at": "2026-01-19T19:40:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Plan launch announcement",
+          "actor": "demo4",
+          "created_at": "2026-01-19T20:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Schema mapping: Redshift → Snowflake",
+      "description": "Full schema mapping from Redshift to Snowflake for all 142 tables. 11 type incompatibilities resolved. Migration scripts validated on staging.",
+      "priority": "high",
+      "column": "Retro",
+      "swimlane": "Data Platform Migration",
+      "due_date": "2026-02-13",
+      "weight": 6,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Inventoried 142 tables",
+          "is_checked": true
+        },
+        {
+          "text": "Mapped all data types",
+          "is_checked": true
+        },
+        {
+          "text": "Identified 11 incompatible columns",
+          "is_checked": true
+        },
+        {
+          "text": "Migration scripts written",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "11 columns needed type conversion — mostly Redshift SUPER to Snowflake VARIANT. Scripts tested on staging.",
+          "author": "demo2"
+        },
+        {
+          "body": "Staging migration completed in 4h 22m. Production estimate: 6-8h with parallel loads.",
+          "author": "demo1"
+        }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2025-12-25T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-05T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-07T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-12T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Milestone Review",
+          "to_column": "Wrap-up",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-18T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Wrap-up",
+          "to_column": "Retro",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-25T12:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2025-12-25T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo1",
+          "created_at": "2025-12-25T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2025-12-25T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-13",
+          "actor": "demo1",
+          "created_at": "2025-12-25T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Inventoried 142 tables",
+          "actor": "demo1",
+          "created_at": "2025-12-25T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Inventoried 142 tables",
+          "actor": "demo2",
+          "created_at": "2025-12-25T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Mapped all data types",
+          "actor": "demo1",
+          "created_at": "2025-12-25T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Mapped all data types",
+          "actor": "demo2",
+          "created_at": "2025-12-25T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identified 11 incompatible columns",
+          "actor": "demo1",
+          "created_at": "2025-12-25T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identified 11 incompatible columns",
+          "actor": "demo2",
+          "created_at": "2025-12-25T22:30:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Migration scripts written",
+          "actor": "demo1",
+          "created_at": "2025-12-25T22:45:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Migration scripts written",
+          "actor": "demo2",
+          "created_at": "2025-12-25T23:05:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "11 columns needed type conversion — mostly Redshift SUPER to Snowflake VARIANT. Scripts tested on staging.",
+          "actor": "demo2",
+          "created_at": "2025-12-25T23:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Staging migration completed in 4h 22m. Production estimate: 6-8h with parallel loads.",
+          "actor": "demo1",
+          "created_at": "2025-12-26T01:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "ELT pipeline cutover — dbt models",
+      "description": "Port all 67 dbt models from Redshift SQL dialect to Snowflake. Models must produce identical output — validated by row count and checksum comparison on staging data.",
+      "priority": "high",
+      "column": "Execution",
+      "swimlane": "Data Platform Migration",
+      "due_date": "2026-03-23",
+      "weight": 7,
+      "labels": [
+        "Dependency"
+      ],
+      "checklist": [
+        {
+          "text": "Redshift dbt models ported to Snowflake SQL dialect",
+          "is_checked": true
+        },
+        {
+          "text": "All 67 models tested",
+          "is_checked": true
+        },
+        {
+          "text": "Cutover dry run on staging",
+          "is_checked": false
+        },
+        {
+          "text": "Production cutover scheduled",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "3 models needed CTEs rewritten due to Redshift-specific windowing syntax. All passing now.",
+          "author": "demo3"
+        }
+      ],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-10T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-23T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Planning",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-02-01T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-02-09T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-02-16T12:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-01-10T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Dependency",
+          "actor": "demo3",
+          "created_at": "2026-01-10T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-01-10T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-23",
+          "actor": "demo3",
+          "created_at": "2026-01-10T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Redshift dbt models ported to Snowflake SQL dialect",
+          "actor": "demo3",
+          "created_at": "2026-01-10T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Redshift dbt models ported to Snowflake SQL dialect",
+          "actor": "demo4",
+          "created_at": "2026-01-10T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "All 67 models tested",
+          "actor": "demo3",
+          "created_at": "2026-01-10T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "All 67 models tested",
+          "actor": "demo4",
+          "created_at": "2026-01-10T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Cutover dry run on staging",
+          "actor": "demo3",
+          "created_at": "2026-01-10T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Production cutover scheduled",
+          "actor": "demo3",
+          "created_at": "2026-01-10T22:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "3 models needed CTEs rewritten due to Redshift-specific windowing syntax. All passing now.",
+          "actor": "demo3",
+          "created_at": "2026-01-10T22:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Historical data validation — row counts and checksums",
+      "description": "Validate migrated data quality by comparing row counts and checksums between Redshift and Snowflake. Business user UAT required before decommissioning Redshift.",
+      "priority": "medium",
+      "column": "Milestone Review",
+      "swimlane": "Data Platform Migration",
+      "due_date": "2026-03-27",
+      "weight": 5,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Row count comparison automated",
+          "is_checked": true
+        },
+        {
+          "text": "Checksum spot-check on 15 tables",
+          "is_checked": true
+        },
+        {
+          "text": "Sign-off from data team lead",
+          "is_checked": false
+        },
+        {
+          "text": "Business user UAT",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Row counts match to 4 decimal places. Two tables have rounding differences in float columns — acceptable per data team.",
+          "author": "demo1"
+        }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2025-12-12T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-03T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-13T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Data Platform Migration",
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-01-17T12:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo5",
+          "created_at": "2025-12-12T13:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo5",
+          "created_at": "2025-12-12T16:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Row count comparison automated",
+          "actor": "demo5",
+          "created_at": "2025-12-12T17:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Row count comparison automated",
+          "actor": "demo1",
+          "created_at": "2025-12-12T17:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Checksum spot-check on 15 tables",
+          "actor": "demo5",
+          "created_at": "2025-12-12T17:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Checksum spot-check on 15 tables",
+          "actor": "demo1",
+          "created_at": "2025-12-12T17:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Sign-off from data team lead",
+          "actor": "demo5",
+          "created_at": "2025-12-12T18:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Business user UAT",
+          "actor": "demo5",
+          "created_at": "2025-12-12T18:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Row counts match to 4 decimal places. Two tables have rounding differences in float columns — acceptable per data team.",
+          "actor": "demo1",
+          "created_at": "2025-12-12T18:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Decommission Redshift cluster",
+      "description": "Decommission the Redshift cluster after a 30-day quiet period post-migration. Final snapshots archived to S3. Estimated $8,400/month cost saving.",
+      "priority": "medium",
+      "column": "Planning",
+      "swimlane": "Data Platform Migration",
+      "due_date": "2026-04-19",
+      "weight": 3,
+      "labels": [
+        "Dependency"
+      ],
+      "checklist": [
+        {
+          "text": "Confirm zero active queries for 30 days",
+          "is_checked": false
+        },
+        {
+          "text": "Archive final snapshots to S3",
+          "is_checked": false
+        },
+        {
+          "text": "Submit cloud cost savings report",
+          "is_checked": false
+        },
+        {
+          "text": "Remove IAM roles and network rules",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Data Platform Migration",
+          "moved_at": "2026-02-03T12:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-03T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Dependency",
+          "actor": "demo2",
+          "created_at": "2026-02-03T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-19",
+          "actor": "demo2",
+          "created_at": "2026-02-03T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm zero active queries for 30 days",
+          "actor": "demo2",
+          "created_at": "2026-02-03T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Archive final snapshots to S3",
+          "actor": "demo2",
+          "created_at": "2026-02-03T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Submit cloud cost savings report",
+          "actor": "demo2",
+          "created_at": "2026-02-03T19:40:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Remove IAM roles and network rules",
+          "actor": "demo2",
+          "created_at": "2026-02-03T20:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Access control evidence collection",
+      "description": "Collect and package access control evidence for SOC 2 auditor: IAM role exports, MFA enrollment report, privileged access review. Two service account exceptions require CISO sign-off.",
+      "priority": "high",
+      "column": "Execution",
+      "swimlane": "Security Compliance Audit",
+      "due_date": "2026-03-22",
+      "weight": 5,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Exported IAM role assignments",
+          "is_checked": true
+        },
+        {
+          "text": "MFA enrollment report (98.6%)",
+          "is_checked": true
+        },
+        {
+          "text": "Privilege access review signed off",
+          "is_checked": false
+        },
+        {
+          "text": "Auditor evidence package submitted",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Two service accounts missing MFA — they're API-only but auditor wants documented exception.",
+          "author": "demo4"
+        },
+        {
+          "body": "Exception documentation drafted. Waiting for CISO sign-off.",
+          "author": "demo2"
+        }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2025-12-20T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-01-11T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-01-22T12:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2025-12-20T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo4",
+          "created_at": "2025-12-20T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2025-12-20T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo4",
+          "created_at": "2025-12-20T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Exported IAM role assignments",
+          "actor": "demo4",
+          "created_at": "2025-12-20T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Exported IAM role assignments",
+          "actor": "demo5",
+          "created_at": "2025-12-20T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "MFA enrollment report (98.6%)",
+          "actor": "demo4",
+          "created_at": "2025-12-20T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "MFA enrollment report (98.6%)",
+          "actor": "demo5",
+          "created_at": "2025-12-20T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Privilege access review signed off",
+          "actor": "demo4",
+          "created_at": "2025-12-20T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Auditor evidence package submitted",
+          "actor": "demo4",
+          "created_at": "2025-12-20T22:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Two service accounts missing MFA — they're API-only but auditor wants documented exception.",
+          "actor": "demo4",
+          "created_at": "2025-12-20T22:50:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Exception documentation drafted. Waiting for CISO sign-off.",
+          "actor": "demo2",
+          "created_at": "2025-12-21T05:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Penetration test — external perimeter",
+      "description": "External penetration test of the 4 public API endpoints and admin portal. Performed by CrowdStrike. 3 medium findings identified; all have active mitigation work.",
+      "priority": "high",
+      "column": "Milestone Review",
+      "swimlane": "Security Compliance Audit",
+      "due_date": "2026-03-25",
+      "weight": 6,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Scope signed: 4 public endpoints + admin portal",
+          "is_checked": true
+        },
+        {
+          "text": "Pentest firm engaged (CrowdStrike)",
+          "is_checked": true
+        },
+        {
+          "text": "Testing window complete",
+          "is_checked": true
+        },
+        {
+          "text": "Findings report reviewed",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "3 medium findings, 0 critical, 0 high. All 3 mediums have mitigations in progress.",
+          "author": "demo1"
+        }
+      ],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-03T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-12T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-17T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Kickoff",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-20T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-25T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-03-01T12:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-03T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo1",
+          "created_at": "2026-02-03T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-03T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo1",
+          "created_at": "2026-02-03T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scope signed: 4 public endpoints + admin portal",
+          "actor": "demo1",
+          "created_at": "2026-02-03T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Scope signed: 4 public endpoints + admin portal",
+          "actor": "demo2",
+          "created_at": "2026-02-03T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Pentest firm engaged (CrowdStrike)",
+          "actor": "demo1",
+          "created_at": "2026-02-03T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Pentest firm engaged (CrowdStrike)",
+          "actor": "demo2",
+          "created_at": "2026-02-03T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Testing window complete",
+          "actor": "demo1",
+          "created_at": "2026-02-03T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Testing window complete",
+          "actor": "demo2",
+          "created_at": "2026-02-03T22:30:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Findings report reviewed",
+          "actor": "demo1",
+          "created_at": "2026-02-03T22:45:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "3 medium findings, 0 critical, 0 high. All 3 mediums have mitigations in progress.",
+          "actor": "demo1",
+          "created_at": "2026-02-03T23:05:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Incident response plan — tabletop exercise",
+      "description": "Tabletop exercise to validate the incident response plan with two scenarios: ransomware on CI/CD infrastructure and a customer data breach. Debrief identified communication ownership gap.",
+      "priority": "medium",
+      "column": "Retro",
+      "swimlane": "Security Compliance Audit",
+      "due_date": "2026-03-10",
+      "weight": 4,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "IR plan written and reviewed",
+          "is_checked": true
+        },
+        {
+          "text": "Tabletop scenario: ransomware on CI/CD",
+          "is_checked": true
+        },
+        {
+          "text": "Tabletop scenario: data breach",
+          "is_checked": true
+        },
+        {
+          "text": "Debrief completed, gaps documented",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Key gap: we had no clear owner for external communications during an incident. Now assigned to VP Marketing with CISO backup.",
+          "author": "demo3"
+        }
+      ],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-08T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-17T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-21T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-23T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Milestone Review",
+          "to_column": "Wrap-up",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-02-25T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Wrap-up",
+          "to_column": "Retro",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2026-03-02T12:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2026-02-08T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo3",
+          "created_at": "2026-02-08T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-10",
+          "actor": "demo3",
+          "created_at": "2026-02-08T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "IR plan written and reviewed",
+          "actor": "demo3",
+          "created_at": "2026-02-08T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "IR plan written and reviewed",
+          "actor": "demo4",
+          "created_at": "2026-02-08T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tabletop scenario: ransomware on CI/CD",
+          "actor": "demo3",
+          "created_at": "2026-02-08T19:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Tabletop scenario: ransomware on CI/CD",
+          "actor": "demo4",
+          "created_at": "2026-02-08T19:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tabletop scenario: data breach",
+          "actor": "demo3",
+          "created_at": "2026-02-08T20:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Tabletop scenario: data breach",
+          "actor": "demo4",
+          "created_at": "2026-02-08T20:30:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Debrief completed, gaps documented",
+          "actor": "demo3",
+          "created_at": "2026-02-08T20:45:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Debrief completed, gaps documented",
+          "actor": "demo4",
+          "created_at": "2026-02-08T21:05:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Key gap: we had no clear owner for external communications during an incident. Now assigned to VP Marketing with CISO ba",
+          "actor": "demo3",
+          "created_at": "2026-02-08T21:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Vendor risk assessments — top 10 vendors",
+      "description": "SOC 2 requires evidence of vendor risk management. Assess top 10 vendors by data access level using a standardized questionnaire. High-risk vendors reviewed with CISO.",
+      "priority": "medium",
+      "column": "Kickoff",
+      "swimlane": "Security Compliance Audit",
+      "due_date": "2026-04-04",
+      "weight": 3,
+      "labels": [
+        "Dependency"
+      ],
+      "checklist": [
+        {
+          "text": "Identify top 10 vendors by data access",
+          "is_checked": false
+        },
+        {
+          "text": "Send vendor questionnaires",
+          "is_checked": false
+        },
+        {
+          "text": "Review responses and score risk",
+          "is_checked": false
+        },
+        {
+          "text": "Escalate high-risk vendors to CISO",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2025-12-10T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Security Compliance Audit",
+          "to_swimlane": "Security Compliance Audit",
+          "moved_at": "2025-12-15T12:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Dependency",
+          "actor": "demo5",
+          "created_at": "2025-12-10T13:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-04",
+          "actor": "demo5",
+          "created_at": "2025-12-10T16:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Identify top 10 vendors by data access",
+          "actor": "demo5",
+          "created_at": "2025-12-10T17:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send vendor questionnaires",
+          "actor": "demo5",
+          "created_at": "2025-12-10T17:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Review responses and score risk",
+          "actor": "demo5",
+          "created_at": "2025-12-10T17:40:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Escalate high-risk vendors to CISO",
+          "actor": "demo5",
+          "created_at": "2025-12-10T18:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Invoice download and history UI",
+      "description": "Invoice download feature for the customer portal. Customers can view and download all invoices as PDFs. PDF generation via Puppeteer with caching layer.",
+      "priority": "high",
+      "column": "Execution",
+      "swimlane": "Customer Portal v2",
+      "due_date": "2026-03-24",
+      "weight": 5,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "API endpoint for invoice list complete",
+          "is_checked": true
+        },
+        {
+          "text": "PDF generation service integrated",
+          "is_checked": true
+        },
+        {
+          "text": "Frontend invoice history component done",
+          "is_checked": false
+        },
+        {
+          "text": "Accessibility audit passed",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "PDF service is Puppeteer-based — rendering at ~1.2s per invoice. Acceptable for now but will optimize post-launch.",
+          "author": "demo2"
+        }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-01-26T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-02T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-06T12:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-26T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo2",
+          "created_at": "2026-01-26T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-01-26T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-24",
+          "actor": "demo2",
+          "created_at": "2026-01-26T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "API endpoint for invoice list complete",
+          "actor": "demo2",
+          "created_at": "2026-01-26T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "API endpoint for invoice list complete",
+          "actor": "demo3",
+          "created_at": "2026-01-26T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "PDF generation service integrated",
+          "actor": "demo2",
+          "created_at": "2026-01-26T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "PDF generation service integrated",
+          "actor": "demo3",
+          "created_at": "2026-01-26T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Frontend invoice history component done",
+          "actor": "demo2",
+          "created_at": "2026-01-26T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Accessibility audit passed",
+          "actor": "demo2",
+          "created_at": "2026-01-26T22:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "PDF service is Puppeteer-based — rendering at ~1.2s per invoice. Acceptable for now but will optimize post-launch.",
+          "actor": "demo2",
+          "created_at": "2026-01-26T22:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Usage dashboard — seats and API calls",
+      "description": "Usage dashboard showing seat utilization and API call volume over time. Built with Recharts. Pilot testing with 3 customers before GA.",
+      "priority": "medium",
+      "column": "Milestone Review",
+      "swimlane": "Customer Portal v2",
+      "due_date": "2026-03-29",
+      "weight": 4,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Data model for usage snapshots finalized",
+          "is_checked": true
+        },
+        {
+          "text": "API aggregation queries optimized",
+          "is_checked": true
+        },
+        {
+          "text": "Charts built (Recharts)",
+          "is_checked": true
+        },
+        {
+          "text": "User acceptance testing with 3 pilot customers",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Two pilot customers tested yesterday. Both loved the seat utilization chart. API usage chart needs a time range selector — adding it now.",
+          "author": "demo4"
+        }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-01-14T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-01-25T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-02T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-13T12:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-01-14T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo4",
+          "created_at": "2026-01-14T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo4",
+          "created_at": "2026-01-14T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Data model for usage snapshots finalized",
+          "actor": "demo4",
+          "created_at": "2026-01-14T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Data model for usage snapshots finalized",
+          "actor": "demo5",
+          "created_at": "2026-01-14T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "API aggregation queries optimized",
+          "actor": "demo4",
+          "created_at": "2026-01-14T19:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "API aggregation queries optimized",
+          "actor": "demo5",
+          "created_at": "2026-01-14T19:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Charts built (Recharts)",
+          "actor": "demo4",
+          "created_at": "2026-01-14T20:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Charts built (Recharts)",
+          "actor": "demo5",
+          "created_at": "2026-01-14T20:30:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "User acceptance testing with 3 pilot customers",
+          "actor": "demo4",
+          "created_at": "2026-01-14T20:45:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Two pilot customers tested yesterday. Both loved the seat utilization chart. API usage chart needs a time range selector",
+          "actor": "demo4",
+          "created_at": "2026-01-14T21:05:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Support ticket submission flow",
+      "description": "Self-service support ticket submission in the portal, wired to Zendesk. Customers can submit tickets without emailing support@. Requires Zendesk API token configuration.",
+      "priority": "medium",
+      "column": "Kickoff",
+      "swimlane": "Customer Portal v2",
+      "due_date": "2026-04-09",
+      "weight": 3,
+      "labels": [
+        "Dependency"
+      ],
+      "checklist": [
+        {
+          "text": "Design form (category, severity, description, attachments)",
+          "is_checked": false
+        },
+        {
+          "text": "Wire to Zendesk API",
+          "is_checked": false
+        },
+        {
+          "text": "Confirm acknowledgment email flow",
+          "is_checked": false
+        },
+        {
+          "text": "Test with support team",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-01-25T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "Customer Portal v2",
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2026-02-05T12:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-01-25T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Dependency",
+          "actor": "demo1",
+          "created_at": "2026-01-25T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-09",
+          "actor": "demo1",
+          "created_at": "2026-01-25T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design form (category, severity, description, attachments)",
+          "actor": "demo1",
+          "created_at": "2026-01-25T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Wire to Zendesk API",
+          "actor": "demo1",
+          "created_at": "2026-01-25T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm acknowledgment email flow",
+          "actor": "demo1",
+          "created_at": "2026-01-25T19:40:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test with support team",
+          "actor": "demo1",
+          "created_at": "2026-01-25T20:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "SSO deep-link for portal (SAML assertions)",
+      "description": "Enterprise customers need SSO deep-link support so employees land directly in the portal after authenticating via their IdP. SP-initiated SSO with Okta and AzureAD support.",
+      "priority": "medium",
+      "column": "Planning",
+      "swimlane": "Customer Portal v2",
+      "due_date": "2026-04-24",
+      "weight": 4,
+      "labels": [
+        "Dependency"
+      ],
+      "checklist": [
+        {
+          "text": "Define SAML assertion attributes needed",
+          "is_checked": false
+        },
+        {
+          "text": "Implement SP-initiated SSO for portal",
+          "is_checked": false
+        },
+        {
+          "text": "Test with Okta and AzureAD",
+          "is_checked": false
+        },
+        {
+          "text": "Document customer setup steps",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Portal v2",
+          "moved_at": "2025-12-19T12:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo3",
+          "actor": "demo3",
+          "created_at": "2025-12-19T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Dependency",
+          "actor": "demo3",
+          "created_at": "2025-12-19T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-24",
+          "actor": "demo3",
+          "created_at": "2025-12-19T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Define SAML assertion attributes needed",
+          "actor": "demo3",
+          "created_at": "2025-12-19T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement SP-initiated SSO for portal",
+          "actor": "demo3",
+          "created_at": "2025-12-19T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test with Okta and AzureAD",
+          "actor": "demo3",
+          "created_at": "2025-12-19T19:40:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Document customer setup steps",
+          "actor": "demo3",
+          "created_at": "2025-12-19T20:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Deletion request intake API",
+      "description": "API endpoint to receive right-to-erasure requests, verify the requester's identity, and store the request in the deletion_requests queue for async processing.",
+      "priority": "high",
+      "column": "Retro",
+      "swimlane": "GDPR Deletion Pipeline",
+      "due_date": "2026-02-28",
+      "weight": 5,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "API endpoint designed and reviewed",
+          "is_checked": true
+        },
+        {
+          "text": "Identity verification step added",
+          "is_checked": true
+        },
+        {
+          "text": "Request stored in deletion_requests table",
+          "is_checked": true
+        },
+        {
+          "text": "Privacy team signed off",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Added identity verification step — caller must prove ownership of the email before deletion proceeds.",
+          "author": "demo1"
+        },
+        {
+          "body": "Privacy team approved the flow. DSAR intake now fully automated.",
+          "author": "demo3"
+        }
+      ],
+      "assignee": null,
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-04T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-13T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-17T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-21T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Milestone Review",
+          "to_column": "Wrap-up",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-24T12:00:00+00:00",
           "moved_by": "demo4"
         },
         {
@@ -1369,105 +3818,481 @@
           "to_column": "Retro",
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
-          "moved_at": "2026-03-07T00:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-26T12:00:00+00:00",
+          "moved_by": "demo5"
         }
       ],
-      "assignee": null,
       "activities": [
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "On Track",
-          "actor": "demo1",
-          "created_at": "2026-01-21T00:05:00+00:00"
+          "to_value": "Milestone",
+          "actor": "demo5",
+          "created_at": "2026-02-04T13:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-01-21T00:10:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-04T16:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-02-28",
+          "actor": "demo5",
+          "created_at": "2026-02-04T18:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Enumerate all user-owned tables",
-          "actor": "demo1",
-          "created_at": "2026-01-21T00:14:00+00:00"
+          "to_value": "API endpoint designed and reviewed",
+          "actor": "demo5",
+          "created_at": "2026-02-04T19:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Enumerate all user-owned tables",
-          "actor": "demo2",
-          "created_at": "2026-01-21T00:16:00+00:00"
+          "to_value": "API endpoint designed and reviewed",
+          "actor": "demo1",
+          "created_at": "2026-02-04T19:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Implement cascading deletion logic",
-          "actor": "demo1",
-          "created_at": "2026-01-21T00:17:00+00:00"
+          "to_value": "Identity verification step added",
+          "actor": "demo5",
+          "created_at": "2026-02-04T19:35:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Implement cascading deletion logic",
-          "actor": "demo2",
-          "created_at": "2026-01-21T00:19:00+00:00"
+          "to_value": "Identity verification step added",
+          "actor": "demo1",
+          "created_at": "2026-02-04T19:55:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Write unit tests covering all table deletes",
-          "actor": "demo1",
-          "created_at": "2026-01-21T00:20:00+00:00"
+          "to_value": "Request stored in deletion_requests table",
+          "actor": "demo5",
+          "created_at": "2026-02-04T20:10:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Write unit tests covering all table deletes",
-          "actor": "demo2",
-          "created_at": "2026-01-21T00:22:00+00:00"
+          "to_value": "Request stored in deletion_requests table",
+          "actor": "demo1",
+          "created_at": "2026-02-04T20:30:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Legal review of deletion coverage",
-          "actor": "demo1",
-          "created_at": "2026-01-21T00:23:00+00:00"
+          "to_value": "Privacy team signed off",
+          "actor": "demo5",
+          "created_at": "2026-02-04T20:45:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Legal review of deletion coverage",
-          "actor": "demo2",
-          "created_at": "2026-01-21T00:25:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Deploy to production",
+          "to_value": "Privacy team signed off",
           "actor": "demo1",
-          "created_at": "2026-01-21T00:26:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Deploy to production",
-          "actor": "demo2",
-          "created_at": "2026-01-21T00:28:00+00:00"
+          "created_at": "2026-02-04T21:05:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Deployed. Legal confirmed full coverage. Retro scheduled.",
+          "to_value": "Added identity verification step — caller must prove ownership of the email before deletion proceeds.",
           "actor": "demo1",
-          "created_at": "2026-01-21T00:29:00+00:00"
+          "created_at": "2026-02-04T21:20:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "Privacy team approved the flow. DSAR intake now fully automated.",
+          "actor": "demo3",
+          "created_at": "2026-02-04T23:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Cross-service deletion orchestrator",
+      "description": "Orchestrator service fans deletion requests out to 6 downstream services (auth, boards, analytics, billing, email, logs) and aggregates completion callbacks. 90-day SLA enforced.",
+      "priority": "high",
+      "column": "Execution",
+      "swimlane": "GDPR Deletion Pipeline",
+      "due_date": "2026-03-21",
+      "weight": 7,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Deletion tasks fanned out to 6 services (auth, boards, analytics, billing, email, logs)",
+          "is_checked": true
+        },
+        {
+          "text": "Completion callbacks implemented",
+          "is_checked": true
+        },
+        {
+          "text": "90-day SLA timer validated",
+          "is_checked": false
+        },
+        {
+          "text": "Audit log of each deletion step",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "The analytics service deletion is the slowest — S3 event logs need a backfill job to locate user events by user_id.",
+          "author": "demo2"
+        }
+      ],
+      "assignee": "demo2",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2025-12-12T12:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2025-12-24T12:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-01-03T12:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2025-12-12T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo2",
+          "created_at": "2025-12-12T15:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2025-12-12T18:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-21",
+          "actor": "demo2",
+          "created_at": "2025-12-12T20:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deletion tasks fanned out to 6 services (auth, boards, analytics, billing, email, logs)",
+          "actor": "demo2",
+          "created_at": "2025-12-12T21:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deletion tasks fanned out to 6 services (auth, boards, analytics, billing, email, logs)",
+          "actor": "demo3",
+          "created_at": "2025-12-12T21:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Completion callbacks implemented",
+          "actor": "demo2",
+          "created_at": "2025-12-12T21:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Completion callbacks implemented",
+          "actor": "demo3",
+          "created_at": "2025-12-12T21:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "90-day SLA timer validated",
+          "actor": "demo2",
+          "created_at": "2025-12-12T22:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit log of each deletion step",
+          "actor": "demo2",
+          "created_at": "2025-12-12T22:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "The analytics service deletion is the slowest — S3 event logs need a backfill job to locate user events by user_id.",
+          "actor": "demo2",
+          "created_at": "2025-12-12T22:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Deletion audit report — per-request evidence",
+      "description": "Generate a per-request audit report showing exactly which data was deleted from which service and when. Required evidence for GDPR compliance and DPA audits.",
+      "priority": "medium",
+      "column": "Milestone Review",
+      "swimlane": "GDPR Deletion Pipeline",
+      "due_date": "2026-03-27",
+      "weight": 4,
+      "labels": [
+        "Milestone"
+      ],
+      "checklist": [
+        {
+          "text": "Audit log schema finalized",
+          "is_checked": true
+        },
+        {
+          "text": "Report generation endpoint built",
+          "is_checked": true
+        },
+        {
+          "text": "DPA review of report format",
+          "is_checked": false
+        },
+        {
+          "text": "Test with sample deletion request",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "DPA wants a timestamp for each downstream service's confirmation, not just a final completion timestamp. Updating schema.",
+          "author": "demo4"
+        }
+      ],
+      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-01-17T12:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Planning",
+          "to_column": "Kickoff",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-01-30T12:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Kickoff",
+          "to_column": "Execution",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-04T12:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Execution",
+          "to_column": "Milestone Review",
+          "from_swimlane": "GDPR Deletion Pipeline",
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-07T12:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-01-17T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Milestone",
+          "actor": "demo4",
+          "created_at": "2026-01-17T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo4",
+          "created_at": "2026-01-17T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit log schema finalized",
+          "actor": "demo4",
+          "created_at": "2026-01-17T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Audit log schema finalized",
+          "actor": "demo5",
+          "created_at": "2026-01-17T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Report generation endpoint built",
+          "actor": "demo4",
+          "created_at": "2026-01-17T19:35:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Report generation endpoint built",
+          "actor": "demo5",
+          "created_at": "2026-01-17T19:55:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "DPA review of report format",
+          "actor": "demo4",
+          "created_at": "2026-01-17T20:10:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test with sample deletion request",
+          "actor": "demo4",
+          "created_at": "2026-01-17T20:30:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "DPA wants a timestamp for each downstream service's confirmation, not just a final completion timestamp. Updating schema",
+          "actor": "demo4",
+          "created_at": "2026-01-17T20:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Suppression list for marketing after deletion",
+      "description": "After a deletion request completes, the user's email must be added to the marketing suppression list to prevent future re-contact, even if re-imported from a third-party list.",
+      "priority": "medium",
+      "column": "Planning",
+      "swimlane": "GDPR Deletion Pipeline",
+      "due_date": "2026-04-14",
+      "weight": 3,
+      "labels": [
+        "Dependency"
+      ],
+      "checklist": [
+        {
+          "text": "Define suppression list schema in email service",
+          "is_checked": false
+        },
+        {
+          "text": "Wire deletion pipeline to add email to suppression list",
+          "is_checked": false
+        },
+        {
+          "text": "Verify re-subscribe is blocked",
+          "is_checked": false
+        },
+        {
+          "text": "Test with Mailchimp and SendGrid",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "assignee": "demo1",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Planning",
+          "from_swimlane": null,
+          "to_swimlane": "GDPR Deletion Pipeline",
+          "moved_at": "2026-02-04T12:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-04T13:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Dependency",
+          "actor": "demo1",
+          "created_at": "2026-02-04T15:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-14",
+          "actor": "demo1",
+          "created_at": "2026-02-04T18:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Define suppression list schema in email service",
+          "actor": "demo1",
+          "created_at": "2026-02-04T19:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Wire deletion pipeline to add email to suppression list",
+          "actor": "demo1",
+          "created_at": "2026-02-04T19:20:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify re-subscribe is blocked",
+          "actor": "demo1",
+          "created_at": "2026-02-04T19:40:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test with Mailchimp and SendGrid",
+          "actor": "demo1",
+          "created_at": "2026-02-04T20:00:00+00:00"
         }
       ]
     }
-  ],
-  "schema_version": 1
+  ]
 }
