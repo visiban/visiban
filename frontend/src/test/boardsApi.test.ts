@@ -139,9 +139,9 @@ describe('Board API wrappers', () => {
 
   it('getBoardAnalytics calls correct endpoint with params', async () => {
     mockClient.get.mockResolvedValue({ data: { days: 30 } })
-    await getBoardAnalytics(2, 30, 7)
+    await getBoardAnalytics(2, 30)
     expect(mockClient.get).toHaveBeenCalledWith('/api/boards/2/analytics/', {
-      params: { days: 30, stalled_days: 7 },
+      params: { days: 30 },
     })
   })
 

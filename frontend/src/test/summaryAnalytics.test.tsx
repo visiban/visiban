@@ -248,7 +248,7 @@ describe('AnalyticsView', () => {
     expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7)
   })
 
-  it('shows empty-period message when no heatmap data exists', async () => {
+  it('renders heatmap table even when all cells are null (no movements in period)', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do', 'Done'],
@@ -266,28 +266,8 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect(await screen.findByText(/No card movements recorded in the last 30 days/)).toBeInTheDocument()
-  })
-
-  it('does not show empty-period message when heatmap has data', async () => {
-    mockGetBoardAnalytics.mockResolvedValue({
-      days: 30,
-      columns: ['To Do'],
-      swimlanes: [
-        {
-          id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5 },
-          is_outlier: { 'To Do': false },
-          deal_velocity_days: null,
-          stalled_cards: [],
-        },
-      ],
-      stalled_threshold_days: 7,
-      staleness_threshold_days: 14,
-      stale_warning_pct: 50,
-    })
-    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByText('Customer A')
+    // Heatmap table always renders — no empty-period message
+    expect(await screen.findByText('Customer A')).toBeInTheDocument()
     expect(screen.queryByText(/No card movements/)).not.toBeInTheDocument()
   })
 

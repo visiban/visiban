@@ -1139,15 +1139,14 @@ class BoardViewSet(viewsets.ModelViewSet):
         board, _ = get_board_for_user(pk, request.user)
         try:
             days = int(request.query_params.get("days", 30))
-            stalled_days = int(request.query_params.get("stalled_days", 7))
         except (ValueError, TypeError):
             return Response(
-                {"detail": "Query params 'days' and 'stalled_days' must be positive integers."},
+                {"detail": "Query param 'days' must be a positive integer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if days <= 0 or stalled_days <= 0:
+        if days <= 0:
             return Response(
-                {"detail": "Query params 'days' and 'stalled_days' must be positive integers."},
+                {"detail": "Query param 'days' must be a positive integer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         now = timezone.now()
@@ -1200,15 +1199,15 @@ class BoardViewSet(viewsets.ModelViewSet):
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
                     exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else (card.archived_at or now)
-                    # Skip cards that were fully in-and-out before the window started.
+                    # Skip movements that ended entirely before the analysis window.
                     if exit_ <= period_cutoff:
                         continue
-                    # Cap entry at period_cutoff so cards that entered before the
-                    # window still contribute their in-window dwell time. Without
-                    # this, a card sitting in a column for 45 days shows as empty
-                    # on the 30d heatmap even though 30 of those days are in scope.
-                    entry = max(mv.moved_at, period_cutoff)
-                    dwell_days = (exit_ - entry).total_seconds() / 86400
+                    # Clamp the entry to the period cutoff so cards that entered a column
+                    # before the window still contribute their in-window dwell time.
+                    # Without this, a card sitting in "In Progress" for 60 days would show
+                    # no data in the 7d or 30d views — even though it is actively dwelling.
+                    effective_entry = max(mv.moved_at, period_cutoff)
+                    dwell_days = (exit_ - effective_entry).total_seconds() / 86400
                     col_dwells[col_name].append(dwell_days)
                     all_col_dwells[col_name].append(dwell_days)
                 # Velocity: only count cards whose last movement fell within the window,
