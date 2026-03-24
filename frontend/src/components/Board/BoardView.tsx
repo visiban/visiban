@@ -761,7 +761,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     boardId={board.id}
                     isAdmin={isAdmin}
                     onColumnUpdated={onColumnUpdated}
-                    onColumnDeleted={onColumnDeleted}
+                    onRequestDelete={(col) => setConfirmDeleteColumn(col)}
                     collapsed={!expandedColumnIds.has(col.id)}
                     hidden={hiddenColumnIds.has(col.id)}
                     abbreviation={columnAbbreviations.get(col.id)}

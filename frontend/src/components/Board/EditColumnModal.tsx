@@ -9,11 +9,11 @@ interface Props {
   column: Column;
   cardCount: number;
   onUpdated: (column: Column) => void;
-  onDeleted: (columnId: number) => void;
+  onRequestDelete: (column: Column) => void;
   onClose: () => void;
 }
 
-export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onDeleted, onClose }: Props) {
+export default function EditColumnModal({ boardId, column, cardCount, onUpdated, onRequestDelete, onClose }: Props) {
   useEscapeStack(onClose, 40);
   const [name, setName] = useState(column.name);
   const [color, setColor] = useState(column.color);
@@ -21,7 +21,6 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const [weightLimit, setWeightLimit] = useState(column.weight_limit?.toString() ?? "");
   const [allowCardCreation, setAllowCardCreation] = useState(column.allow_card_creation);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -42,7 +41,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div role="dialog" aria-modal="true" aria-labelledby="edit-column-title" className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
         <h2 id="edit-column-title" className="text-lg font-semibold text-white mb-4">Edit Column</h2>
 
@@ -86,7 +85,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                 <button
                   key={c}
                   onClick={() => setColor(c)}
-                  className={`w-7 h-7 rounded-full border-2 transition ${color === c ? "border-white scale-110" : "border-transparent"}`}
+                  className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${color === c ? "border-white scale-110" : "border-transparent"}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
@@ -104,35 +103,30 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
           </label>
         </div>
 
-        <div className="flex items-center mt-5">
-          {cardCount > 0 ? (
-            <span className="text-sm text-slate-500" title={`Move or delete the ${cardCount} card${cardCount === 1 ? "" : "s"} in this column first`}>
-              Cannot delete — {cardCount} card{cardCount === 1 ? "" : "s"} remaining
-            </span>
-          ) : confirmDelete ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Delete &ldquo;{column.name}&rdquo;?</span>
-              <button onClick={() => onDeleted(column.id)} className="text-xs text-red-400 hover:text-red-300 transition">Yes, delete</button>
-              <button onClick={() => setConfirmDelete(false)} className="text-xs text-slate-500 hover:text-slate-300 transition">Cancel</button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="text-sm text-red-400 hover:text-red-300 transition"
-            >
-              Delete column
-            </button>
-          )}
-          <div className="flex gap-2 ml-auto">
-            <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
-            <button
-              onClick={handleSave}
-              disabled={!name.trim() || saving}
-              className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
+        <div className="border-t border-slate-700 mt-5 pt-5">
+          {/* Reserved status row — always rendered to prevent layout shift */}
+          <p className="text-xs h-4 text-slate-400 mt-2">
+            {cardCount > 0 ? `Cannot delete — ${cardCount} card${cardCount === 1 ? '' : 's'} in this column` : ''}
+          </p>
+          <button
+            type="button"
+            onClick={() => { onClose(); onRequestDelete(column); }}
+            disabled={cardCount > 0}
+            className="w-full px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+          >
+            Delete column
+          </button>
+        </div>
+
+        <div className="flex gap-2 mt-4 justify-end">
+          <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={!name.trim() || saving}
+            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
       </div>
     </div>
