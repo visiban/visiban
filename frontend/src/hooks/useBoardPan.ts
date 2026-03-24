@@ -45,7 +45,10 @@ export function useBoardPan(scrollRef: React.RefObject<HTMLElement | null>) {
     }
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.code === "Space" && !e.repeat && !panArmed.current) armPan();
+      if (e.code === "Space" && !e.repeat && !isEditableFocused()) {
+        e.preventDefault(); // prevent browser default Space-to-scroll
+        if (!panArmed.current) armPan();
+      }
     }
 
     function onKeyUp(e: KeyboardEvent) {

@@ -62,6 +62,18 @@ describe('useBoardPan', () => {
     textarea.remove()
   })
 
+  it('calls preventDefault on Space keydown to suppress browser scroll', () => {
+    const el = makeScrollEl()
+    renderPan(el)
+    let prevented = false
+    act(() => {
+      const ev = new KeyboardEvent('keydown', { code: 'Space', bubbles: true, cancelable: true })
+      Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true } })
+      document.dispatchEvent(ev)
+    })
+    expect(prevented).toBe(true)
+  })
+
   it('does not arm pan on key repeat', () => {
     const el = makeScrollEl()
     renderPan(el)
