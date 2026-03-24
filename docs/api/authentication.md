@@ -199,7 +199,13 @@ Change the authenticated user's password. Requires authentication.
 ### `GET /api/auth/me/`
 Returns the authenticated user's profile.
 
-**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `must_change_password`, `has_usable_password`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `default_board_id`.
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `must_change_password`, `has_usable_password`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `default_board_id`.
+
+| Field | Type | Description |
+|---|---|---|
+| `is_site_admin` | boolean | Whether the user can access the `/admin` admin panel and admin API. |
+| `can_access_all_content` | boolean | Whether the user has read/write access to every board and group regardless of membership. Independent of `is_site_admin` as of 1.0.0-rc.9 — see [Site Admins](../administration/site-admins.md). |
+| `uploads_enabled` | boolean | Instance-wide setting reflecting whether file attachment uploads are currently permitted. When `false`, the attachment UI is hidden and upload attempts return `403`. |
 
 ### `PATCH /api/auth/me/`
 Update the authenticated user's profile. All fields are optional.

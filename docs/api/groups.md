@@ -10,15 +10,29 @@ Create a group. Any authenticated user may create a top-level group. Creating a 
 
 **Request**
 ```json
-{ "name": "Engineering", "parent": 1 }
+{ "name": "Engineering", "description": "Backend and frontend teams.", "parent": 1 }
 ```
-`parent` is optional. Omit for a top-level group.
+
+| Field | Required | Notes |
+|---|---|---|
+| `name` | Yes | Display name |
+| `description` | No | Optional free-text summary (added in 1.0.0-rc.9) |
+| `parent` | No | Parent group ID; omit for a top-level group |
 
 ### `GET /api/groups/{id}/`
 Get group details.
 
+**Response includes** `id`, `name`, `description`, `parent`, `owner`, `created_at`, and:
+
+| Field | Type | Description |
+|---|---|---|
+| `description` | string | Optional free-text summary of the group. Empty string if not set. Added in 1.0.0-rc.9. |
+| `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty array for top-level groups. Added in 1.0.0-rc.9. |
+
 ### `PUT /api/groups/{id}/`
-Update group name/parent. Requires group admin.
+Update group name, description, or parent. Requires group admin.
+
+**Writable fields:** `name`, `description`, `parent`.
 
 ### `DELETE /api/groups/{id}/`
 Delete a group. Requires group owner or site admin.

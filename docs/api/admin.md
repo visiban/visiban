@@ -102,7 +102,8 @@ Update a user's account flags. Site admin only.
 | Field | Type | Notes |
 |---|---|---|
 | `is_active` | boolean | `false` deactivates the account (blocks login without deleting data). Cannot deactivate your own account. |
-| `is_site_admin` | boolean | Grant or revoke site admin. Cannot demote yourself. Cannot demote the last active admin. |
+| `is_site_admin` | boolean | Grant or revoke admin panel access. Cannot demote yourself. Cannot demote the last active admin. |
+| `can_access_all_content` | boolean | Grant or revoke omniscient read/write access to all boards and groups. Independent of `is_site_admin` — see [Site Admins](../administration/site-admins.md). |
 | `must_change_password` | boolean | `true` forces a password reset on next login |
 
 **Request**
