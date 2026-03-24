@@ -80,6 +80,10 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
     sw.stalled_cards.map((c) => ({ ...c, swimlane: sw.name }))
   );
 
+  const hasHeatmapData = data.swimlanes.some((sw) =>
+    data.columns.some((col) => sw.avg_days_per_column[col] !== null)
+  );
+
   return (
     <div className="flex-1 overflow-auto p-4 flex flex-col gap-6 bg-slate-900">
       {/* Toolbar */}
@@ -110,6 +114,11 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
       {/* Heatmap */}
       <div className="overflow-x-auto">
+        {!hasHeatmapData && (
+          <p className="text-xs text-slate-500 italic mb-3">
+            No card movements recorded in the last {days} days. Try a longer period to see dwell time data.
+          </p>
+        )}
         <table className="text-sm border-collapse">
           <thead>
             <tr className="text-left text-xs text-slate-500 uppercase tracking-wider">

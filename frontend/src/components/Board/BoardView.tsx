@@ -602,6 +602,21 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             if (card) { clearSelection(); setSelectedCard(card); }
           }}
         />
+        {selectedCard && (
+          <CardDetail
+            card={selectedCard}
+            board={board}
+            onClose={() => setSelectedCard(null)}
+            onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
+            onUpdated={onCardUpdated}
+            onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
+            userDateFormat={userDateFormat}
+            userTimeFormat={userTimeFormat}
+            userTimezone={userTimezone}
+            currentUser={currentUser}
+            closeEditorOnEnter={closeEditorOnEnter}
+          />
+        )}
       </>
     );
   }

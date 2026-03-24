@@ -53,7 +53,12 @@ vi.mock('../components/Board/SummaryView', () => ({
   default: () => <div data-testid="summary-view">Summary</div>,
 }))
 vi.mock('../components/Board/AnalyticsView', () => ({
-  default: () => <div data-testid="analytics-view">Analytics</div>,
+  default: ({ onOpenCard }: { onOpenCard?: (id: number) => void }) => (
+    <div data-testid="analytics-view">
+      Analytics
+      <button data-testid="open-card-btn" onClick={() => onOpenCard?.(1)}>Open Card</button>
+    </div>
+  ),
 }))
 vi.mock('../components/Board/ColumnHeader', () => ({
   default: ({ column, collapsed }: { column: { id: number; name: string }; collapsed: boolean }) => (
@@ -250,6 +255,27 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByText('Analytics'))
     expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+  })
+
+  it('opens CardDetail from analytics view when onOpenCard is triggered', async () => {
+    const stalledCard = {
+      id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Stalled Card',
+      priority: 'medium' as const, assignee: null, labels: [], due_date: null, weight: 1,
+      position: 0, created_by: 1, created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
+      attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
+    }
+    const props = defaultProps()
+    props.board = makeBoard({ cards: [stalledCard] })
+    render(<BoardView {...props} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Analytics'))
+    expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+    // Simulate analytics view calling onOpenCard with the card's id
+    await user.click(screen.getByTestId('open-card-btn'))
+    // CardDetail must render inside the analytics view return branch
+    expect(screen.getByTestId('card-detail')).toBeInTheDocument()
+    expect(screen.getByText('Stalled Card')).toBeInTheDocument()
   })
 
   it('clicking Filters toggles filter bar', async () => {
