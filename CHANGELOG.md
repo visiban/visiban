@@ -22,7 +22,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Four new board templates are available: Content Production, Hiring & Recruiting, Legal & Compliance, and Infrastructure & DevOps — each with domain-specific swimlanes, cards, labels, and column structures
 - Card JSON exports from `seed_template_boards --export` now include a `movements` array per card, enabling imported boards to display realistic History tab data
 - Icons added for the four new board templates (Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps) in the Create Board modal template picker
-- Demo seed data richly expanded: all 10 board templates now have 30–54 cards each (up from 11–14), with varied movement histories (stage skipping and occasional backtracks), full card content (descriptions, checklists, comments, labels, due dates, weights, assignees), and a standalone `generate_seed_data.py` script to regenerate all JSON files without requiring a Django environment
 
 ### Fixed
 

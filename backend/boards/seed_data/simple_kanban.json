@@ -1,5 +1,4 @@
 {
-  "schema_version": 1,
   "name": "Template: Simple Kanban",
   "description": "General-purpose kanban for any team. Each swimlane is a team or workstream; each card is a work item.",
   "columns": [
@@ -121,59 +120,59 @@
         }
       ],
       "comments": [],
-      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Frontend",
-          "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
+      "assignee": "demo3",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
           "to_value": "demo3",
           "actor": "demo3",
-          "created_at": "2026-01-14T13:00:00+00:00"
+          "created_at": "2026-02-27T00:05:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Feature",
           "actor": "demo3",
-          "created_at": "2026-01-14T15:00:00+00:00"
+          "created_at": "2026-02-27T00:08:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "low",
           "actor": "demo3",
-          "created_at": "2026-01-14T18:00:00+00:00"
+          "created_at": "2026-02-27T00:13:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-04-05",
           "actor": "demo3",
-          "created_at": "2026-01-14T20:00:00+00:00"
+          "created_at": "2026-02-27T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Add keybinding handler",
           "actor": "demo3",
-          "created_at": "2026-01-14T21:00:00+00:00"
+          "created_at": "2026-02-27T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Guard against focus conflicts with modals",
           "actor": "demo3",
-          "created_at": "2026-01-14T21:20:00+00:00"
+          "created_at": "2026-02-27T00:22:00+00:00"
         }
       ]
     },
@@ -217,126 +216,110 @@
           "author": "demo2"
         }
       ],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Frontend",
-          "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-01-04T12:00:00+00:00",
+          "moved_at": "2026-02-16T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
-          "from_column": "To Do",
-          "to_column": "Backlog",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "To Do",
           "to_column": "Doing",
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
-          "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
+      "assignee": null,
       "activities": [
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Feature, Improve",
-          "actor": "demo5",
-          "created_at": "2025-12-29T13:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:05:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-22",
-          "actor": "demo5",
-          "created_at": "2025-12-29T16:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:10:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Spike responsive layout options",
-          "actor": "demo5",
-          "created_at": "2025-12-29T17:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:13:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Spike responsive layout options",
-          "actor": "demo1",
-          "created_at": "2025-12-29T17:20:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:15:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Design review from Casey",
-          "actor": "demo5",
-          "created_at": "2025-12-29T17:35:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:16:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Design review from Casey",
-          "actor": "demo1",
-          "created_at": "2025-12-29T17:55:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:18:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Implement sidebar component",
-          "actor": "demo5",
-          "created_at": "2025-12-29T18:10:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Implement sidebar component",
-          "actor": "demo1",
-          "created_at": "2025-12-29T18:30:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:21:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Accessibility audit (axe-core)",
-          "actor": "demo5",
-          "created_at": "2025-12-29T18:45:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:22:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Sidebar prototype looks great on mobile.",
           "actor": "demo1",
-          "created_at": "2025-12-29T19:05:00+00:00"
+          "created_at": "2026-02-15T00:24:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Accessibility pass scheduled for tomorrow.",
           "actor": "demo2",
-          "created_at": "2025-12-29T22:05:00+00:00"
+          "created_at": "2026-02-15T00:39:00+00:00"
         }
       ]
     },
@@ -371,111 +354,111 @@
           "author": "demo1"
         }
       ],
-      "assignee": "demo2",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Frontend",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "To Do",
           "to_column": "Doing",
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Doing",
           "to_column": "Review",
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
+      "assignee": "demo5",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-02T13:00:00+00:00"
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:05:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Bug",
-          "actor": "demo2",
-          "created_at": "2026-02-02T15:00:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:08:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "low",
-          "actor": "demo2",
-          "created_at": "2026-02-02T18:00:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:13:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Add CSS text-overflow: ellipsis",
-          "actor": "demo2",
-          "created_at": "2026-02-02T20:00:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Add CSS text-overflow: ellipsis",
-          "actor": "demo3",
-          "created_at": "2026-02-02T20:20:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Add tooltip on hover",
-          "actor": "demo2",
-          "created_at": "2026-02-02T20:35:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Add tooltip on hover",
-          "actor": "demo3",
-          "created_at": "2026-02-02T20:55:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:22:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Verify in all supported browsers",
-          "actor": "demo2",
-          "created_at": "2026-02-02T21:10:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-02-04T00:23:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Verify in all supported browsers",
-          "actor": "demo3",
-          "created_at": "2026-02-02T21:30:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:25:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Fix ready for QA.",
           "actor": "demo1",
-          "created_at": "2026-02-02T21:45:00+00:00"
+          "created_at": "2026-02-04T00:26:00+00:00"
         }
       ]
     },
@@ -511,81 +494,81 @@
           "author": "demo1"
         }
       ],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Backend",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ],
+      "assignee": "demo1",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-28T13:00:00+00:00"
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:05:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Improve, Tech Debt",
-          "actor": "demo4",
-          "created_at": "2026-01-28T15:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:08:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-29",
-          "actor": "demo4",
-          "created_at": "2026-01-28T18:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:13:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Profile current movement inserts under load",
-          "actor": "demo4",
-          "created_at": "2026-01-28T19:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:16:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Profile current movement inserts under load",
-          "actor": "demo5",
-          "created_at": "2026-01-28T19:20:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-24T00:18:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Implement bulk_create in drag handler",
-          "actor": "demo4",
-          "created_at": "2026-01-28T19:35:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Load test: 50 concurrent drags",
-          "actor": "demo4",
-          "created_at": "2026-01-28T19:55:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:21:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Profiling shows 8ms per insert at 50 concurrent users.",
           "actor": "demo1",
-          "created_at": "2026-01-28T20:15:00+00:00"
+          "created_at": "2026-02-24T00:23:00+00:00"
         }
       ]
     },
@@ -625,22 +608,21 @@
           "author": "demo1"
         }
       ],
-      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Backend",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-01-28T12:00:00+00:00",
+          "moved_at": "2026-02-21T00:00:00+00:00",
           "moved_by": "demo2"
         },
         {
@@ -648,102 +630,103 @@
           "to_column": "Doing",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Doing",
           "to_column": "Review",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ],
+      "assignee": "demo2",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-18T13:00:00+00:00"
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:05:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Feature, Improve",
-          "actor": "demo1",
-          "created_at": "2026-01-18T15:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:08:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-01-18T18:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:13:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-20",
-          "actor": "demo1",
-          "created_at": "2026-01-18T20:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Add CursorPagination class",
-          "actor": "demo1",
-          "created_at": "2026-01-18T21:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Add CursorPagination class",
-          "actor": "demo2",
-          "created_at": "2026-01-18T21:20:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-02-05T00:22:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Update BoardViewSet to use it",
-          "actor": "demo1",
-          "created_at": "2026-01-18T21:35:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:23:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Update BoardViewSet to use it",
-          "actor": "demo2",
-          "created_at": "2026-01-18T21:55:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-02-05T00:25:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Update API docs",
-          "actor": "demo1",
-          "created_at": "2026-01-18T22:10:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:26:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Update API docs",
-          "actor": "demo2",
-          "created_at": "2026-01-18T22:30:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-02-05T00:28:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Confirm frontend handles paginated response",
-          "actor": "demo1",
-          "created_at": "2026-01-18T22:45:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:29:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Backend done. Waiting on frontend confirmation.",
           "actor": "demo1",
-          "created_at": "2026-01-18T23:05:00+00:00"
+          "created_at": "2026-02-05T00:31:00+00:00"
         }
       ]
     },
@@ -778,22 +761,21 @@
           "author": "demo1"
         }
       ],
-      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Backend",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-01-16T12:00:00+00:00",
+          "moved_at": "2026-02-05T00:00:00+00:00",
           "moved_by": "demo4"
         },
         {
@@ -801,96 +783,90 @@
           "to_column": "Doing",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Doing",
           "to_column": "Review",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Review",
           "to_column": "Done",
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ],
+      "assignee": null,
       "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-09T13:00:00+00:00"
-        },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Tech Debt",
           "actor": "demo3",
-          "created_at": "2026-01-09T15:00:00+00:00"
+          "created_at": "2026-01-22T00:05:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "low",
           "actor": "demo3",
-          "created_at": "2026-01-09T18:00:00+00:00"
+          "created_at": "2026-01-22T00:10:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Happy path test",
           "actor": "demo3",
-          "created_at": "2026-01-09T20:00:00+00:00"
+          "created_at": "2026-01-22T00:14:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Happy path test",
           "actor": "demo4",
-          "created_at": "2026-01-09T20:20:00+00:00"
+          "created_at": "2026-01-22T00:16:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Non-member rejection test",
           "actor": "demo3",
-          "created_at": "2026-01-09T20:35:00+00:00"
+          "created_at": "2026-01-22T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Non-member rejection test",
           "actor": "demo4",
-          "created_at": "2026-01-09T20:55:00+00:00"
+          "created_at": "2026-01-22T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Already-archived idempotency test",
           "actor": "demo3",
-          "created_at": "2026-01-09T21:10:00+00:00"
+          "created_at": "2026-01-22T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Already-archived idempotency test",
           "actor": "demo4",
-          "created_at": "2026-01-09T21:30:00+00:00"
+          "created_at": "2026-01-22T00:22:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "All 3 tests passing. Coverage up from 84% to 87%.",
           "actor": "demo1",
-          "created_at": "2026-01-09T21:45:00+00:00"
+          "created_at": "2026-01-22T00:23:00+00:00"
         }
       ]
     },
@@ -929,88 +905,95 @@
           "author": "demo1"
         }
       ],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Mobile",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ],
+      "assignee": "demo1",
       "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo1",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:05:00+00:00"
+        },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Feature",
-          "actor": "demo5",
-          "created_at": "2026-02-10T13:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:08:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-02-10T16:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:13:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-04-02",
-          "actor": "demo5",
-          "created_at": "2026-02-10T18:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Design offline queue data model",
-          "actor": "demo5",
-          "created_at": "2026-02-10T19:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Design offline queue data model",
-          "actor": "demo1",
-          "created_at": "2026-02-10T19:20:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-25T00:22:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Implement AsyncStorage queue",
-          "actor": "demo5",
-          "created_at": "2026-02-10T19:35:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:23:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Implement sync-on-reconnect logic",
-          "actor": "demo5",
-          "created_at": "2026-02-10T19:55:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:25:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Test conflict resolution (server wins)",
-          "actor": "demo5",
-          "created_at": "2026-02-10T20:15:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:27:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Data model approved. Implementation starting this sprint.",
           "actor": "demo1",
-          "created_at": "2026-02-10T20:35:00+00:00"
+          "created_at": "2026-02-25T00:29:00+00:00"
         }
       ]
     },
@@ -1046,119 +1029,96 @@
           "author": "demo1"
         }
       ],
-      "assignee": "demo2",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Mobile",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Backlog",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-23T12:00:00+00:00",
+          "moved_at": "2026-02-19T00:00:00+00:00",
           "moved_by": "demo5"
+        },
+        {
+          "from_column": "Backlog",
+          "to_column": "To Do",
+          "from_swimlane": "Mobile",
+          "to_swimlane": "Mobile",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "To Do",
           "to_column": "Doing",
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
-          "moved_at": "2026-02-28T12:00:00+00:00",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo1"
         }
       ],
+      "assignee": null,
       "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-11T13:00:00+00:00"
-        },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Blocked, Bug",
           "actor": "demo2",
-          "created_at": "2026-02-11T15:00:00+00:00"
+          "created_at": "2026-02-18T00:05:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "urgent",
           "actor": "demo2",
-          "created_at": "2026-02-11T18:00:00+00:00"
+          "created_at": "2026-02-18T00:10:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-18",
           "actor": "demo2",
-          "created_at": "2026-02-11T20:00:00+00:00"
+          "created_at": "2026-02-18T00:14:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Reproduce on iOS 17.4 Safari",
           "actor": "demo2",
-          "created_at": "2026-02-11T21:00:00+00:00"
+          "created_at": "2026-02-18T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Reproduce on iOS 17.4 Safari",
           "actor": "demo3",
-          "created_at": "2026-02-11T21:20:00+00:00"
+          "created_at": "2026-02-18T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Patch touch event handler",
           "actor": "demo2",
-          "created_at": "2026-02-11T21:35:00+00:00"
+          "created_at": "2026-02-18T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Patch touch event handler",
           "actor": "demo3",
-          "created_at": "2026-02-11T21:55:00+00:00"
+          "created_at": "2026-02-18T00:22:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Regression test on Chrome iOS and Safari",
           "actor": "demo2",
-          "created_at": "2026-02-11T22:10:00+00:00"
+          "created_at": "2026-02-18T00:23:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "BLOCKED: touch event library has an upstream bug. Filed issue with maintainer.",
           "actor": "demo1",
-          "created_at": "2026-02-11T22:30:00+00:00"
+          "created_at": "2026-02-18T00:25:00+00:00"
         }
       ]
     },
@@ -1194,88 +1154,81 @@
           "author": "demo1"
         }
       ],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "DevOps",
-          "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ],
+      "assignee": null,
       "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-29T13:00:00+00:00"
-        },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Feature, Improve",
-          "actor": "demo4",
-          "created_at": "2025-12-29T15:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:05:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2025-12-29T18:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:10:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-27",
-          "actor": "demo4",
-          "created_at": "2025-12-29T20:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:14:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Define canary traffic split in Nginx config",
-          "actor": "demo4",
-          "created_at": "2025-12-29T21:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Define canary traffic split in Nginx config",
-          "actor": "demo5",
-          "created_at": "2025-12-29T21:20:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Add error rate check to CI gate",
-          "actor": "demo4",
-          "created_at": "2025-12-29T21:35:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Test canary rollback path",
-          "actor": "demo4",
-          "created_at": "2025-12-29T21:55:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:22:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Nginx config done. Error rate gate in progress.",
           "actor": "demo1",
-          "created_at": "2025-12-29T22:15:00+00:00"
+          "created_at": "2026-02-12T00:24:00+00:00"
         }
       ]
     },
@@ -1318,14 +1271,13 @@
           "author": "demo1"
         }
       ],
-      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "DevOps",
-          "moved_at": "2026-01-16T12:00:00+00:00",
+          "moved_at": "2026-01-28T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -1333,125 +1285,126 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
-          "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "To Do",
           "to_column": "Doing",
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Doing",
           "to_column": "Review",
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Review",
           "to_column": "Done",
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
-          "moved_at": "2026-02-06T12:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo5"
         }
       ],
+      "assignee": "demo2",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-16T13:00:00+00:00"
+          "to_value": "demo2",
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:05:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Tech Debt",
-          "actor": "demo1",
-          "created_at": "2026-01-16T15:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:08:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Audit all secrets in .env files",
-          "actor": "demo1",
-          "created_at": "2026-01-16T18:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:13:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Audit all secrets in .env files",
-          "actor": "demo2",
-          "created_at": "2026-01-16T18:20:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:15:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Provision Vault cluster",
-          "actor": "demo1",
-          "created_at": "2026-01-16T18:35:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:16:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Provision Vault cluster",
-          "actor": "demo2",
-          "created_at": "2026-01-16T18:55:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:18:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Migrate secrets to Vault",
-          "actor": "demo1",
-          "created_at": "2026-01-16T19:10:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Migrate secrets to Vault",
-          "actor": "demo2",
-          "created_at": "2026-01-16T19:30:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:21:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Remove .env files from all servers",
-          "actor": "demo1",
-          "created_at": "2026-01-16T19:45:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:22:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Remove .env files from all servers",
-          "actor": "demo2",
-          "created_at": "2026-01-16T20:05:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:24:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Enable automatic rotation on DB passwords",
-          "actor": "demo1",
-          "created_at": "2026-01-16T20:20:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-27T00:25:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Enable automatic rotation on DB passwords",
-          "actor": "demo2",
-          "created_at": "2026-01-16T20:40:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:27:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Migration complete. All servers using Vault. Rotation active.",
           "actor": "demo1",
-          "created_at": "2026-01-16T20:55:00+00:00"
+          "created_at": "2026-01-27T00:28:00+00:00"
         }
       ]
     },
@@ -1485,73 +1438,73 @@
         }
       ],
       "comments": [],
-      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Design",
-          "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ],
+      "assignee": "demo4",
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2025-12-24T13:00:00+00:00"
+          "to_value": "demo4",
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:05:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Improve",
-          "actor": "demo3",
-          "created_at": "2025-12-24T15:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:08:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "low",
-          "actor": "demo3",
-          "created_at": "2025-12-24T18:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:13:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-04-14",
-          "actor": "demo3",
-          "created_at": "2025-12-24T20:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:17:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Recruit 5 participants",
-          "actor": "demo3",
-          "created_at": "2025-12-24T21:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:20:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Write session script",
-          "actor": "demo3",
-          "created_at": "2025-12-24T21:20:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:22:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Run sessions",
-          "actor": "demo3",
-          "created_at": "2025-12-24T21:40:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:24:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Write up findings",
-          "actor": "demo3",
-          "created_at": "2025-12-24T22:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-03-03T00:26:00+00:00"
         }
       ]
     },
@@ -1591,22 +1544,21 @@
           "author": "demo1"
         }
       ],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Backlog",
           "from_swimlane": null,
           "to_swimlane": "Design",
-          "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Backlog",
           "to_column": "To Do",
           "from_swimlane": "Design",
           "to_swimlane": "Design",
-          "moved_at": "2026-01-08T12:00:00+00:00",
+          "moved_at": "2026-02-12T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -1614,2573 +1566,99 @@
           "to_column": "Doing",
           "from_swimlane": "Design",
           "to_swimlane": "Design",
-          "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Doing",
           "to_column": "Review",
           "from_swimlane": "Design",
           "to_swimlane": "Design",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
+      "assignee": "demo5",
       "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "demo5",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:05:00+00:00"
+        },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Feature, Improve",
           "actor": "demo5",
-          "created_at": "2025-12-21T13:00:00+00:00"
+          "created_at": "2026-01-29T00:08:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-25",
           "actor": "demo5",
-          "created_at": "2025-12-21T16:00:00+00:00"
+          "created_at": "2026-01-29T00:13:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Audit all 12 semantic tokens",
           "actor": "demo5",
-          "created_at": "2025-12-21T17:00:00+00:00"
+          "created_at": "2026-01-29T00:16:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Audit all 12 semantic tokens",
           "actor": "demo1",
-          "created_at": "2025-12-21T17:20:00+00:00"
+          "created_at": "2026-01-29T00:18:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Draft dark mode variants in Figma",
           "actor": "demo5",
-          "created_at": "2025-12-21T17:35:00+00:00"
+          "created_at": "2026-01-29T00:19:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Draft dark mode variants in Figma",
           "actor": "demo1",
-          "created_at": "2025-12-21T17:55:00+00:00"
+          "created_at": "2026-01-29T00:21:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Review with frontend team",
           "actor": "demo5",
-          "created_at": "2025-12-21T18:10:00+00:00"
+          "created_at": "2026-01-29T00:22:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Review with frontend team",
           "actor": "demo1",
-          "created_at": "2025-12-21T18:30:00+00:00"
+          "created_at": "2026-01-29T00:24:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Publish final token spec",
           "actor": "demo5",
-          "created_at": "2025-12-21T18:45:00+00:00"
+          "created_at": "2026-01-29T00:25:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
           "to_value": "Token pairs reviewed with frontend. Publishing final spec today.",
           "actor": "demo1",
-          "created_at": "2025-12-21T19:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Accessible focus rings on all interactive elements",
-      "description": "Several interactive elements (dropdown items, modal close buttons) are missing visible focus rings. Fails WCAG 2.1 AA for keyboard users.",
-      "priority": "medium",
-      "column": "To Do",
-      "swimlane": "Frontend",
-      "due_date": "2026-03-30",
-      "weight": 2,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Audit all buttons and links",
-          "is_checked": false
-        },
-        {
-          "text": "Add focus-visible ring via Tailwind",
-          "is_checked": false
-        },
-        {
-          "text": "Test with keyboard navigation",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-03T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo2",
-          "created_at": "2026-02-03T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-30",
-          "actor": "demo2",
-          "created_at": "2026-02-03T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Audit all buttons and links",
-          "actor": "demo2",
-          "created_at": "2026-02-03T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add focus-visible ring via Tailwind",
-          "actor": "demo2",
-          "created_at": "2026-02-03T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Test with keyboard navigation",
-          "actor": "demo2",
-          "created_at": "2026-02-03T19:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Implement card search with debounce",
-      "description": "Card search input needs proper debouncing to avoid spamming the API on every keystroke. Backend endpoint is already live.",
-      "priority": "high",
-      "column": "Doing",
-      "swimlane": "Frontend",
-      "due_date": "2026-03-21",
-      "weight": 3,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Wire up search input to API",
-          "is_checked": true
-        },
-        {
-          "text": "Debounce at 300ms",
-          "is_checked": true
-        },
-        {
-          "text": "Handle empty state",
-          "is_checked": false
-        },
-        {
-          "text": "Add loading indicator",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "API endpoint is ready. Just need to wire up the frontend debounce and empty state.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Backlog",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-28T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Feature",
-          "actor": "demo4",
-          "created_at": "2026-01-28T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-01-28T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-21",
-          "actor": "demo4",
-          "created_at": "2026-01-28T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Wire up search input to API",
-          "actor": "demo4",
-          "created_at": "2026-01-28T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Wire up search input to API",
-          "actor": "demo5",
-          "created_at": "2026-01-28T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Debounce at 300ms",
-          "actor": "demo4",
-          "created_at": "2026-01-28T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Debounce at 300ms",
-          "actor": "demo5",
-          "created_at": "2026-01-28T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Handle empty state",
-          "actor": "demo4",
-          "created_at": "2026-01-28T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add loading indicator",
-          "actor": "demo4",
-          "created_at": "2026-01-28T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "API endpoint is ready. Just need to wire up the frontend debounce and empty state.",
-          "actor": "demo2",
-          "created_at": "2026-01-28T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Extract color token constants to design-system package",
-      "description": "Several components still use hardcoded hex color strings instead of importing from the design system token file. Low priority cleanup.",
-      "priority": "low",
-      "column": "Backlog",
-      "swimlane": "Frontend",
-      "due_date": "2026-04-29",
-      "weight": 2,
-      "labels": [
-        "Tech Debt"
-      ],
-      "checklist": [
-        {
-          "text": "Audit all hardcoded hex values in components",
-          "is_checked": false
-        },
-        {
-          "text": "Move to tokens.ts",
-          "is_checked": false
-        },
-        {
-          "text": "Update all import sites",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Frontend",
-          "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-20T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Tech Debt",
-          "actor": "demo1",
-          "created_at": "2025-12-20T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo1",
-          "created_at": "2025-12-20T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-29",
-          "actor": "demo1",
-          "created_at": "2025-12-20T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Audit all hardcoded hex values in components",
-          "actor": "demo1",
-          "created_at": "2025-12-20T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Move to tokens.ts",
-          "actor": "demo1",
-          "created_at": "2025-12-20T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Update all import sites",
-          "actor": "demo1",
-          "created_at": "2025-12-20T21:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Optimistic update for card weight field",
-      "description": "The weight field on card detail was the last non-optimistic editable field. Change is now reflected immediately in the UI, with rollback on API error.",
-      "priority": "medium",
-      "column": "Review",
-      "swimlane": "Frontend",
-      "due_date": "2026-03-19",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Implement optimistic update on weight change",
-          "is_checked": true
-        },
-        {
-          "text": "Rollback on API error",
-          "is_checked": true
-        },
-        {
-          "text": "Write test",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Weight field was the last field without optimistic update. Good to close this gap.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Doing",
-          "to_column": "Review",
-          "from_swimlane": "Frontend",
-          "to_swimlane": "Frontend",
-          "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-01T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo3",
-          "created_at": "2026-02-01T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-19",
-          "actor": "demo3",
-          "created_at": "2026-02-01T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Implement optimistic update on weight change",
-          "actor": "demo3",
-          "created_at": "2026-02-01T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Implement optimistic update on weight change",
-          "actor": "demo4",
-          "created_at": "2026-02-01T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Rollback on API error",
-          "actor": "demo3",
-          "created_at": "2026-02-01T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Rollback on API error",
-          "actor": "demo4",
-          "created_at": "2026-02-01T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Write test",
-          "actor": "demo3",
-          "created_at": "2026-02-01T20:10:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Weight field was the last field without optimistic update. Good to close this gap.",
-          "actor": "demo1",
-          "created_at": "2026-02-01T20:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Add cursor-based pagination to card list endpoint",
-      "description": "The card list endpoint uses page-number pagination which breaks under concurrent mutations. Cursor-based pagination is required for stable infinite scroll.",
-      "priority": "medium",
-      "column": "To Do",
-      "swimlane": "Backend",
-      "due_date": "2026-04-02",
-      "weight": 4,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Implement cursor pagination in DRF",
-          "is_checked": false
-        },
-        {
-          "text": "Update API docs",
-          "is_checked": false
-        },
-        {
-          "text": "Add test for large result sets",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Backend",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo5",
-          "created_at": "2026-01-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-02",
-          "actor": "demo5",
-          "created_at": "2026-01-17T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Implement cursor pagination in DRF",
-          "actor": "demo5",
-          "created_at": "2026-01-17T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Update API docs",
-          "actor": "demo5",
-          "created_at": "2026-01-17T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add test for large result sets",
-          "actor": "demo5",
-          "created_at": "2026-01-17T17:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Rate limiting on public invite accept endpoint",
-      "description": "The public invite accept endpoint has no rate limiting, making it a vector for scraping valid invite tokens. Need throttle at 10 requests/min per IP.",
-      "priority": "high",
-      "column": "Backlog",
-      "swimlane": "Backend",
-      "due_date": "2026-04-09",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Add throttle class to invite accept view",
-          "is_checked": false
-        },
-        {
-          "text": "Set limit: 10/min per IP",
-          "is_checked": false
-        },
-        {
-          "text": "Return 429 with Retry-After",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Backend",
-          "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-01T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo2",
-          "created_at": "2026-01-01T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo2",
-          "created_at": "2026-01-01T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-09",
-          "actor": "demo2",
-          "created_at": "2026-01-01T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add throttle class to invite accept view",
-          "actor": "demo2",
-          "created_at": "2026-01-01T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Set limit: 10/min per IP",
-          "actor": "demo2",
-          "created_at": "2026-01-01T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Return 429 with Retry-After",
-          "actor": "demo2",
-          "created_at": "2026-01-01T21:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Bulk card archive endpoint",
-      "description": "New bulk archive endpoint: `POST /api/boards/{id}/cards/bulk-archive/` accepts a list of card IDs. Required by the bulk action toolbar feature.",
-      "priority": "medium",
-      "column": "Doing",
-      "swimlane": "Backend",
-      "due_date": "2026-03-23",
-      "weight": 3,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Design endpoint schema",
-          "is_checked": true
-        },
-        {
-          "text": "Implement POST /cards/bulk-archive/",
-          "is_checked": true
-        },
-        {
-          "text": "Add permission check",
-          "is_checked": false
-        },
-        {
-          "text": "Write tests",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "FR-077 from customer support. Endpoint design approved. Implementing now.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Backend",
-          "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Backlog",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Feature",
-          "actor": "demo4",
-          "created_at": "2025-12-17T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo4",
-          "created_at": "2025-12-17T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Design endpoint schema",
-          "actor": "demo4",
-          "created_at": "2025-12-17T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Design endpoint schema",
-          "actor": "demo5",
-          "created_at": "2025-12-17T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Implement POST /cards/bulk-archive/",
-          "actor": "demo4",
-          "created_at": "2025-12-17T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Implement POST /cards/bulk-archive/",
-          "actor": "demo5",
-          "created_at": "2025-12-17T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add permission check",
-          "actor": "demo4",
-          "created_at": "2025-12-17T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Write tests",
-          "actor": "demo4",
-          "created_at": "2025-12-17T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "FR-077 from customer support. Endpoint design approved. Implementing now.",
-          "actor": "demo3",
-          "created_at": "2025-12-17T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "N+1 fix on /api/boards/ list endpoint",
-      "description": "Board list endpoint was issuing 48 SQL queries for 20 boards due to missing select_related on owner and group FKs. Reduced to 3 queries.",
-      "priority": "high",
-      "column": "Done",
-      "swimlane": "Backend",
-      "due_date": "2026-03-10",
-      "weight": 4,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Profiled with django-debug-toolbar",
-          "is_checked": true
-        },
-        {
-          "text": "Added select_related for owner and group",
-          "is_checked": true
-        },
-        {
-          "text": "Reduced queries from 48 to 3",
-          "is_checked": true
-        },
-        {
-          "text": "Performance test added",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Was doing 48 queries for a list of 20 boards. Now 3 queries. 200ms → 12ms on staging.",
-          "author": "demo1"
-        },
-        {
-          "body": "Impressive improvement. Merging.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Backend",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Doing",
-          "to_column": "Review",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Review",
-          "to_column": "Done",
-          "from_swimlane": "Backend",
-          "to_swimlane": "Backend",
-          "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-25T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo1",
-          "created_at": "2026-01-25T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-01-25T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-10",
-          "actor": "demo1",
-          "created_at": "2026-01-25T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Profiled with django-debug-toolbar",
-          "actor": "demo1",
-          "created_at": "2026-01-25T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Profiled with django-debug-toolbar",
-          "actor": "demo2",
-          "created_at": "2026-01-25T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Added select_related for owner and group",
-          "actor": "demo1",
-          "created_at": "2026-01-25T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Added select_related for owner and group",
-          "actor": "demo2",
-          "created_at": "2026-01-25T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reduced queries from 48 to 3",
-          "actor": "demo1",
-          "created_at": "2026-01-25T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Reduced queries from 48 to 3",
-          "actor": "demo2",
-          "created_at": "2026-01-25T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Performance test added",
-          "actor": "demo1",
-          "created_at": "2026-01-25T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Performance test added",
-          "actor": "demo2",
-          "created_at": "2026-01-25T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Was doing 48 queries for a list of 20 boards. Now 3 queries. 200ms → 12ms on staging.",
-          "actor": "demo1",
-          "created_at": "2026-01-25T23:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Impressive improvement. Merging.",
-          "actor": "demo4",
-          "created_at": "2026-01-26T02:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Card swipe gestures for quick archive",
-      "description": "Power users on mobile want to quickly archive a card by swiping left, similar to email apps. Undo toast required.",
-      "priority": "low",
-      "column": "Backlog",
-      "swimlane": "Mobile",
-      "due_date": "2026-04-24",
-      "weight": 3,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Design swipe gesture UX",
-          "is_checked": false
-        },
-        {
-          "text": "Implement left-swipe to archive",
-          "is_checked": false
-        },
-        {
-          "text": "Add undo toast",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-01T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Feature",
-          "actor": "demo3",
-          "created_at": "2026-02-01T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo3",
-          "created_at": "2026-02-01T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-24",
-          "actor": "demo3",
-          "created_at": "2026-02-01T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Design swipe gesture UX",
-          "actor": "demo3",
-          "created_at": "2026-02-01T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Implement left-swipe to archive",
-          "actor": "demo3",
-          "created_at": "2026-02-01T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add undo toast",
-          "actor": "demo3",
-          "created_at": "2026-02-01T21:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Fix card drag on iOS 17 with new UIKit scroll fix",
-      "description": "Card drag-and-drop is broken on iOS 17.4 — the card lifts but immediately drops to its original position. Confirmed React Native Gesture Handler regression.",
-      "priority": "high",
-      "column": "Doing",
-      "swimlane": "Mobile",
-      "due_date": "2026-03-20",
-      "weight": 5,
-      "labels": [
-        "Bug"
-      ],
-      "checklist": [
-        {
-          "text": "Confirmed bug on iOS 17.4",
-          "is_checked": true
-        },
-        {
-          "text": "Test React Native gesture handler v2.16",
-          "is_checked": false
-        },
-        {
-          "text": "Check dnd-kit mobile branch",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "iOS 17.4 changed how UIScrollView interacts with custom gesture recognizers. React Native Gesture Handler 2.16 has a fix.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Mobile",
-          "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Bug",
-          "actor": "demo5",
-          "created_at": "2025-12-28T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2025-12-28T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo5",
-          "created_at": "2025-12-28T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Confirmed bug on iOS 17.4",
-          "actor": "demo5",
-          "created_at": "2025-12-28T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Confirmed bug on iOS 17.4",
-          "actor": "demo1",
-          "created_at": "2025-12-28T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Test React Native gesture handler v2.16",
-          "actor": "demo5",
-          "created_at": "2025-12-28T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Check dnd-kit mobile branch",
-          "actor": "demo5",
-          "created_at": "2025-12-28T19:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "iOS 17.4 changed how UIScrollView interacts with custom gesture recognizers. React Native Gesture Handler 2.16 has a fix",
-          "actor": "demo2",
-          "created_at": "2025-12-28T20:15:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Push notification for card assignment",
-      "description": "Push notifications for card assignment events. APNs (iOS) and FCM (Android) both integrated. Awaiting final E2E device test.",
-      "priority": "medium",
-      "column": "Review",
-      "swimlane": "Mobile",
-      "due_date": "2026-03-22",
-      "weight": 4,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "APNs integration complete",
-          "is_checked": true
-        },
-        {
-          "text": "FCM integration complete",
-          "is_checked": true
-        },
-        {
-          "text": "Notification payload implemented",
-          "is_checked": true
-        },
-        {
-          "text": "End-to-end test on device",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Both APNs and FCM are wired up. Just need a real-device E2E test before merging.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Doing",
-          "to_column": "Review",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-29T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Feature",
-          "actor": "demo2",
-          "created_at": "2026-01-29T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-22",
-          "actor": "demo2",
-          "created_at": "2026-01-29T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "APNs integration complete",
-          "actor": "demo2",
-          "created_at": "2026-01-29T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "APNs integration complete",
-          "actor": "demo3",
-          "created_at": "2026-01-29T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "FCM integration complete",
-          "actor": "demo2",
-          "created_at": "2026-01-29T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "FCM integration complete",
-          "actor": "demo3",
-          "created_at": "2026-01-29T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Notification payload implemented",
-          "actor": "demo2",
-          "created_at": "2026-01-29T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Notification payload implemented",
-          "actor": "demo3",
-          "created_at": "2026-01-29T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "End-to-end test on device",
-          "actor": "demo2",
-          "created_at": "2026-01-29T20:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Both APNs and FCM are wired up. Just need a real-device E2E test before merging.",
-          "actor": "demo3",
-          "created_at": "2026-01-29T21:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Offline mode: queue moves while disconnected",
-      "description": "Mobile users on patchy networks need to queue card moves locally and sync when connectivity is restored. Conflict detection on sync is the main challenge.",
-      "priority": "high",
-      "column": "Doing",
-      "swimlane": "Mobile",
-      "due_date": "2026-03-25",
-      "weight": 6,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Design offline queue schema",
-          "is_checked": true
-        },
-        {
-          "text": "Persist to AsyncStorage",
-          "is_checked": true
-        },
-        {
-          "text": "Sync on reconnect with conflict detection",
-          "is_checked": false
-        },
-        {
-          "text": "Handle stale-move error",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Storage layer done. The tricky part is handling the 409 conflict case when a card was moved by someone else while offline.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Mobile",
-          "to_swimlane": "Mobile",
-          "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-31T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Feature",
-          "actor": "demo4",
-          "created_at": "2026-01-31T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-01-31T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-25",
-          "actor": "demo4",
-          "created_at": "2026-01-31T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Design offline queue schema",
-          "actor": "demo4",
-          "created_at": "2026-01-31T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Design offline queue schema",
-          "actor": "demo5",
-          "created_at": "2026-01-31T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Persist to AsyncStorage",
-          "actor": "demo4",
-          "created_at": "2026-01-31T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Persist to AsyncStorage",
-          "actor": "demo5",
-          "created_at": "2026-01-31T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Sync on reconnect with conflict detection",
-          "actor": "demo4",
-          "created_at": "2026-01-31T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Handle stale-move error",
-          "actor": "demo4",
-          "created_at": "2026-01-31T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Storage layer done. The tricky part is handling the 409 conflict case when a card was moved by someone else while offlin",
-          "actor": "demo1",
-          "created_at": "2026-01-31T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Rotate CI/CD secrets — 90-day policy",
-      "description": "90-day secret rotation is due. All CI/CD secrets (AWS access keys, DB credentials, S3 keys) need rotation per security policy.",
-      "priority": "medium",
-      "column": "To Do",
-      "swimlane": "DevOps",
-      "due_date": "2026-03-27",
-      "weight": 2,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Audit all secrets in GitLab CI variables",
-          "is_checked": false
-        },
-        {
-          "text": "Rotate AWS keys and update CI",
-          "is_checked": false
-        },
-        {
-          "text": "Rotate DB credentials",
-          "is_checked": false
-        },
-        {
-          "text": "Update runbook",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "DevOps",
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-31T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo1",
-          "created_at": "2026-01-31T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-27",
-          "actor": "demo1",
-          "created_at": "2026-01-31T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Audit all secrets in GitLab CI variables",
-          "actor": "demo1",
-          "created_at": "2026-01-31T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Rotate AWS keys and update CI",
-          "actor": "demo1",
-          "created_at": "2026-01-31T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Rotate DB credentials",
-          "actor": "demo1",
-          "created_at": "2026-01-31T19:40:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Update runbook",
-          "actor": "demo1",
-          "created_at": "2026-01-31T20:00:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Add Prometheus metrics to API gateway",
-      "description": "API gateway latency and error rate metrics are currently only visible in CloudWatch. Need Prometheus-compatible metrics endpoint for unified observability.",
-      "priority": "medium",
-      "column": "Backlog",
-      "swimlane": "DevOps",
-      "due_date": "2026-04-14",
-      "weight": 4,
-      "labels": [
-        "Feature"
-      ],
-      "checklist": [
-        {
-          "text": "Define SLI metrics (p50, p95, p99 latency)",
-          "is_checked": false
-        },
-        {
-          "text": "Add prometheus_client to Django",
-          "is_checked": false
-        },
-        {
-          "text": "Configure scrape in Prometheus",
-          "is_checked": false
-        },
-        {
-          "text": "Build Grafana dashboard",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-09T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Feature",
-          "actor": "demo3",
-          "created_at": "2026-01-09T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-14",
-          "actor": "demo3",
-          "created_at": "2026-01-09T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Define SLI metrics (p50, p95, p99 latency)",
-          "actor": "demo3",
-          "created_at": "2026-01-09T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add prometheus_client to Django",
-          "actor": "demo3",
-          "created_at": "2026-01-09T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Configure scrape in Prometheus",
-          "actor": "demo3",
-          "created_at": "2026-01-09T19:40:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Build Grafana dashboard",
-          "actor": "demo3",
-          "created_at": "2026-01-09T20:00:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Kubernetes pod autoscaling HPA tuning",
-      "description": "Kubernetes HPA is over-scaling on minor traffic spikes, increasing costs. Tuning CPU utilization threshold and smoothing window based on 30-day usage analysis.",
-      "priority": "high",
-      "column": "Doing",
-      "swimlane": "DevOps",
-      "due_date": "2026-03-20",
-      "weight": 5,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Analyze CPU/memory usage patterns over 30 days",
-          "is_checked": true
-        },
-        {
-          "text": "Set HPA minReplicas=2, maxReplicas=10",
-          "is_checked": true
-        },
-        {
-          "text": "Load test with k6",
-          "is_checked": false
-        },
-        {
-          "text": "Deploy to production",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Current HPA is scaling too aggressively — pods spinning up on minor traffic spikes. Tuning CPU threshold from 50% to 70%.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "DevOps",
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "DevOps",
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo5",
-          "created_at": "2026-01-16T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-01-16T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo5",
-          "created_at": "2026-01-16T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Analyze CPU/memory usage patterns over 30 days",
-          "actor": "demo5",
-          "created_at": "2026-01-16T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Analyze CPU/memory usage patterns over 30 days",
-          "actor": "demo1",
-          "created_at": "2026-01-16T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Set HPA minReplicas=2, maxReplicas=10",
-          "actor": "demo5",
-          "created_at": "2026-01-16T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Set HPA minReplicas=2, maxReplicas=10",
-          "actor": "demo1",
-          "created_at": "2026-01-16T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Load test with k6",
-          "actor": "demo5",
-          "created_at": "2026-01-16T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Deploy to production",
-          "actor": "demo5",
-          "created_at": "2026-01-16T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Current HPA is scaling too aggressively — pods spinning up on minor traffic spikes. Tuning CPU threshold from 50% to 70%",
-          "actor": "demo2",
-          "created_at": "2026-01-16T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Zero-downtime deployment runbook",
-      "description": "Zero-downtime deployment runbook written and reviewed. Covers blue-green deployment, pre-deploy DB migration check, and rollback procedure.",
-      "priority": "medium",
-      "column": "Done",
-      "swimlane": "DevOps",
-      "due_date": "2026-03-05",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Documented blue-green deployment steps",
-          "is_checked": true
-        },
-        {
-          "text": "Added health check verification step",
-          "is_checked": true
-        },
-        {
-          "text": "Reviewed by backend team",
-          "is_checked": true
-        },
-        {
-          "text": "Committed to ops runbook repo",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Runbook covers blue-green deploy, DB migration safety, and rollback procedure. Reviewed and approved.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "DevOps",
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "DevOps",
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Doing",
-          "to_column": "Done",
-          "from_swimlane": "DevOps",
-          "to_swimlane": "DevOps",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-10T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo2",
-          "created_at": "2026-02-10T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-05",
-          "actor": "demo2",
-          "created_at": "2026-02-10T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Documented blue-green deployment steps",
-          "actor": "demo2",
-          "created_at": "2026-02-10T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Documented blue-green deployment steps",
-          "actor": "demo3",
-          "created_at": "2026-02-10T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Added health check verification step",
-          "actor": "demo2",
-          "created_at": "2026-02-10T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Added health check verification step",
-          "actor": "demo3",
-          "created_at": "2026-02-10T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reviewed by backend team",
-          "actor": "demo2",
-          "created_at": "2026-02-10T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Reviewed by backend team",
-          "actor": "demo3",
-          "created_at": "2026-02-10T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Committed to ops runbook repo",
-          "actor": "demo2",
-          "created_at": "2026-02-10T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Committed to ops runbook repo",
-          "actor": "demo3",
-          "created_at": "2026-02-10T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Runbook covers blue-green deploy, DB migration safety, and rollback procedure. Reviewed and approved.",
-          "actor": "demo4",
-          "created_at": "2026-02-10T21:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Component audit — identify inconsistent spacing",
-      "description": "Spacing across components is inconsistent — some use 6px gaps, others 8px, others 12px. Audit needed to propose a consistent 4px baseline grid.",
-      "priority": "low",
-      "column": "Backlog",
-      "swimlane": "Design",
-      "due_date": "2026-04-19",
-      "weight": 2,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Audit all components in Figma",
-          "is_checked": false
-        },
-        {
-          "text": "Document spacing violations",
-          "is_checked": false
-        },
-        {
-          "text": "Propose standard 4/8/16/24px grid",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Design",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-26T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo4",
-          "created_at": "2026-01-26T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo4",
-          "created_at": "2026-01-26T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-19",
-          "actor": "demo4",
-          "created_at": "2026-01-26T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Audit all components in Figma",
-          "actor": "demo4",
-          "created_at": "2026-01-26T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Document spacing violations",
-          "actor": "demo4",
-          "created_at": "2026-01-26T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Propose standard 4/8/16/24px grid",
-          "actor": "demo4",
-          "created_at": "2026-01-26T21:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Redesign empty state illustrations",
-      "description": "Current empty states use generic text only. Replacing with lightweight illustrations will improve first-time user experience and onboarding perception.",
-      "priority": "medium",
-      "column": "To Do",
-      "swimlane": "Design",
-      "due_date": "2026-04-04",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Define 5 empty state scenarios",
-          "is_checked": false
-        },
-        {
-          "text": "Sketch illustration concepts",
-          "is_checked": false
-        },
-        {
-          "text": "Get team feedback",
-          "is_checked": false
-        },
-        {
-          "text": "Export to design system",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Design",
-          "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-24T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo1",
-          "created_at": "2025-12-24T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-04",
-          "actor": "demo1",
-          "created_at": "2025-12-24T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Define 5 empty state scenarios",
-          "actor": "demo1",
-          "created_at": "2025-12-24T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Sketch illustration concepts",
-          "actor": "demo1",
-          "created_at": "2025-12-24T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Get team feedback",
-          "actor": "demo1",
-          "created_at": "2025-12-24T19:40:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Export to design system",
-          "actor": "demo1",
-          "created_at": "2025-12-24T20:00:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "User research: onboarding friction study",
-      "description": "Moderated usability sessions with 6 new users. Key findings: swimlane discovery is poor, and the add-column affordance is missed. Presenting recommendations to product.",
-      "priority": "high",
-      "column": "Review",
-      "swimlane": "Design",
-      "due_date": "2026-03-23",
-      "weight": 4,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Recruited 8 participants",
-          "is_checked": true
-        },
-        {
-          "text": "Ran 6 moderated sessions",
-          "is_checked": true
-        },
-        {
-          "text": "Synthesized findings",
-          "is_checked": true
-        },
-        {
-          "text": "Present to product team",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Key finding: 4 of 6 participants didn't discover swimlanes until prompted. Onboarding needs a swimlane-first framing.",
-          "author": "demo2"
-        },
-        {
-          "body": "Also found that the 'Add column' button is frequently missed. Need stronger visual hierarchy.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Design",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Doing",
-          "to_column": "To Do",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Doing",
-          "to_column": "Review",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo3",
-          "created_at": "2026-01-17T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2026-01-17T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo3",
-          "created_at": "2026-01-17T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Recruited 8 participants",
-          "actor": "demo3",
-          "created_at": "2026-01-17T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Recruited 8 participants",
-          "actor": "demo4",
-          "created_at": "2026-01-17T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Ran 6 moderated sessions",
-          "actor": "demo3",
-          "created_at": "2026-01-17T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Ran 6 moderated sessions",
-          "actor": "demo4",
-          "created_at": "2026-01-17T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Synthesized findings",
-          "actor": "demo3",
-          "created_at": "2026-01-17T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Synthesized findings",
-          "actor": "demo4",
-          "created_at": "2026-01-17T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Present to product team",
-          "actor": "demo3",
-          "created_at": "2026-01-17T22:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Key finding: 4 of 6 participants didn't discover swimlanes until prompted. Onboarding needs a swimlane-first framing.",
-          "actor": "demo2",
-          "created_at": "2026-01-17T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Also found that the 'Add column' button is frequently missed. Need stronger visual hierarchy.",
-          "actor": "demo1",
-          "created_at": "2026-01-18T02:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Dark mode color system — token audit",
-      "description": "Full audit of dark mode color tokens. Removed 23 redundant tokens, standardized all slate variants, and published the updated token set to the design system.",
-      "priority": "medium",
-      "column": "Done",
-      "swimlane": "Design",
-      "due_date": "2026-03-08",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Audited all 140 color tokens",
-          "is_checked": true
-        },
-        {
-          "text": "Removed 23 duplicate tokens",
-          "is_checked": true
-        },
-        {
-          "text": "Published updated token set",
-          "is_checked": true
-        },
-        {
-          "text": "Dev handoff complete",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Token count down from 140 to 117. All slate variants now consistent. Figma tokens plugin synced.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Backlog",
-          "from_swimlane": null,
-          "to_swimlane": "Design",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Backlog",
-          "to_column": "To Do",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "To Do",
-          "to_column": "Doing",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Doing",
-          "to_column": "Done",
-          "from_swimlane": "Design",
-          "to_swimlane": "Design",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo5",
-          "created_at": "2026-01-25T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-08",
-          "actor": "demo5",
-          "created_at": "2026-01-25T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Audited all 140 color tokens",
-          "actor": "demo5",
-          "created_at": "2026-01-25T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Audited all 140 color tokens",
-          "actor": "demo1",
-          "created_at": "2026-01-25T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Removed 23 duplicate tokens",
-          "actor": "demo5",
-          "created_at": "2026-01-25T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Removed 23 duplicate tokens",
-          "actor": "demo1",
-          "created_at": "2026-01-25T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Published updated token set",
-          "actor": "demo5",
-          "created_at": "2026-01-25T18:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Published updated token set",
-          "actor": "demo1",
-          "created_at": "2026-01-25T18:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Dev handoff complete",
-          "actor": "demo5",
-          "created_at": "2026-01-25T18:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Dev handoff complete",
-          "actor": "demo1",
-          "created_at": "2026-01-25T19:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Token count down from 140 to 117. All slate variants now consistent. Figma tokens plugin synced.",
-          "actor": "demo3",
-          "created_at": "2026-01-25T19:20:00+00:00"
+          "created_at": "2026-01-29T00:27:00+00:00"
         }
       ]
     }
-  ]
+  ],
+  "schema_version": 1
 }
