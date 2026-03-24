@@ -427,36 +427,40 @@ describe('BoardSettingsModal — Data tab', () => {
     vi.clearAllMocks()
   })
 
-  it('clicking Data tab shows Export CSV and Export JSON buttons', async () => {
+  it('clicking Data tab shows format radio options and Export button', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     await user.click(screen.getByRole('button', { name: 'Data' }))
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /JSON/i })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /CSV/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export JSON' })).toBeInTheDocument()
   })
 
-  it('Export CSV button calls exportBoardCsv and onClose', async () => {
+  it('JSON is pre-selected and Export JSON calls exportBoardJson and onClose', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
 
     await user.click(screen.getByRole('button', { name: 'Data' }))
-    await user.click(screen.getByRole('button', { name: 'Export CSV' }))
-
-    expect(mockExportBoardCsv).toHaveBeenCalledWith(1)
-    expect(onClose).toHaveBeenCalledOnce()
-  })
-
-  it('Export JSON button calls exportBoardJson and onClose', async () => {
-    const user = userEvent.setup()
-    const onClose = vi.fn()
-    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
-
-    await user.click(screen.getByRole('button', { name: 'Data' }))
+    expect(screen.getByRole('radio', { name: /JSON/i })).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Export JSON' }))
 
     expect(mockExportBoardJson).toHaveBeenCalledWith(1)
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('selecting CSV and clicking Export CSV calls exportBoardCsv and onClose', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
+
+    await user.click(screen.getByRole('button', { name: 'Data' }))
+    await user.click(screen.getByRole('radio', { name: /CSV/i }))
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+
+    expect(mockExportBoardCsv).toHaveBeenCalledWith(1)
     expect(onClose).toHaveBeenCalledOnce()
   })
 })
@@ -535,7 +539,8 @@ describe('BoardSettingsModal — initialTab prop', () => {
     render(
       <BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />
     )
-    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /JSON/i })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /CSV/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export JSON' })).toBeInTheDocument()
   })
 

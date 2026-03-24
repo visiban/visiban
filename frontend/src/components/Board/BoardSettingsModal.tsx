@@ -66,6 +66,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [staged, setStaged] = useState<StagedInvite[]>([]);
   const [inviting, setInviting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"json" | "csv">("json");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
@@ -466,20 +467,41 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             <div className="flex flex-col gap-6">
               <section>
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Export</h3>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => { exportBoardCsv(board.id); onClose(); }}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2 px-4 rounded-lg transition"
-                  >
-                    Export CSV
-                  </button>
-                  <button
-                    onClick={() => { exportBoardJson(board.id); onClose(); }}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2 px-4 rounded-lg transition"
-                  >
-                    Export JSON
-                  </button>
+                <div className="flex flex-col gap-2">
+                  {(["json", "csv"] as const).map((fmt) => (
+                    <label
+                      key={fmt}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-blue-500 ${
+                        exportFormat === fmt
+                          ? "border-blue-500 bg-blue-500/10"
+                          : "border-slate-600 hover:bg-slate-700/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="export-format"
+                        value={fmt}
+                        checked={exportFormat === fmt}
+                        onChange={() => setExportFormat(fmt)}
+                        className="sr-only"
+                      />
+                      <div>
+                        <span className="text-sm text-slate-200 font-medium">{fmt.toUpperCase()}</span>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {fmt === "json"
+                            ? "Full history: movements, activity log, and assignees"
+                            : "Card data only, no history"}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
                 </div>
+                <button
+                  onClick={() => { exportFormat === "json" ? exportBoardJson(board.id) : exportBoardCsv(board.id); onClose(); }}
+                  className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Export {exportFormat.toUpperCase()}
+                </button>
               </section>
 
               {isAdmin && onBoardDeleted && (
