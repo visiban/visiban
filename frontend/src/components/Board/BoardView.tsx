@@ -280,6 +280,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   }, []);
 
   useEscapeStack(() => {
+    if (view === "analytics") { setView("summary"); return; }
+    if (view === "summary") { setView("board"); return; }
+    return false;
+  }, 15);
+
+  useEscapeStack(() => {
     if (selectedCardIds.size === 0) return false;
     clearSelection();
   }, 10);

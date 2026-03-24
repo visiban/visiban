@@ -286,6 +286,37 @@ describe('BoardView', () => {
     expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
+  it('Escape from analytics view goes back to summary', async () => {
+    render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Analytics'))
+    expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+  })
+
+  it('Escape from summary view goes back to board', async () => {
+    render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Summary'))
+    expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
+  })
+
+  it('Escape from analytics goes to summary then to board on second press', async () => {
+    render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Analytics'))
+    expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
+  })
+
   it('clicking Settings opens the settings modal', async () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByText('Settings'))
