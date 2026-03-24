@@ -1024,7 +1024,7 @@ class BoardViewSet(viewsets.ModelViewSet):
             "columns": [c.name for c in columns],
             "board_medians": board_medians,  # kept for backward compat
             "swimlanes": swimlane_results,
-            "stalled_threshold_days": stalled_days,
+            "stalled_threshold_days": effective_stalled_days,
             "staleness_threshold_days": board.staleness_threshold_days,
             "stale_warning_pct": board.stale_warning_pct,
         })
