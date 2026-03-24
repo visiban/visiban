@@ -497,7 +497,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   ))}
                 </div>
                 <button
-                  onClick={() => { exportFormat === "json" ? exportBoardJson(board.id) : exportBoardCsv(board.id); onClose(); }}
+                  onClick={() => { if (exportFormat === "json") { exportBoardJson(board.id); } else { exportBoardCsv(board.id); } onClose(); }}
                   className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Export {exportFormat.toUpperCase()}
