@@ -21,7 +21,7 @@ class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = [
-            "id", "name", "owner", "parent", "parent_name",
+            "id", "name", "description", "owner", "parent", "parent_name",
             "member_count", "board_count", "subgroup_count", "created_at",
             "default_board_member_role", "allowed_priorities", "shared_labels",
             "is_starred",
@@ -77,6 +77,27 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupMembership
         fields = ["id", "user", "role", "joined_at"]
+
+
+class GroupDetailSerializer(GroupSerializer):
+    """Extended serializer for the group retrieve endpoint.
+
+    Adds an `ancestors` field (root-first list of {id, name} dicts) so the
+    frontend can render a full ancestor breadcrumb chain without extra requests.
+    This field is intentionally absent from the list serializer to avoid N+1
+    queries when returning many groups at once.
+    """
+
+    ancestors = serializers.SerializerMethodField()
+
+    class Meta(GroupSerializer.Meta):
+        fields = GroupSerializer.Meta.fields + ["ancestors"]
+        read_only_fields = list(GroupSerializer.Meta.read_only_fields) + ["ancestors"]
+
+    def get_ancestors(self, obj):
+        # ancestors() returns [immediate_parent, grandparent, …, root].
+        # Reverse so the breadcrumb renders root-first (left-to-right).
+        return [{"id": g.id, "name": g.name} for g in reversed(obj.ancestors())]
 
 
 class GroupInviteLinkSerializer(serializers.ModelSerializer):

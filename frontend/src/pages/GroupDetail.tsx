@@ -72,6 +72,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
 
+  // Inline description edit state
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionValue, setDescriptionValue] = useState("");
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
+
   // Inline confirmation state — replaces window.confirm() for destructive actions
   const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<number | null>(null);
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
@@ -176,6 +181,42 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") { e.preventDefault(); handleRenameSave(); }
     if (e.key === "Escape") { e.preventDefault(); handleRenameCancel(); }
+  };
+
+  const handleDescriptionStart = () => {
+    if (!group) return;
+    setDescriptionValue(group.description);
+    setDescriptionError(null);
+    setEditingDescription(true);
+  };
+
+  const handleDescriptionCancel = () => {
+    setEditingDescription(false);
+    setDescriptionError(null);
+  };
+
+  const handleDescriptionSave = async () => {
+    if (!group) return;
+    const trimmed = descriptionValue.trimEnd();
+    if (trimmed === group.description) {
+      setEditingDescription(false);
+      return;
+    }
+    const prev = group.description;
+    setGroup({ ...group, description: trimmed });
+    setEditingDescription(false);
+    setDescriptionError(null);
+    try {
+      await updateGroup(groupId, { description: trimmed });
+    } catch {
+      setGroup({ ...group, description: prev });
+      setDescriptionError("Failed to save description. Please try again.");
+    }
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") { e.preventDefault(); handleDescriptionCancel(); }
+    // Enter inserts a newline — do not submit
   };
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, _setAsDefault: boolean) => {
@@ -286,8 +327,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const activeTab = isAdmin && searchParams.get("tab") === "settings" ? "settings" : "boards";
 
+  // Build Navbar breadcrumb from the ancestors array when available (full chain);
+  // fall back to the single-level parent fields for list-endpoint group objects.
   const breadcrumb = group ? [
-    ...(group.parent ? [{ label: group.parent_name ?? "Group", href: `/groups/${group.parent}` }] : []),
+    ...(group.ancestors
+      ? group.ancestors.map((a) => ({ label: a.name, href: `/groups/${a.id}` }))
+      : group.parent ? [{ label: group.parent_name ?? "Group", href: `/groups/${group.parent}` }] : []),
     { label: group.name },
   ] : [];
 
@@ -325,6 +370,28 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="min-w-0 flex-1 mr-4">
+            {/* Ancestor breadcrumb — only when the group has ancestors */}
+            {group.ancestors && group.ancestors.length > 0 && (
+              <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center mb-1">
+                {group.ancestors.map((ancestor, i) => (
+                  <span key={ancestor.id} className="flex items-center">
+                    {i > 0 && <span className="text-slate-600 mx-1.5 select-none">/</span>}
+                    <a
+                      href={`/groups/${ancestor.id}`}
+                      onClick={(e) => { e.preventDefault(); navigate(`/groups/${ancestor.id}`); }}
+                      className="text-sm text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition max-w-[12rem] truncate"
+                      title={ancestor.name}
+                    >
+                      {ancestor.name}
+                    </a>
+                  </span>
+                ))}
+                <span className="text-slate-600 mx-1.5 select-none">/</span>
+                <span className="text-sm text-slate-300 max-w-[12rem] truncate" title={group.name}>{group.name}</span>
+              </nav>
+            )}
+
+            {/* Group name — inline editable for admins */}
             {isAdmin ? (
               <div className="relative group/rename">
                 {renaming ? (
@@ -361,7 +428,48 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             ) : (
               <h1 className="text-white text-2xl font-bold">{group.name}</h1>
             )}
-            <p className="text-slate-500 text-sm mt-1">
+
+            {/* Group description — inline editable for admins */}
+            <div className="mt-1 group/description">
+              {editingDescription ? (
+                <textarea
+                  autoFocus
+                  rows={3}
+                  value={descriptionValue}
+                  onChange={(e) => setDescriptionValue(e.target.value)}
+                  onKeyDown={handleDescriptionKeyDown}
+                  onBlur={handleDescriptionSave}
+                  className="w-full bg-slate-900 border border-blue-400 rounded px-2 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder-slate-500"
+                  placeholder="Add a description…"
+                />
+              ) : isAdmin ? (
+                <div
+                  onClick={handleDescriptionStart}
+                  className="cursor-text border border-transparent hover:border-slate-600 rounded px-2 py-1.5 -mx-2 transition-colors"
+                >
+                  {group.description ? (
+                    <p className="text-sm text-slate-400 whitespace-pre-wrap">{group.description}</p>
+                  ) : (
+                    <p className="text-sm text-slate-600">Add a description…</p>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDescriptionStart(); }}
+                    className="opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-slate-500 hover:text-slate-300 transition-opacity text-xs mt-0.5"
+                    title="Edit description"
+                    aria-label="Edit description"
+                  >
+                    ✎
+                  </button>
+                </div>
+              ) : group.description ? (
+                <p className="text-sm text-slate-400 whitespace-pre-wrap px-2 py-1.5 -mx-2">{group.description}</p>
+              ) : null}
+              <p className="text-xs h-4">
+                {descriptionError && <span className="text-red-400">{descriptionError}</span>}
+              </p>
+            </div>
+
+            <p className="text-slate-500 text-sm">
               {group.member_count} member{group.member_count !== 1 ? "s" : ""}
               {" · "}
               {group.board_count} board{group.board_count !== 1 ? "s" : ""}

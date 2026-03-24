@@ -10,6 +10,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Groups now have an optional `description` field — visible below the heading on the Group detail page, inline-editable by admins, and settable at creation time in the Create Group modal (#324)
+- Group detail page shows a full ancestor breadcrumb chain above the `<h1>` heading for subgroups, enabling navigation up through nested group hierarchies; the Navbar breadcrumb is also updated to reflect the full chain (#324)
+- `GET /api/groups/<id>/` now returns an `ancestors` array (`[{id, name}]`, root-first) via `GroupDetailSerializer`; the list endpoint is unchanged to avoid N+1 queries (#324)
+- Create Group modal now accepts an optional description with a character counter (warns at 450 chars, hard limit 500); name field Enter moves focus to description rather than submitting (#324)
+- Create Group modal styling corrected to match the design system: `bg-slate-800` inputs, `rounded` corners, full `focus:ring-2 focus:ring-blue-500` focus ring, `bg-black/60` backdrop (#324)
+
 - Site admins can now enable or disable file uploads instance-wide via **Admin Panel → Settings → Features**. When uploads are disabled, all attachment upload attempts return `403 feature_disabled`; existing attachments remain accessible. The toggle is reflected in `GET /api/auth/me/` as `uploads_enabled` and in `GET /api/admin/settings/` (issue #312).
 - API reference documentation for the notifications endpoints (`GET /api/notifications/`, `POST /api/notifications/mark-read/`, `GET /api/notifications/unread-count/`) — these endpoints existed but had no API docs
 - `seed_template_boards` management command seeds all six board templates (`sales_pipeline`, `customer_support`, `customer_success`, `simple_kanban`, `product_roadmap`, `project_delivery`) with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement history (#254). Seed files are exported to `backend/boards/seed_data/<slug>/seed.{json,csv}`.

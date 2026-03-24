@@ -11,7 +11,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
-from .serializers import GroupSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
+from .serializers import GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -74,12 +74,26 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = GroupSerializer
 
+    def get_serializer_class(self):
+        # Use the richer GroupDetailSerializer only for single-object retrieval.
+        # The list endpoint omits `ancestors` to avoid per-group N+1 queries.
+        if self.action == "retrieve":
+            return GroupDetailSerializer
+        return GroupSerializer
+
     def get_queryset(self):
         from .models import get_accessible_group_ids
         user = self.request.user
+        # Base relations needed for all actions.
+        related = ["owner", "parent"]
+        if self.action == "retrieve":
+            # Pre-fetch the full ancestor chain so GroupDetailSerializer can call
+            # obj.ancestors() without issuing a separate query per level.
+            # Six chained parent__ lookups matches _GROUP_TRAVERSAL_MAX_DEPTH.
+            related += ["__".join(["parent"] * d) for d in range(2, 7)]
         qs = Group.objects.filter(
             id__in=get_accessible_group_ids(user)
-        ).select_related("owner", "parent").annotate(
+        ).select_related(*related).annotate(
             # Annotate counts so GroupSerializer can read _member_count etc.
             # directly from the object instead of issuing 3-4 extra queries per group.
             _member_count=Count("memberships", distinct=True),

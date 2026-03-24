@@ -82,6 +82,45 @@ class GroupCRUDTests(TestCase):
         r = self.client.patch(f"/api/groups/{self.group.id}/", {"name": "Hacked"})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_description_defaults_to_empty_string(self):
+        r = self.client.get(f"/api/groups/{self.group.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["description"], "")
+
+    def test_admin_can_update_description(self):
+        r = self.client.patch(f"/api/groups/{self.group.id}/", {"description": "Our engineering hub"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.description, "Our engineering hub")
+
+    def test_retrieve_returns_ancestors_field(self):
+        """GET /api/groups/<id>/ returns an ancestors array (may be empty for root groups)."""
+        r = self.client.get(f"/api/groups/{self.group.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("ancestors", r.json())
+
+    def test_root_group_ancestors_is_empty(self):
+        r = self.client.get(f"/api/groups/{self.group.id}/")
+        self.assertEqual(r.json()["ancestors"], [])
+
+    def test_subgroup_ancestors_returns_root_first_chain(self):
+        child = _make_group(self.owner, name="Child", parent=self.group)
+        grandchild = _make_group(self.owner, name="Grandchild", parent=child)
+        r = self.client.get(f"/api/groups/{grandchild.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        ancestors = r.json()["ancestors"]
+        # Root-first order: Group → Child
+        self.assertEqual(len(ancestors), 2)
+        self.assertEqual(ancestors[0]["name"], "Group")
+        self.assertEqual(ancestors[1]["name"], "Child")
+
+    def test_ancestors_absent_from_list_endpoint(self):
+        """The list endpoint must not include the ancestors field (N+1 concern)."""
+        r = self.client.get("/api/groups/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        for group in r.json()["results"]:
+            self.assertNotIn("ancestors", group)
+
 
 class GroupMembersTests(TestCase):
     def setUp(self):

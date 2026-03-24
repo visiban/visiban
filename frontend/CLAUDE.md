@@ -164,6 +164,47 @@ Option text: `text-sm text-slate-200 font-medium` for the label, `text-xs text-s
 
 The action button following a radio group uses the primary variant (`bg-blue-600 hover:bg-blue-700 text-white`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
 
+## Ancestor breadcrumbs
+
+Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies):
+
+```tsx
+<nav aria-label="Group breadcrumb" className="flex flex-wrap items-center mb-1">
+  {ancestors.map((ancestor, i) => (
+    <span key={ancestor.id} className="flex items-center">
+      {i > 0 && <span className="text-slate-600 mx-1.5 select-none">/</span>}
+      <a
+        href={`/groups/${ancestor.id}`}
+        onClick={(e) => { e.preventDefault(); navigate(`/groups/${ancestor.id}`); }}
+        className="text-sm text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition max-w-[12rem] truncate"
+        title={ancestor.name}
+      >
+        {ancestor.name}
+      </a>
+    </span>
+  ))}
+  <span className="text-slate-600 mx-1.5 select-none">/</span>
+  <span className="text-sm text-slate-300 max-w-[12rem] truncate" title={current.name}>{current.name}</span>
+</nav>
+```
+
+- Ancestor links: `text-sm text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition`
+- Separator `/`: `text-slate-600 mx-1.5 select-none`
+- Current item (non-linked): `text-sm text-slate-300`
+- Per-item max-width: `max-w-[12rem] truncate` with `title` attribute for full name
+- Container: `flex flex-wrap items-center` — wraps on narrow viewports
+- Root-level items with no ancestors render nothing (omit the `<nav>` entirely)
+
+## Inline description fields (non-RTE)
+
+For plain-text description fields that are inline-editable by admins:
+
+- **Idle / view state**: wrap content in a `border border-transparent hover:border-slate-600 cursor-text rounded px-2 py-1.5 -mx-2 transition-colors` container; hover-reveal pencil icon must include `focus:opacity-100 focus:ring-2 focus:ring-blue-500`
+- **Edit state**: `bg-slate-900 border border-blue-400 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent` on the `<textarea>`; `resize-none`; Escape cancels, blur saves
+- **Error slot**: always render `<p className="text-xs h-4">` below the field unconditionally; place error text in a `<span className="text-red-400">` inside it — never conditionally render the container itself
+- **Non-admin, non-empty**: render plain `<p className="text-sm text-slate-400 whitespace-pre-wrap">`
+- **Non-admin, empty**: render nothing (`null`) — do not show a placeholder the user cannot act on
+
 ## Tooltips
 
 - Consistent delay: 300 ms show, immediate hide
