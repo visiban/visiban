@@ -11,7 +11,6 @@ interface Props {
   boardId: number;
   isAdmin: boolean;
   onColumnUpdated: (column: Column) => void;
-  onColumnDeleted: (columnId: number) => void;
   onRequestDelete: (column: Column) => void;
   collapsed: boolean;
   hidden?: boolean;
@@ -20,7 +19,7 @@ interface Props {
   onToggleCollapse: () => void;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onColumnDeleted, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
