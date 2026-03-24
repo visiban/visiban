@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [1.0.0-rc.9] — 2026-03-24
+
 ### Added
 
 - Space + drag board panning — hold Space to enter pan mode (cursor changes to grab), then drag to scroll the board horizontally and vertically without activating card drag-and-drop (#311). Panning is suppressed on column headers, swimlane labels, and card surfaces so those interactions remain unaffected.
