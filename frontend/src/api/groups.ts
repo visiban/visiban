@@ -10,7 +10,7 @@ export const createGroup = (data: { name: string; parent?: number | null }) =>
 export const getGroup = (id: number) =>
   client.get<Group>(`/api/groups/${id}/`).then((r) => r.data);
 
-export const updateGroup = (id: number, data: { name: string }) =>
+export const updateGroup = (id: number, data: { name?: string; description?: string }) =>
   client.patch<Group>(`/api/groups/${id}/`, data).then((r) => r.data);
 
 export const deleteGroup = (id: number) =>

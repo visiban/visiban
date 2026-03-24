@@ -48,6 +48,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Analytics period filter (7d / 30d / 90d) now correctly scopes dwell times and velocity calculations to movements within the selected window — previously all three periods returned identical results because the `days` parameter was parsed but never applied to the movement query
 - Stalled card rows in the Analytics view are now clickable and open the card detail panel directly on the board — previously the rows were non-interactive `<div>` elements with no navigation
 
+### Fixed
+
+- Group admins can now rename a group inline by clicking the group name heading on the Group detail page — non-admins see a plain, non-editable heading (#323)
+- `PATCH /api/groups/<id>/` and `PUT /api/groups/<id>/` now require group admin role; previously any group member could rename or re-parent a group (#323)
+
 ### Changed
 
 - `simple_kanban` template revised to the classic 5-column layout: Backlog → To Do → Doing → Review → Done
