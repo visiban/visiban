@@ -176,6 +176,47 @@ describe('AnalyticsView', () => {
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     await screen.findByText('Period:')
     await userEvent.setup().click(screen.getByText('7d'))
-    expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7)
+    expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7, 7)
+  })
+
+  it('shows empty-period message when no heatmap data exists', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do', 'Done'],
+      board_medians: { 'To Do': null, 'Done': null },
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': null, 'Done': null },
+          is_outlier: { 'To Do': false, 'Done': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByText(/No card movements recorded in the last 30 days/)).toBeInTheDocument()
+  })
+
+  it('does not show empty-period message when heatmap has data', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      board_medians: { 'To Do': 5 },
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 5 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await screen.findByText('Customer A')
+    expect(screen.queryByText(/No card movements/)).not.toBeInTheDocument()
   })
 })

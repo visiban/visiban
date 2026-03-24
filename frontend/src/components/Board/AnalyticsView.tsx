@@ -67,7 +67,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
   useEffect(() => {
     setLoading(true);
-    getBoardAnalytics(boardId, days)
+    getBoardAnalytics(boardId, days, days)
       .then((d: AnalyticsData) => { setData(d); setLoading(false); })
       .catch(() => { setError("Failed to load analytics."); setLoading(false); });
   }, [boardId, days]);
@@ -78,6 +78,10 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
   const allStalled = data.swimlanes.flatMap((sw) =>
     sw.stalled_cards.map((c) => ({ ...c, swimlane: sw.name }))
+  );
+
+  const hasHeatmapData = data.swimlanes.some((sw) =>
+    data.columns.some((col) => sw.avg_days_per_column[col] !== null)
   );
 
   return (
@@ -110,6 +114,11 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
       {/* Heatmap */}
       <div className="overflow-x-auto">
+        {!hasHeatmapData && (
+          <p className="text-xs text-slate-500 italic mb-3">
+            No card movements recorded in the last {days} days. Try a longer period to see dwell time data.
+          </p>
+        )}
         <table className="text-sm border-collapse">
           <thead>
             <tr className="text-left text-xs text-slate-500 uppercase tracking-wider">

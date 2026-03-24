@@ -28,6 +28,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+- Analytics view now opens the card detail panel when a stalled card row is clicked — the `CardDetail` was missing from the analytics view's render branch so clicking never produced a visible result (#326)
+- Analytics period selector (7d/30d/90d) now shows a "No card movements recorded in the last N days" message when the selected window contains no movement data, making it clear the filter is active and the board simply has no recent activity (#326)
 - `is_site_admin` no longer implicitly grants access to all boards and groups — a new `can_access_all_content` flag controls omniscient board/group access; existing site admins are automatically migrated to `can_access_all_content=True` so no access is lost on upgrade (#247)
 - Removed-member WebSocket connections now closed immediately when a `member.removed` broadcast is received, preventing the evicted user from continuing to see board events (#318)
 - Board update and delete mutations now broadcast `board.updated` and `board.deleted` events so connected clients reflect changes in real time (#318)
