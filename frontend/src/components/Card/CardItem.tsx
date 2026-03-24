@@ -51,6 +51,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       {...attributes}
       {...listeners}
       onClick={onClick}
+      data-no-pan
       className={`group bg-slate-800 rounded-md cursor-pointer select-none transition-all border relative z-0
         hover:-translate-y-0.5 hover:z-20
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950

@@ -109,6 +109,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         <div
           className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-4 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
+          data-no-pan
           onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
         >
           {/* Drag handle */}
