@@ -46,7 +46,9 @@ Columns represent pipeline stages. Each column has:
 - **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. > **Added in 1.0.0-rc.7:** Weight limit enforcement. > **Changed in 1.0.0-rc.8:** Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 
-Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone.
+Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone or by clicking the **Delete column** button at the bottom of the column settings modal.
+
+> **Added in 1.0.0-rc.9:** Delete column button in the column settings modal (#267).
 
 ### Adding columns and swimlanes
 
@@ -95,6 +97,12 @@ Cards are dragged between cells using @dnd-kit. Updates are **optimistic** — t
 
 Every drag that changes column or swimlane creates a `CardMovement` audit record automatically.
 
+### Board panning
+
+> **Added in 1.0.0-rc.9**
+
+Hold **Space** and drag to pan the board in any direction. This is useful on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode.
+
 ## Bulk card operations
 
 Select multiple cards by clicking the checkbox that appears in the top-right corner of each card on hover. Selected cards are highlighted with a blue ring. A **bulk action toolbar** appears fixed at the bottom of the board when one or more cards are selected.
@@ -123,6 +131,7 @@ Right-click any board cell to open an inline card creation input directly in tha
 | `/` | Open the filter bar and focus the search input |
 | `?` | Show / hide the keyboard shortcuts overlay |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
+| `Space` + drag | Pan the board (see [Board panning](#board-panning)) |
 
 Shortcuts are ignored when focus is inside an input, textarea, or select element.
 
@@ -139,6 +148,10 @@ Click **Filters** in the toolbar (or press `f`) to open the filter bar below the
 | Due date | None set · Overdue · Due today · Due this week |
 
 An active filter count badge appears on the Filters button when filters are in use. Click **Clear** to reset all filters at once.
+
+When all filters are active and no cards match, a **"No cards match"** banner appears across the board area so it is clear the board has cards but none satisfy the current criteria.
+
+> **Added in 1.0.0-rc.9:** The "No cards match" banner (#263).
 
 ## Views
 
@@ -158,8 +171,8 @@ See [Analytics](analytics.md) for details.
 
 Click **Export** in the board toolbar to download the board data:
 
-- **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log.
-- **JSON** — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. **Use JSON to preserve full card history across an export/import cycle.**
+- **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
+- **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.
 
 Export is available to all board members (viewer and above). The export endpoints are:
 

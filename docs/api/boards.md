@@ -92,7 +92,9 @@ List all active board templates. Requires authentication. Used by the board crea
 | `lane_placeholder` | Placeholder text shown in the swimlane name input |
 | `columns_json` | JSON array of column names that will be created |
 
-Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Blank Board**.
+Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Content Production**, **Hiring & Recruiting**, **Legal & Compliance**, **Infrastructure & DevOps**, **Blank Board**.
+
+> **Added in 1.0.0-rc.9:** Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps templates.
 
 ### `GET /api/boards/{id}/summary/`
 Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.

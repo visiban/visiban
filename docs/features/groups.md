@@ -2,6 +2,22 @@
 
 Groups organize boards and users into a hierarchy. A board can belong to one group; a group can have one parent group (unlimited nesting, traversal capped at 6 levels).
 
+## Group description
+
+> **Added in 1.0.0-rc.9**
+
+Each group has an optional **description** field — a short free-text summary of the group's purpose. The description appears on the group detail page and is inline-editable: click it to enter edit mode, then press **Enter** (or click outside) to save, or press **Escape** to cancel.
+
+The description is returned as `description` in `GET /api/groups/{id}/` and is writable via `PUT /api/groups/{id}/` (group admin required).
+
+## Ancestor breadcrumb chain
+
+> **Added in 1.0.0-rc.9**
+
+When viewing a group that has a parent, the group detail page shows a breadcrumb chain above the group name listing all ancestor groups from the root down to the immediate parent. Each ancestor is a clickable link. This makes it easy to orient yourself and navigate back up deep hierarchies.
+
+The full ancestor list is also available in the API: `GET /api/groups/{id}/` returns an `ancestors` array (see [Groups API](../api/groups.md)).
+
 ## Structure
 
 ```
@@ -102,3 +118,14 @@ The star button (☆/★) in the group detail page header lets you mark frequent
 The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions.
 
 The **+ New board** and **+ New group** buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required. After creating, you are taken directly to the new board or group.
+
+### Create Group modal
+
+> **Added in 1.0.0-rc.9:** Description field and character counter
+
+The **Create Group** modal has two fields:
+
+| Field | Notes |
+|---|---|
+| **Name** | Required. The group's display name. |
+| **Description** | Optional. A short summary of the group's purpose. A character counter is shown below the field as you type. |
