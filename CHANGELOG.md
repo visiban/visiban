@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Space + drag board panning — hold Space to enter pan mode (cursor changes to grab), then drag to scroll the board horizontally and vertically without activating card drag-and-drop (#311). Panning is suppressed on column headers, swimlane labels, and card surfaces so those interactions remain unaffected.
+
 - Groups now have an optional `description` field — visible below the heading on the Group detail page, inline-editable by admins, and settable at creation time in the Create Group modal (#324)
 - Group detail page shows a full ancestor breadcrumb chain above the `<h1>` heading for subgroups, enabling navigation up through nested group hierarchies; the Navbar breadcrumb is also updated to reflect the full chain (#324)
 - `GET /api/groups/<id>/` now returns an `ancestors` array (`[{id, name}]`, root-first) via `GroupDetailSerializer`; the list endpoint is unchanged to avoid N+1 queries (#324)

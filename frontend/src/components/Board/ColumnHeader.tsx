@@ -57,6 +57,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         ref={setNodeRef}
         style={style}
         className="w-10 shrink-0 border-r border-slate-700 bg-slate-800/50"
+        data-no-pan
         {...attributes}
         {...listeners}
       />
@@ -69,6 +70,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         ref={setNodeRef}
         style={style}
         className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-slate-700 bg-slate-800 cursor-pointer hover:bg-slate-700 transition overflow-hidden"
+        data-no-pan
         onClick={onToggleCollapse}
         title={`Expand "${column.name}"`}
       >
@@ -107,6 +109,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         ref={setNodeRef}
         style={{ ...style, width: width ?? 220 }}
         className={`relative shrink-0 px-3 py-2 bg-slate-800 border-r border-slate-700 group/col transition ${overWip ? "border-b-2 border-b-red-500/50" : ""}`}
+        data-no-pan
         onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
       >
         {/* Row 1: collapse toggle, color dot, name, edit icon */}

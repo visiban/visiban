@@ -31,6 +31,7 @@ import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
+import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
@@ -229,6 +230,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useBoardPan(scrollRef);
 
   const showArchiveToast = useCallback(() => {
     setArchiveToast(true);
@@ -645,6 +648,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         >
           ?
         </button>
+        <span
+          className="text-xs text-slate-600 select-none shrink-0 hidden xl:inline"
+          title="Hold Space and drag to pan the board"
+        >
+          <kbd className="font-mono">Space</kbd> + drag to pan
+        </span>
         {isAdmin && (
           <>
             <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
@@ -708,7 +717,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
         */}
-        <div className="board-scroll flex-1 overflow-auto bg-slate-900">
+        <div ref={scrollRef} className="board-scroll flex-1 overflow-auto bg-slate-900">
           {/*
             min-w-max wrapper — gives the sticky header row and all swimlane
             rows the same containing-block width (max-content).  Without this,
