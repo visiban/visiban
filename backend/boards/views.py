@@ -917,6 +917,8 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         columns = list(board.columns.order_by("position"))
         col_id_to_name = {c.id: c.name for c in columns}
+        # Set of current column names for the denormalized-name fallback below.
+        col_name_set = {c.name for c in columns}
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
@@ -944,6 +946,11 @@ class BoardViewSet(viewsets.ModelViewSet):
                     continue
                 for i, mv in enumerate(movements):
                     col_name = col_id_to_name.get(mv.to_column_id)
+                    # Fall back to the denormalized name field so dwell times
+                    # are not lost if a column was deleted and recreated (causing
+                    # the FK to point to a now-missing ID while the name survives).
+                    if not col_name and mv.to_column_name in col_name_set:
+                        col_name = mv.to_column_name
                     if not col_name:
                         continue
                     # For archived cards use archived_at as the terminal timestamp so

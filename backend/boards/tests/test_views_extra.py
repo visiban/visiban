@@ -366,6 +366,26 @@ class AnalyticsDwellTimeTests(TestCase):
         self.assertEqual(len(sw["stalled_cards"]), 1)
         self.assertEqual(data["stalled_threshold_days"], 5)
 
+    def test_dwell_falls_back_to_column_name_when_fk_broken(self):
+        """If a column is deleted and recreated (new PK, same name), movements
+        that reference the old FK still contribute dwell time via the
+        denormalized to_column_name field."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        mv = self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
+        # Simulate a broken FK: point to_column_id to a non-existent column
+        # while keeping to_column_name intact.
+        CardMovement.objects.filter(pk=mv.pk).update(
+            to_column_id=None, to_column_name=self.col.name
+        )
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        # Dwell should be non-null because to_column_name resolves the column
+        self.assertIsNotNone(sw["avg_days_per_column"].get(self.col.name))
+
 
 # ---------------------------------------------------------------------------
 # Site admin board queryset
