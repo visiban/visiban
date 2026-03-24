@@ -281,27 +281,74 @@ describe('EditColumnModal', () => {
         column={fakeColumn}
         cardCount={0}
         onUpdated={vi.fn()}
-        onDeleted={vi.fn()}
+        onRequestDelete={vi.fn()}
         onClose={vi.fn()}
       />
     )
     expect(screen.getByText('Edit Column')).toBeInTheDocument()
     expect(screen.getByDisplayValue('To Do')).toBeInTheDocument()
-    expect(screen.getByText('Delete column')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete column' })).toBeInTheDocument()
   })
 
-  it('shows cannot delete message when cards exist', () => {
+  it('delete button is enabled when column has no cards', () => {
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={fakeColumn}
+        cardCount={0}
+        onUpdated={vi.fn()}
+        onRequestDelete={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Delete column' })).not.toBeDisabled()
+  })
+
+  it('clicking delete button calls onRequestDelete with the column', async () => {
+    const onRequestDelete = vi.fn()
+    const onClose = vi.fn()
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={fakeColumn}
+        cardCount={0}
+        onUpdated={vi.fn()}
+        onRequestDelete={onRequestDelete}
+        onClose={onClose}
+      />
+    )
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Delete column' }))
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(onRequestDelete).toHaveBeenCalledWith(fakeColumn)
+  })
+
+  it('delete button is disabled and shows message when cards exist', () => {
     render(
       <EditColumnModal
         boardId={1}
         column={fakeColumn}
         cardCount={3}
         onUpdated={vi.fn()}
-        onDeleted={vi.fn()}
+        onRequestDelete={vi.fn()}
         onClose={vi.fn()}
       />
     )
-    expect(screen.getByText('Cannot delete — 3 cards remaining')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete column' })).toBeDisabled()
+    expect(screen.getByText('Cannot delete — 3 cards in this column')).toBeInTheDocument()
+  })
+
+  it('shows singular card message when exactly one card exists', () => {
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={fakeColumn}
+        cardCount={1}
+        onUpdated={vi.fn()}
+        onRequestDelete={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Cannot delete — 1 card in this column')).toBeInTheDocument()
   })
 })
 
