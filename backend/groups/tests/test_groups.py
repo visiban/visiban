@@ -60,6 +60,28 @@ class GroupCRUDTests(TestCase):
         ids = [g["id"] for g in r.json()["results"]]
         self.assertNotIn(self.group.id, ids)
 
+    def test_admin_can_rename_group(self):
+        r = self.client.patch(f"/api/groups/{self.group.id}/", {"name": "Renamed"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.name, "Renamed")
+
+    def test_non_admin_cannot_rename_group(self):
+        member = User.objects.create_user(username="member2", password="pass")
+        GroupMembership.objects.create(group=self.group, user=member, role=GroupMembership.Role.MEMBER)
+        self.client.force_authenticate(member)
+        r = self.client.patch(f"/api/groups/{self.group.id}/", {"name": "Hacked"})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.name, "Group")
+
+    def test_viewer_cannot_rename_group(self):
+        viewer = User.objects.create_user(username="viewer2", password="pass")
+        GroupMembership.objects.create(group=self.group, user=viewer, role=GroupMembership.Role.VIEWER)
+        self.client.force_authenticate(viewer)
+        r = self.client.patch(f"/api/groups/{self.group.id}/", {"name": "Hacked"})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class GroupMembersTests(TestCase):
     def setUp(self):

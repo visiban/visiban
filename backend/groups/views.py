@@ -107,6 +107,16 @@ class GroupViewSet(viewsets.ModelViewSet):
             group=group, user=self.request.user, role=GroupMembership.Role.ADMIN
         )
 
+    def update(self, request, *args, **kwargs):
+        # Only group admins may rename or re-parent a group.
+        # The default ModelViewSet inherits no admin guard here — add it explicitly.
+        _require_group_admin(request.user, self.get_object())
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        _require_group_admin(request.user, self.get_object())
+        return super().partial_update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         group = self.get_object()
         if group.owner != request.user and not getattr(request.user, "is_site_admin", False):

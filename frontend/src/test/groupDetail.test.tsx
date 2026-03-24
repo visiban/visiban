@@ -12,6 +12,7 @@ vi.mock('../api/groups', () => ({
   createGroupBoard: vi.fn(),
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
+  updateGroup: vi.fn(),
   deleteGroup: vi.fn(),
   listInviteLinks: vi.fn().mockResolvedValue([]),
   createInviteLink: vi.fn(),
@@ -34,12 +35,13 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, updateGroup } from '../api/groups'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
 const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
+const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -270,6 +272,71 @@ describe('GroupDetail', () => {
 
     await screen.findByRole('heading', { name: 'Engineering' }) // wait for load
     expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
+  })
+
+  it('admin can click heading to start inline rename', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    fireEvent.click(heading)
+
+    const input = screen.getByRole('textbox')
+    expect(input).toBeInTheDocument()
+    expect((input as HTMLInputElement).value).toBe('Engineering')
+  })
+
+  it('admin rename saves on Enter and updates heading', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    mockUpdateGroup.mockResolvedValue({ ...fakeGroup, name: 'Platform' })
+    renderGroupDetail()
+
+    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    fireEvent.click(heading)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Platform' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(mockUpdateGroup).toHaveBeenCalledWith(1, { name: 'Platform' })
+  })
+
+  it('admin rename cancels on Escape', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    fireEvent.click(heading)
+
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Should not save' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(mockUpdateGroup).not.toHaveBeenCalled()
+  })
+
+  it('non-admin cannot click heading to rename', async () => {
+    const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
+    mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner })
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'member', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
+    renderGroupDetail()
+
+    // Wait for load — non-admin sees empty boards state text
+    await screen.findByText(/Subgroups let you organize/)
+    // No input should appear — heading is not interactive for non-admins
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
   it('dismisses join banner when × is clicked', async () => {

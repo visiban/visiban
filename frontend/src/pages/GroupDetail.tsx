@@ -6,7 +6,7 @@ import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
   transferGroupOwnership, createGroupLabel, deleteGroupLabel, updateGroupBoardDefaults,
-  starGroup, unstarGroup,
+  starGroup, unstarGroup, updateGroup,
 } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
@@ -66,6 +66,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const [isStarred, setIsStarred] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
+
+  // Inline rename state
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   // Inline confirmation state — replaces window.confirm() for destructive actions
   const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<number | null>(null);
@@ -131,6 +136,46 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     } finally {
       setStarLoading(false);
     }
+  };
+
+  const handleRenameStart = () => {
+    if (!group) return;
+    setRenameValue(group.name);
+    setRenameError(null);
+    setRenaming(true);
+  };
+
+  const handleRenameCancel = () => {
+    setRenaming(false);
+    setRenameError(null);
+  };
+
+  const handleRenameSave = async () => {
+    if (!group) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenameError("Group name cannot be empty.");
+      return;
+    }
+    if (trimmed === group.name) {
+      setRenaming(false);
+      return;
+    }
+    const prev = group.name;
+    setGroup({ ...group, name: trimmed });
+    setRenaming(false);
+    setRenameError(null);
+    try {
+      await updateGroup(groupId, { name: trimmed });
+    } catch {
+      setGroup({ ...group, name: prev });
+      setRenameError("Failed to rename group. Please try again.");
+    }
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") { e.preventDefault(); handleRenameSave(); }
+    if (e.key === "Escape") { e.preventDefault(); handleRenameCancel(); }
   };
 
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, _setAsDefault: boolean) => {
@@ -279,8 +324,43 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-white text-2xl font-bold">{group.name}</h1>
+          <div className="min-w-0 flex-1 mr-4">
+            {isAdmin ? (
+              <div className="relative group/rename">
+                {renaming ? (
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={handleRenameKeyDown}
+                    onBlur={handleRenameSave}
+                    className="text-white text-2xl font-bold w-full bg-transparent border border-blue-500 rounded px-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h1
+                      onClick={handleRenameStart}
+                      className="text-white text-2xl font-bold cursor-text border border-transparent hover:border-slate-600 rounded px-1 -mx-1 transition-colors"
+                    >
+                      {group.name}
+                    </h1>
+                    <button
+                      onClick={handleRenameStart}
+                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 text-slate-500 hover:text-slate-300 transition-opacity text-sm"
+                      title="Rename group"
+                      aria-label="Rename group"
+                    >
+                      ✎
+                    </button>
+                  </div>
+                )}
+                <p className="text-xs h-4 mt-0.5 -mx-1 px-1">
+                  {renameError && <span className="text-red-400">{renameError}</span>}
+                </p>
+              </div>
+            ) : (
+              <h1 className="text-white text-2xl font-bold">{group.name}</h1>
+            )}
             <p className="text-slate-500 text-sm mt-1">
               {group.member_count} member{group.member_count !== 1 ? "s" : ""}
               {" · "}
