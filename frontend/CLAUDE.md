@@ -294,3 +294,34 @@ When an action button is hidden until hover (`opacity-0 group-hover:opacity-100`
 - **Always amber** — `border-amber-600 / text-amber-400`. Do not introduce a second color for a different limit type; severity is identical across all constraint violations.
 - **Always show three things**: what was blocked (column name), why (with numbers), and an admin override link when `isAdmin` is true.
 - **Admin override link**: `text-xs text-amber-400 hover:text-amber-200 underline transition` — never a button with background fill.
+
+## Collapsed sidebar rail
+
+The collapsed rail (48px, `w-12`) is for **fixed destinations only** — Dashboard, admin utility links, and a small number of curated shortcuts. Never render an unbounded list of items directly in the rail.
+
+**Rule:** When a section has a variable number of items (boards, groups, favorites), represent it as a **single trigger icon** that opens a positioned flyout panel. Trigger icons sit in the rail like any other icon; the flyout panel appears to the right of the sidebar.
+
+**Flyout panel spec:**
+- Rendered via `createPortal(panel, document.body)` to escape the sidebar's `overflow-hidden`
+- Positioned with coordinates captured at click time via `getBoundingClientRect()` on the trigger — store as `{ top, left }` state, never a ref
+- `position: fixed; top: anchor.top; left: anchor.left + 4` (4px gap from sidebar edge)
+- Panel: `w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 max-h-80 overflow-y-auto z-50`
+- Header row: `px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700 mb-1`
+- Items: `px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 transition truncate`
+- Active item: `bg-blue-600/20 text-blue-400 font-medium`
+
+**Toggle behaviour:**
+- Click to open, click again to close
+- Add `onMouseDown={(e) => { if (open) e.stopPropagation(); }}` to the trigger so the flyout's outside-click (`document mousedown`) handler doesn't close it before the `onClick` toggle fires
+- Opening one flyout closes any other open flyout (mutual exclusion via setting the other anchor to `null` in the click handler — do **not** use `useEffect`)
+- Closed by: second click on trigger, click outside (document `mousedown` guard), Escape key
+
+**Separators in the collapsed rail** use the same double-`<div>` engraved pattern as everywhere else — never a plain `<hr>`:
+```tsx
+<div className="mx-2 my-1.5">
+  <div className="h-px bg-slate-900" />
+  <div className="h-px bg-slate-600/50" />
+</div>
+```
+
+**Trigger active state:** when the currently active route belongs to an item inside the flyout, apply `text-blue-400 bg-blue-600/20` to the trigger icon (same as direct nav links). This communicates "you are here" without opening the flyout.

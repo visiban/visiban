@@ -209,16 +209,125 @@ describe('AppSidebar', () => {
     expect(link?.getAttribute('href')).toBe('/admin')
   })
 
-  it('shows starred boards as star icons in collapsed mode', async () => {
+  // ── Collapsed flyout tests ─────────────────────────────────────────────────
+
+  it('shows Favorites trigger button in collapsed mode when starred boards exist', async () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
     vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => expect(screen.getByTitle('Starred One')).toBeInTheDocument())
-    const link = screen.getByTitle('Starred One').closest('a')
+    await waitFor(() => expect(screen.getByTitle('Favorites')).toBeInTheDocument())
+    expect(screen.queryByTitle('Starred One')).not.toBeInTheDocument()
+  })
+
+  it('clicking Favorites trigger opens flyout listing starred boards', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Favorites'))
+    await userEvent.setup().click(screen.getByTitle('Favorites'))
+    const flyout = screen.getByTestId('collapsed-flyout')
+    expect(flyout).toBeInTheDocument()
+    expect(screen.getByText('Starred One')).toBeInTheDocument()
+    const link = screen.getByText('Starred One').closest('a')
     expect(link?.getAttribute('href')).toBe('/boards/77')
+  })
+
+  it('clicking Favorites trigger again closes the flyout', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Favorites'))
+    const user = userEvent.setup()
+    await user.click(screen.getByTitle('Favorites'))
+    expect(screen.getByTestId('collapsed-flyout')).toBeInTheDocument()
+    await user.click(screen.getByTitle('Favorites'))
+    expect(screen.queryByTestId('collapsed-flyout')).not.toBeInTheDocument()
+  })
+
+  it('Favorites flyout closes on Escape key', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Favorites'))
+    const user = userEvent.setup()
+    await user.click(screen.getByTitle('Favorites'))
+    expect(screen.getByTestId('collapsed-flyout')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByTestId('collapsed-flyout')).not.toBeInTheDocument()
+  })
+
+  it('Favorites flyout includes starred groups in a separate section', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Star Board', is_starred: true }
+    const starredGroup: Group = { ...fakeGroup, id: 55, name: 'Star Group', is_starred: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
+    vi.mocked(listStarredGroups).mockResolvedValue([starredGroup])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Favorites'))
+    await userEvent.setup().click(screen.getByTitle('Favorites'))
+    expect(screen.getByText('Star Board')).toBeInTheDocument()
+    expect(screen.getByText('Star Group')).toBeInTheDocument()
+  })
+
+  it('shows Personal boards trigger in collapsed mode', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([personalBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.getByTitle('Personal boards')).toBeInTheDocument())
+  })
+
+  it('clicking Personal boards trigger opens flyout listing personal boards', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([personalBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Personal boards'))
+    await userEvent.setup().click(screen.getByTitle('Personal boards'))
+    const flyout = screen.getByTestId('collapsed-flyout')
+    expect(flyout).toBeInTheDocument()
+    expect(screen.getByText('My Board')).toBeInTheDocument()
+  })
+
+  it('opening Favorites flyout closes Personal flyout', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const starredBoard: Board = { ...fakeBoard, id: 77, name: 'Starred One', is_starred: true }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([personalBoard])
+    vi.mocked(listStarredBoards).mockResolvedValue([starredBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Personal boards'))
+    const user = userEvent.setup()
+    await user.click(screen.getByTitle('Personal boards'))
+    expect(screen.getByText('My Board')).toBeInTheDocument()
+    await user.click(screen.getByTitle('Favorites'))
+    expect(screen.queryByText('My Board')).not.toBeInTheDocument()
+    expect(screen.getByText('Starred One')).toBeInTheDocument()
+  })
+
+  it('active personal board highlights the Personal trigger in collapsed mode', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    mockUseLocation.mockReturnValue({ pathname: '/boards/99' })
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([personalBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Personal boards'))
+    const btn = screen.getByTitle('Personal boards')
+    expect(btn.className).toMatch(/blue/)
   })
 
   it('persists group expanded state in localStorage', async () => {
