@@ -13,12 +13,6 @@ let mockSearchParams = new URLSearchParams()
 // Spy on setSearchParams calls so tests can assert the arguments passed (e.g. replace:true).
 const mockSetSearchParams = vi.fn()
 
-// Stateful store shared between the mock and tests — holds the live URLSearchParams.
-// The mock's useSearchParams reads from this ref on every render, and setSearchParams
-// updates it then calls the React state setter to trigger a re-render.
-let _liveParams = new URLSearchParams()
-let _setLiveParams: React.Dispatch<React.SetStateAction<URLSearchParams>> = () => {}
-
 // Capture DndContext props (onDragEnd, collisionDetection) so tests can invoke them directly.
 let capturedOnDragEnd: ((e: DragEndEvent) => void) | undefined
 let capturedCollisionDetection: ((args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection>) | undefined
@@ -50,9 +44,6 @@ vi.mock('react-router-dom', () => ({
   // setSearchParams calls (from tab switches / Escape) trigger re-renders in tests.
   useSearchParams: () => {
     const [params, setParams] = React.useState<URLSearchParams>(() => new URLSearchParams(mockSearchParams))
-    // Expose the setter so the forwarding setSearchParams can trigger re-renders.
-    _setLiveParams = setParams
-    _liveParams = params
     const setter = (next: URLSearchParams | Record<string, string> | ((prev: URLSearchParams) => URLSearchParams), _opts?: unknown) => {
       mockSetSearchParams(next, _opts)
       const resolved = typeof next === 'function'
