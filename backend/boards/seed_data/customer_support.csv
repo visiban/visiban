@@ -1,14 +1,21 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Column WIP limit not enforcing for board admins,Triaged,TechNova Inc,medium,2026-03-20,3,Bug,demo4,2,1,0,Board admins can drag cards into WIP-limited columns beyond the limit. Members (
-Board loads blank after login on Firefox 124,Investigating,TechNova Inc,high,2026-03-16,4,Bug,demo2,4,2,1,Reported by 3 users. Board appears empty immediately after login on Firefox 124.
-CSV export returns 500 for boards with 500+ cards,Escalated,TechNova Inc,urgent,2026-03-14,5,"Bug,Performance",demo3,4,3,2,TechNova's largest board has 620 cards. CSV export times out and returns HTTP 50
-Card drag-drop broken on iOS Safari,Awaiting Customer,Apex Retail Group,high,2026-03-17,4,Bug,demo2,4,3,1,Store managers using iPads cannot drag cards between columns. The drag starts bu
-Email notifications delayed by 2+ hours,Resolved,Apex Retail Group,medium,,2,Bug,demo5,3,3,1,Apex staff report card assignment notifications arrive hours late. Checked our q
-Board invite link returns 404,Closed,Apex Retail Group,medium,,1,Bug,demo1,3,3,1,Apex is inviting new store managers via board share links. Half the links are re
-Webhook events arriving out of order,Awaiting Customer,FinEdge Ltd,high,2026-03-22,4,Bug,demo4,3,1,1,FinEdge's automation pipeline receives card move events out of sequence. Their c
-2FA not triggering on new device login,Escalated,FinEdge Ltd,urgent,2026-03-13,5,"Bug,Security",demo3,5,3,2,FinEdge reports that 2FA challenges are not appearing when users log in from a n
-Card comments missing after board migration,Triaged,BlueSky Health,high,2026-03-18,3,Bug,demo2,3,1,1,BlueSky migrated boards from their old instance. Card comments imported but are 
-Board member cannot see swimlane after role change,Investigating,BlueSky Health,medium,2026-03-19,2,Bug,demo1,2,1,1,A user promoted from Member to Admin lost visibility of one swimlane. Logging ou
-Label colors not saving on Safari 17,New,Mosaic Creative,medium,2026-03-22,2,Bug,demo4,1,0,0,Users on Safari 17 report that custom label colors revert to default on page rel
-Due date filter returning no results,Resolved,Mosaic Creative,medium,,2,Bug,demo5,3,3,1,The due date filter on the board view returns 0 cards even when cards have due d
-Request: bulk card archive,Closed,Mosaic Creative,low,,1,Feature Request,demo1,2,1,1,Mosaic wants to archive all cards in a column at once at campaign end. Currently
+TKT-1041: Board load hangs after 300+ cards,New,TechNova Inc,urgent,2026-03-16,5,Performance,demo4,3,0,0,Enterprise board with 340 cards takes 18s to load. Browser DevTools shows the /f
+TKT-1028: Webhook not firing on card archive,Investigating,TechNova Inc,high,2026-03-18,4,Bug,demo1,4,2,1,Outbound webhook for `card.archived` event never fires. Customer confirmed their
+TKT-1015: SSO login loop on Safari 17.4,Resolved,TechNova Inc,high,2026-03-13,5,Bug,demo3,4,4,2,500 TechNova users on Safari 17.4 unable to complete SSO login — infinite redire
+TKT-1009: Export CSV missing swimlane column,Closed,TechNova Inc,medium,2026-03-03,3,Bug,,4,4,1,CSV export for boards with more than 10 swimlanes was omitting the swimlane_name
+TKT-2033: Cards not syncing across browser tabs,Triaged,Apex Retail Group,medium,2026-03-20,3,Bug,demo2,3,1,0,IT Manager reports that opening the same board in two browser tabs shows differe
+TKT-2027: Swimlane collapse state not persisting,Awaiting Customer,Apex Retail Group,low,2026-03-23,2,Bug,demo4,3,2,1,Customer reports that collapsed swimlanes revert to expanded on page reload. loc
+TKT-2019: Request — bulk card move between swimlanes,Resolved,Apex Retail Group,medium,2026-03-10,4,Feature Request,demo1,3,3,1,Customer wants to select multiple cards and move them to a different swimlane in
+TKT-2011: Board permissions not applying to new members,Closed,Apex Retail Group,high,2026-02-25,5,Bug,demo3,4,4,2,New board members added via invite link had viewer-only access for up to 15 minu
+TKT-3044: Audit log export missing movement events,Triaged,FinEdge Ltd,urgent,2026-03-17,6,"Bug,Security",,3,1,1,FinEdge compliance export is missing CardMovement records — only CardActivity ev
+TKT-3038: 2FA enforcement not applying to SSO users,Escalated,FinEdge Ltd,urgent,2026-03-16,7,Security,demo2,4,2,2,Board admin's 2FA enforcement setting is not applied to users who log in via SSO
+TKT-3025: API rate limit headers missing from responses,Resolved,FinEdge Ltd,medium,2026-03-11,3,Bug,demo4,3,3,1,X-RateLimit-Limit and X-RateLimit-Remaining headers missing from API responses. 
+TKT-3014: Webhook HMAC signature docs incorrect,Closed,FinEdge Ltd,low,2026-02-21,2,Bug,demo1,3,3,1,Documentation for webhook HMAC signature verification had an error — showed SHA-
+TKT-4029: Card attachments not uploading for HIPAA users,New,BlueSky Health,urgent,2026-03-16,6,"Bug,Security",demo3,3,0,0,BlueSky users in the HIPAA-segregated tenant are getting 403 on all attachment u
+TKT-4021: Board export failing for HIPAA tenant,Escalated,BlueSky Health,high,2026-03-18,5,Bug,,4,2,2,CSV and JSON board exports fail with 500 for BlueSky's HIPAA tenant. Likely KMS 
+TKT-4018: Resolved — Email notification delays in HIPAA tenant,Resolved,BlueSky Health,medium,2026-03-09,3,"Bug,Performance",demo2,3,3,1,Email notifications delayed by 2-4 hours for BlueSky users. Root cause: SES sand
+TKT-4005: Closed — Board member cannot see swimlane,Closed,BlueSky Health,high,2026-02-13,4,Bug,demo4,4,4,2,Board members added to BlueSky boards could not see swimlanes for up to 30 secon
+TKT-5018: Colors not saving on card labels,New,Mosaic Creative,medium,2026-03-19,2,Bug,demo1,3,0,0,"Customer reports that when they change a label color in board settings, cards al"
+TKT-5014: Request — keyboard shortcut to archive card,Triaged,Mosaic Creative,low,2026-03-27,2,Feature Request,demo3,3,2,1,Customer wants a keyboard shortcut (e.g. Shift+A) to archive a card from the boa
+TKT-5009: Resolved — Import CSV failing on special characters,Resolved,Mosaic Creative,medium,2026-03-07,3,Bug,,4,4,1,"CSV import failed for any file containing non-ASCII characters (em-dashes, smart"
+TKT-5003: Closed — Due date filter returning no results,Closed,Mosaic Creative,low,2026-02-18,2,Bug,demo2,3,3,1,Due date filter was returning zero results for same-day queries in timezones wes

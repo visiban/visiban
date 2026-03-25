@@ -230,8 +230,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useBoardPan(scrollRef);
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  useBoardPan(scrollEl);
 
   const showArchiveToast = useCallback(() => {
     setArchiveToast(true);
@@ -616,6 +616,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
             onUpdated={onCardUpdated}
             onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
+            onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}
@@ -738,7 +739,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
         */}
-        <div ref={scrollRef} className="board-scroll flex-1 overflow-auto bg-slate-900">
+        <div ref={setScrollEl} className="board-scroll flex-1 overflow-auto bg-slate-900">
           {/*
             min-w-max wrapper — gives the sticky header row and all swimlane
             rows the same containing-block width (max-content).  Without this,
@@ -949,6 +950,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
           onUpdated={onCardUpdated}
           onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
+          onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
           userTimezone={userTimezone}

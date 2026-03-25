@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 ### Added
+- Card detail panel now includes a "Move to" button in the breadcrumb row; clicking it opens a popover to move the card to a different column and/or swimlane without closing the panel
 - Pressing Escape on the Analytics view navigates back to Summary; pressing Escape again on Summary returns to the Board view
 - Analytics heatmap now uses absolute threshold-based coloring: green (well under threshold), yellow (within warning %), red (at or above threshold). Both the stale threshold and warning percentage are configurable per board in Board Settings → Stale card settings.
 - New `stale_warning_pct` board setting (0–100, default 50) controls the yellow warning band in the analytics heatmap.
@@ -16,6 +17,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 - Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
 - Board Settings stale card section renamed from "Stale card threshold" to "Stale card settings" with a second input for the warning percentage.
+
+### Fixed
+- Space+drag board panning re-attaches event listeners after switching between Board, Summary, and Analytics views — previously the hook captured a stale DOM reference on first mount and lost pan mode whenever the scroll container remounted
+- "Move to" popover in the card detail panel now renders as a fixed-position overlay so it is no longer clipped by the panel's `overflow-hidden` container
+- Board template seed data no longer produces duplicate cards when the generator script is run multiple times — `extra_cards` is now the sole source of truth and the output is idempotent; Sales Pipeline swimlanes renamed from company names to sales regions (North America, APAC, EMEA, LATAM, ANZ)
 
 ---
 

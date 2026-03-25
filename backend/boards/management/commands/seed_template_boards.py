@@ -98,7 +98,7 @@ TEMPLATE_DATA: dict[str, dict] = {
         "board_name": "Template: Sales Pipeline",
         "description": (
             "Track open deals from first contact through close. "
-            "Each swimlane is an account; each card is a deal or opportunity."
+            "Each swimlane is a sales region; each card is a deal or opportunity."
         ),
         "columns": [
             {"name": "Prospect",      "color": "#6B7280", "allow_card_creation": True},
@@ -118,10 +118,10 @@ TEMPLATE_DATA: dict[str, dict] = {
         ],
         "swimlanes": [
             {
-                "name": "TechNova Inc",
+                "name": "North America",
                 "color": "#3B82F6",
-                "contact_email": "procurement@technova.example",
-                "notes": "Series C SaaS, 500-seat target. Champion: VP Engineering. Pain: outgrown Jira.",
+                "contact_email": "na-sales@example.com",
+                "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR.",
                 "cards": [
                     {
                         "title": "Platform Migration — 500 Seats",
@@ -191,10 +191,10 @@ TEMPLATE_DATA: dict[str, dict] = {
                 ],
             },
             {
-                "name": "Apex Retail Group",
+                "name": "APAC",
                 "color": "#F59E0B",
-                "contact_email": "tech@apexretail.example",
-                "notes": "200-location retail chain. Decision maker: CTO. Seasonal budget freeze Jan-Mar.",
+                "contact_email": "apac-sales@example.com",
+                "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles.",
                 "cards": [
                     {
                         "title": "Operations Board Rollout — 200 Locations",
@@ -263,10 +263,10 @@ TEMPLATE_DATA: dict[str, dict] = {
                 ],
             },
             {
-                "name": "FinEdge Ltd",
+                "name": "EMEA",
                 "color": "#8B5CF6",
-                "contact_email": "procurement@finedge.example",
-                "notes": "Fintech startup, 80 staff. Compliance-heavy. VP Product is champion.",
+                "contact_email": "emea-sales@example.com",
+                "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals.",
                 "cards": [
                     {
                         "title": "Compliance Workflow License — 80 Seats",
@@ -335,10 +335,10 @@ TEMPLATE_DATA: dict[str, dict] = {
                 ],
             },
             {
-                "name": "BlueSky Health",
+                "name": "LATAM",
                 "color": "#10B981",
-                "contact_email": "procurement@blueskyhealth.example",
-                "notes": "Regional healthcare provider. HIPAA BAA required. 200-seat potential.",
+                "contact_email": "latam-sales@example.com",
+                "notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations.",
                 "cards": [
                     {
                         "title": "Clinical Project Tracking — Initial Outreach",
@@ -406,10 +406,10 @@ TEMPLATE_DATA: dict[str, dict] = {
                 ],
             },
             {
-                "name": "Mosaic Creative",
+                "name": "ANZ",
                 "color": "#EC4899",
-                "contact_email": "ops@mosaiccreative.example",
-                "notes": "Creative agency, 30 staff. Fast-moving. Decision in days, not weeks.",
+                "contact_email": "anz-sales@example.com",
+                "notes": "SMB and creative agency accounts. Fast decision cycles — typically days, not weeks.",
                 "cards": [
                     {
                         "title": "Content Calendar Boards — 30 Seats",

@@ -216,27 +216,14 @@ def _enrich(card: dict, col_names: list[str], card_seed: int) -> dict:
 # ── Template expander ─────────────────────────────────────────────────────────
 def _build(tpl: dict) -> dict:
     """
-    Merge existing JSON with new cards defined in EXTRA_CARDS,
-    re-enrich ALL cards (movements + activities), return final dict.
+    Build the final template dict from the cards defined in extra_cards.
+    All card content is authoritative from the template definition — the
+    script is idempotent and safe to run multiple times.
     """
     slug = tpl["slug"]
     col_names = [c["name"] for c in tpl["columns"]]
 
-    # Load existing file to preserve existing card content
-    existing_path = os.path.join(SEED_DATA_DIR, f"{slug}.json")
-    existing_cards: list[dict] = []
-    if os.path.exists(existing_path):
-        with open(existing_path, encoding="utf-8") as f:
-            old = json.load(f)
-        for c in old.get("cards", []):
-            # Strip old enrichment — will regenerate
-            c.pop("movements", None)
-            c.pop("activities", None)
-            c.pop("assignee", None)
-            existing_cards.append(c)
-
-    new_cards = tpl.get("extra_cards", [])
-    all_cards = existing_cards + new_cards
+    all_cards = tpl.get("extra_cards", [])
 
     enriched = []
     for i, card in enumerate(all_cards):
@@ -294,7 +281,7 @@ def _cmt(body, author="demo1"):
 SALES_PIPELINE = {
     "slug": "sales_pipeline",
     "name": "Template: Sales Pipeline",
-    "description": "Track open deals from first contact through close. Each swimlane is an account; each card is a deal or opportunity.",
+    "description": "Track open deals from first contact through close. Each swimlane is a sales region; each card is a deal or opportunity.",
     "columns": [
         {"name": "Prospect",      "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
         {"name": "Qualified",     "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
@@ -306,11 +293,11 @@ SALES_PIPELINE = {
         {"name": "Closed Lost",   "position": 7, "color": "#9CA3AF", "wip_limit": None, "allow_card_creation": False},
     ],
     "swimlanes": [
-        {"name": "TechNova Inc",      "position": 0, "color": "#3B82F6", "contact_email": "procurement@technova.example",   "notes": "Series C SaaS, 500-seat target. Champion: VP Engineering. Pain: outgrown Jira."},
-        {"name": "Apex Retail Group", "position": 1, "color": "#F59E0B", "contact_email": "tech@apexretail.example",        "notes": "200-location retail chain. Decision maker: CTO. Seasonal budget freeze Jan-Mar."},
-        {"name": "FinEdge Ltd",       "position": 2, "color": "#8B5CF6", "contact_email": "procurement@finedge.example",   "notes": "Fintech startup, 80 staff. Compliance-heavy. VP Product is champion."},
-        {"name": "BlueSky Health",    "position": 3, "color": "#10B981", "contact_email": "procurement@blueskyhealth.example", "notes": "Regional healthcare provider. HIPAA BAA required. 200-seat potential."},
-        {"name": "Mosaic Creative",   "position": 4, "color": "#EC4899", "contact_email": "ops@mosaiccreative.example",    "notes": "Creative agency, 30 staff. Fast-moving. Decision in days, not weeks."},
+        {"name": "North America", "position": 0, "color": "#3B82F6", "contact_email": "na-sales@example.com",   "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR."},
+        {"name": "APAC",          "position": 1, "color": "#F59E0B", "contact_email": "apac-sales@example.com", "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles."},
+        {"name": "EMEA",          "position": 2, "color": "#8B5CF6", "contact_email": "emea-sales@example.com", "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals."},
+        {"name": "LATAM",         "position": 3, "color": "#10B981", "contact_email": "latam-sales@example.com","notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations."},
+        {"name": "ANZ",           "position": 4, "color": "#EC4899", "contact_email": "anz-sales@example.com",  "notes": "SMB and creative agency accounts. Fast decision cycles — typically days, not weeks."},
     ],
     "labels": [
         {"name": "Enterprise", "color": "#3B82F6"},
@@ -320,95 +307,95 @@ SALES_PIPELINE = {
         {"name": "Upsell",     "color": "#F59E0B"},
     ],
     "extra_cards": [
-        # TechNova (target: Prospect, Discovery, Proposal Sent, Closed Won)
-        _c("Initial Outreach — Enterprise Platform", "Prospect", "TechNova Inc", "medium", 21, 3, ["Enterprise"],
-           _chk("Research company on LinkedIn", "Find champion contact", "Send intro email"),
-           desc="First contact with TechNova's procurement team via LinkedIn. VP Engineering expressed interest in a demo after outgrowing their current tool."),
-        _c("Platform Migration — 500 Seats", "Discovery", "TechNova Inc", "high", 14, 6, ["Enterprise", "Strategic"],
+        # North America (Enterprise SaaS: Prospect → Discovery → Proposal Sent → Closed Won)
+        _c("Initial Outreach — Enterprise Platform", "Prospect", "North America", "medium", 21, 3, ["Enterprise"],
+           _chk("Research account on LinkedIn", "Find champion contact", "Send intro email"),
+           desc="First contact with a Series C SaaS company's procurement team. VP Engineering expressed interest after outgrowing their current tool. 500-seat target."),
+        _c("Platform Migration — 500 Seats", "Discovery", "North America", "high", 14, 6, ["Enterprise", "Strategic"],
            _chk("+Map current Jira workflow", "+Identify pain points", "Define migration scope", "Schedule technical review"),
            [_cmt("Pain is clear: 500 users on Jira Cloud, $180k/year. They want swimlane-based boards.", "demo2"),
             _cmt("Champion confirmed: VP Engineering. Budget owner is CFO — need CFO intro.", "demo1")],
-           desc="Full platform migration opportunity. TechNova currently has 3 Jira instances that need consolidating. Discovery call revealed strong swimlane requirement for customer tracking."),
-        _c("Analytics Add-on Proposal", "Proposal Sent", "TechNova Inc", "high", 7, 4, ["Enterprise", "Upsell"],
+           desc="Full platform migration for a Series C SaaS account with 3 Jira instances to consolidate. Discovery call revealed strong swimlane requirement for customer tracking."),
+        _c("Analytics Add-on Proposal", "Proposal Sent", "North America", "high", 7, 4, ["Enterprise", "Upsell"],
            _chk("+Draft SOW", "+Pricing approved by CS", "Send to procurement", "Follow up after 3 days"),
            [_cmt("Proposal sent Friday. Procurement said they'll respond within 5 business days.", "demo3")],
-           desc="Add-on proposal for Analytics module on top of base platform deal. Combined deal value significantly higher than base license alone."),
-        _c("500-Seat Enterprise Deal — Closed Won", "Closed Won", "TechNova Inc", "high", -5, 8, ["Enterprise", "Strategic"],
+           desc="Add-on proposal for Analytics module on top of the base platform deal. Combined deal value significantly higher than base license alone."),
+        _c("500-Seat Enterprise Deal — Closed Won", "Closed Won", "North America", "high", -5, 8, ["Enterprise", "Strategic"],
            _chk("+Procurement approved", "+Legal signed MSA", "+Onboarding scheduled", "+CS handoff completed"),
            [_cmt("MSA signed. 500 seats, 2-year term. CS onboarding starts Monday.", "demo1"),
-            _cmt("Biggest win this quarter. Referencing TechNova in Q2 launch announcement.", "demo4")],
+            _cmt("Biggest win this quarter. Will feature as a Q2 launch case study.", "demo4")],
            desc="500-seat enterprise deal closed after 60-day sales cycle. Includes platform + analytics module. 2-year commit."),
 
-        # Apex Retail (target: Qualified, Demo, Negotiation, Closed Lost)
-        _c("Ops Board Pilot — 50 Stores", "Qualified", "Apex Retail Group", "medium", 28, 3, ["SMB"],
+        # APAC (Retail chain: Qualified → Demo → Negotiation → Closed Lost)
+        _c("Ops Board Pilot — 50 Stores", "Qualified", "APAC", "medium", 28, 3, ["SMB"],
            _chk("+ICP confirmed", "+Budget holder identified", "Schedule discovery call"),
-           desc="Apex flagged as qualified after inbound inquiry. Retail ops team wants to track store maintenance tasks on a kanban board. Pilot with 50 stores."),
-        _c("Operations Board Demo — CTO", "Demo", "Apex Retail Group", "high", 10, 5, ["SMB", "Strategic"],
+           desc="200-location retail chain flagged as qualified after inbound inquiry. Ops team wants to track store maintenance tasks on a kanban board. Piloting with 50 stores."),
+        _c("Operations Board Demo — CTO", "Demo", "APAC", "high", 10, 5, ["SMB", "Strategic"],
            _chk("+Prepared demo board with retail template", "+CTO confirmed attendance", "Capture follow-up questions", "Send recording"),
            [_cmt("Demo went well. CTO loved the swimlane-per-store concept. Wants a 2-week trial.", "demo2")],
-           desc="Live demo for CTO and ops director showing retail-specific board template. Focus on swimlane-per-store structure and mobile card creation for field workers."),
-        _c("Contract Review — Budget Objection", "Negotiation", "Apex Retail Group", "urgent", 3, 6, ["SMB"],
+           desc="Live demo for CTO and ops director showing the retail-specific board template. Focus on swimlane-per-store structure and mobile card creation for field workers."),
+        _c("Contract Review — Budget Objection", "Negotiation", "APAC", "urgent", 3, 6, ["SMB"],
            _chk("+Sent revised pricing", "Awaiting legal review", "Follow up with CTO"),
            [_cmt("Budget freeze lifted March 15. Back in active negotiation — CTO wants 10% discount for 2-year commit.", "demo3"),
-            _cmt("Legal flagged data residency clause. Need to confirm EU data processing applies.", "demo5")],
-           desc="Deal stalled on budget in Jan-Mar freeze. Now active again with CFO involved. Negotiating annual vs multi-year terms. Legal review in progress."),
-        _c("Retail Pilot — Lost to Competitor", "Closed Lost", "Apex Retail Group", "medium", -15, 3, ["SMB"],
+            _cmt("Legal flagged data residency clause. Need to confirm APAC data processing requirements.", "demo5")],
+           desc="Deal stalled on seasonal budget freeze. Now active again with CFO involved. Negotiating annual vs multi-year terms. Legal review in progress."),
+        _c("Retail Pilot — Lost to Competitor", "Closed Lost", "APAC", "medium", -15, 3, ["SMB"],
            _chk("+Post-mortem completed", "+Added to lost-deal analysis"),
            [_cmt("Lost on price. Competitor offered 40% lower for year 1. Need to revisit SMB pricing model.", "demo1"),
             _cmt("Champion left company. New IT manager not familiar with the pain.", "demo4")],
            desc="Pilot converted to full evaluation but lost to a lower-cost competitor. Champion attrition contributed. Scheduled 6-month re-engage."),
 
-        # FinEdge (target: Qualified, Discovery, Proposal Sent, Closed Won)
-        _c("Compliance Workflow License — 80 Seats", "Qualified", "FinEdge Ltd", "high", 25, 4, ["Enterprise", "Strategic"],
+        # EMEA (Fintech/compliance: Qualified → Discovery → Proposal Sent → Closed Won)
+        _c("Compliance Workflow License — 80 Seats", "Qualified", "EMEA", "high", 25, 4, ["Enterprise", "Strategic"],
            _chk("+GDPR/SOC2 requirements confirmed", "+Champion is VP Product", "Invite to webinar"),
            desc="Fintech prospect focused on compliance workflows. SOC 2 requirement is non-negotiable. VP Product is a strong champion and has been using Visiban personally."),
-        _c("Engineering Team Discovery Call", "Discovery", "FinEdge Ltd", "high", 18, 5, ["Enterprise"],
+        _c("Engineering Team Discovery Call", "Discovery", "EMEA", "high", 18, 5, ["Enterprise"],
            _chk("+Mapped current Trello usage", "+Identified audit trail requirement", "Draft custom template", "Share security whitepaper"),
-           [_cmt("Key insight: they need full audit log of card movements for compliance. Our History tab is a differentiator.", "demo2")],
-           desc="Deep-dive discovery with VP Product and two senior engineers. Compliance audit trail is top priority — our CardMovement history is a key differentiator over competitors."),
-        _c("Compliance Platform Proposal — 80 Seats", "Proposal Sent", "FinEdge Ltd", "urgent", 5, 6, ["Enterprise", "Strategic"],
+           [_cmt("Key insight: they need a full audit log of card movements for compliance. Our History tab is a differentiator.", "demo2")],
+           desc="Deep-dive discovery with VP Product and two senior engineers. Compliance audit trail is top priority — CardMovement history is a key differentiator over competitors."),
+        _c("Compliance Platform Proposal — 80 Seats", "Proposal Sent", "EMEA", "urgent", 5, 6, ["Enterprise", "Strategic"],
            _chk("+Proposal drafted", "+Legal reviewed GDPR addendum", "+Sent to VP Product", "Awaiting sign-off"),
            [_cmt("Proposal includes DPA and GDPR addendum. VP Product very positive — escalating to CTO.", "demo3")],
            desc="Full commercial proposal including DPA, GDPR data processing addendum, and SOC 2 compliance documentation. VP Product championing internally."),
-        _c("80-Seat Deal — Closed Won", "Closed Won", "FinEdge Ltd", "high", -10, 7, ["Enterprise"],
+        _c("80-Seat Fintech Deal — Closed Won", "Closed Won", "EMEA", "high", -10, 7, ["Enterprise"],
            _chk("+Contract signed", "+Data processing addendum executed", "+Onboarding session booked", "+CS assigned"),
            [_cmt("Closed! 80 seats, 1-year term with renewal option. DPA signed. CS starting onboarding next week.", "demo1"),
-            _cmt("Great reference account for fintech vertical. Happy to be a case study.", "demo4")],
-           desc="80-seat deal closed with GDPR DPA and SOC 2 compliance documentation. Strong fintech reference account."),
+            _cmt("Great reference account for the EMEA fintech vertical. Happy to be a case study.", "demo4")],
+           desc="80-seat deal closed with GDPR DPA and SOC 2 compliance documentation. Strong fintech reference account for the EMEA region."),
 
-        # BlueSky Health (target: Prospect, Demo, Negotiation, Closed Won)
-        _c("Clinical Project Tracking — Initial Outreach", "Prospect", "BlueSky Health", "low", 35, 2, ["Enterprise"],
-           _chk("Confirm HIPAA BAA requirement", "Research healthcare compliance needs", "Send intro deck"),
-           desc="Inbound lead from BlueSky Health's procurement team. Regional healthcare provider exploring project tracking for clinical ops. HIPAA BAA will be required."),
-        _c("Patient Care Workflow Demo — VP Operations", "Demo", "BlueSky Health", "high", 12, 5, ["Enterprise", "Strategic"],
-           _chk("+Prepared healthcare board template", "+HIPAA BAA reviewed by legal", "Capture clinical workflow requirements", "Schedule follow-up"),
-           [_cmt("Demo completed. VP Ops was impressed by swimlane-per-department structure. Needs HIPAA BAA before any further steps.", "demo2")],
-           desc="Demo for VP Operations showing healthcare-specific workflow template. HIPAA BAA is prerequisite for moving forward — legal team engaged."),
-        _c("HIPAA BAA Negotiation", "Negotiation", "BlueSky Health", "urgent", 6, 7, ["Enterprise", "Strategic"],
-           _chk("+Legal drafted HIPAA BAA", "+Sent to BlueSky legal team", "Awaiting redlines", "Final sign-off"),
+        # LATAM (Healthcare: Prospect → Demo → Negotiation → Closed Won)
+        _c("Healthcare Platform — Initial Outreach", "Prospect", "LATAM", "low", 35, 2, ["Enterprise"],
+           _chk("Confirm local data compliance requirements", "Research healthcare use case", "Send intro deck"),
+           desc="Inbound lead from a regional healthcare provider exploring project tracking for clinical ops. Local data compliance equivalent to HIPAA will be required."),
+        _c("Patient Care Workflow Demo — VP Operations", "Demo", "LATAM", "high", 12, 5, ["Enterprise", "Strategic"],
+           _chk("+Prepared healthcare board template", "+Compliance review completed by legal", "Capture clinical workflow requirements", "Schedule follow-up"),
+           [_cmt("Demo completed. VP Ops was impressed by the swimlane-per-department structure. Compliance agreement required before next steps.", "demo2")],
+           desc="Demo for VP Operations showing a healthcare-specific workflow template. Data compliance agreement is a prerequisite for moving forward — legal team engaged."),
+        _c("Data Processing Agreement Negotiation", "Negotiation", "LATAM", "urgent", 6, 7, ["Enterprise", "Strategic"],
+           _chk("+Legal drafted data processing agreement", "+Sent to account legal team", "Awaiting redlines", "Final sign-off"),
            [_cmt("Their legal team has 3 redlines. None are blockers — we can accept all of them.", "demo3"),
-            _cmt("VP Ops is pushing their legal to expedite. Deal is ready to close pending BAA.", "demo5")],
-           desc="HIPAA BAA in final legal review on both sides. VP Operations is the deal sponsor and is actively pushing their legal team to close. Deal value: 200 seats."),
-        _c("200-Seat Healthcare Deal — Closed Won", "Closed Won", "BlueSky Health", "high", -3, 8, ["Enterprise", "Strategic"],
-           _chk("+HIPAA BAA signed", "+MSA executed", "+Onboarding kickoff scheduled", "+CS team notified"),
-           [_cmt("HIPAA BAA signed — this was the last blocker. 200-seat deal, 3-year term, closed!", "demo1"),
-            _cmt("First healthcare enterprise win. Adding to healthcare vertical case study pipeline.", "demo2")],
-           desc="200-seat 3-year deal closed with HIPAA BAA and enterprise MSA. First major healthcare vertical win. Onboarding starts next week."),
+            _cmt("VP Ops is pushing their legal to expedite. Deal is ready to close pending agreement.", "demo5")],
+           desc="Data processing agreement in final legal review on both sides. VP Operations is the deal sponsor and is actively pushing their legal team to close. Deal value: 200 seats."),
+        _c("200-Seat Healthcare Deal — Closed Won", "Closed Won", "LATAM", "high", -3, 8, ["Enterprise", "Strategic"],
+           _chk("+Data processing agreement signed", "+MSA executed", "+Onboarding kickoff scheduled", "+CS team notified"),
+           [_cmt("Agreement signed — that was the last blocker. 200-seat deal, 3-year term, closed!", "demo1"),
+            _cmt("First major healthcare enterprise win in LATAM. Adding to the regional case study pipeline.", "demo2")],
+           desc="200-seat 3-year deal closed with full compliance documentation and enterprise MSA. First major healthcare vertical win in the region."),
 
-        # Mosaic Creative (target: Qualified, Demo, Closed Won, Closed Lost)
-        _c("Creative Agency Sprint Boards — 30 Seats", "Qualified", "Mosaic Creative", "medium", 20, 3, ["SMB"],
+        # ANZ (Creative agency/SMB: Qualified → Demo → Closed Won + Closed Lost upsell)
+        _c("Creative Agency Sprint Boards — 30 Seats", "Qualified", "ANZ", "medium", 20, 3, ["SMB"],
            _chk("+Decision maker identified (Ops Director)", "+30-seat count confirmed", "Schedule demo this week"),
            desc="Small creative agency looking for a lightweight kanban for campaign sprint tracking. Decision cycles are short — Ops Director can approve on the spot."),
-        _c("Agency Workflow Demo — Ops Director", "Demo", "Mosaic Creative", "high", 8, 4, ["SMB"],
+        _c("Agency Workflow Demo — Ops Director", "Demo", "ANZ", "high", 8, 4, ["SMB"],
            _chk("+Demo prepared with content production template", "+Ops Director confirmed", "Capture content calendar requirements", "Send follow-up same day"),
            [_cmt("Great energy in the demo. They loved the content production template. Follow-up sent same afternoon.", "demo2")],
-           desc="30-minute demo focused on content production board template. Ops Director has authority to approve. Follow-up sent within 2 hours."),
-        _c("Campaign Sprint Boards — Closed Won", "Closed Won", "Mosaic Creative", "medium", -8, 4, ["SMB"],
+           desc="30-minute demo focused on the content production board template. Ops Director has authority to approve. Follow-up sent within 2 hours."),
+        _c("Campaign Sprint Boards — Closed Won", "Closed Won", "ANZ", "medium", -8, 4, ["SMB"],
            _chk("+Contract signed (same day)", "+Seats activated", "+Onboarding completed"),
            [_cmt("Closed same day as demo. Fastest deal cycle this quarter — 8 days from first contact to close.", "demo1"),
             _cmt("Great SMB reference. They're already telling other agencies about us.", "demo4")],
-           desc="30-seat SMB deal closed 8 days after initial contact. Content production template was the key differentiator. Short but clean deal cycle."),
-        _c("Video Production Add-on — Lost", "Closed Lost", "Mosaic Creative", "low", -20, 2, ["SMB", "Upsell"],
+           desc="30-seat SMB deal closed 8 days after initial contact. Content production template was the key differentiator. Short, clean deal cycle."),
+        _c("Video Production Add-on — Lost", "Closed Lost", "ANZ", "low", -20, 2, ["SMB", "Upsell"],
            _chk("+Sent add-on proposal", "+Post-mortem completed"),
            [_cmt("Lost the add-on upsell — they built a custom Notion template instead. Revisit in 6 months.", "demo3")],
            desc="Upsell attempt for video production workflow add-on. Lost to a Notion template built internally. Base deal retained. Re-engage at renewal."),

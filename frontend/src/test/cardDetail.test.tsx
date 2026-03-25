@@ -476,4 +476,103 @@ describe('CardDetail', () => {
       expect(screen.getByText('Failed to save — please try again.')).toBeInTheDocument()
     })
   })
+
+  describe('Move to popover', () => {
+    function makeBoardWithTwoCols(): BoardFull {
+      return makeBoard({
+        columns: [
+          { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
+          { id: 11, uid: 'coluid000002', name: 'In Progress', position: 1, color: '#F59E0B', wip_limit: null, weight_limit: null, allow_card_creation: true },
+        ],
+        swimlanes: [
+          { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
+          { id: 21, uid: 'laneuid00002', name: 'Customer B', contact_email: '', notes: '', position: 1, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
+        ],
+      })
+    }
+
+    it('does not show move button when onMoveCard is not provided', () => {
+      render(<CardDetail {...defaultProps()} />)
+      expect(screen.queryByRole('button', { name: /Move card to different column or swimlane/ })).not.toBeInTheDocument()
+    })
+
+    it('shows move button when onMoveCard is provided and canEdit', () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+      expect(screen.getByRole('button', { name: /Move card to different column or swimlane/ })).toBeInTheDocument()
+    })
+
+    it('does not show move button for viewer even when onMoveCard provided', () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      const board = makeBoardWithTwoCols()
+      render(<CardDetail {...defaultProps()} board={{ ...board, current_user_role: 'viewer' }} onMoveCard={onMoveCard} />)
+      expect(screen.queryByRole('button', { name: /Move card to different column or swimlane/ })).not.toBeInTheDocument()
+    })
+
+    it('clicking move button opens popover with column and swimlane selectors', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+      expect(screen.getByText('Column')).toBeInTheDocument()
+      expect(screen.getByText('Swimlane')).toBeInTheDocument()
+    })
+
+    it('Move button is disabled when current location is pre-selected', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+      // Move button disabled — card is already in the pre-selected column/swimlane
+      const moveBtn = screen.getByRole('button', { name: 'Move' })
+      expect(moveBtn).toBeDisabled()
+    })
+
+    it('clicking Cancel closes the popover', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+      expect(screen.getByText('Move to')).toBeInTheDocument()
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByText('Move to')).not.toBeInTheDocument()
+    })
+
+    it('calls onMoveCard with new column and swimlane when Move is clicked', async () => {
+      const onMoveCard = vi.fn().mockResolvedValue(undefined)
+      const board = makeBoardWithTwoCols()
+      const { container } = render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+
+      // Scope the column dropdown trigger to buttons inside the popover to avoid
+      // matching the breadcrumb "To Do" button (which calls onClose).
+      const popover = container.querySelector('[class*="w-64"]')!
+      const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!
+      await userEvent.setup().click(colTrigger)
+      await userEvent.setup().click(screen.getByText('In Progress'))
+
+      const moveBtn = screen.getByRole('button', { name: 'Move' })
+      expect(moveBtn).not.toBeDisabled()
+      await userEvent.setup().click(moveBtn)
+
+      await waitFor(() => {
+        expect(onMoveCard).toHaveBeenCalledWith(1, 11, 20, 9999)
+      })
+    })
+
+    it('shows error message when onMoveCard rejects', async () => {
+      const onMoveCard = vi.fn().mockRejectedValue(new Error('WIP limit'))
+      const board = makeBoardWithTwoCols()
+      const { container } = render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+
+      const popover = container.querySelector('[class*="w-64"]')!
+      const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!
+      await userEvent.setup().click(colTrigger)
+      await userEvent.setup().click(screen.getByText('In Progress'))
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Move' }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/Move blocked/)).toBeInTheDocument()
+      })
+    })
+  })
 })

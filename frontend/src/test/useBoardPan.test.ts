@@ -1,7 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { renderHook, cleanup, act } from '@testing-library/react'
 import { fireEvent } from '@testing-library/dom'
-import { useRef } from 'react'
 import { useBoardPan } from '../hooks/useBoardPan'
 
 afterEach(() => {
@@ -19,8 +18,7 @@ function makeScrollEl() {
 
 function renderPan(el: HTMLDivElement) {
   return renderHook(() => {
-    const ref = useRef<HTMLDivElement>(el)
-    useBoardPan(ref)
+    useBoardPan(el)
   })
 }
 

@@ -3,6 +3,11 @@ import { useEffect, useRef } from "react";
 /**
  * Space+drag board panning — Figma/Miro convention.
  *
+ * Accepts a raw element (or null) rather than a RefObject so that callers can
+ * use a callback ref (`ref={setScrollEl}` + `useState`) and the effect
+ * re-runs whenever the scroll container mounts or unmounts (e.g. when the user
+ * switches between Board / Summary / Analytics views).
+ *
  * Holding Space arms pan mode (cursor: grab). Pressing the primary mouse
  * button while pan mode is armed activates dragging (cursor: grabbing) and
  * translates subsequent mouse movement 1:1 into scrollLeft/scrollTop on the
@@ -17,13 +22,12 @@ import { useEffect, useRef } from "react";
  *     labels, card surfaces) prevent pan from starting when clicked directly,
  *     although Space+drag on the cell background always works.
  */
-export function useBoardPan(scrollRef: React.RefObject<HTMLElement | null>) {
+export function useBoardPan(el: HTMLElement | null) {
   const panArmed = useRef(false);   // Space is currently held
   const panActive = useRef(false);  // mouse button is down while Space held
   const origin = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
   useEffect(() => {
-    const el = scrollRef.current;
     if (!el) return;
 
     function isEditableFocused() {
@@ -104,5 +108,5 @@ export function useBoardPan(scrollRef: React.RefObject<HTMLElement | null>) {
       document.removeEventListener("mouseup", onMouseUp);
       el.style.cursor = "";
     };
-  }, [scrollRef]);
+  }, [el]);
 }
