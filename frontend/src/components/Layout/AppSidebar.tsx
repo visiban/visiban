@@ -5,6 +5,7 @@ import { listGroups, listStarredGroups } from "../../api/groups";
 import { listBoards, listStarredBoards, createBoard } from "../../api/boards";
 import CreateBoardModal from "../Board/CreateBoardModal";
 import CreateGroupModal from "../Group/CreateGroupModal";
+import CollapsedFlyout from "../Common/CollapsedFlyout";
 
 interface Props {
   user: User;
@@ -37,6 +38,10 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
+  // Flyout anchors — null means closed; capturing at click time avoids stale rects.
+  const [favoritesAnchor, setFavoritesAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [personalAnchor, setPersonalAnchor] = useState<{ top: number; left: number } | null>(null);
+
   useEffect(() => {
     Promise.all([listGroups(), listBoards()])
       .then(([g, b]) => {
@@ -54,6 +59,14 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", String(collapsed));
+  }, [collapsed]);
+
+  // Close flyouts when the sidebar expands
+  useEffect(() => {
+    if (!collapsed) {
+      setFavoritesAnchor(null);
+      setPersonalAnchor(null);
+    }
   }, [collapsed]);
 
   const collapse = useCallback(() => setCollapsed(true), []);
@@ -85,10 +98,52 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   })();
 
   const personalBoards = boards.filter((b) => b.group === null);
-  // Only top-level groups (no parent)
   const topLevelGroups = groups.filter((g) => g.parent === null);
 
+  const hasFavorites = starredBoards.length > 0 || starredGroups.length > 0;
+  const isActiveFavoriteBoard = activeBoardId !== null && starredBoards.some((b) => b.id === activeBoardId);
+  const isActivePersonalBoard = activeBoardId !== null && personalBoards.some((b) => b.id === activeBoardId);
+
+  const openFavorites = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (favoritesAnchor) { setFavoritesAnchor(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPersonalAnchor(null);
+    setFavoritesAnchor({ top: rect.top, left: rect.right });
+  };
+
+  const openPersonal = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (personalAnchor) { setPersonalAnchor(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFavoritesAnchor(null);
+    setPersonalAnchor({ top: rect.top, left: rect.right });
+  };
+
   const sidebarWidth = collapsed ? "w-12" : "w-56";
+
+  // Build favorites flyout sections
+  const favoritesSections = [];
+  if (starredBoards.length > 0) {
+    favoritesSections.push({
+      title: "Boards",
+      items: starredBoards.map((b) => ({
+        id: b.id,
+        name: b.name,
+        href: `/boards/${b.id}`,
+        active: b.id === activeBoardId,
+      })),
+    });
+  }
+  if (starredGroups.length > 0) {
+    favoritesSections.push({
+      title: "Groups",
+      items: starredGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        href: `/groups/${g.id}`,
+        active: location.pathname === `/groups/${g.id}`,
+      })),
+    });
+  }
 
   return (
     <aside
@@ -130,7 +185,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
           </div>
         )}
 
-        {/* Dashboard — always visible, above the loading spinner */}
+        {/* Dashboard — always visible */}
         {collapsed ? (
           <Link
             to="/"
@@ -185,96 +240,87 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
 
         {!loading && (
           <>
-            {/* ── Favorite Boards ── */}
-            {starredBoards.length > 0 && (
-              <>
-                {collapsed ? (
-                  <>
-                    {starredBoards.map((board) => (
-                      <Link
-                        key={board.id}
-                        to={`/boards/${board.id}`}
-                        onClick={collapse}
-                        className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition ${
-                          board.id === activeBoardId
-                            ? "text-yellow-400 bg-blue-600/20"
-                            : "text-yellow-500 hover:text-yellow-300 hover:bg-slate-800"
-                        }`}
-                        title={board.name}
-                      >
-                        <span className="text-sm leading-none">★</span>
-                      </Link>
-                    ))}
-                  </>
-                ) : (
-                  <div>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Favorite Boards
-                    </div>
-                    {starredBoards.map((board) => (
-                      <BoardItem
-                        key={board.id}
-                        board={board}
-                        active={board.id === activeBoardId}
-                        indent={1}
-                        onNavigate={collapse}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
+            {/* ── Separator: utility nav → content nav ── */}
+            {collapsed && (hasFavorites || topLevelGroups.length > 0 || personalBoards.length > 0) && (
+              <div className="mx-2 my-1.5">
+                <div className="h-px bg-slate-900" />
+                <div className="h-px bg-slate-600/50" />
+              </div>
             )}
 
-            {/* ── Separator ── */}
-            {(starredBoards.length > 0) && (starredGroups.length > 0 || topLevelGroups.length > 0 || personalBoards.length > 0) && (
+            {/* ── Collapsed: Favorites flyout trigger ── */}
+            {collapsed && hasFavorites && (
+              <button
+                onClick={openFavorites}
+                onMouseDown={(e) => { if (favoritesAnchor) e.stopPropagation(); }}
+                title="Favorites"
+                aria-haspopup="true"
+                aria-expanded={favoritesAnchor !== null}
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  favoritesAnchor
+                    ? "text-yellow-300 bg-slate-700"
+                    : isActiveFavoriteBoard
+                    ? "text-yellow-400 bg-blue-600/20"
+                    : "text-yellow-500 hover:text-yellow-300 hover:bg-slate-800"
+                }`}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              </button>
+            )}
+
+            {/* ── Expanded: Favorite Boards ── */}
+            {!collapsed && starredBoards.length > 0 && (
+              <div>
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Favorite Boards
+                </div>
+                {starredBoards.map((board) => (
+                  <BoardItem
+                    key={board.id}
+                    board={board}
+                    active={board.id === activeBoardId}
+                    indent={1}
+                    onNavigate={collapse}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ── Expanded separator ── */}
+            {!collapsed && (starredBoards.length > 0) && (starredGroups.length > 0 || topLevelGroups.length > 0 || personalBoards.length > 0) && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
               </div>
             )}
 
-            {/* ── Favorite Groups ── */}
-            {starredGroups.length > 0 && (
-              <>
-                {collapsed ? (
-                  <>
-                    {starredGroups.map((group) => (
-                      <Link
-                        key={group.id}
-                        to={`/groups/${group.id}`}
-                        className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-yellow-500 hover:text-yellow-300 hover:bg-slate-800 transition"
-                        title={group.name}
-                      >
-                        <span className="text-sm leading-none">★</span>
-                      </Link>
-                    ))}
-                  </>
-                ) : (
-                  <div>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Favorite Groups
-                    </div>
-                    {starredGroups.map((group) => (
-                      <Link
-                        key={group.id}
-                        to={`/groups/${group.id}`}
-                        onClick={collapse}
-                        className="flex items-center gap-1.5 pl-5 pr-3 py-1.5 text-sm transition truncate text-slate-400 hover:text-white hover:bg-slate-800"
-                        title={group.name}
-                      >
-                        <svg className="w-3.5 h-3.5 shrink-0 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                        </svg>
-                        <span className="truncate">{group.name}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </>
+            {/* ── Expanded: Favorite Groups ── */}
+            {!collapsed && starredGroups.length > 0 && (
+              <div>
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Favorite Groups
+                </div>
+                {starredGroups.map((group) => (
+                  <Link
+                    key={group.id}
+                    to={`/groups/${group.id}`}
+                    onClick={collapse}
+                    className="flex items-center gap-1.5 pl-5 pr-3 py-1.5 text-sm transition truncate text-slate-400 hover:text-white hover:bg-slate-800"
+                    title={group.name}
+                  >
+                    <svg className="w-3.5 h-3.5 shrink-0 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                    </svg>
+                    <span className="truncate">{group.name}</span>
+                  </Link>
+                ))}
+              </div>
             )}
 
-            {/* ── Separator ── */}
-            {(starredBoards.length > 0 || starredGroups.length > 0) && (topLevelGroups.length > 0 || personalBoards.length > 0) && (
+            {/* ── Expanded separator: favorites → groups/personal ── */}
+            {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0) && (topLevelGroups.length > 0 || personalBoards.length > 0) && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
@@ -339,34 +385,53 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
               );
             })}
 
-            {/* ── Personal boards (no group) ── */}
-            {personalBoards.length > 0 && (
+            {/* ── Separator: groups → personal boards ── */}
+            {personalBoards.length > 0 && (topLevelGroups.length > 0 || starredBoards.length > 0 || starredGroups.length > 0) && (
+              <div className="mx-4 my-1">
+                <div className="h-px bg-slate-900" />
+                <div className="h-px bg-slate-600/50" />
+              </div>
+            )}
+
+            {/* ── Collapsed: Personal boards flyout trigger ── */}
+            {collapsed && personalBoards.length > 0 && (
+              <button
+                onClick={openPersonal}
+                onMouseDown={(e) => { if (personalAnchor) e.stopPropagation(); }}
+                title="Personal boards"
+                aria-haspopup="true"
+                aria-expanded={personalAnchor !== null}
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  personalAnchor
+                    ? "text-slate-200 bg-slate-700"
+                    : isActivePersonalBoard
+                    ? "text-blue-400 bg-blue-600/20"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                {/* Clipboard / board icon */}
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                  <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+
+            {/* ── Expanded: Personal boards ── */}
+            {!collapsed && personalBoards.length > 0 && (
               <div>
-                {collapsed ? (
-                  <div
-                    className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-slate-500"
-                    title="Personal boards"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                ) : (
-                  <>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Personal
-                    </div>
-                    {personalBoards.map((board) => (
-                      <BoardItem
-                        key={board.id}
-                        board={board}
-                        active={board.id === activeBoardId}
-                        indent={1}
-                        onNavigate={collapse}
-                      />
-                    ))}
-                  </>
-                )}
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Personal
+                </div>
+                {personalBoards.map((board) => (
+                  <BoardItem
+                    key={board.id}
+                    board={board}
+                    active={board.id === activeBoardId}
+                    indent={1}
+                    onNavigate={collapse}
+                  />
+                ))}
               </div>
             )}
           </>
@@ -409,6 +474,36 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
         <CreateGroupModal
           onCreated={(g) => setGroups((prev) => [g, ...prev])}
           onClose={() => setShowCreateGroup(false)}
+        />
+      )}
+
+      {/* Favorites flyout portal */}
+      {collapsed && favoritesAnchor && hasFavorites && (
+        <CollapsedFlyout
+          title="Favorites"
+          sections={favoritesSections}
+          anchor={favoritesAnchor}
+          onClose={() => setFavoritesAnchor(null)}
+          onNavigate={collapse}
+        />
+      )}
+
+      {/* Personal boards flyout portal */}
+      {collapsed && personalAnchor && personalBoards.length > 0 && (
+        <CollapsedFlyout
+          title="Personal boards"
+          sections={[{
+            title: "Personal",
+            items: personalBoards.map((b) => ({
+              id: b.id,
+              name: b.name,
+              href: `/boards/${b.id}`,
+              active: b.id === activeBoardId,
+            })),
+          }]}
+          anchor={personalAnchor}
+          onClose={() => setPersonalAnchor(null)}
+          onNavigate={collapse}
         />
       )}
     </aside>
