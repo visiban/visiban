@@ -338,6 +338,57 @@ describe('AppSidebar', () => {
     expect(stored).toContain(10)
   })
 
+  // ── Nested group explorer tree tests ──────────────────────────────────────
+
+  it('shows a nested subgroup under its parent when parent is expanded', async () => {
+    const subgroup: Group = { ...fakeGroup, id: 20, name: 'Frontend', parent: 10, parent_name: 'Alpha' }
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup, subgroup])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Alpha'))
+    // Subgroup not visible until parent is expanded
+    expect(screen.queryByText('Frontend')).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByLabelText('Expand group'))
+    expect(screen.getByText('Frontend')).toBeInTheDocument()
+  })
+
+  it('shows boards belonging to a subgroup under that subgroup when both are expanded', async () => {
+    const subgroup: Group = { ...fakeGroup, id: 20, name: 'Frontend', parent: 10, parent_name: 'Alpha' }
+    const subBoard: Board = { ...fakeBoard, id: 55, name: 'Design System', group: 20, group_name: 'Frontend' }
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup, subgroup])
+    vi.mocked(listBoards).mockResolvedValue([subBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Alpha'))
+    const user = userEvent.setup()
+    // Expand Alpha → reveals Frontend subgroup
+    await user.click(screen.getByLabelText('Expand group'))
+    expect(screen.getByText('Frontend')).toBeInTheDocument()
+    // Expand Frontend → reveals Design System board
+    const expandBtns = screen.getAllByLabelText('Expand group')
+    await user.click(expandBtns[expandBtns.length - 1])
+    expect(screen.getByText('Design System')).toBeInTheDocument()
+  })
+
+  it('shows a single Groups trigger in the collapsed rail when groups exist', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.getByTitle('Groups')).toBeInTheDocument())
+    // Individual group names are not rendered as separate icons
+    expect(screen.queryByTitle('Alpha')).not.toBeInTheDocument()
+  })
+
+  it('Groups flyout lists all groups including subgroups', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const subgroup: Group = { ...fakeGroup, id: 20, name: 'Frontend', parent: 10, parent_name: 'Alpha' }
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup, subgroup])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Groups'))
+    await userEvent.setup().click(screen.getByTitle('Groups'))
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+    expect(screen.getByText('Frontend')).toBeInTheDocument()
+  })
+
   it('clicking New board opens CreateBoardModal', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])

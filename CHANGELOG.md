@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 ### Added
+- Expanded sidebar now renders groups and their boards as a recursive tree — subgroups appear nested under their parent with indented chevron expand/collapse controls, and boards belonging to subgroups are shown inline under their group; the collapsed rail continues to show only top-level group icons
 - Card detail panel now includes a "Move to" button in the breadcrumb row; clicking it opens a popover to move the card to a different column and/or swimlane without closing the panel
 - Pressing Escape on the Analytics view navigates back to Summary; pressing Escape again on Summary returns to the Board view
 - Analytics heatmap now uses absolute threshold-based coloring: green (well under threshold), yellow (within warning %), red (at or above threshold). Both the stale threshold and warning percentage are configurable per board in Board Settings → Stale card settings.

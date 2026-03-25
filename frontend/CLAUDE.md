@@ -325,3 +325,13 @@ The collapsed rail (48px, `w-12`) is for **fixed destinations only** — Dashboa
 ```
 
 **Trigger active state:** when the currently active route belongs to an item inside the flyout, apply `text-blue-400 bg-blue-600/20` to the trigger icon (same as direct nav links). This communicates "you are here" without opening the flyout.
+
+## Sidebar explorer tree (expanded mode)
+
+The expanded sidebar renders groups and their boards as a recursive tree. Rules:
+
+- **Use `buildSidebarTree(groups, boards)` from `src/utils/groupTree.ts`** — never reconstruct the tree inline in the component. It returns `SidebarTreeNode[]` with `{ group, boards, children }` at every level.
+- **Depth-based indentation uses inline style, never Tailwind padding classes** — `style={{ paddingLeft: depth * 12 + 8 }}`. This handles arbitrary depth cleanly. `depth` starts at `0` for root groups.
+- **Only top-level groups appear as icons in the collapsed rail** — subgroups are reachable via the expanded tree only. Never add a collapsed icon for a group whose `parent !== null`.
+- **`SidebarGroupNode` is the recursive component** — it renders a group row, its boards (as `BoardItem`), then its subgroup children. Boards appear before subgroups within the same level.
+- **`BoardItem` uses `depth: number`** — never the old `indent: 1 | 2` prop. Depth cascades down from the containing group.
