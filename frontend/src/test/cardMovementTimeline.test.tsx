@@ -20,7 +20,12 @@ const fakeUser = {
 }
 
 describe('CardMovementTimeline', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Clear the show-full-history preference so each test starts from the default
+    // off state regardless of what a previous test toggled.
+    localStorage.removeItem('user:prefs:show-full-history')
+  })
 
   it('shows loading state', () => {
     mockGetMovements.mockReturnValue(new Promise(() => {}))

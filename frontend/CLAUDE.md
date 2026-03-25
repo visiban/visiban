@@ -342,3 +342,16 @@ The expanded sidebar renders groups and their boards as a recursive tree. Rules:
 - **Only top-level groups appear as icons in the collapsed rail** — subgroups are reachable via the expanded tree only. Never add a collapsed icon for a group whose `parent !== null`.
 - **`SidebarGroupNode` is the recursive component** — it renders a group row, its boards (as `BoardItem`), then its subgroup children. Boards appear before subgroups within the same level.
 - **`BoardItem` uses `depth: number`** — never the old `indent: 1 | 2` prop. Depth cascades down from the containing group.
+
+## User preference persistence
+
+**User-scoped UI preferences** (toggles reflecting a reading habit or display style not tied to a specific board) use a single flat localStorage key in the format `user:prefs:{preference-name}`. Do not embed a board ID. Do not extend `useViewPrefs`. Create a dedicated hook following the try/catch + fallback pattern in `useViewPrefs.ts`. Never store UI-only preferences in the backend `UserSerializer` unless cross-device sync is an explicit requirement.
+
+- **Board-scoped keys:** `board:{boardId}:{pref-name}` — for preferences that are per-board (hidden columns, filters, column widths)
+- **User-scoped keys:** `user:prefs:{pref-name}` — for preferences that apply across all boards (reading habits, display toggles)
+
+Each key in either namespace requires a `load()` function with try/catch + fallback-to-default, and a `save()` function that fails silently.
+
+## Card metadata row coexistence
+
+When two pieces of metadata in `CardItem`'s metadata row represent the same underlying datum (e.g. `last_moved_at` expressed as both a dot and a text label), define a mutual exclusion rule in the component. General principle: the hover-reveal dot covers the "very recent" case (within 24h); a persistent text label covers the "older but still relevant" case. Never render both simultaneously for the same card.
