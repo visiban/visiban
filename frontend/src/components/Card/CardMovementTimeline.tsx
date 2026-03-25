@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useShowFullHistoryPref } from "../../hooks/useShowFullHistoryPref";
 import { getCardMovements, getCardActivities } from "../../api/cards";
 import type { CardActivity, CardMovement } from "../../types";
 import { userDisplayName } from "../../types";
@@ -123,7 +124,7 @@ function ColumnName({ id, name, columnIds }: { id: number | null; name: string |
 export default function CardMovementTimeline({ boardId, cardId, columnIds, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useShowFullHistoryPref();
 
   useEffect(() => {
     Promise.all([
@@ -156,7 +157,7 @@ export default function CardMovementTimeline({ boardId, cardId, columnIds, userD
             type="checkbox"
             checked={showAll}
             onChange={(e) => setShowAll(e.target.checked)}
-            className="rounded border-slate-600"
+            className="rounded border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           Show full history
         </label>
