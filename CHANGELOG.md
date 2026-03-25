@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Space+drag board panning re-attaches event listeners after switching between Board, Summary, and Analytics views — previously the hook captured a stale DOM reference on first mount and lost pan mode whenever the scroll container remounted
 - "Move to" popover in the card detail panel now renders as a fixed-position overlay so it is no longer clipped by the panel's `overflow-hidden` container
 - Board template seed data no longer produces duplicate cards when the generator script is run multiple times — `extra_cards` is now the sole source of truth and the output is idempotent; Sales Pipeline swimlanes renamed from company names to sales regions (North America, APAC, EMEA, LATAM, ANZ)
+- Collapsed sidebar no longer renders an unbounded list of board icons — starred boards, starred groups, and personal boards are now accessible via two flyout panels (Favorites ★ and Personal boards) that open on click, cap at a scrollable max height, and show board names; active-board state is reflected on the trigger icon
 
 ---
 
