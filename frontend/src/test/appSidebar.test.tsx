@@ -369,21 +369,24 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Design System')).toBeInTheDocument()
   })
 
-  it('shows a group with no parent as a root in the collapsed rail', async () => {
+  it('shows a single Groups trigger in the collapsed rail when groups exist', async () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => expect(screen.getByTitle('Alpha')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTitle('Groups')).toBeInTheDocument())
+    // Individual group names are not rendered as separate icons
+    expect(screen.queryByTitle('Alpha')).not.toBeInTheDocument()
   })
 
-  it('does not show subgroups as icons in the collapsed rail', async () => {
+  it('Groups flyout lists all groups including subgroups', async () => {
     localStorage.setItem('sidebar-collapsed', 'true')
     const subgroup: Group = { ...fakeGroup, id: 20, name: 'Frontend', parent: 10, parent_name: 'Alpha' }
     vi.mocked(listGroups).mockResolvedValue([fakeGroup, subgroup])
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => expect(screen.getByTitle('Alpha')).toBeInTheDocument())
-    // Frontend is a subgroup — should NOT appear as a collapsed icon
-    expect(screen.queryByTitle('Frontend')).not.toBeInTheDocument()
+    await waitFor(() => screen.getByTitle('Groups'))
+    await userEvent.setup().click(screen.getByTitle('Groups'))
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+    expect(screen.getByText('Frontend')).toBeInTheDocument()
   })
 
   it('clicking New board opens CreateBoardModal', async () => {

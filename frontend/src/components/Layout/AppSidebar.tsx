@@ -42,6 +42,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
 
   // Flyout anchors — null means closed; capturing at click time avoids stale rects.
   const [favoritesAnchor, setFavoritesAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [groupsAnchor, setGroupsAnchor] = useState<{ top: number; left: number } | null>(null);
   const [personalAnchor, setPersonalAnchor] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   useEffect(() => {
     if (!collapsed) {
       setFavoritesAnchor(null);
+      setGroupsAnchor(null);
       setPersonalAnchor(null);
     }
   }, [collapsed]);
@@ -104,19 +106,30 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
 
   const hasFavorites = starredBoards.length > 0 || starredGroups.length > 0;
   const isActiveFavoriteBoard = activeBoardId !== null && starredBoards.some((b) => b.id === activeBoardId);
+  const isActiveGroupBoard = activeBoardId !== null && boards.some((b) => b.id === activeBoardId && b.group !== null);
   const isActivePersonalBoard = activeBoardId !== null && personalBoards.some((b) => b.id === activeBoardId);
 
   const openFavorites = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (favoritesAnchor) { setFavoritesAnchor(null); return; }
     const rect = e.currentTarget.getBoundingClientRect();
+    setGroupsAnchor(null);
     setPersonalAnchor(null);
     setFavoritesAnchor({ top: rect.top, left: rect.right });
+  };
+
+  const openGroups = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (groupsAnchor) { setGroupsAnchor(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFavoritesAnchor(null);
+    setPersonalAnchor(null);
+    setGroupsAnchor({ top: rect.top, left: rect.right });
   };
 
   const openPersonal = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (personalAnchor) { setPersonalAnchor(null); return; }
     const rect = e.currentTarget.getBoundingClientRect();
     setFavoritesAnchor(null);
+    setGroupsAnchor(null);
     setPersonalAnchor({ top: rect.top, left: rect.right });
   };
 
@@ -329,19 +342,27 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
               </div>
             )}
 
-            {/* ── Groups: collapsed rail (top-level icons) ── */}
-            {collapsed && sidebarTree.map((node) => (
-              <Link
-                key={node.group.id}
-                to={`/groups/${node.group.id}`}
-                className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                title={node.group.name}
+            {/* ── Collapsed: Groups flyout trigger — single icon regardless of how many groups ── */}
+            {collapsed && sidebarTree.length > 0 && (
+              <button
+                onClick={openGroups}
+                onMouseDown={(e) => { if (groupsAnchor) e.stopPropagation(); }}
+                title="Groups"
+                aria-haspopup="true"
+                aria-expanded={groupsAnchor !== null}
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  groupsAnchor
+                    ? "text-slate-200 bg-slate-700"
+                    : isActiveGroupBoard
+                    ? "text-blue-400 bg-blue-600/20"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
               >
                 <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                 </svg>
-              </Link>
-            ))}
+              </button>
+            )}
 
             {/* ── Groups: expanded explorer tree ── */}
             {!collapsed && sidebarTree.map((node) => (
@@ -456,6 +477,25 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
           sections={favoritesSections}
           anchor={favoritesAnchor}
           onClose={() => setFavoritesAnchor(null)}
+          onNavigate={collapse}
+        />
+      )}
+
+      {/* Groups flyout portal */}
+      {collapsed && groupsAnchor && sidebarTree.length > 0 && (
+        <CollapsedFlyout
+          title="Groups"
+          sections={[{
+            title: "Groups",
+            items: groups.map((g) => ({
+              id: g.id,
+              name: g.name,
+              href: `/groups/${g.id}`,
+              active: location.pathname === `/groups/${g.id}`,
+            })),
+          }]}
+          anchor={groupsAnchor}
+          onClose={() => setGroupsAnchor(null)}
           onNavigate={collapse}
         />
       )}
