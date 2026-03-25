@@ -616,6 +616,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
             onUpdated={onCardUpdated}
             onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
+            onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}
@@ -949,6 +950,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
           onUpdated={onCardUpdated}
           onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
+          onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
           userDateFormat={userDateFormat}
           userTimeFormat={userTimeFormat}
           userTimezone={userTimezone}

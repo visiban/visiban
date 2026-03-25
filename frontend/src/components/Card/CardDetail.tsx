@@ -19,6 +19,7 @@ interface Props {
   onDeleted: (id: number) => void;
   onUpdated: (card: Card) => void;
   onArchived: (cardId: number) => void;
+  onMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<void>;
   userDateFormat?: string;
   userTimeFormat?: string;
   userTimezone?: string;
@@ -66,7 +67,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -94,6 +95,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // activity feed shows a single net change (e.g. "Weight: 3 → 8") rather
   // than an entry per click.
   const weightSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showMovePopover, setShowMovePopover] = useState(false);
+  const [moveTargetColumn, setMoveTargetColumn] = useState<number | null>(null);
+  const [moveTargetSwimlane, setMoveTargetSwimlane] = useState<number | null>(null);
+  const [moveSubmitting, setMoveSubmitting] = useState(false);
+  const [movePopoverError, setMovePopoverError] = useState<string | null>(null);
 
   useEffect(() => {
     getCardComments(board.id, card.id).then(setComments);
@@ -113,6 +119,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     if (!confirmAction) return false;
     setConfirmAction(null);
   }, 35);
+  // Close move popover before panel — priority 36 sits above confirmAction (35) so
+  // it fires first when both are open, and above panel close (30) in the normal case.
+  useEscapeStack(() => {
+    if (!showMovePopover) return false;
+    setShowMovePopover(false);
+  }, 36);
   useEscapeStack(onClose, 30);
 
   const save = async (patch: CardPatch) => {
@@ -126,6 +138,27 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     } catch {
       setLocalCard(prev);
       setSaveError("Failed to save — please try again.");
+    }
+  };
+
+  const handleMoveSubmit = async () => {
+    if (!onMoveCard || moveTargetColumn === null || moveTargetSwimlane === null) return;
+    // No-op if the card is already in this location.
+    if (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane) {
+      setShowMovePopover(false);
+      return;
+    }
+    setMoveSubmitting(true);
+    setMovePopoverError(null);
+    try {
+      // position 9999 appends the card to the end of the target cell.
+      await onMoveCard(localCard.id, moveTargetColumn, moveTargetSwimlane, 9999);
+      setLocalCard((c) => ({ ...c, column: moveTargetColumn, swimlane: moveTargetSwimlane }));
+      setShowMovePopover(false);
+    } catch {
+      setMovePopoverError("Move blocked — check WIP or weight limits.");
+    } finally {
+      setMoveSubmitting(false);
     }
   };
 
@@ -308,9 +341,66 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               onBlur={handleTitleBlur}
               className="text-base font-semibold text-white w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-blue-400 focus:bg-blue-900/20 bg-transparent transition"
             />
-            <p className="text-[11px] text-slate-500 mt-1 px-1">
-              {swimlane?.name} <span className="mx-1 text-slate-600">›</span> {column?.name}
-            </p>
+            <div className="flex items-center gap-1 mt-1 px-1 relative">
+              <p className="text-[11px] text-slate-500 flex-1 min-w-0 truncate">
+                {swimlane?.name} <span className="mx-1 text-slate-600">›</span> {column?.name}
+              </p>
+              {canEdit && onMoveCard && (
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => {
+                      setMoveTargetColumn(localCard.column);
+                      setMoveTargetSwimlane(localCard.swimlane);
+                      setMovePopoverError(null);
+                      setShowMovePopover((v) => !v);
+                    }}
+                    title="Move card"
+                    className="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-slate-200 hover:bg-slate-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label="Move card to different column or swimlane"
+                  >
+                    {/* Arrow right/down icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" />
+                    </svg>
+                  </button>
+                  {showMovePopover && (
+                    <div className="absolute top-full right-0 mt-1 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 z-10 flex flex-col gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Move to</p>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs text-slate-500">Swimlane</label>
+                        <SelectDropdown
+                          options={board.swimlanes.map((s) => ({ value: String(s.id), label: s.name }))}
+                          value={moveTargetSwimlane !== null ? String(moveTargetSwimlane) : ""}
+                          onChange={(v) => setMoveTargetSwimlane(Number(v))}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs text-slate-500">Column</label>
+                        <SelectDropdown
+                          options={board.columns.map((c) => ({ value: String(c.id), label: c.name }))}
+                          value={moveTargetColumn !== null ? String(moveTargetColumn) : ""}
+                          onChange={(v) => setMoveTargetColumn(Number(v))}
+                        />
+                      </div>
+                      <p className="text-xs h-4">
+                        {movePopoverError && <span className="text-red-400">{movePopoverError}</span>}
+                      </p>
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setShowMovePopover(false)}
+                          className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-slate-500 rounded"
+                        >Cancel</button>
+                        <button
+                          onClick={handleMoveSubmit}
+                          disabled={moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane)}
+                          className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >{moveSubmitting ? "Moving…" : "Move"}</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}
