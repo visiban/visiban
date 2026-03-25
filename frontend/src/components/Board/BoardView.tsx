@@ -217,7 +217,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
-  const [view, setView] = useState<"board" | "summary" | "analytics">("board");
+  // Derive view from ?view= search param; any unrecognised value falls back to "board".
+  // Using replace: true when switching tabs so the browser Back button skips tab transitions
+  // and users can bookmark/share a specific sub-view URL.
+  const VALID_VIEWS = ["board", "summary", "analytics"] as const;
+  const rawView = searchParams.get("view");
+  const view: "board" | "summary" | "analytics" = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as "board" | "summary" | "analytics") : "board";
+  const setView = (v: "board" | "summary" | "analytics") => setSearchParams({ view: v }, { replace: true });
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);

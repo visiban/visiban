@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - The "Show full history" toggle in the card activity panel now persists across card opens, page refreshes, and sessions via `localStorage` — users who prefer the full history no longer need to re-enable it on each card (#333)
 
 ### Changed
+- Board sub-nav tabs (Board / Summary / Analytics) are now URL-addressable — switching tabs updates the `?view=` search param with `{ replace: true }` so the browser Back button skips tab transitions and tab views can be bookmarked and shared (#332)
 - Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
 - Board Settings stale card section renamed from "Stale card threshold" to "Stale card settings" with a second input for the warning percentage.
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
