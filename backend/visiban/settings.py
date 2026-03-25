@@ -176,6 +176,9 @@ SITE_ID = 1
 # DRF
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        # PAT must be first so authenticate_header() returns "Token", which causes
+        # DRF to emit 401 (not 403) for authentication failures on all views.
+        "accounts.authentication.PATAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],

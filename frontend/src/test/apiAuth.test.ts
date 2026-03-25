@@ -5,15 +5,17 @@ vi.mock('../api/client', () => ({
     get: vi.fn(),
     post: vi.fn(),
     patch: vi.fn(),
+    delete: vi.fn(),
   },
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
 const mockPatch = client.patch as ReturnType<typeof vi.fn>
+const mockDelete = client.delete as ReturnType<typeof vi.fn>
 
 describe('auth API', () => {
   beforeEach(() => { vi.clearAllMocks() })
@@ -79,5 +81,33 @@ describe('auth API', () => {
     const result = await getSiteConfig()
     expect(mockGet).toHaveBeenCalledWith('/api/auth/site-config/')
     expect(result).toEqual({ registration_open: false })
+  })
+
+  it('listTokens calls GET /api/auth/tokens/', async () => {
+    const tokens = [{ id: 1, name: 'ci', prefix: 'vbn_1234', created_at: '2026-01-01T00:00:00Z', last_used_at: null, expires_at: null }]
+    mockGet.mockResolvedValue({ data: tokens })
+    const result = await listTokens()
+    expect(mockGet).toHaveBeenCalledWith('/api/auth/tokens/')
+    expect(result).toEqual(tokens)
+  })
+
+  it('createToken calls POST /api/auth/tokens/ with name', async () => {
+    const created = { id: 1, name: 'ci', prefix: 'vbn_1234', created_at: '2026-01-01T00:00:00Z', last_used_at: null, expires_at: null, token: 'vbn_abc123' }
+    mockPost.mockResolvedValue({ data: created })
+    const result = await createToken('ci')
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/tokens/', { name: 'ci', expires_at: undefined })
+    expect(result).toEqual(created)
+  })
+
+  it('createToken passes expires_at when provided', async () => {
+    mockPost.mockResolvedValue({ data: {} })
+    await createToken('ci', '2027-01-01T00:00:00Z')
+    expect(mockPost).toHaveBeenCalledWith('/api/auth/tokens/', { name: 'ci', expires_at: '2027-01-01T00:00:00Z' })
+  })
+
+  it('revokeToken calls DELETE /api/auth/tokens/:id/', async () => {
+    mockDelete.mockResolvedValue({})
+    await revokeToken(42)
+    expect(mockDelete).toHaveBeenCalledWith('/api/auth/tokens/42/')
   })
 })

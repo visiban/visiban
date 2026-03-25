@@ -26,6 +26,21 @@ export interface User {
   uploads_enabled?: boolean;
 }
 
+export interface PersonalAccessToken {
+  id: number;
+  name: string;
+  /** First 8 characters of the raw token — safe to display. */
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+}
+
+/** Returned only on token creation — includes the one-time raw value. */
+export interface CreatedPersonalAccessToken extends PersonalAccessToken {
+  token: string;
+}
+
 export interface BoardTemplateColumn {
   name: string;
   color: string;
