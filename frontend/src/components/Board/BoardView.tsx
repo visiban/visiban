@@ -122,23 +122,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id);
-
-  // For boards with no stored view prefs (e.g. freshly created), expand all columns by default.
-  useEffect(() => {
-    const key = `board:${board.id}:view-prefs`;
-    if (!localStorage.getItem(key) && board.columns.length > 0) {
-      expandAllColumns(board.columns.map((c) => c.id));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board.id]);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id);
 
   // Wrap in useMemo so downstream memos don't re-run on every render due to new Set instances
   const hiddenColumnIds = useMemo(() => new Set(viewPrefs.hiddenColumnIds), [viewPrefs.hiddenColumnIds]);
   const hiddenSwimlaneIds = useMemo(() => new Set(viewPrefs.hiddenSwimlaneIds), [viewPrefs.hiddenSwimlaneIds]);
-  // Collapsed = not in expandedColumnIds (compact by default; user expands explicitly)
-  const expandedColumnIds = useMemo(() => new Set(viewPrefs.expandedColumnIds), [viewPrefs.expandedColumnIds]);
-  const allColumnsExpanded = board.columns.every((c) => expandedColumnIds.has(c.id));
+  // Collapsed = explicitly listed in collapsedColumnIds. All other columns are expanded by default.
+  const collapsedColumnIds = useMemo(() => new Set(viewPrefs.collapsedColumnIds), [viewPrefs.collapsedColumnIds]);
+  const allColumnsExpanded = board.columns.every((c) => !collapsedColumnIds.has(c.id));
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
@@ -362,7 +353,6 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   const handleColumnAdded = useCallback((col: Column) => {
     onColumnAdded(col);
-    toggleExpandedColumn(col.id);
     if (insertPosition !== null) {
       const currentIds = board.columns.map((c) => c.id);
       const newOrder = [
@@ -372,7 +362,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       ];
       onColumnsReordered(newOrder);
     }
-  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered, toggleExpandedColumn]);
+  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered, toggleCollapsedColumn]);
 
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
     onSwimlaneAdded(swimlane);
@@ -434,13 +424,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       x += 16; // separator width
       if (i < board.columns.length) {
         const col = board.columns[i];
-        x += (hiddenColumnIds.has(col.id) || !expandedColumnIds.has(col.id))
+        x += (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id))
           ? 40
           : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
       }
     }
     return x;
-  }, [hoveredSepIndex, swimlaneColWidth, board.columns, hiddenColumnIds, expandedColumnIds, colWidths]);
+  }, [hoveredSepIndex, swimlaneColWidth, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
 
   // Center X of each column within the scrollable area — used by RowSeparator to position "+" signs.
   // Layout: sidebar(W) | sep[0](16) | col[0](w0) | sep[1](16) | col[1](w1) | ...
@@ -448,12 +438,12 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     const result: number[] = [];
     let x = swimlaneColWidth + 16; // after sidebar + first sep
     for (const col of board.columns) {
-      const w = (hiddenColumnIds.has(col.id) || !expandedColumnIds.has(col.id)) ? 40 : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
+      const w = (hiddenColumnIds.has(col.id) || collapsedColumnIds.has(col.id)) ? 40 : (colWidths.get(col.id) ?? DEFAULT_COL_WIDTH);
       result.push(x + w / 2);
       x += w + 16;
     }
     return result;
-  }, [swimlaneColWidth, board.columns, hiddenColumnIds, expandedColumnIds, colWidths]);
+  }, [swimlaneColWidth, board.columns, hiddenColumnIds, collapsedColumnIds, colWidths]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -635,7 +625,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
         <ViewToggle view={view} onChange={setView} />
         <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
-          onClick={() => allColumnsExpanded ? collapseAllColumns() : expandAllColumns(board.columns.map(c => c.id))}
+          onClick={() => allColumnsExpanded ? collapseAllColumns(board.columns.map(c => c.id)) : expandAllColumns()}
           className="text-xs text-slate-300 hover:text-white hover:bg-slate-700/50 px-2 py-1 rounded transition shrink-0"
           title={allColumnsExpanded ? "Collapse all columns" : "Expand all columns"}
         >
@@ -784,11 +774,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     isAdmin={isAdmin}
                     onColumnUpdated={onColumnUpdated}
                     onRequestDelete={(col) => setConfirmDeleteColumn(col)}
-                    collapsed={!expandedColumnIds.has(col.id)}
+                    collapsed={collapsedColumnIds.has(col.id)}
                     hidden={hiddenColumnIds.has(col.id)}
                     abbreviation={columnAbbreviations.get(col.id)}
                     width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
-                    onToggleCollapse={() => toggleExpandedColumn(col.id)}
+                    onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}
@@ -857,7 +847,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       isAdmin={isAdmin}
                       canEdit={canEdit}
                       closeEditorOnEnter={closeEditorOnEnter}
-                      collapsedColumnIds={new Set(board.columns.filter(c => !expandedColumnIds.has(c.id)).map(c => c.id))}
+                      collapsedColumnIds={collapsedColumnIds}
                       hiddenColumnIds={hiddenColumnIds}
                       filteredCardIds={filteredCardIds}
                       selectedCardIds={selectedCardIds}

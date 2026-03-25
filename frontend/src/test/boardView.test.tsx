@@ -380,9 +380,18 @@ describe('BoardView', () => {
   })
 
   it('fresh board with no stored prefs renders all columns expanded', async () => {
-    // localStorage is cleared in beforeEach — no stored view prefs for this board
+    // localStorage is cleared in beforeEach — no stored view prefs for this board.
+    // Columns are expanded by default (collapsedColumnIds is empty), so no effect needed.
     render(<BoardView {...defaultProps()} />)
-    // The useEffect fires synchronously in jsdom; columns should be expanded (collapsed=false)
+    await act(async () => {})
+    expect(screen.getByTestId('col-10')).toHaveAttribute('data-collapsed', 'false')
+    expect(screen.getByTestId('col-11')).toHaveAttribute('data-collapsed', 'false')
+  })
+
+  it('imported board with a new id renders all columns expanded', async () => {
+    // Imported boards get a new board id with no localStorage entry — all columns must be expanded.
+    localStorage.clear()
+    render(<BoardView {...defaultProps()} />)
     await act(async () => {})
     expect(screen.getByTestId('col-10')).toHaveAttribute('data-collapsed', 'false')
     expect(screen.getByTestId('col-11')).toHaveAttribute('data-collapsed', 'false')
@@ -398,9 +407,9 @@ describe('BoardView', () => {
     expect(screen.getByTestId('add-column-modal')).toBeInTheDocument()
     // Simulate the modal confirming a new column (id=99)
     await userEvent.setup().click(screen.getByText('Confirm Add'))
-    // The new column should be registered as expanded in persisted view prefs
+    // New columns are expanded by default — they are not added to collapsedColumnIds.
     const stored = JSON.parse(localStorage.getItem('board:1:view-prefs') ?? '{}')
-    expect(stored.expandedColumnIds).toContain(99)
+    expect((stored.collapsedColumnIds ?? [])).not.toContain(99)
   })
 
   it('clicking a column separator opens AddColumnModal', async () => {
