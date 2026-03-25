@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { changePassword } from "../../api/auth";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { User } from "../../types";
 
 interface Props {
@@ -8,6 +9,10 @@ interface Props {
 }
 
 export default function ForceChangePasswordModal({ user, onChanged }: Props) {
+  // Consume Escape at modal priority so it doesn't fall through to page navigation.
+  // This modal cannot be dismissed — the user must set a new password.
+  useEscapeStack(() => { /* intentionally blocked */ }, 40);
+
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");

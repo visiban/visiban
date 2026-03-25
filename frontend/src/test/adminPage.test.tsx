@@ -297,6 +297,38 @@ describe('AdminPage — Users tab', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Tests: Escape key behaviour
+// ---------------------------------------------------------------------------
+
+describe('AdminPage — Escape key', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetAdminSettings.mockResolvedValue(fakeSettings)
+    mockGetAdminUsers.mockResolvedValue({ count: 2, next: null, previous: null, results: fakeAdminUsers })
+  })
+
+  it('Escape navigates back from the admin page', async () => {
+    renderAdminPage()
+    await waitFor(() => expect(screen.getByText('Site Administration')).toBeInTheDocument())
+    fireEvent.keyDown(document, { key: 'Escape' })
+    // JSDOM has no real history, so history.length === 1 → navigate("/")
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('Escape closes the Add User modal without navigating', async () => {
+    renderAdminPage()
+    await waitFor(() => expect(screen.getByText('Site Administration')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => expect(screen.getByText('+ Add User')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('+ Add User'))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: /add user/i })).toBeInTheDocument())
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /add user/i })).not.toBeInTheDocument())
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Tests: admin API functions (unit-level)
 // ---------------------------------------------------------------------------
 

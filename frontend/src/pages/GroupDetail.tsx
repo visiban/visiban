@@ -37,6 +37,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [joinToast, setJoinToast] = useState(joinedGroupName);
 
   useEscapeStack(() => {
+    if (showTransferModal) { setShowTransferModal(false); return; }
+    if (confirmDeleteGroup) { setConfirmDeleteGroup(false); return; }
+    return false;
+  }, 40);
+
+  useEscapeStack(() => {
     const tag = (document.activeElement as HTMLElement)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
     if (window.history.length > 1) { navigate(-1); return; }
