@@ -274,17 +274,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const handleToggleChecklistItem = async (item: CardChecklistItem) => {
     const updated = await updateChecklistItem(board.id, card.id, item.id, { is_checked: !item.is_checked });
-    setChecklist((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
-    const doneDelta = updated.is_checked ? 1 : -1;
-    onUpdated({ ...localCard, checklist_done: localCard.checklist_done + doneDelta });
+    // Derive the new list from the current closure snapshot of `checklist` rather
+    // than using a stale ±1 delta against localCard.checklist_done. Delta math
+    // accumulates errors when two items are toggled before a re-render occurs.
+    const newChecklist = checklist.map((i) => (i.id === item.id ? updated : i));
+    setChecklist(newChecklist);
+    const done = newChecklist.filter((i) => i.is_checked).length;
+    onUpdated({ ...localCard, checklist_done: done, checklist_total: newChecklist.length });
   };
 
   const handleDeleteChecklistItem = async (itemId: number) => {
-    const item = checklist.find((i) => i.id === itemId);
     await deleteChecklistItem(board.id, card.id, itemId);
-    setChecklist((prev) => prev.filter((i) => i.id !== itemId));
-    const doneDelta = item?.is_checked ? -1 : 0;
-    onUpdated({ ...localCard, checklist_total: localCard.checklist_total - 1, checklist_done: localCard.checklist_done + doneDelta });
+    const newChecklist = checklist.filter((i) => i.id !== itemId);
+    setChecklist(newChecklist);
+    const done = newChecklist.filter((i) => i.is_checked).length;
+    onUpdated({ ...localCard, checklist_total: newChecklist.length, checklist_done: done });
   };
 
   const handleDelete = () => setConfirmAction("delete");
@@ -702,6 +706,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <button
                             onClick={() => handleDeleteChecklistItem(item.id)}
                             className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
+                            title="Remove item"
                           >
                             ✕
                           </button>
