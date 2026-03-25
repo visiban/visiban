@@ -30,6 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Groups flyout panel in the collapsed sidebar now shows subgroups indented under their parent at the correct nesting depth — previously all groups appeared at the same visual level because the flyout read from the flat groups array instead of the sidebar tree
 - The release script now bumps `frontend/package.json` version as part of each release commit, so the Settings → About page always shows the correct version number after a release
 - `frontend/package.json` version corrected from `1.0.0-rc.8` to `1.0.0-rc.9` to match the current release tag
+- Escape key is now consistent across the whole app — pressing Escape always closes the topmost open modal, popover, or confirm dialog before falling through to page-level back navigation; addressed surfaces: `ForceChangePasswordModal` (no longer falls through to page nav), `AdminPage` confirm and add-user dialogs, `GroupDetail` transfer-ownership and delete-group overlays, `CollapsedFlyout` (migrated to the priority stack), and the FilterBar search input (Escape clears search and blurs the field) (closes #331, #334)
 
 ---
 

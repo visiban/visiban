@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 
 export interface FlyoutItem {
   id: number;
@@ -59,14 +60,7 @@ export default function CollapsedFlyout({
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [onClose]);
 
-  // Close on Escape
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeStack(onClose, 25);
 
   const panel = (
     <div

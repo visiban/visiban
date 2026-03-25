@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useEscapeStack } from "../hooks/useEscapeStack";
 import {
   createAdminUser,
   getAdminSettings,
@@ -47,6 +48,7 @@ interface ConfirmDialogProps {
 }
 
 function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
+  useEscapeStack(onCancel, 40);
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-sm w-full">
@@ -80,6 +82,7 @@ interface AddUserModalProps {
 }
 
 function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
+  useEscapeStack(onClose, 40);
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -708,6 +711,13 @@ const TABS: { id: Tab; label: string }[] = [
 export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("settings");
+
+  useEscapeStack(() => {
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    if (window.history.length > 1) { navigate(-1); return; }
+    navigate("/");
+  }, 0);
 
   // Redirect non-admins immediately.
   useEffect(() => {

@@ -105,4 +105,14 @@ describe('FilterBar', () => {
     expect(screen.getByText('High')).toBeInTheDocument()
     expect(screen.getByText('Urgent')).toBeInTheDocument()
   })
+
+  it('Escape clears search and blurs the input', async () => {
+    const onChange = vi.fn()
+    const filters: FilterState = { ...EMPTY_FILTER, search: 'bug' }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={onChange} />)
+    const input = screen.getByPlaceholderText('Search cards…')
+    input.focus()
+    await userEvent.setup().keyboard('{Escape}')
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, search: '' })
+  })
 })
