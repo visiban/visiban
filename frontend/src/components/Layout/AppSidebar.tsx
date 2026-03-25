@@ -6,6 +6,8 @@ import { listBoards, listStarredBoards, createBoard } from "../../api/boards";
 import CreateBoardModal from "../Board/CreateBoardModal";
 import CreateGroupModal from "../Group/CreateGroupModal";
 import CollapsedFlyout from "../Common/CollapsedFlyout";
+import { buildSidebarTree } from "../../utils/groupTree";
+import type { SidebarTreeNode } from "../../utils/groupTree";
 
 interface Props {
   user: User;
@@ -98,7 +100,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   })();
 
   const personalBoards = boards.filter((b) => b.group === null);
-  const topLevelGroups = groups.filter((g) => g.parent === null);
+  const sidebarTree = buildSidebarTree(groups, boards);
 
   const hasFavorites = starredBoards.length > 0 || starredGroups.length > 0;
   const isActiveFavoriteBoard = activeBoardId !== null && starredBoards.some((b) => b.id === activeBoardId);
@@ -241,7 +243,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
         {!loading && (
           <>
             {/* ── Separator: utility nav → content nav ── */}
-            {collapsed && (hasFavorites || topLevelGroups.length > 0 || personalBoards.length > 0) && (
+            {collapsed && (hasFavorites || sidebarTree.length > 0 || personalBoards.length > 0) && (
               <div className="mx-2 my-1.5">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
@@ -281,7 +283,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                     key={board.id}
                     board={board}
                     active={board.id === activeBoardId}
-                    indent={1}
+                    depth={1}
                     onNavigate={collapse}
                   />
                 ))}
@@ -289,7 +291,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             )}
 
             {/* ── Expanded separator ── */}
-            {!collapsed && (starredBoards.length > 0) && (starredGroups.length > 0 || topLevelGroups.length > 0 || personalBoards.length > 0) && (
+            {!collapsed && (starredBoards.length > 0) && (starredGroups.length > 0 || sidebarTree.length > 0 || personalBoards.length > 0) && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
@@ -320,73 +322,43 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             )}
 
             {/* ── Expanded separator: favorites → groups/personal ── */}
-            {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0) && (topLevelGroups.length > 0 || personalBoards.length > 0) && (
+            {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0) && (sidebarTree.length > 0 || personalBoards.length > 0) && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
               </div>
             )}
 
-            {/* ── Top-level groups ── */}
-            {topLevelGroups.map((group) => {
-              const groupBoards = boards.filter((b) => b.group === group.id);
-              const isExpanded = expandedGroups.has(group.id);
+            {/* ── Groups: collapsed rail (top-level icons) ── */}
+            {collapsed && sidebarTree.map((node) => (
+              <Link
+                key={node.group.id}
+                to={`/groups/${node.group.id}`}
+                className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title={node.group.name}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                </svg>
+              </Link>
+            ))}
 
-              return (
-                <div key={group.id}>
-                  {collapsed ? (
-                    <Link
-                      to={`/groups/${group.id}`}
-                      className="flex items-center justify-center h-8 mx-1 my-0.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                      title={group.name}
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                      </svg>
-                    </Link>
-                  ) : (
-                    <>
-                      <div className="flex items-center">
-                        <button
-                          onClick={() => toggleGroup(group.id)}
-                          className="shrink-0 flex items-center justify-center w-6 h-8 pl-3 text-slate-500 hover:text-white transition text-xs"
-                          aria-label={isExpanded ? "Collapse group" : "Expand group"}
-                        >
-                          {isExpanded ? "▾" : "▸"}
-                        </button>
-                        <button
-                          onClick={() => navigateTo(`/groups/${group.id}`)}
-                          className="flex-1 flex items-center gap-1.5 pr-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-slate-800 transition text-sm min-w-0 rounded"
-                        >
-                          <span className="truncate font-medium">{group.name}</span>
-                        </button>
-                      </div>
-                      {isExpanded && (
-                        <div>
-                          {groupBoards.map((board) => (
-                            <BoardItem
-                              key={board.id}
-                              board={board}
-                              active={board.id === activeBoardId}
-                              indent={2}
-                              onNavigate={collapse}
-                            />
-                          ))}
-                          {groupBoards.length === 0 && (
-                            <div className="pl-9 pr-3 py-1 text-xs text-slate-600">
-                              No boards
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
+            {/* ── Groups: expanded explorer tree ── */}
+            {!collapsed && sidebarTree.map((node) => (
+              <SidebarGroupNode
+                key={node.group.id}
+                node={node}
+                depth={0}
+                activeBoardId={activeBoardId}
+                expandedGroups={expandedGroups}
+                toggleGroup={toggleGroup}
+                onNavigate={collapse}
+                navigateTo={navigateTo}
+              />
+            ))}
 
             {/* ── Separator: groups → personal boards ── */}
-            {personalBoards.length > 0 && (topLevelGroups.length > 0 || starredBoards.length > 0 || starredGroups.length > 0) && (
+            {personalBoards.length > 0 && (sidebarTree.length > 0 || starredBoards.length > 0 || starredGroups.length > 0) && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
@@ -428,7 +400,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                     key={board.id}
                     board={board}
                     active={board.id === activeBoardId}
-                    indent={1}
+                    depth={1}
                     onNavigate={collapse}
                   />
                 ))}
@@ -513,28 +485,119 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
 function BoardItem({
   board,
   active,
-  indent,
+  depth,
   onNavigate,
 }: {
   board: Board;
   active: boolean;
-  indent: 1 | 2;
+  /** Tree depth — drives left padding: depth * 12 + 8 px */
+  depth: number;
   onNavigate: () => void;
 }) {
-  const paddingLeft = indent === 2 ? "pl-9" : "pl-5";
   return (
     <Link
       to={`/boards/${board.id}`}
       onClick={onNavigate}
-      className={`flex items-center gap-1.5 ${paddingLeft} pr-3 py-1.5 text-sm transition truncate ${
+      style={{ paddingLeft: depth * 12 + 8 }}
+      className={`flex items-center gap-1.5 pr-3 py-1.5 text-sm transition truncate ${
         active
           ? "bg-blue-600/20 text-blue-400 font-medium"
           : "text-slate-400 hover:text-white hover:bg-slate-800"
       }`}
       title={board.name}
     >
-      <span className="text-slate-600 text-xs shrink-0">📋</span>
+      <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+      </svg>
       <span className="truncate">{board.name}</span>
     </Link>
+  );
+}
+
+function SidebarGroupNode({
+  node,
+  depth,
+  activeBoardId,
+  expandedGroups,
+  toggleGroup,
+  onNavigate,
+  navigateTo,
+}: {
+  node: SidebarTreeNode;
+  depth: number;
+  activeBoardId: number | null;
+  expandedGroups: Set<number>;
+  toggleGroup: (id: number) => void;
+  onNavigate: () => void;
+  navigateTo: (path: string) => void;
+}) {
+  const { group, boards: groupBoards, children } = node;
+  const isExpanded = expandedGroups.has(group.id);
+  const hasContent = groupBoards.length > 0 || children.length > 0;
+  // Boards and subgroups indent one level deeper than the group row.
+  const childDepth = depth + 1;
+
+  return (
+    <div>
+      {/* Group row */}
+      <div className="flex items-center" style={{ paddingLeft: depth * 12 + 2 }}>
+        <button
+          onClick={() => toggleGroup(group.id)}
+          className={`shrink-0 flex items-center justify-center w-5 h-8 text-slate-500 hover:text-white transition text-xs ${
+            !hasContent ? "opacity-0 pointer-events-none" : ""
+          }`}
+          aria-label={isExpanded ? "Collapse group" : "Expand group"}
+        >
+          <svg
+            className={`w-2.5 h-2.5 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        <button
+          onClick={() => navigateTo(`/groups/${group.id}`)}
+          className="flex-1 flex items-center gap-1.5 pr-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-slate-800 transition text-sm min-w-0 rounded"
+        >
+          <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+          </svg>
+          <span className="truncate font-medium">{group.name}</span>
+        </button>
+      </div>
+
+      {/* Children — boards first, then subgroups */}
+      {isExpanded && hasContent && (
+        <div>
+          {groupBoards.map((board) => (
+            <BoardItem
+              key={board.id}
+              board={board}
+              active={board.id === activeBoardId}
+              depth={childDepth}
+              onNavigate={onNavigate}
+            />
+          ))}
+          {groupBoards.length === 0 && children.length === 0 && (
+            <div className="py-1 text-xs text-slate-600" style={{ paddingLeft: childDepth * 12 + 8 }}>
+              No boards
+            </div>
+          )}
+          {children.map((child) => (
+            <SidebarGroupNode
+              key={child.group.id}
+              node={child}
+              depth={childDepth}
+              activeBoardId={activeBoardId}
+              expandedGroups={expandedGroups}
+              toggleGroup={toggleGroup}
+              onNavigate={onNavigate}
+              navigateTo={navigateTo}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

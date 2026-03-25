@@ -338,6 +338,54 @@ describe('AppSidebar', () => {
     expect(stored).toContain(10)
   })
 
+  // ── Nested group explorer tree tests ──────────────────────────────────────
+
+  it('shows a nested subgroup under its parent when parent is expanded', async () => {
+    const subgroup: Group = { ...fakeGroup, id: 20, name: 'Frontend', parent: 10, parent_name: 'Alpha' }
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup, subgroup])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Alpha'))
+    // Subgroup not visible until parent is expanded
+    expect(screen.queryByText('Frontend')).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByLabelText('Expand group'))
+    expect(screen.getByText('Frontend')).toBeInTheDocument()
+  })
+
+  it('shows boards belonging to a subgroup under that subgroup when both are expanded', async () => {
+    const subgroup: Group = { ...fakeGroup, id: 20, name: 'Frontend', parent: 10, parent_name: 'Alpha' }
+    const subBoard: Board = { ...fakeBoard, id: 55, name: 'Design System', group: 20, group_name: 'Frontend' }
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup, subgroup])
+    vi.mocked(listBoards).mockResolvedValue([subBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Alpha'))
+    const user = userEvent.setup()
+    // Expand Alpha → reveals Frontend subgroup
+    await user.click(screen.getByLabelText('Expand group'))
+    expect(screen.getByText('Frontend')).toBeInTheDocument()
+    // Expand Frontend → reveals Design System board
+    const expandBtns = screen.getAllByLabelText('Expand group')
+    await user.click(expandBtns[expandBtns.length - 1])
+    expect(screen.getByText('Design System')).toBeInTheDocument()
+  })
+
+  it('shows a group with no parent as a root in the collapsed rail', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.getByTitle('Alpha')).toBeInTheDocument())
+  })
+
+  it('does not show subgroups as icons in the collapsed rail', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    const subgroup: Group = { ...fakeGroup, id: 20, name: 'Frontend', parent: 10, parent_name: 'Alpha' }
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup, subgroup])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.getByTitle('Alpha')).toBeInTheDocument())
+    // Frontend is a subgroup — should NOT appear as a collapsed icon
+    expect(screen.queryByTitle('Frontend')).not.toBeInTheDocument()
+  })
+
   it('clicking New board opens CreateBoardModal', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
