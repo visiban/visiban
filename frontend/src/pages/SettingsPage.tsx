@@ -363,7 +363,7 @@ function AccessTokensTab() {
   };
 
   const formatDate = (iso: string | null) => {
-    if (!iso) return "—";
+    if (!iso) return "Never";
     return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   };
 
@@ -427,7 +427,10 @@ function AccessTokensTab() {
             </button>
           </div>
           <p className="text-xs h-4">
-            {createError && <span className="text-red-400">{createError}</span>}
+            {createError
+              ? <span className="text-red-400">{createError}</span>
+              : <span className="text-slate-500">Leave expiry blank for a non-expiring token (max 1 year if set).</span>
+            }
           </p>
         </form>
       )}
