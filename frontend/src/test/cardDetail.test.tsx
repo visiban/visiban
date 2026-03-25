@@ -63,9 +63,11 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { updateCard, getCardComments, getCardAttachments, getChecklist } from '../api/cards'
+import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem } from '../api/cards'
 
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
+const mockUpdateChecklistItem = updateChecklistItem as ReturnType<typeof vi.fn>
+const mockDeleteChecklistItem = deleteChecklistItem as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -474,6 +476,74 @@ describe('CardDetail', () => {
     fireEvent.blur(titleInput)
     await waitFor(() => {
       expect(screen.getByText('Failed to save — please try again.')).toBeInTheDocument()
+    })
+  })
+
+  describe('checklist tile count sync (#330)', () => {
+    it('checking an item calls onUpdated with correct checklist_done count (Bug 1)', async () => {
+      const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
+      mockGetChecklist.mockResolvedValue([
+        { id: 1, text: 'Item 1', is_checked: false, position: 0 },
+        { id: 2, text: 'Item 2', is_checked: false, position: 1 },
+      ])
+      mockUpdateChecklistItem.mockResolvedValue({ id: 1, text: 'Item 1', is_checked: true, position: 0 })
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      await waitFor(() => expect(screen.getByText('Item 1')).toBeInTheDocument())
+      await userEvent.setup().click(screen.getAllByRole('checkbox')[0])
+      await waitFor(() => {
+        // onUpdated should receive the recalculated count from actual checklist state,
+        // not a stale delta from localCard.checklist_done
+        const calls = (props.onUpdated as ReturnType<typeof vi.fn>).mock.calls
+        const lastCall = calls[calls.length - 1][0]
+        expect(lastCall.checklist_done).toBe(1)
+        expect(lastCall.checklist_total).toBe(2)
+      })
+    })
+
+    it('rapid successive checks produce correct final count (Bug 2 — no stale revert)', async () => {
+      const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
+      mockGetChecklist.mockResolvedValue([
+        { id: 1, text: 'Item 1', is_checked: false, position: 0 },
+        { id: 2, text: 'Item 2', is_checked: false, position: 1 },
+      ])
+      mockUpdateChecklistItem
+        .mockResolvedValueOnce({ id: 1, text: 'Item 1', is_checked: true, position: 0 })
+        .mockResolvedValueOnce({ id: 2, text: 'Item 2', is_checked: true, position: 1 })
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      await waitFor(() => expect(screen.getByText('Item 2')).toBeInTheDocument())
+      const checkboxes = screen.getAllByRole('checkbox')
+      await userEvent.setup().click(checkboxes[0])
+      await userEvent.setup().click(checkboxes[1])
+      await waitFor(() => {
+        const calls = (props.onUpdated as ReturnType<typeof vi.fn>).mock.calls
+        const lastCall = calls[calls.length - 1][0]
+        // Both items checked — final count must be 2, not 1 (the stale-delta value)
+        expect(lastCall.checklist_done).toBe(2)
+        expect(lastCall.checklist_total).toBe(2)
+      })
+    })
+
+    it('deleting a checked item calls onUpdated with correct counts', async () => {
+      const mockGetChecklist = getChecklist as ReturnType<typeof vi.fn>
+      mockGetChecklist.mockResolvedValue([
+        { id: 1, text: 'Item 1', is_checked: true, position: 0 },
+        { id: 2, text: 'Item 2', is_checked: false, position: 1 },
+      ])
+      mockDeleteChecklistItem.mockResolvedValue(undefined)
+      const props = defaultProps()
+      render(<CardDetail {...props} />)
+      await waitFor(() => expect(screen.getByText('Item 1')).toBeInTheDocument())
+      // Click the delete (×) button next to the first item
+      const deleteButtons = screen.getAllByTitle('Remove item')
+      await userEvent.setup().click(deleteButtons[0])
+      await waitFor(() => {
+        const calls = (props.onUpdated as ReturnType<typeof vi.fn>).mock.calls
+        const lastCall = calls[calls.length - 1][0]
+        expect(lastCall.checklist_total).toBe(1)
+        expect(lastCall.checklist_done).toBe(0)
+      })
     })
   })
 
