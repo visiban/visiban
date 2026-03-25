@@ -1,12 +1,21 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Why your CRM and project tool shouldn't be the same app,Draft,Blog Posts,low,2026-04-02,2,Thought Leadership,demo2,2,1,0,Opinion piece differentiating Visiban from tools that try to do too much. Target
-5 ways to run a better sprint retrospective,Final Approval,Blog Posts,medium,2026-03-20,3,"Product,SEO",demo1,5,4,1,Practical tips for engineering teams running retros. Tie in Visiban retro board 
-How Visiban's swimlane model reduces handoff delays,Published,Blog Posts,high,,4,"Evergreen,SEO,Thought Leadership",demo2,5,5,1,Thought leadership piece explaining how grouping work by account or team in swim
-Mosaic Creative: managing 12 client campaigns on one board,Internal Review,Case Studies,medium,2026-03-25,3,Customer Story,demo1,4,3,1,Short-form case study (500 words) on Mosaic Creative's swimlane-per-client workf
-How TechNova cut sprint planning time by 40%,Scheduled,Case Studies,high,2026-03-30,5,"Customer Story,Product",demo5,5,5,1,Case study featuring TechNova's adoption of Visiban for engineering sprint track
-Live webinar: Kanban for customer success teams,Idea,Video & Webinars,medium,2026-04-14,3,"Product,Thought Leadership",demo5,3,0,0,60-minute webinar targeting CS leaders. Demo Visiban's customer_success template
-Getting started with Visiban — 5-min explainer video,Edits,Video & Webinars,high,2026-03-22,4,"Evergreen,Product",demo3,5,4,1,"Onboarding video covering: creating a board, adding swimlanes, creating cards, a"
-Weekly newsletter — week of 2026-03-23,Internal Review,Email & Newsletter,medium,2026-03-17,2,Evergreen,demo2,4,3,0,"Friday newsletter: 3 kanban tips, 1 customer spotlight (Mosaic), and the upcomin"
-March product update email,Published,Email & Newsletter,high,,3,Product,demo1,4,4,1,"Monthly product update email covering: template library v2, new Slack integratio"
-X thread: 5 kanban anti-patterns,Assigned,Social & Short-form,low,2026-03-27,1,Thought Leadership,demo1,2,0,0,"Thread covering common mistakes teams make on kanban boards: infinite WIP, no sw"
-LinkedIn carousel: swimlane vs. simple list,Final Approval,Social & Short-form,medium,2026-03-19,2,"SEO,Thought Leadership",demo5,5,4,1,10-slide LinkedIn carousel explaining when to use swimlanes vs. a simple columna
+"""How we cut API latency by 80%"" — technical deep dive",Published,Blog Posts,high,2026-03-03,4,"SEO,Thought Leadership",demo3,5,5,2,Technical deep dive on the N+1 query fix and cursor-based pagination improvement
+"""Kanban vs Scrum: which fits your team?"" — SEO pillar",Edits,Blog Posts,medium,2026-03-19,5,SEO,,5,3,1,SEO pillar post targeting 'kanban vs scrum' keyword cluster (12k monthly searche
+"""5 ways to use swimlanes beyond customers"" — use case post",Draft,Blog Posts,medium,2026-03-25,3,"SEO,Product",demo2,4,2,0,"Use case post showing creative applications of swimlanes: projects, time periods"
+"""Building a remote-first team process"" — thought leadership",Idea,Blog Posts,low,2026-04-14,2,Thought Leadership,demo4,3,0,0,"Thought leadership post on remote team processes, featuring Visiban as the backb"
+TechNova Inc — from Jira to Visiban in 30 days,Published,Case Studies,high,2026-02-25,5,Customer,demo1,5,5,2,"TechNova case study covering their migration from Jira, onboarding process, and "
+BlueSky Health — HIPAA-compliant project management,Final Approval,Case Studies,high,2026-03-17,6,Customer,demo3,5,3,1,BlueSky Health case study focused on HIPAA-compliant use and healthcare project 
+Mosaic Creative — 30-person agency using swimlanes per client,Internal Review,Case Studies,medium,2026-03-23,4,Customer,,4,1,1,Mosaic Creative case study on using swimlanes to manage 30 simultaneous client c
+FinEdge Ltd — compliance-tracking board for fintech,Assigned,Case Studies,medium,2026-04-04,3,Customer,demo2,3,0,0,FinEdge case study on using Visiban to track compliance tasks and regulatory fil
+Product demo: new board pan + keyboard shortcuts,Published,Video & Webinars,medium,2026-03-07,3,Product,demo4,4,4,1,Short product demo video covering the Space+drag pan feature and keyboard shortc
+"Webinar: ""Running customer success teams with Kanban""",Scheduled,Video & Webinars,high,2026-03-22,5,"Thought Leadership,Event",demo1,5,3,1,Live webinar featuring a Visiban customer discussing how they run their CS team 
+"Tutorial series: ""Visiban for beginners"" — Episode 3",Edits,Video & Webinars,medium,2026-03-20,4,Product,demo3,4,2,1,"Episode 3 of the beginner tutorial series. Covers card detail view, comments, ch"
+"""Visiban vs competitors"" — YouTube comparison video",Idea,Video & Webinars,low,2026-04-29,3,SEO,,2,0,0,YouTube comparison video targeting 'visiban vs [competitor]' search queries. Nee
+April newsletter — product updates + case study feature,Draft,Email & Newsletter,medium,2026-03-18,3,Product,demo2,4,2,0,"April newsletter for 28,000 subscribers. Features the TechNova case study, Space"
+Onboarding drip — Day 7: advanced swimlane tips,Published,Email & Newsletter,medium,2026-02-21,4,Product,demo4,4,4,1,"Day 7 onboarding email teaching advanced swimlane usage. Open rate 38.2%, CTR 6."
+Re-engagement campaign — users inactive > 30 days,Internal Review,Email & Newsletter,high,2026-03-20,5,Product,demo1,4,2,1,"Re-engagement email sequence for 4,200 users inactive for 30+ days. Three-email "
+Product launch email — Groups feature announcement,Assigned,Email & Newsletter,high,2026-03-27,4,Product,demo3,4,0,0,Announcement email for the Groups feature launch. Coordinate timing with product
+"LinkedIn carousel — ""10 Kanban metrics that matter""",Published,Social & Short-form,medium,2026-03-09,3,Thought Leadership,,4,4,1,"10-slide LinkedIn carousel on Kanban metrics: cycle time, throughput, WIP age, l"
+Twitter/X thread — launch of Space+drag pan feature,Scheduled,Social & Short-form,medium,2026-03-16,2,Product,demo2,3,2,1,Twitter/X thread announcing the Space+drag pan feature. 8 tweets with a GIF demo
+"Short-form video — ""Visiban in 60 seconds"" for TikTok/Reels",Edits,Social & Short-form,medium,2026-03-19,3,Product,demo4,4,2,1,60-second product showcase video for TikTok and Instagram Reels format. Hook-sty
+LinkedIn thought leadership — CEO post series (3 posts),Draft,Social & Short-form,medium,2026-03-23,4,Thought Leadership,demo1,4,1,0,"Ghost-writing 3 LinkedIn posts for the CEO on async work culture, kanban adoptio"

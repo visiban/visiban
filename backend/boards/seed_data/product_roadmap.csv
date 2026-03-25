@@ -1,14 +1,21 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Dark mode,Scoped,Mobile App,medium,2026-04-19,3,UX,demo1,3,1,0,"Full dark mode support on iOS and Android, respecting system preference and offe"
-Offline card editing,In Build,Mobile App,high,2026-04-05,5,Core,demo2,4,2,1,Allow users to edit cards without an internet connection. Queue changes locally 
-Push notifications for due dates,Launched,Mobile App,high,,4,"Core,UX",demo1,4,3,1,Send a push notification to the card assignee 24h before due date.  ## Acceptanc
-Card weight & capacity planning,Prioritized,Core Platform,medium,2026-04-12,4,"Core,UX",demo3,4,2,1,Allow teams to set a card weight (story points) and a swimlane capacity. Board s
-Cursor pagination on all list endpoints,Beta,Core Platform,medium,2026-03-25,4,Platform,demo4,5,4,1,"Replace offset pagination with cursor pagination on boards, cards, and activity "
-Board templates v2,Monitoring,Core Platform,high,,5,Core,demo3,4,3,1,"Expand the board template library from 6 to 10 templates, redesign column struct"
-Zapier integration,Validated,Integrations,low,2026-04-29,3,Platform,demo5,2,1,0,"List Visiban on the Zapier marketplace with triggers (card created, moved, comme"
-GitHub PR → card link,Prioritized,Integrations,medium,2026-04-04,4,Platform,demo1,4,2,1,Automatically link a GitHub PR to a Visiban card when the PR description include
-Slack card notifications,Launched,Integrations,high,,4,Core,demo2,4,3,1,"Post a Slack message when a card is moved, assigned, or commented on. User confi"
-CSV export of board analytics,Idea,Analytics,low,2026-05-14,2,Core,demo4,2,0,0,Allow board admins to download cycle time and throughput data as CSV. Useful for
-Cycle time chart per column,In Build,Analytics,high,2026-03-29,5,"Core,UX",demo3,4,2,1,Show the average time cards spend in each column over a date range. Identify bot
-Audit log for board membership changes,Scoped,Compliance & Security,high,2026-04-02,4,"Compliance,Platform",demo4,3,1,1,"Record all adds, removes, and role changes to board membership in an immutable a"
-GDPR right-to-erasure pipeline,Monitoring,Compliance & Security,urgent,,5,Compliance,demo3,4,3,1,Automate deletion of all user-owned data on erasure request. Must cascade across
+Offline-first card editing,Idea,Mobile App,high,2026-04-29,5,Core,demo2,2,0,0,Cards edited while offline should be queued locally and synced on reconnect. Con
+Apple Watch complication — card due dates,Validated,Mobile App,low,2026-05-14,2,UX,demo4,3,2,0,5 power users requested glanceable due-date reminders on Apple Watch. Technicall
+Barcode scanner for card attachment,Scoped,Mobile App,medium,2026-04-14,3,Core,demo1,3,2,0,"Field workers want to scan a barcode (asset ID, serial number) and attach it to "
+Push notification preferences,Launched,Mobile App,medium,2026-03-05,4,UX,demo3,3,3,1,"Per-type push notification preferences (card assigned, mentioned, due soon). Lau"
+AI card description generator,Idea,Core Platform,medium,2026-05-04,4,AI / ML,,3,0,0,Use AI to generate a card description from a short title. Early prototype with C
+Card templates library,Scoped,Core Platform,high,2026-04-09,5,"Core,UX",demo2,4,2,0,"Allow users to save a card as a template (pre-filled title, description, checkli"
+Multi-board card linking,In Build,Core Platform,high,2026-03-29,7,Core,demo4,4,2,1,Allow a card to link to one or more cards on other boards. Backend schema and AP
+Board activity feed,Monitoring,Core Platform,medium,2026-02-28,4,Core,demo1,3,3,1,"Real-time board activity feed showing all card changes, movements, and comments "
+Slack /visiban command,Validated,Integrations,medium,2026-04-19,4,Platform,demo3,3,2,1,Slack Slash Command `/visiban add` to create a card on a specified board from an
+GitHub PR → card status sync,In Build,Integrations,high,2026-03-25,6,Platform,,4,2,1,Bidirectional sync: opening a GitHub PR linked to a card auto-moves it to the ma
+Zapier integration — GA,Launched,Integrations,medium,2026-02-23,5,Platform,demo2,3,3,1,General availability of the Zapier integration with 100 published Zap templates.
+CSV import with column mapping UI,Monitoring,Integrations,medium,2026-02-13,4,Platform,demo4,3,3,1,CSV import with an interactive column-mapping step that lets users drag-and-drop
+Cumulative flow diagram,Idea,Analytics,medium,2026-05-04,4,Platform,demo1,2,0,0,A cumulative flow diagram showing card counts per column over time. Popular requ
+Cycle time histogram,Prioritized,Analytics,high,2026-04-04,5,Platform,demo3,4,2,1,Histogram of card cycle times (first move to last move). Includes median and 85t
+Throughput report — weekly/monthly,In Build,Analytics,medium,2026-03-23,4,Platform,,4,2,1,Weekly and monthly throughput report: cards completed per time period. Exportabl
+Analytics API — public endpoints,Monitoring,Analytics,medium,2026-03-03,5,Platform,demo2,3,3,1,"Public API endpoints for analytics data: cycle time, throughput, WIP snapshots. "
+GDPR right-to-erasure automation,Scoped,Compliance & Security,urgent,2026-04-04,7,Compliance,demo4,4,2,0,"Automate the right-to-erasure workflow: when a user requests deletion, anonymize"
+SOC 2 Type II — audit logging,In Build,Compliance & Security,high,2026-03-27,6,Compliance,demo1,4,2,1,SOC 2 Type II compliance requires immutable audit logs of admin and board-level 
+Mandatory 2FA for site admins,Beta,Compliance & Security,high,2026-03-20,4,Compliance,demo3,4,2,2,Site admins are required to enable 2FA. In beta with 3 enterprise accounts. SSO+
+Content Security Policy headers,Monitoring,Compliance & Security,medium,2026-03-07,3,Compliance,,4,4,1,"Content Security Policy headers deployed in report-only mode, violations monitor"

@@ -1,12 +1,21 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Rachel Torres,Phone Screen,Senior Backend Engineer,low,2026-03-25,2,Maybe,demo1,2,1,0,"4 years Python, 2 years Django. Previous: Backend Engineer at Summit.  Inbound a"
-Marcus Jeon,Technical Screen,Senior Backend Engineer,medium,2026-03-22,3,Yes,demo3,3,2,1,5 years Python. Previous: Backend Lead at DataStream.  Applied via LinkedIn. Str
-Priya Sharma,Offer Extended,Senior Backend Engineer,high,2026-03-18,5,"Referred,Strong Yes",demo1,6,5,2,7 years Python/Django. Previous: Staff Engineer at FinEdge.  Referred by Casey O
-Fatima Al-Hassan,Interview,Product Designer (Senior),high,2026-03-20,4,"Referred,Yes",demo3,4,3,1,5 years product design. Previous: design systems lead at a B2B SaaS company.  Re
-Anika Obi,Hired,Product Designer (Senior),high,,5,Strong Yes,demo5,6,6,1,6 years UX/product design. Previous: Lead Designer at Mosaic Creative.  Portfoli
-Leo Bergman,Rejected,Product Designer (Senior),low,,1,No,demo5,2,2,1,4 years UX. Previous: mid-level designer at a fintech startup.  Good craft but p
-Nour El-Amin,Reference Check,Customer Success Manager,high,2026-03-23,4,Strong Yes,demo1,4,3,1,"4 years CS at a B2B SaaS company. Fluent Arabic, French, English.  EMEA-based. S"
-James Okonkwo,Rejected,Customer Success Manager,low,,1,Maybe,demo3,3,3,1,3 years CS at an enterprise software firm. UK-based.  Good phone screen but case
-Sara Lundqvist,Applied,DevOps Engineer,low,2026-03-30,1,Maybe,demo4,2,1,0,3 years DevOps. Previous: cloud infra engineer.  Good fundamentals but limited K
-Kenji Nakamura,Technical Screen,DevOps Engineer,high,2026-03-21,4,Yes,demo4,3,2,1,5 years DevOps/SRE. Previous: SRE at a high-traffic API company.  Kubernetes CKA
-Diana Ferreira,Interview,Head of Marketing,urgent,2026-03-22,5,Strong Yes,demo1,4,3,1,VP Marketing at a Series B SaaS company for 3 years. Grew pipeline 4x. Content +
+"Alex M. — 6 yrs Django, contributed to DRF",Hired,Senior Backend Engineer,high,2026-03-07,5,"Strong Yes,Referral",demo3,6,6,2,"Alex M. — 6 years Django/DRF, open-source contributor to DRF. Referral from Jord"
+"Sam K. — 4 yrs Python, Celery expert",Rejected,Senior Backend Engineer,medium,2026-02-28,3,No,,4,4,1,"Sam K. — 4 years Python, strong Celery background. Take-home submission lacked t"
+"Morgan T. — Staff engineer, Django + Rust background",Reference Check,Senior Backend Engineer,high,2026-03-18,6,Strong Yes,demo2,6,4,2,Morgan T. — staff-level engineer with Django and Rust background. Top 10% techni
+"Jamie L. — 5 yrs Django, current Jira refugee",Interview,Senior Backend Engineer,medium,2026-03-20,4,Yes,demo4,4,2,1,"Jamie L. — 5 years Django, currently at a company drowning in Jira complexity. T"
+Riley N. — systems design lead at B2B SaaS,Hired,Product Designer (Senior),high,2026-03-10,5,Strong Yes,demo1,5,5,2,"Riley N. — senior product designer with B2B SaaS background, strong component li"
+"Drew P. — strong visual design, weak systems",Rejected,Product Designer (Senior),medium,2026-02-23,3,No,demo3,4,4,1,Drew P. — strong visual designer but the design exercise lacked systems and comp
+"Taylor O. — design systems specialist, open-source tokens contributor",Offer Extended,Product Designer (Senior),high,2026-03-16,5,"Strong Yes,Referral",,6,5,1,"Taylor O. — design systems specialist, contributor to open design token standard"
+"Casey B. — 4 yrs UX, no B2B SaaS experience",Phone Screen,Product Designer (Senior),low,2026-03-27,2,Maybe,demo2,2,1,0,Casey B. — 4 years UX experience primarily in consumer apps. Interesting portfol
+"Jordan F. — 5 yrs CS at SaaS, churn reduction specialist",Reference Check,Customer Success Manager,high,2026-03-17,5,Strong Yes,demo4,5,3,2,"Jordan F. — 5 years CS, specialist in churn reduction. Reduced churn 8% → 3% at "
+"Avery C. — CS at PLG startup, strong onboarding focus",Interview,Customer Success Manager,high,2026-03-19,4,Yes,demo1,4,2,1,"Avery C. — CS at a PLG startup, built onboarding from scratch. Panel interview t"
+"Quinn W. — enterprise CS, high-touch accounts only",Rejected,Customer Success Manager,medium,2026-03-05,3,No,demo3,3,3,1,Quinn W. — strong enterprise CS background but no experience with tech-touch or 
+"Reese H. — CS ops background, Gainsight admin",Phone Screen,Customer Success Manager,medium,2026-03-23,3,Maybe,,2,1,0,"Reese H. — CS operations background, Gainsight admin. Applying for the CSM role "
+"Blake T. — Kubernetes certified, GitLab CI expert",Offer Extended,DevOps Engineer,high,2026-03-17,5,Strong Yes,demo2,4,3,1,"Blake T. — Kubernetes certified, GitLab CI expert. Designed multi-region HA depl"
+"Parker S. — 4 yrs Terraform, SRE background",Technical Screen,DevOps Engineer,medium,2026-03-20,4,Yes,demo4,2,1,1,"Parker S. — 4 years Terraform, SRE background at high-traffic e-commerce company"
+"Rowan K. — DevOps at agency, lots of breadth, limited depth",Rejected,DevOps Engineer,medium,2026-03-03,2,No,demo1,2,2,1,"Rowan K. — agency DevOps background, broad exposure but shallow on Kubernetes sp"
+"River M. — inbound application, AWS-heavy, learning GCP/Kubernetes",Applied,DevOps Engineer,low,2026-04-04,2,Maybe,demo3,1,0,0,"River M. — strong AWS background, currently transitioning to Kubernetes/GCP. Res"
+"Sage D. — VP Marketing at B2B SaaS, PLG specialist",Interview,Head of Marketing,high,2026-03-21,6,Strong Yes,,4,3,2,"Sage D. — VP Marketing at B2B SaaS, strong PLG track record. Delivered a 12-mont"
+"Charlie H. — growth marketing lead, no leadership experience",Rejected,Head of Marketing,medium,2026-02-25,3,No,demo2,3,3,1,Charlie H. — growth marketing lead with strong channel execution but no strategi
+"Finley A. — CMO at startup (exited), now consulting",Reference Check,Head of Marketing,high,2026-03-19,5,Yes,demo4,5,3,1,"Finley A. — former CMO, now consulting. Strong PLG and community-led growth back"
+"Skyler R. — product marketing background, no demand gen",Phone Screen,Head of Marketing,medium,2026-03-25,3,Maybe,demo1,2,1,0,"Skyler R. — strong product marketing background at two SaaS companies, but no de"
