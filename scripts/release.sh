@@ -45,6 +45,10 @@ if grep -q "APP_VERSION: [^$]" docker-compose.yml; then
   sed -i '' "s/APP_VERSION: .*/APP_VERSION: ${VERSION}/" docker-compose.yml
 fi
 
+# Update frontend/package.json — Vite injects this as __APP_VERSION__ at build time
+# so the Settings → About page reads the version from here.
+sed -i '' "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" frontend/package.json
+
 # Rotate CHANGELOG: rename [Unreleased] → [v{VERSION}] and prepend a fresh [Unreleased]
 if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
   echo "Error: CHANGELOG.md has no [Unreleased] section" >&2
@@ -68,10 +72,10 @@ awk -v version="$VERSION" -v date="$TODAY" '
   { print }
 ' CHANGELOG.md > "$TMP" && mv "$TMP" CHANGELOG.md
 
-echo "Updated .env.example, docker-compose.yml, CHANGELOG.md"
+echo "Updated .env.example, docker-compose.yml, frontend/package.json, CHANGELOG.md"
 
 # Commit and push branch
-git add CHANGELOG.md .env.example docker-compose.yml
+git add CHANGELOG.md .env.example docker-compose.yml frontend/package.json
 git commit -m "chore: release ${TAG}"
 git push -u origin "$RELEASE_BRANCH"
 

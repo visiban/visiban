@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Pressing Escape on the Analytics view navigates back to Summary; pressing Escape again on Summary returns to the Board view
 - Analytics heatmap now uses absolute threshold-based coloring: green (well under threshold), yellow (within warning %), red (at or above threshold). Both the stale threshold and warning percentage are configurable per board in Board Settings → Stale card settings.
 - New `stale_warning_pct` board setting (0–100, default 50) controls the yellow warning band in the analytics heatmap.
+- Users can now create Personal Access Tokens (PATs) from Settings → Access Tokens to authenticate API requests without a session cookie — tokens carry a `vbn_` prefix, are shown only once at creation, support an optional expiry up to one year, and are limited to 10 per user; all tokens are automatically revoked when the user changes their password.
 
 ### Changed
 - Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
@@ -26,6 +27,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Collapsed sidebar no longer renders an unbounded list of board icons — starred boards, starred groups, and personal boards are now accessible via two flyout panels (Favorites ★ and Personal boards) that open on click, cap at a scrollable max height, and show board names; active-board state is reflected on the trigger icon
 - Creating a board inside a group now respects the `template` field from the request — previously the group board creation endpoint ignored the chosen template and always applied the default Backlog/To Do/Doing/Done columns
 - Groups flyout panel in the collapsed sidebar now shows subgroups indented under their parent at the correct nesting depth — previously all groups appeared at the same visual level because the flyout read from the flat groups array instead of the sidebar tree
+- The release script now bumps `frontend/package.json` version as part of each release commit, so the Settings → About page always shows the correct version number after a release
+- `frontend/package.json` version corrected from `1.0.0-rc.8` to `1.0.0-rc.9` to match the current release tag
 
 ---
 
