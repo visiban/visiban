@@ -295,6 +295,7 @@ class GroupBoardsTests(TestCase):
         self.assertEqual(r.json()["name"], "Sprint Board")
 
     def test_create_board_populates_default_columns(self):
+        # No template supplied → falls back to simple_kanban (5 columns)
         from boards.models import Column
         r = self.client.post(
             f"/api/groups/{self.group.id}/boards/",
@@ -302,7 +303,30 @@ class GroupBoardsTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         board_id = r.json()["id"]
-        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 4)
+        cols = list(Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True))
+        self.assertEqual(cols, ["Backlog", "To Do", "Doing", "Review", "Done"])
+
+    def test_create_board_respects_template(self):
+        # Supplying a template slug must produce that template's columns.
+        from boards.models import Column
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "Content Board", "template": "content_production"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        cols = list(Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True))
+        self.assertEqual(cols, ["Idea", "Assigned", "Draft", "Internal Review", "Edits", "Final Approval", "Scheduled", "Published"])
+
+    def test_create_blank_board_has_no_columns(self):
+        from boards.models import Column
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "Blank", "template": "blank"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 0)
 
     def test_create_board_uses_supplied_swimlane_name(self):
         from boards.models import Swimlane
