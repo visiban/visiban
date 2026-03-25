@@ -326,6 +326,13 @@ The collapsed rail (48px, `w-12`) is for **fixed destinations only** — Dashboa
 
 **Trigger active state:** when the currently active route belongs to an item inside the flyout, apply `text-blue-400 bg-blue-600/20` to the trigger icon (same as direct nav links). This communicates "you are here" without opening the flyout.
 
+**Groups flyout hierarchy** — the Groups flyout must be populated by flattening `sidebarTree` in depth-first pre-order, not from the flat `groups` array. Never source the Groups flyout from `groups.map(...)`:
+- Flatten using a local recursive function carrying a `depth` counter; pass the result as `FlyoutItem[]`
+- Apply `paddingLeft: 12 + depth * 12` via inline style (matching the expanded tree formula — never Tailwind padding classes)
+- Cap visual depth at 3: `Math.min(depth, 3)` — nodes deeper than 3 are clamped, not omitted
+- Group items: set `icon: "group"` (folder icon); board items: `icon: "board"` (clipboard icon, the default)
+- Inactive items at `depth > 0` use `text-slate-400`; root items (`depth === 0`) use `text-slate-300`
+
 ## Sidebar explorer tree (expanded mode)
 
 The expanded sidebar renders groups and their boards as a recursive tree. Rules:
