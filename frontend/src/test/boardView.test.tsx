@@ -44,6 +44,10 @@ vi.mock('../hooks/useBoardSocket', () => ({
   useBoardSocket: () => ({ connected: true, status: 'connected' }),
 }))
 
+vi.mock('../hooks/useBoardPan', () => ({
+  useBoardPan: () => {},
+}))
+
 vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
