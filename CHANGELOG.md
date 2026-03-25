@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Users can now create Personal Access Tokens (PATs) from Settings → Access Tokens to authenticate API requests without a session cookie — tokens carry a `vbn_` prefix, are shown only once at creation, support an optional expiry up to one year, and are limited to 10 per user; all tokens are automatically revoked when the user changes their password.
 
 ### Changed
+- Board sub-nav tabs (Board / Summary / Analytics) are now URL-addressable — switching tabs updates the `?view=` search param with `{ replace: true }` so the browser Back button skips tab transitions and tab views can be bookmarked and shared (#332)
 - Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
 - Board Settings stale card section renamed from "Stale card threshold" to "Stale card settings" with a second input for the warning percentage.
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs

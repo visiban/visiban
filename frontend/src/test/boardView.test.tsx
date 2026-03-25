@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import React from 'react'
 import { render, screen, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
@@ -6,9 +7,17 @@ import type { BoardFull, User } from '../types'
 import type { CollisionDetection, DragEndEvent } from '@dnd-kit/core'
 import * as dndCore from '@dnd-kit/core'
 
-// Controllable search params for deep-link tests
+// Controllable search params — initial params can be set before render; the stateful mock
+// updates them on setSearchParams calls so the component re-renders with the new params.
 let mockSearchParams = new URLSearchParams()
+// Spy on setSearchParams calls so tests can assert the arguments passed (e.g. replace:true).
 const mockSetSearchParams = vi.fn()
+
+// Stateful store shared between the mock and tests — holds the live URLSearchParams.
+// The mock's useSearchParams reads from this ref on every render, and setSearchParams
+// updates it then calls the React state setter to trigger a re-render.
+let _liveParams = new URLSearchParams()
+let _setLiveParams: React.Dispatch<React.SetStateAction<URLSearchParams>> = () => {}
 
 // Capture DndContext props (onDragEnd, collisionDetection) so tests can invoke them directly.
 let capturedOnDragEnd: ((e: DragEndEvent) => void) | undefined
@@ -37,7 +46,24 @@ vi.mock('@dnd-kit/sortable', () => ({
 }))
 
 vi.mock('react-router-dom', () => ({
-  useSearchParams: () => [mockSearchParams, mockSetSearchParams],
+  // Stateful mock: useSearchParams returns live params backed by React state so that
+  // setSearchParams calls (from tab switches / Escape) trigger re-renders in tests.
+  useSearchParams: () => {
+    const [params, setParams] = React.useState<URLSearchParams>(() => new URLSearchParams(mockSearchParams))
+    // Expose the setter so the forwarding setSearchParams can trigger re-renders.
+    _setLiveParams = setParams
+    _liveParams = params
+    const setter = (next: URLSearchParams | Record<string, string> | ((prev: URLSearchParams) => URLSearchParams), _opts?: unknown) => {
+      mockSetSearchParams(next, _opts)
+      const resolved = typeof next === 'function'
+        ? next(params)
+        : next instanceof URLSearchParams
+          ? next
+          : new URLSearchParams(next as Record<string, string>)
+      setParams(new URLSearchParams(resolved))
+    }
+    return [params, setter] as const
+  },
 }))
 
 vi.mock('../hooks/useBoardSocket', () => ({
@@ -342,6 +368,53 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByTitle('Keyboard shortcuts (?)'))
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
+  })
+
+  it('reads view from ?view=summary param on mount and renders SummaryView', () => {
+    mockSearchParams = new URLSearchParams('view=summary')
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+  })
+
+  it('reads view from ?view=analytics param on mount and renders AnalyticsView', () => {
+    mockSearchParams = new URLSearchParams('view=analytics')
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+  })
+
+  it('invalid ?view= param falls back to board view', () => {
+    mockSearchParams = new URLSearchParams('view=invalid')
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
+    // Board view columns should be visible
+    expect(screen.getByTestId('col-10')).toBeInTheDocument()
+  })
+
+  it('absent ?view= param renders board view', () => {
+    mockSearchParams = new URLSearchParams()
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
+  })
+
+  it('switching to Summary tab calls setSearchParams with { view: summary } and replace: true', async () => {
+    render(<BoardView {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('Summary'))
+    expect(mockSetSearchParams).toHaveBeenCalledWith({ view: 'summary' }, { replace: true })
+  })
+
+  it('switching to Analytics tab calls setSearchParams with { view: analytics } and replace: true', async () => {
+    render(<BoardView {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('Analytics'))
+    expect(mockSetSearchParams).toHaveBeenCalledWith({ view: 'analytics' }, { replace: true })
+  })
+
+  it('switching to Board tab calls setSearchParams with { view: board } and replace: true', async () => {
+    mockSearchParams = new URLSearchParams('view=summary')
+    render(<BoardView {...defaultProps()} />)
+    await userEvent.setup().click(screen.getByText('Board'))
+    expect(mockSetSearchParams).toHaveBeenCalledWith({ view: 'board' }, { replace: true })
   })
 
   it('?card= param opens CardDetail for a matching card', () => {
