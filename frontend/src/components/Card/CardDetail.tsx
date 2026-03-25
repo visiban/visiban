@@ -95,7 +95,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // activity feed shows a single net change (e.g. "Weight: 3 → 8") rather
   // than an entry per click.
   const weightSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const moveButtonRef = useRef<HTMLButtonElement>(null);
   const [showMovePopover, setShowMovePopover] = useState(false);
+  const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; right: number } | null>(null);
   const [moveTargetColumn, setMoveTargetColumn] = useState<number | null>(null);
   const [moveTargetSwimlane, setMoveTargetSwimlane] = useState<number | null>(null);
   const [moveSubmitting, setMoveSubmitting] = useState(false);
@@ -363,7 +365,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {canEdit && onMoveCard && (
                 <div className="relative shrink-0 group/move ml-1">
                   <button
+                    ref={moveButtonRef}
                     onClick={() => {
+                      // Calculate fixed position from the button's viewport rect so the
+                      // popover isn't clipped by the panel's overflow-hidden container.
+                      const rect = moveButtonRef.current?.getBoundingClientRect();
+                      if (rect) {
+                        setMovePopoverAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                      }
                       setMoveTargetColumn(localCard.column);
                       setMoveTargetSwimlane(localCard.swimlane);
                       setMovePopoverError(null);
@@ -381,41 +390,6 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover/move:opacity-100 transition-opacity delay-300 group-hover/move:delay-300">
                     Move card
                   </div>
-                  {showMovePopover && (
-                    <div className="absolute top-full right-0 mt-1 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 z-10 flex flex-col gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Move to</p>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs text-slate-500">Swimlane</label>
-                        <SelectDropdown
-                          options={board.swimlanes.map((s) => ({ value: String(s.id), label: s.name }))}
-                          value={moveTargetSwimlane !== null ? String(moveTargetSwimlane) : ""}
-                          onChange={(v) => setMoveTargetSwimlane(Number(v))}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-xs text-slate-500">Column</label>
-                        <SelectDropdown
-                          options={board.columns.map((c) => ({ value: String(c.id), label: c.name }))}
-                          value={moveTargetColumn !== null ? String(moveTargetColumn) : ""}
-                          onChange={(v) => setMoveTargetColumn(Number(v))}
-                        />
-                      </div>
-                      <p className="text-xs h-4">
-                        {movePopoverError && <span className="text-red-400">{movePopoverError}</span>}
-                      </p>
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => setShowMovePopover(false)}
-                          className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-slate-500 rounded"
-                        >Cancel</button>
-                        <button
-                          onClick={handleMoveSubmit}
-                          disabled={moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane)}
-                          className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >{moveSubmitting ? "Moving…" : "Move"}</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -951,6 +925,46 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           </div>
         )}
       </div>
+
+      {/* Move popover — rendered fixed so the panel's overflow-hidden doesn't clip it */}
+      {showMovePopover && movePopoverAnchor && (
+        <div
+          className="fixed w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
+          style={{ top: movePopoverAnchor.top, right: movePopoverAnchor.right }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Move to</p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-slate-500">Swimlane</label>
+            <SelectDropdown
+              options={board.swimlanes.map((s) => ({ value: String(s.id), label: s.name }))}
+              value={moveTargetSwimlane !== null ? String(moveTargetSwimlane) : ""}
+              onChange={(v) => setMoveTargetSwimlane(Number(v))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-slate-500">Column</label>
+            <SelectDropdown
+              options={board.columns.map((c) => ({ value: String(c.id), label: c.name }))}
+              value={moveTargetColumn !== null ? String(moveTargetColumn) : ""}
+              onChange={(v) => setMoveTargetColumn(Number(v))}
+            />
+          </div>
+          <p className="text-xs h-4">
+            {movePopoverError && <span className="text-red-400">{movePopoverError}</span>}
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setShowMovePopover(false)}
+              className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-slate-500 rounded"
+            >Cancel</button>
+            <button
+              onClick={handleMoveSubmit}
+              disabled={moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane)}
+              className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >{moveSubmitting ? "Moving…" : "Move"}</button>
+          </div>
+        </div>
+      )}
 
       {/* Delete / Archive confirmation overlay */}
       {confirmAction && (
