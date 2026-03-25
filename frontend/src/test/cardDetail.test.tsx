@@ -539,13 +539,13 @@ describe('CardDetail', () => {
     it('calls onMoveCard with new column and swimlane when Move is clicked', async () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       const board = makeBoardWithTwoCols()
-      render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
+      const { container } = render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
       await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
 
-      // Select "In Progress" (id 11) from the Column dropdown
-      const dropdownTriggers = screen.getAllByRole('button')
-      // Find the Column dropdown trigger — it shows the current column name
-      const colTrigger = dropdownTriggers.find((b) => b.textContent?.includes('To Do'))!
+      // Scope the column dropdown trigger to buttons inside the popover to avoid
+      // matching the breadcrumb "To Do" button (which calls onClose).
+      const popover = container.querySelector('[class*="w-64"]')!
+      const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!
       await userEvent.setup().click(colTrigger)
       await userEvent.setup().click(screen.getByText('In Progress'))
 
@@ -561,10 +561,11 @@ describe('CardDetail', () => {
     it('shows error message when onMoveCard rejects', async () => {
       const onMoveCard = vi.fn().mockRejectedValue(new Error('WIP limit'))
       const board = makeBoardWithTwoCols()
-      render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
+      const { container } = render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
       await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
 
-      const colTrigger = screen.getAllByRole('button').find((b) => b.textContent?.includes('To Do'))!
+      const popover = container.querySelector('[class*="w-64"]')!
+      const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!
       await userEvent.setup().click(colTrigger)
       await userEvent.setup().click(screen.getByText('In Progress'))
       await userEvent.setup().click(screen.getByRole('button', { name: 'Move' }))

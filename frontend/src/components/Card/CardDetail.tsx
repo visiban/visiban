@@ -341,12 +341,27 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               onBlur={handleTitleBlur}
               className="text-base font-semibold text-white w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-blue-400 focus:bg-blue-900/20 bg-transparent transition"
             />
-            <div className="flex items-center gap-1 mt-1 px-1 relative">
-              <p className="text-[11px] text-slate-500 flex-1 min-w-0 truncate">
-                {swimlane?.name} <span className="mx-1 text-slate-600">›</span> {column?.name}
-              </p>
+            {/* Breadcrumb row — swimlane and column names close the panel so the user
+                lands back on the board at that location. The move icon sits immediately
+                after the column name so it reads as part of the same affordance. */}
+            <div className="flex items-center gap-0.5 mt-1 px-1 min-w-0">
+              <button
+                onClick={onClose}
+                className="text-[11px] text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-blue-500 rounded truncate max-w-[10rem]"
+                title={swimlane?.name}
+              >
+                {swimlane?.name}
+              </button>
+              <span className="text-[11px] text-slate-600 mx-1 shrink-0">›</span>
+              <button
+                onClick={onClose}
+                className="text-[11px] text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-blue-500 rounded truncate max-w-[10rem]"
+                title={column?.name}
+              >
+                {column?.name}
+              </button>
               {canEdit && onMoveCard && (
-                <div className="relative shrink-0 group/move">
+                <div className="relative shrink-0 group/move ml-1">
                   <button
                     onClick={() => {
                       setMoveTargetColumn(localCard.column);
