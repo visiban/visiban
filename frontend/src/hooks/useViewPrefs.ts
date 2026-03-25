@@ -3,8 +3,8 @@ import { useState, useCallback } from "react";
 export interface ViewPrefs {
   hiddenColumnIds: number[];
   hiddenSwimlaneIds: number[];
-  // Columns the user has explicitly expanded. All others are collapsed (compact by default).
-  expandedColumnIds: number[];
+  // Columns the user has explicitly collapsed. All others are expanded (open by default).
+  collapsedColumnIds: number[];
   swimlaneColumnWidth: number;
   columnWidths: Record<number, number>;
   swimlaneHeights: Record<number, number>;
@@ -17,7 +17,7 @@ export interface ViewPrefs {
 const DEFAULT_PREFS: ViewPrefs = {
   hiddenColumnIds: [],
   hiddenSwimlaneIds: [],
-  expandedColumnIds: [],
+  collapsedColumnIds: [],
   swimlaneColumnWidth: 220,
   columnWidths: {},
   swimlaneHeights: {},
@@ -35,11 +35,11 @@ function load(boardId: number): ViewPrefs {
   try {
     const raw = localStorage.getItem(storageKey(boardId));
     if (!raw) return DEFAULT_PREFS;
-    const parsed = JSON.parse(raw) as Partial<ViewPrefs>;
+    const parsed = JSON.parse(raw) as Partial<ViewPrefs> & { expandedColumnIds?: number[] };
     return {
       hiddenColumnIds: Array.isArray(parsed.hiddenColumnIds) ? parsed.hiddenColumnIds : [],
       hiddenSwimlaneIds: Array.isArray(parsed.hiddenSwimlaneIds) ? parsed.hiddenSwimlaneIds : [],
-      expandedColumnIds: Array.isArray(parsed.expandedColumnIds) ? parsed.expandedColumnIds : [],
+      collapsedColumnIds: Array.isArray(parsed.collapsedColumnIds) ? parsed.collapsedColumnIds : [],
       swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" ? parsed.swimlaneColumnWidth : 220,
       columnWidths: (typeof parsed.columnWidths === "object" && parsed.columnWidths !== null && !Array.isArray(parsed.columnWidths)) ? parsed.columnWidths as Record<number, number> : {},
       swimlaneHeights: (typeof parsed.swimlaneHeights === "object" && parsed.swimlaneHeights !== null && !Array.isArray(parsed.swimlaneHeights)) ? parsed.swimlaneHeights as Record<number, number> : {},
@@ -87,13 +87,13 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
-  const toggleExpandedColumn = useCallback(
+  const toggleCollapsedColumn = useCallback(
     (columnId: number) => {
       setPrefs((prev) => {
-        const expanded = prev.expandedColumnIds.includes(columnId)
-          ? prev.expandedColumnIds.filter((id) => id !== columnId)
-          : [...prev.expandedColumnIds, columnId];
-        return { ...prev, expandedColumnIds: expanded };
+        const collapsed = prev.collapsedColumnIds.includes(columnId)
+          ? prev.collapsedColumnIds.filter((id) => id !== columnId)
+          : [...prev.collapsedColumnIds, columnId];
+        return { ...prev, collapsedColumnIds: collapsed };
       });
     },
     [setPrefs],
@@ -122,13 +122,15 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
+  // Expand all: clear the collapsed list so every column reverts to its default (open) state.
   const expandAllColumns = useCallback(
-    (columnIds: number[]) => setPrefs((prev) => ({ ...prev, expandedColumnIds: columnIds })),
+    () => setPrefs((prev) => ({ ...prev, collapsedColumnIds: [] })),
     [setPrefs],
   );
 
+  // Collapse all: mark every current column as explicitly collapsed.
   const collapseAllColumns = useCallback(
-    () => setPrefs((prev) => ({ ...prev, expandedColumnIds: [] })),
+    (columnIds: number[]) => setPrefs((prev) => ({ ...prev, collapsedColumnIds: columnIds })),
     [setPrefs],
   );
 
@@ -151,5 +153,5 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
-  return { prefs, toggleHiddenColumn, toggleExpandedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref };
+  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref };
 }

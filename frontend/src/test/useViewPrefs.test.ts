@@ -22,7 +22,7 @@ describe('useViewPrefs', () => {
     const { prefs } = result.current
     expect(prefs.hiddenColumnIds).toEqual([])
     expect(prefs.hiddenSwimlaneIds).toEqual([])
-    expect(prefs.expandedColumnIds).toEqual([])
+    expect(prefs.collapsedColumnIds).toEqual([])
     expect(prefs.swimlaneColumnWidth).toBe(220)
     expect(prefs.hideLabels).toBe(false)
     expect(prefs.hideDueDate).toBe(false)
@@ -68,25 +68,30 @@ describe('useViewPrefs', () => {
     expect(result.current.prefs.hiddenSwimlaneIds).not.toContain(20)
   })
 
-  it('toggleExpandedColumn adds and removes a column id', () => {
+  it('toggleCollapsedColumn adds and removes a column id', () => {
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
-    act(() => { result.current.toggleExpandedColumn(5) })
-    expect(result.current.prefs.expandedColumnIds).toContain(5)
-    act(() => { result.current.toggleExpandedColumn(5) })
-    expect(result.current.prefs.expandedColumnIds).not.toContain(5)
+    act(() => { result.current.toggleCollapsedColumn(5) })
+    expect(result.current.prefs.collapsedColumnIds).toContain(5)
+    act(() => { result.current.toggleCollapsedColumn(5) })
+    expect(result.current.prefs.collapsedColumnIds).not.toContain(5)
   })
 
-  it('expandAllColumns sets the full list', () => {
+  it('collapsedColumnIds defaults to empty — all columns are expanded by default', () => {
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
-    act(() => { result.current.expandAllColumns([1, 2, 3]) })
-    expect(result.current.prefs.expandedColumnIds).toEqual([1, 2, 3])
+    expect(result.current.prefs.collapsedColumnIds).toEqual([])
   })
 
-  it('collapseAllColumns clears expandedColumnIds', () => {
-    localStorage.setItem(storageKey(), JSON.stringify({ expandedColumnIds: [1, 2, 3] }))
+  it('expandAllColumns clears collapsedColumnIds so all columns are open', () => {
+    localStorage.setItem(storageKey(), JSON.stringify({ collapsedColumnIds: [1, 2, 3] }))
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
-    act(() => { result.current.collapseAllColumns() })
-    expect(result.current.prefs.expandedColumnIds).toEqual([])
+    act(() => { result.current.expandAllColumns() })
+    expect(result.current.prefs.collapsedColumnIds).toEqual([])
+  })
+
+  it('collapseAllColumns sets collapsedColumnIds to the provided list', () => {
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    act(() => { result.current.collapseAllColumns([1, 2, 3]) })
+    expect(result.current.prefs.collapsedColumnIds).toEqual([1, 2, 3])
   })
 
   it('setSwimlaneColumnWidth enforces 56..400 bounds', () => {
@@ -140,5 +145,12 @@ describe('useViewPrefs', () => {
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
     expect(result.current.prefs.hiddenColumnIds).toEqual([])
     expect(result.current.prefs.swimlaneColumnWidth).toBe(220)
+  })
+
+  it('ignores legacy expandedColumnIds from old localStorage entries', () => {
+    // Old entries stored expandedColumnIds; new code should ignore them and default to all expanded.
+    localStorage.setItem(storageKey(), JSON.stringify({ expandedColumnIds: [1, 2, 3] }))
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    expect(result.current.prefs.collapsedColumnIds).toEqual([])
   })
 })
