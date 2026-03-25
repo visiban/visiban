@@ -7,6 +7,10 @@ export interface FlyoutItem {
   name: string;
   href: string;
   active: boolean;
+  /** Tree depth — drives left padding: 12 + depth * 12 px. Defaults to 0. */
+  depth?: number;
+  /** Icon to render. Defaults to 'board'. */
+  icon?: "group" | "board";
 }
 
 export interface FlyoutSection {
@@ -92,26 +96,41 @@ export default function CollapsedFlyout({
             </div>
           )}
 
-          {section.items.map((item) => (
-            <Link
-              key={item.id}
-              to={item.href}
-              role="menuitem"
-              title={item.name}
-              onClick={() => { onClose(); onNavigate(); }}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm transition truncate ${
-                item.active
-                  ? "bg-blue-600/20 text-blue-400 font-medium"
-                  : "text-slate-300 hover:text-white hover:bg-slate-700"
-              }`}
-            >
-              <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-              </svg>
-              <span className="truncate">{item.name}</span>
-            </Link>
-          ))}
+          {section.items.map((item) => {
+            const depth = item.depth ?? 0;
+            const isGroup = (item.icon ?? "board") === "group";
+            return (
+              <Link
+                key={item.id}
+                to={item.href}
+                role="menuitem"
+                title={item.name}
+                onClick={() => { onClose(); onNavigate(); }}
+                style={{ paddingLeft: 12 + depth * 12 }}
+                className={`flex items-center gap-2 py-1.5 pr-3 text-sm transition truncate ${
+                  item.active
+                    ? "bg-blue-600/20 text-blue-400 font-medium"
+                    : depth > 0
+                      ? "text-slate-400 hover:text-white hover:bg-slate-700"
+                      : "text-slate-300 hover:text-white hover:bg-slate-700"
+                }`}
+              >
+                {isGroup ? (
+                  // Folder icon for group items
+                  <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                  </svg>
+                ) : (
+                  // Clipboard icon for board items
+                  <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                  </svg>
+                )}
+                <span className="truncate">{item.name}</span>
+              </Link>
+            );
+          })}
         </div>
       ))}
     </div>

@@ -487,12 +487,27 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
           title="Groups"
           sections={[{
             title: "Groups",
-            items: groups.map((g) => ({
-              id: g.id,
-              name: g.name,
-              href: `/groups/${g.id}`,
-              active: location.pathname === `/groups/${g.id}`,
-            })),
+            items: (() => {
+              // Flatten sidebarTree depth-first so subgroups appear indented
+              // under their parent. Visual depth is capped at 3 to preserve
+              // readable text width in the 224px panel.
+              const flatGroups: { node: SidebarTreeNode; depth: number }[] = [];
+              function flattenGroups(nodes: SidebarTreeNode[], depth: number) {
+                for (const n of nodes) {
+                  flatGroups.push({ node: n, depth: Math.min(depth, 3) });
+                  flattenGroups(n.children, depth + 1);
+                }
+              }
+              flattenGroups(sidebarTree, 0);
+              return flatGroups.map(({ node, depth }) => ({
+                id: node.group.id,
+                name: node.group.name,
+                href: `/groups/${node.group.id}`,
+                active: location.pathname === `/groups/${node.group.id}`,
+                depth,
+                icon: "group" as const,
+              }));
+            })(),
           }]}
           anchor={groupsAnchor}
           onClose={() => setGroupsAnchor(null)}
