@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 - Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
 - Board Settings stale card section renamed from "Stale card threshold" to "Stale card settings" with a second input for the warning percentage.
+- Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 
 ### Fixed
 - Board columns are now expanded by default on every initial view — including imported boards, template-created boards, and newly-added columns — eliminating cases where columns appeared collapsed until a user interaction or page effect fired

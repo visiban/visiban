@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Location } from "react-router-dom";
-import { updateCurrentUser, changePassword } from "../api/auth";
+import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
-import type { User } from "../types";
+import type { User, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import type { ThemePreference } from "../context/ThemeContext";
 import { TIMEZONE_OPTIONS, browserTimezone } from "../utils/date";
 import SelectDropdown from "../components/Common/SelectDropdown";
 
-type Tab = "profile" | "security" | "notifications" | "appearance" | "behavior" | "about";
+type Tab = "profile" | "security" | "access-tokens" | "notifications" | "appearance" | "behavior" | "about";
 
 declare const __APP_VERSION__: string;
 
@@ -308,6 +308,201 @@ function SecurityTab({ user }: { user: User }) {
   );
 }
 
+const PAT_MAX = 10;
+
+function AccessTokensTab() {
+  const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [newToken, setNewToken] = useState<CreatedPersonalAccessToken | null>(null);
+  const [revokingId, setRevokingId] = useState<number | null>(null);
+  const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+
+  const fetchTokens = useCallback(async () => {
+    try {
+      setTokens(await listTokens());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchTokens(); }, [fetchTokens]);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const created = await createToken(name.trim(), expiresAt || undefined);
+      setNewToken(created);
+      setName("");
+      setExpiresAt("");
+      await fetchTokens();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setCreateError(detail ?? "Failed to create token.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRevoke = async (id: number) => {
+    setRevokingId(id);
+    setConfirmRevokeId(null);
+    try {
+      await revokeToken(id);
+      setTokens((prev) => prev.filter((t) => t.id !== id));
+      if (newToken?.id === id) setNewToken(null);
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return "Never";
+    return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  };
+
+  return (
+    <div className="flex flex-col gap-6 max-w-2xl" data-testid="access-tokens-tab">
+      <h2 className="text-white text-lg font-semibold">Access Tokens</h2>
+      <p className="text-sm text-slate-400">
+        Personal access tokens let you authenticate API requests. Tokens are shown once on creation.
+        All tokens are revoked if you change your password.
+      </p>
+
+      {/* One-time reveal panel */}
+      {newToken && (
+        <div className="border border-amber-600 rounded-lg p-4 bg-amber-900/20 flex flex-col gap-2" data-testid="new-token-reveal">
+          <p className="text-sm text-amber-400 font-medium">
+            Copy your token now — it won't be shown again.
+          </p>
+          <code className="font-mono text-sm text-slate-200 bg-slate-900 px-3 py-2 rounded break-all select-all" data-testid="new-token-value">
+            {newToken.token}
+          </code>
+          <button
+            onClick={() => setNewToken(null)}
+            className="self-end text-xs text-slate-400 hover:text-white transition"
+            data-testid="dismiss-token"
+          >
+            I've copied it — dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Create form */}
+      {tokens.length < PAT_MAX && (
+        <form onSubmit={handleCreate} className="flex flex-col gap-3" data-testid="create-token-form">
+          <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wide">New token</h3>
+          <div className="flex gap-2 flex-wrap">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Token name (e.g. CI pipeline)"
+              maxLength={64}
+              required
+              className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              data-testid="token-name-input"
+            />
+            <input
+              type="date"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              title="Optional expiry date (max 1 year)"
+              className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              data-testid="token-expiry-input"
+            />
+            <button
+              type="submit"
+              disabled={creating || !name.trim()}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded transition"
+              data-testid="create-token-button"
+            >
+              {creating ? "Creating…" : "Generate token"}
+            </button>
+          </div>
+          <p className="text-xs h-4">
+            {createError
+              ? <span className="text-red-400">{createError}</span>
+              : <span className="text-slate-500">Leave expiry blank for a non-expiring token (max 1 year if set).</span>
+            }
+          </p>
+        </form>
+      )}
+      {tokens.length >= PAT_MAX && (
+        <p className="text-sm text-amber-400" data-testid="max-tokens-notice">
+          You've reached the maximum of {PAT_MAX} tokens. Revoke one to create another.
+        </p>
+      )}
+
+      {/* Token list */}
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="w-5 h-5 border-2 border-slate-600 border-t-blue-500 rounded-full animate-spin" />
+        </div>
+      ) : tokens.length === 0 ? (
+        <p className="text-sm text-slate-500" data-testid="no-tokens-message">No access tokens yet.</p>
+      ) : (
+        <div className="flex flex-col gap-1" data-testid="token-list">
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1.5 text-xs text-slate-500 uppercase tracking-wide border-b border-slate-700">
+            <span>Name</span>
+            <span>Created</span>
+            <span>Expires</span>
+            <span />
+          </div>
+          {tokens.map((token) => (
+            <div
+              key={token.id}
+              className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-3 py-2 rounded hover:bg-slate-800/50"
+              data-testid={`token-row-${token.id}`}
+            >
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-sm text-slate-200 truncate">{token.name}</span>
+                <span className="font-mono text-xs text-slate-500">{token.prefix}…</span>
+              </div>
+              <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(token.created_at)}</span>
+              <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(token.expires_at)}</span>
+              <div className="flex items-center gap-2">
+                {confirmRevokeId === token.id ? (
+                  <>
+                    <button
+                      onClick={() => handleRevoke(token.id)}
+                      disabled={revokingId === token.id}
+                      className="text-xs text-red-400 hover:text-red-300 transition"
+                      data-testid={`confirm-revoke-${token.id}`}
+                    >
+                      {revokingId === token.id ? "Revoking…" : "Confirm"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmRevokeId(null)}
+                      className="text-xs text-slate-400 hover:text-white transition"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmRevokeId(token.id)}
+                    className="text-xs text-slate-400 hover:text-red-400 transition"
+                    data-testid={`revoke-${token.id}`}
+                  >
+                    Revoke
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -490,6 +685,7 @@ function AboutTab() {
 const TABS: { id: Tab; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
+  { id: "access-tokens", label: "Access Tokens" },
   { id: "notifications", label: "Notifications" },
   { id: "appearance", label: "Appearance" },
   { id: "behavior", label: "Behavior" },
@@ -541,6 +737,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} />}
             {activeTab === "security" && <SecurityTab user={user} />}
+            {activeTab === "access-tokens" && <AccessTokensTab />}
             {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "appearance" && <AppearanceTab />}
             {activeTab === "behavior" && <BehaviorTab user={user} onUserUpdated={onUserUpdated} />}

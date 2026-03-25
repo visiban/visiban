@@ -1,6 +1,12 @@
+import hashlib
+import secrets
+
 from django.contrib.auth.models import AbstractUser
 from django.core.cache import cache
 from django.db import models
+
+PAT_PREFIX = "vbn_"
+PAT_MAX_PER_USER = 10
 
 # Shared by models.py and adapter.py — defined here to avoid circular imports.
 REGISTRATION_MODE_CACHE_KEY = "site_setting_registration_mode"
@@ -106,3 +112,55 @@ class User(AbstractUser):
 
     class Meta:
         db_table = "users"
+
+
+class PersonalAccessToken(models.Model):
+    """Named, revocable API token for a user.
+
+    The raw token value is generated once and never stored — only a SHA-256
+    hash is persisted. On every authenticated request the hash of the
+    Authorization header value is compared against this column.
+
+    Invariants:
+    - A user may hold at most PAT_MAX_PER_USER (10) active tokens.
+    - All tokens for a user are deleted when their password is changed
+      (enforced in ChangePasswordView) so that a compromised account cannot
+      retain API access after a credential reset.
+    - expires_at is nullable; null means the token never expires.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="personal_access_tokens",
+    )
+    name = models.CharField(max_length=64)
+    # First 8 chars of the raw token ("vbn_XXXX") — safe for display.
+    prefix = models.CharField(max_length=8)
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "personal_access_tokens"
+        ordering = ["-created_at"]
+
+    @classmethod
+    def generate(cls, user, name, expires_at=None):
+        """Create a new token, persist the hash, return (instance, raw_token).
+
+        The raw_token is the only time the plain-text value is available — the
+        caller must return it to the user exactly once and never again.
+        """
+        raw = PAT_PREFIX + secrets.token_hex(20)  # "vbn_" + 40 hex chars
+        token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        prefix = raw[:8]
+        instance = cls.objects.create(
+            user=user,
+            name=name,
+            prefix=prefix,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+        return instance, raw

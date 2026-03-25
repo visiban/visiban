@@ -2,6 +2,11 @@
 
 Visiban supports two authentication methods: **token** (recommended for scripts and API clients) and **session** (used by the browser SPA).
 
+Token authentication covers two token types that share the same `Authorization: Token <value>` header scheme:
+
+- **Session tokens** — short-lived tokens issued by `POST /api/auth/login/`. Invalidated on logout or password change.
+- **Personal Access Tokens (PATs)** — long-lived named tokens created through the API or profile settings. Format: `vbn_` followed by 40 hex characters (44 chars total). Invalidated individually via `DELETE /api/auth/tokens/{id}/`, or all at once when the user's password is changed.
+
 ---
 
 ## Token authentication
@@ -43,7 +48,8 @@ Store the `key` value — this is your API token.
 Pass the token in the `Authorization` header using the `Token` scheme.
 
 !!! note
-    Visiban uses DRF's built-in token auth which requires the prefix `Token`, not `Bearer`.
+    Visiban uses the prefix `Token`, not `Bearer`. This applies to both session tokens and Personal Access Tokens. For PATs the full header looks like:
+    `Authorization: Token vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2`
 
 === "curl"
     ```bash
@@ -115,6 +121,129 @@ curl -s -X POST http://localhost:8000/api/auth/logout/ \
 ```
 
 This deletes the token server-side. Any further requests with it will receive `401 Unauthorized`.
+
+---
+
+## Personal Access Tokens
+
+Personal Access Tokens (PATs) are named, long-lived tokens tied to a user account. They are intended for scripts, CI pipelines, and third-party integrations where a session login is not practical.
+
+**Token format:** `vbn_` prefix + 40 hex characters, e.g. `vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2`.
+
+The raw token value is shown **once** at creation and never again — Visiban stores only a SHA-256 hash.
+
+All PATs for a user are revoked automatically when that user's password is changed.
+
+---
+
+### `GET /api/auth/tokens/`
+
+List all Personal Access Tokens for the authenticated user.
+
+**Permission:** Requires authentication.
+
+**Response**
+
+```json
+[
+  {
+    "id": 1,
+    "name": "CI deploy key",
+    "prefix": "vbn_a3f2",
+    "created_at": "2026-03-01T09:00:00Z",
+    "last_used_at": "2026-03-24T14:22:00Z",
+    "expires_at": "2027-03-01T09:00:00Z"
+  },
+  {
+    "id": 2,
+    "name": "Local dev",
+    "prefix": "vbn_9c1d",
+    "created_at": "2026-03-10T11:30:00Z",
+    "last_used_at": null,
+    "expires_at": null
+  }
+]
+```
+
+The response never includes the raw token value, only the first 8 characters (`prefix`) for identification.
+
+**Response fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Unique token ID. Used in `DELETE` requests. |
+| `name` | string | Human-readable label given at creation (max 64 chars). |
+| `prefix` | string | First 8 characters of the raw token — safe to display. |
+| `created_at` | datetime | ISO 8601 UTC timestamp of when the token was created. |
+| `last_used_at` | datetime \| null | ISO 8601 UTC timestamp of the most recent authenticated request, or `null` if never used. |
+| `expires_at` | datetime \| null | ISO 8601 UTC expiry, or `null` if the token does not expire. |
+
+---
+
+### `POST /api/auth/tokens/`
+
+Create a new Personal Access Token.
+
+**Permission:** Requires authentication. A user may have at most 10 active PATs.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | Yes | A label for the token (1–64 characters). |
+| `expires_at` | datetime | No | ISO 8601 expiry. Must be in the future and at most 1 year from now. Omit for a non-expiring token. |
+
+```json
+{
+  "name": "CI deploy key",
+  "expires_at": "2027-03-01T09:00:00Z"
+}
+```
+
+**Response** `201 Created`
+
+The response includes a one-time `token` field containing the raw `vbn_` value. **Store it immediately — it cannot be retrieved again.**
+
+```json
+{
+  "id": 3,
+  "name": "CI deploy key",
+  "prefix": "vbn_a3f2",
+  "token": "vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+  "created_at": "2026-03-24T15:00:00Z",
+  "last_used_at": null,
+  "expires_at": "2027-03-01T09:00:00Z"
+}
+```
+
+**Errors**
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | `name` missing, empty, or longer than 64 characters |
+| `400 Bad Request` | `expires_at` is in the past |
+| `400 Bad Request` | `expires_at` is more than 1 year from now |
+| `400 Bad Request` | User already has 10 active tokens |
+| `401 Unauthorized` | Request is not authenticated |
+
+---
+
+### `DELETE /api/auth/tokens/{id}/`
+
+Revoke a Personal Access Token. The token is immediately invalidated and cannot be used for further requests.
+
+**Permission:** Requires authentication. Users can only revoke their own tokens.
+
+**Response** `204 No Content`
+
+**Errors**
+
+| Status | Reason |
+|---|---|
+| `404 Not Found` | Token does not exist, or belongs to a different user |
+
+!!! note
+    A missing token and a token owned by another user both return `404 Not Found` — not `403 Forbidden`. This prevents user enumeration (IDOR prevention).
 
 ---
 
@@ -247,6 +376,7 @@ Site admins can change the registration mode in **Admin → Site Settings**. See
 
 | Status | Cause | Fix |
 |---|---|---|
-| `401 Unauthorized` | Missing or invalid token | Check the `Authorization` header format: `Token <key>` |
+| `401 Unauthorized` | Missing or invalid token | Check the `Authorization` header format: `Token <key>`. For PATs, ensure the full `vbn_...` value is used. |
 | `403 Forbidden` | Valid token but insufficient role | Check the user's role on the board/group |
 | `403 Forbidden` (CSRF) | Session auth without CSRF token | Include `X-CSRFToken` header, or switch to token auth |
+| `404 Not Found` (PAT delete) | Token ID not found or belongs to another user | Verify the token ID from `GET /api/auth/tokens/` |

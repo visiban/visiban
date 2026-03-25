@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteSettings, AdminUser } from "../types";
+import type { User, SiteSettings, AdminUser, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/auth/user/").then((r) => r.data);
@@ -39,6 +39,17 @@ export const updateDefaultBoard = (boardId: number | null) =>
 
 export const searchUsers = (query: string) =>
   client.get<User[]>(`/api/users/?search=${encodeURIComponent(query)}`).then((r) => r.data);
+
+// Personal Access Tokens
+
+export const listTokens = () =>
+  client.get<PersonalAccessToken[]>("/api/auth/tokens/").then((r) => r.data);
+
+export const createToken = (name: string, expires_at?: string) =>
+  client.post<CreatedPersonalAccessToken>("/api/auth/tokens/", { name, expires_at }).then((r) => r.data);
+
+export const revokeToken = (id: number) =>
+  client.delete(`/api/auth/tokens/${id}/`);
 
 // Admin API
 

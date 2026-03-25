@@ -139,6 +139,14 @@ Assigning a user **Group Admin** automatically grants them board-admin rights on
 
 ---
 
+## Personal Access Tokens
+
+Create named, revocable tokens to authenticate scripts, CI pipelines, and integrations without sharing your password. Tokens use the `vbn_` prefix, are shown once at creation, and are automatically revoked when your password changes.
+
+→ [Personal Access Tokens](personal-access-tokens.md)
+
+---
+
 ## Stable UIDs
 
 Every board, column, swimlane, label, and card carries a stable 16-character hex UID that never changes even after renames or moves. UIDs are included in JSON exports and are safe to reference in external integrations, webhooks, and scripts.

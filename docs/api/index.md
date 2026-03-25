@@ -6,7 +6,7 @@ Visiban exposes a REST JSON API. All endpoints require an authenticated session 
 
 | Reference | Description |
 |---|---|
-| [Authentication](authentication.md) | Login, logout, OAuth flows, session and token auth |
+| [Authentication](authentication.md) | Login, logout, OAuth flows, session auth, Personal Access Tokens (PATs) |
 | [Boards API](boards.md) | Boards, columns, swimlanes, labels, and board member management |
 | [Cards API](cards.md) | Cards, move endpoint, comments, attachments, checklists, and activity |
 | [Groups API](groups.md) | Groups, subgroups, group members, and invite links |

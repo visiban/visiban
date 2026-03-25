@@ -60,6 +60,7 @@ nav:
     - Stable UIDs: features/stable-uids.md
     - Groups: features/groups.md
     - Navigation: features/navigation.md
+    - Personal Access Tokens: features/personal-access-tokens.md
     - Board Permissions: features/permissions.md
     - Roles & Permissions:
       - features/rbac/index.md

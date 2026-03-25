@@ -1,7 +1,7 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
-from .models import User, get_uploads_enabled
+from .models import PersonalAccessToken, User, get_uploads_enabled
 
 
 class RegistrationSerializer(RegisterSerializer):
@@ -90,3 +90,10 @@ class CurrentUserSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         fields = UserSerializer.Meta.fields + ["uploads_enabled"]
         read_only_fields = UserSerializer.Meta.read_only_fields + ["uploads_enabled"]
+
+
+class PersonalAccessTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PersonalAccessToken
+        fields = ["id", "name", "prefix", "created_at", "last_used_at", "expires_at"]
+        read_only_fields = ["id", "name", "prefix", "created_at", "last_used_at", "expires_at"]
