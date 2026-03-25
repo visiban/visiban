@@ -493,26 +493,26 @@ describe('CardDetail', () => {
 
     it('does not show move button when onMoveCard is not provided', () => {
       render(<CardDetail {...defaultProps()} />)
-      expect(screen.queryByTitle('Move card')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Move card to different column or swimlane/ })).not.toBeInTheDocument()
     })
 
     it('shows move button when onMoveCard is provided and canEdit', () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
-      expect(screen.getByTitle('Move card')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Move card to different column or swimlane/ })).toBeInTheDocument()
     })
 
     it('does not show move button for viewer even when onMoveCard provided', () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       const board = makeBoardWithTwoCols()
       render(<CardDetail {...defaultProps()} board={{ ...board, current_user_role: 'viewer' }} onMoveCard={onMoveCard} />)
-      expect(screen.queryByTitle('Move card')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Move card to different column or swimlane/ })).not.toBeInTheDocument()
     })
 
     it('clicking move button opens popover with column and swimlane selectors', async () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
-      await userEvent.setup().click(screen.getByTitle('Move card'))
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
       expect(screen.getByText('Move to')).toBeInTheDocument()
       expect(screen.getByText('Column')).toBeInTheDocument()
       expect(screen.getByText('Swimlane')).toBeInTheDocument()
@@ -521,7 +521,7 @@ describe('CardDetail', () => {
     it('Move button is disabled when current location is pre-selected', async () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
-      await userEvent.setup().click(screen.getByTitle('Move card'))
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
       // Move button disabled — card is already in the pre-selected column/swimlane
       const moveBtn = screen.getByRole('button', { name: 'Move' })
       expect(moveBtn).toBeDisabled()
@@ -530,7 +530,7 @@ describe('CardDetail', () => {
     it('clicking Cancel closes the popover', async () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
-      await userEvent.setup().click(screen.getByTitle('Move card'))
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
       expect(screen.getByText('Move to')).toBeInTheDocument()
       await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel' }))
       expect(screen.queryByText('Move to')).not.toBeInTheDocument()
@@ -540,7 +540,7 @@ describe('CardDetail', () => {
       const onMoveCard = vi.fn().mockResolvedValue(undefined)
       const board = makeBoardWithTwoCols()
       render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
-      await userEvent.setup().click(screen.getByTitle('Move card'))
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
 
       // Select "In Progress" (id 11) from the Column dropdown
       const dropdownTriggers = screen.getAllByRole('button')
@@ -562,7 +562,7 @@ describe('CardDetail', () => {
       const onMoveCard = vi.fn().mockRejectedValue(new Error('WIP limit'))
       const board = makeBoardWithTwoCols()
       render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
-      await userEvent.setup().click(screen.getByTitle('Move card'))
+      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
 
       const colTrigger = screen.getAllByRole('button').find((b) => b.textContent?.includes('To Do'))!
       await userEvent.setup().click(colTrigger)

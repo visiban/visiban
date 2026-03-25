@@ -346,7 +346,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {swimlane?.name} <span className="mx-1 text-slate-600">›</span> {column?.name}
               </p>
               {canEdit && onMoveCard && (
-                <div className="relative shrink-0">
+                <div className="relative shrink-0 group/move">
                   <button
                     onClick={() => {
                       setMoveTargetColumn(localCard.column);
@@ -354,15 +354,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       setMovePopoverError(null);
                       setShowMovePopover((v) => !v);
                     }}
-                    title="Move card"
                     className="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-slate-200 hover:bg-slate-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     aria-label="Move card to different column or swimlane"
                   >
-                    {/* Arrow right/down icon */}
+                    {/* Two-headed arrows = transfer/move-to-another-location metaphor */}
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" />
+                      <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
                     </svg>
                   </button>
+                  {/* Styled tooltip — 300ms delay on show, immediate hide */}
+                  <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover/move:opacity-100 transition-opacity delay-300 group-hover/move:delay-300">
+                    Move card
+                  </div>
                   {showMovePopover && (
                     <div className="absolute top-full right-0 mt-1 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 z-10 flex flex-col gap-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Move to</p>
