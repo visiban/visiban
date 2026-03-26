@@ -867,6 +867,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       hideDueDate={viewPrefs.hideDueDate}
                       hideAssignee={viewPrefs.hideAssignee}
                       hidePriority={viewPrefs.hidePriority}
+                      hideLastMoved={viewPrefs.hideLastMoved}
                       userTimezone={userTimezone}
                       userDateFormat={userDateFormat}
                     />

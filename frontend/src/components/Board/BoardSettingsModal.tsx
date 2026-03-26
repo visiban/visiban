@@ -30,7 +30,7 @@ interface Props {
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
-  onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority", value: boolean) => void;
+  onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority" | "hideLastMoved", value: boolean) => void;
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
 }
 
@@ -649,11 +649,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <div className="flex flex-col gap-0">
                       {(
                         [
-                          { field: "hideLabels",   label: "Labels" },
-                          { field: "hideDueDate",  label: "Due date" },
-                          { field: "hideAssignee", label: "Assignee" },
-                          { field: "hidePriority", label: "Priority badge" },
-                        ] as { field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority"; label: string }[]
+                          { field: "hideLabels",    label: "Labels" },
+                          { field: "hideDueDate",   label: "Due date" },
+                          { field: "hideAssignee",  label: "Assignee" },
+                          { field: "hidePriority",  label: "Priority badge" },
+                          { field: "hideLastMoved", label: "Last moved" },
+                        ] as { field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority" | "hideLastMoved"; label: string }[]
                       ).map(({ field, label }) => {
                         const hidden = viewPrefs[field];
                         return (
