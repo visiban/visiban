@@ -15,7 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Users can now save named filter combinations per board and restore them in one click from a "Saved" dropdown in the filter bar — saved filters are stored server-side so they persist across devices and browsers; any board member including viewer-role can manage their own private saved filters (#343)
 - Expanded sidebar now renders groups and their boards as a recursive tree — subgroups appear nested under their parent with indented chevron expand/collapse controls, and boards belonging to subgroups are shown inline under their group; the collapsed rail continues to show only top-level group icons
 - Card detail panel now includes a "Move to" button in the breadcrumb row; clicking it opens a popover to move the card to a different column and/or swimlane without closing the panel
-- Pressing Escape on the Analytics view navigates back to Summary; pressing Escape again on Summary returns to the Board view
+- Pressing Escape on the Analytics or Summary view returns directly to the Board view
 - Analytics heatmap now uses absolute threshold-based coloring: green (well under threshold), yellow (within warning %), red (at or above threshold). Both the stale threshold and warning percentage are configurable per board in Board Settings → Stale card settings.
 - New `stale_warning_pct` board setting (0–100, default 50) controls the yellow warning band in the analytics heatmap.
 - Users can now create Personal Access Tokens (PATs) from Settings → Access Tokens to authenticate API requests without a session cookie — tokens carry a `vbn_` prefix, are shown only once at creation, support an optional expiry up to one year, and are limited to 10 per user; all tokens are automatically revoked when the user changes their password.
@@ -31,6 +31,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 
 ### Fixed
+- Pressing Escape on the Analytics view now returns directly to the Board view — previously it navigated to Summary first, requiring a second Escape press (#360)
+- Added targeted regression test asserting heatmap column headers and cell values always render in `AnalyticsView`, preventing the recurring silent regression where the table disappears without failing the test suite (#361)
 - Login page and join-invite page now render an SSO button for OIDC-only installs — the OAuth section gate previously excluded OIDC from its visibility condition, so the button was never shown even when OIDC was the only configured provider; the button label uses the configured `oidc_name` value (falls back to "SSO")
 - Checking or unchecking a checklist item now immediately updates the `✓ done/total` count on the card tile in the board view — previously the count was calculated from a stale delta that could produce a wrong value or revert on rapid successive checks (#330)
 - Board columns are now expanded by default on every initial view — including imported boards, template-created boards, and newly-added columns — eliminating cases where columns appeared collapsed until a user interaction or page effect fired

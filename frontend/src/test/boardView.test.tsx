@@ -316,31 +316,20 @@ describe('BoardView', () => {
     expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
-  it('Escape from analytics view goes back to summary', async () => {
+  it('Escape from analytics view goes directly to board', async () => {
     render(<BoardView {...defaultProps()} />)
     const user = userEvent.setup()
     await user.click(screen.getByText('Analytics'))
     expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
     await user.keyboard('{Escape}')
-    expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
   })
 
   it('Escape from summary view goes back to board', async () => {
     render(<BoardView {...defaultProps()} />)
     const user = userEvent.setup()
     await user.click(screen.getByText('Summary'))
-    expect(screen.getByTestId('summary-view')).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
-  })
-
-  it('Escape from analytics goes to summary then to board on second press', async () => {
-    render(<BoardView {...defaultProps()} />)
-    const user = userEvent.setup()
-    await user.click(screen.getByText('Analytics'))
-    expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
-    await user.keyboard('{Escape}')
     expect(screen.getByTestId('summary-view')).toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
