@@ -179,6 +179,16 @@ describe('CardItem', () => {
     expect(screen.getByTitle('Weight: 5')).toBeInTheDocument()
   })
 
+  it('does not show weight when weight === 1 (backend default / unset state)', () => {
+    render(<CardItem card={makeCard({ weight: 1 })} />)
+    expect(screen.queryByTitle('Weight: 1')).not.toBeInTheDocument()
+  })
+
+  it('does not show weight when weight === 0', () => {
+    render(<CardItem card={makeCard({ weight: 0 })} />)
+    expect(screen.queryByTitle('Weight: 0')).not.toBeInTheDocument()
+  })
+
   it('shows stale indicator when is_stale is true', () => {
     const { container } = render(<CardItem card={makeCard({ is_stale: true })} />)
     expect(screen.getByTitle('Stale — no movement recently')).toBeInTheDocument()
