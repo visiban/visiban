@@ -924,7 +924,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         columns = list(board.columns.order_by("position"))
         swimlanes = list(board.swimlanes.order_by("position"))
-        last_column = columns[-1] if columns else None
+        done_column_ids = {col.id for col in columns if col.is_done}
 
         # Query 1: card count per (swimlane, column) in one shot.
         raw_counts = (
@@ -936,12 +936,12 @@ class BoardViewSet(viewsets.ModelViewSet):
         for row in raw_counts:
             counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
 
-        # Query 2: velocity per swimlane — conditional COUNT avoids two round-trips.
+        # Query 2: velocity + done_30d per swimlane using is_done columns.
         vel_by_swimlane: dict[int, dict] = {}
-        if last_column:
+        if done_column_ids:
             vel_qs = (
                 CardMovement.objects
-                .filter(card__board=board, card__archived_at__isnull=True, to_column=last_column)
+                .filter(card__board=board, card__archived_at__isnull=True, to_column_id__in=done_column_ids)
                 .values("card__swimlane_id")
                 .annotate(
                     vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),
@@ -950,10 +950,50 @@ class BoardViewSet(viewsets.ModelViewSet):
             )
             vel_by_swimlane = {r["card__swimlane_id"]: r for r in vel_qs}
 
+        # Query 3: avg cycle time per swimlane — time from first movement to first
+        # done-column entry, averaged across cards completed in the last 30d.
+        avg_cycle_by_swimlane: dict[int, float | None] = {}
+        if done_column_ids:
+            from django.db.models import Min
+            # 3a: first done-column entry per card in the last 30d.
+            done_entries = {
+                r["card_id"]: r
+                for r in CardMovement.objects
+                .filter(
+                    card__board=board,
+                    card__archived_at__isnull=True,
+                    to_column_id__in=done_column_ids,
+                    moved_at__gte=cutoff_30d,
+                )
+                .values("card_id", "card__swimlane_id")
+                .annotate(done_at=Min("moved_at"))
+            }
+            if done_entries:
+                # 3b: first movement per card (proxy for work-start) — single query.
+                start_by_card = {
+                    r["card_id"]: r["start_at"]
+                    for r in CardMovement.objects
+                    .filter(card_id__in=done_entries.keys())
+                    .values("card_id")
+                    .annotate(start_at=Min("moved_at"))
+                }
+                buckets: dict[int, list[float]] = {}
+                for card_id, entry in done_entries.items():
+                    start = start_by_card.get(card_id)
+                    done_at = entry["done_at"]
+                    if start and done_at and done_at > start:
+                        days = (done_at - start).total_seconds() / 86400
+                        buckets.setdefault(entry["card__swimlane_id"], []).append(days)
+                avg_cycle_by_swimlane = {
+                    k: round(sum(v) / len(v), 1) for k, v in buckets.items()
+                }
+
         result = []
         for swimlane in swimlanes:
             col_counts = counts.get(swimlane.id, {})
             vel = vel_by_swimlane.get(swimlane.id, {})
+            done_card_count = sum(col_counts.get(cid, 0) for cid in done_column_ids)
+            active_cards = sum(col_counts.values()) - done_card_count
             result.append({
                 "id": swimlane.id,
                 "name": swimlane.name,
@@ -962,6 +1002,9 @@ class BoardViewSet(viewsets.ModelViewSet):
                 "stage_distribution": {col.name: col_counts.get(col.id, 0) for col in columns},
                 "velocity_7d": vel.get("vel_7d", 0),
                 "velocity_30d": vel.get("vel_30d", 0),
+                "active_cards": active_cards,
+                "done_30d": vel.get("vel_30d", 0),
+                "avg_cycle_days": avg_cycle_by_swimlane.get(swimlane.id),
             })
 
         return Response({"swimlanes": result})
