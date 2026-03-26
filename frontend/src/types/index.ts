@@ -158,6 +158,9 @@ export interface Notification {
 
 export interface CardMovement {
   id: number;
+  /** Identifies the card this movement belongs to — useful in board-level history lists. */
+  card_uid: string;
+  card_title: string;
   from_column: number | null;
   from_column_name: string | null;
   from_column_uid: string;

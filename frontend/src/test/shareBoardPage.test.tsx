@@ -97,6 +97,21 @@ describe('ShareBoardPage — valid token', () => {
       expect(cards.length).toBeGreaterThan(0)
     })
   })
+
+  it('does not show stale indicator when is_stale is false', async () => {
+    renderSharePage()
+    await waitFor(() => expect(screen.getByText('Fix login bug')).toBeInTheDocument())
+    expect(screen.queryByLabelText('Stale')).not.toBeInTheDocument()
+  })
+
+  it('shows stale indicator when is_stale is true', async () => {
+    mockGetPublicBoard.mockResolvedValue({
+      ...fakeBoard,
+      cards: [{ ...fakeBoard.cards[0], is_stale: true }],
+    })
+    renderSharePage()
+    await waitFor(() => expect(screen.getByLabelText('Stale')).toBeInTheDocument())
+  })
 })
 
 describe('ShareBoardPage — expired/invalid token', () => {

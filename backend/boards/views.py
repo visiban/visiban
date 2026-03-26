@@ -18,6 +18,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 
@@ -32,6 +33,7 @@ from .models import (
     Notification, SavedFilter,
 )
 from .permissions import get_board_role, SITE_ADMIN
+from .hooks import MOVEMENT_EXPORT_BACKENDS
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     BoardTemplateSerializer,
@@ -42,6 +44,27 @@ from .serializers import (
     _card_queryset,
 )
 from .templates import BOARD_TEMPLATES
+
+
+# ---------------------------------------------------------------------------
+# Throttle classes
+# ---------------------------------------------------------------------------
+
+class ShareLinkThrottle(SimpleRateThrottle):
+    """Rate-limit unauthenticated reads of public share-link boards.
+
+    Scope 'share_link' maps to DEFAULT_THROTTLE_RATES['share_link'] in settings
+    (120/hour in production).  Keyed on client IP so the limit applies per
+    visitor, not per token.
+    """
+
+    scope = "share_link"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -294,11 +317,20 @@ class BoardViewSet(viewsets.ModelViewSet):
             board.share_token = _uuid.uuid4()
             board.save(update_fields=["share_token"])
             share_url = request.build_absolute_uri(f"/share/{board.share_token}")
-            return Response({"share_token": str(board.share_token), "share_url": share_url})
-        # DELETE
-        board.share_token = None
-        board.save(update_fields=["share_token"])
-        return Response({"share_token": None})
+            response_data = {"share_token": str(board.share_token), "share_url": share_url}
+        else:
+            # DELETE
+            board.share_token = None
+            board.save(update_fields=["share_token"])
+            response_data = {"share_token": None}
+
+        # Notify connected clients so the Sharing tab updates without a reload.
+        board_id = board.pk
+        board_summary = BoardSerializer(board, context={"request": request}).data
+        transaction.on_commit(
+            lambda: broadcast_board_event(board_id, "board.updated", board_summary)
+        )
+        return Response(response_data)
 
     @action(detail=True, methods=["post"], url_path="move-group")
     def move_group(self, request, pk=None):
@@ -1062,6 +1094,12 @@ class BoardViewSet(viewsets.ModelViewSet):
         until = request.query_params.get("until")
         if until:
             qs = qs.filter(moved_at__date__lte=until)
+
+        # Enterprise export hook: if a backend is registered and ?export=1 is
+        # set, delegate the full (unpaginated) queryset to the first backend.
+        # OSS renders no export UI when MOVEMENT_EXPORT_BACKENDS is empty.
+        if request.query_params.get("export") == "1" and MOVEMENT_EXPORT_BACKENDS:
+            return MOVEMENT_EXPORT_BACKENDS[0](board, qs, request)
 
         try:
             page_size = min(int(request.query_params.get("page_size", 50)), 200)
@@ -2113,7 +2151,7 @@ class CardViewSet(viewsets.ModelViewSet):
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         movements = card.movements.select_related(
-            "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"
+            "card", "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"
         )
         return Response(CardMovementSerializer(movements, many=True).data)
 
@@ -2543,7 +2581,7 @@ class ShareBoardView(APIView):
 
     permission_classes = []
     authentication_classes = []
-    throttle_classes = []
+    throttle_classes = [ShareLinkThrottle]
 
     def get(self, request, token):
         import uuid as _uuid

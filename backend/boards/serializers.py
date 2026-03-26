@@ -71,11 +71,19 @@ class LabelSerializer(serializers.ModelSerializer):
 
 class CardMovementSerializer(serializers.ModelSerializer):
     moved_by = UserSerializer(read_only=True)
+    # card_uid / card_title allow board-level history consumers to identify
+    # which card a movement belongs to without a secondary fetch.
+    # source="card.*" is safe because the board-level movements queryset
+    # always select_related("card"), and the card-level queryset trivially
+    # has the card available.
+    card_uid = serializers.CharField(source="card.uid", read_only=True)
+    card_title = serializers.CharField(source="card.title", read_only=True)
 
     class Meta:
         model = CardMovement
         fields = [
             "id",
+            "card_uid", "card_title",
             "from_column", "from_column_name", "from_column_uid",
             "to_column", "to_column_name", "to_column_uid",
             "from_swimlane", "from_swimlane_name", "from_swimlane_uid",
@@ -425,11 +433,17 @@ class PublicCardSerializer(serializers.ModelSerializer):
 
     Excludes comments, movement history, attachments, and any field that
     could expose PII or sensitive board-internal data.
+
+    Requires the card queryset to be built via PublicBoardSerializer.get_cards()
+    which sets up the necessary prefetches (checklist_items, movements) and
+    select_related(board) so that no per-card queries are issued.
     """
     labels = LabelSerializer(many=True, read_only=True)
     assignee = PublicAssigneeSerializer(read_only=True)
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
+    last_moved_at = serializers.SerializerMethodField()
+    is_stale = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -437,13 +451,29 @@ class PublicCardSerializer(serializers.ModelSerializer):
             "uid", "column", "swimlane", "title", "priority", "labels",
             "due_date", "weight", "position",
             "checklist_total", "checklist_done", "assignee",
+            "last_moved_at", "is_stale",
         ]
 
     def get_checklist_total(self, obj):
-        return obj.checklist_items.count()
+        # len() on a prefetched relation uses the in-memory cache; .count() does not.
+        return len(obj.checklist_items.all())
 
     def get_checklist_done(self, obj):
-        return obj.checklist_items.filter(is_checked=True).count()
+        return sum(1 for item in obj.checklist_items.all() if item.is_checked)
+
+    def get_last_moved_at(self, obj):
+        # movements are prefetched ordered by -moved_at; index [0] is the most recent.
+        movements = obj.movements.all()
+        return movements[0].moved_at if movements else None
+
+    def get_is_stale(self, obj):
+        # obj.board is available via select_related("board") in get_cards().
+        threshold = obj.board.staleness_threshold_days
+        cutoff = timezone.now() - datetime.timedelta(days=threshold)
+        movements = obj.movements.all()
+        if movements:
+            return movements[0].moved_at < cutoff
+        return (timezone.now() - obj.created_at).days >= threshold
 
 
 class PublicBoardSerializer(serializers.ModelSerializer):
@@ -460,13 +490,19 @@ class PublicBoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["uid", "name", "columns", "swimlanes", "labels", "cards"]
+        fields = ["uid", "name", "staleness_threshold_days", "columns", "swimlanes", "labels", "cards"]
 
     def get_cards(self, obj):
         qs = (
             obj.cards
             .filter(archived_at__isnull=True)
-            .select_related("assignee")
-            .prefetch_related("labels", "checklist_items")
+            .select_related("assignee", "board")
+            .prefetch_related(
+                "labels",
+                "checklist_items",
+                # Ordered newest-first so index [0] gives the most recent movement,
+                # matching the logic in get_last_moved_at / get_is_stale.
+                Prefetch("movements", queryset=CardMovement.objects.order_by("-moved_at")),
+            )
         )
         return PublicCardSerializer(qs, many=True).data

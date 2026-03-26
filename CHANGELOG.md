@@ -35,6 +35,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 
 ### Fixed
+- Public share endpoint now enforces rate limiting (120 req/hour per IP via `ShareLinkThrottle`) — previously `throttle_classes` was empty, leaving the unauthenticated endpoint unprotected against scraping (#348)
+- Public board serializer now includes `staleness_threshold_days`, `is_stale`, and `last_moved_at` on each public card using prefetched movement history — previously all three fields were missing from the share endpoint response (#348)
+- Toggling a board's share link now broadcasts a `board.updated` event to connected clients so the share token state updates in real time without a page refresh (#348)
+- `CardMovementSerializer` now exposes `card_uid` and `card_title` so the board-level history view can identify cards without secondary API calls (#342)
+- `ShareBoardPage` swimlane rows now use `<Fragment key={...}>` instead of shorthand `<>` — the shorthand syntax cannot carry a `key` prop, causing React key warnings on multi-swimlane boards (#348)
 - Pressing Escape on the Analytics view now returns directly to the Board view — previously it navigated to Summary first, requiring a second Escape press (#360)
 - Added targeted regression test asserting heatmap column headers and cell values always render in `AnalyticsView`, preventing the recurring silent regression where the table disappears without failing the test suite (#361)
 - Login page and join-invite page now render an SSO button for OIDC-only installs — the OAuth section gate previously excluded OIDC from its visibility condition, so the button was never shown even when OIDC was the only configured provider; the button label uses the configured `oidc_name` value (falls back to "SSO")

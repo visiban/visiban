@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPublicBoard } from "../api/boards";
 import type { BoardPublic, PublicCard, Column, Swimlane, Label } from "../types";
@@ -77,6 +77,13 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
                 {card.assignee.display_name}
               </span>
             )}
+            {card.is_stale && (
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 ml-auto"
+                title="Card hasn't moved recently"
+                aria-label="Stale"
+              />
+            )}
           </div>
         )}
       </div>
@@ -154,9 +161,9 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
 
         {/* Swimlane rows */}
         {swimlanes.map((lane) => (
-          <>
+          <Fragment key={lane.id}>
             {/* Swimlane label */}
-            <div key={`label-${lane.id}`} className="border-b border-r border-slate-800">
+            <div className="border-b border-r border-slate-800">
               <StaticSwimlaneSidebar swimlane={lane} />
             </div>
 
@@ -174,7 +181,7 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
                 </div>
               );
             })}
-          </>
+          </Fragment>
         ))}
       </div>
     </div>
