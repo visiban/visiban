@@ -19,7 +19,7 @@ export default function MovementHistoryView({ board }: Props) {
     setLoading(true);
     setError(false);
     getBoardMovements(board.id)
-      .then((data) => setMovements(data))
+      .then((data) => setMovements(data.results))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [board.id]);

@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardMembership, BoardTemplate, BoardPublic, Column, Swimlane, Label } from "../types";
+import type { Board, BoardFull, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label } from "../types";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -83,7 +83,7 @@ export const getBoardAnalytics = (id: number, days = 30, stalledDays?: number) =
     .then((r) => r.data);
 
 export const getBoardMovements = (boardId: number, params: Record<string, string> = {}) =>
-  client.get(`/api/boards/${boardId}/movements/`, { params }).then((r) => r.data);
+  client.get<{ results: CardMovement[]; count: number }>(`/api/boards/${boardId}/movements/`, { params }).then((r) => r.data);
 
 // Export
 export const exportBoardCsv = (boardId: number) => {
