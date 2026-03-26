@@ -38,7 +38,7 @@ from .serializers import (
     ColumnSerializer, SwimlaneSerializer, SwimlaneAdminSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
-    SavedFilterSerializer,
+    SavedFilterSerializer, PublicBoardSerializer,
     _card_queryset,
 )
 from .templates import BOARD_TEMPLATES
@@ -270,6 +270,28 @@ class BoardViewSet(viewsets.ModelViewSet):
         # change just made — the object fetched by get_object() above is stale.
         board = self.get_queryset().get(pk=board.pk)
         return Response(self.get_serializer(board).data)
+
+    @action(detail=True, methods=["post", "delete"], url_path="share")
+    def share(self, request, pk=None):
+        """Enable or revoke the public share link for a board.
+
+        POST  — generates a fresh UUID token (replaces any existing token).
+        DELETE — clears the token, immediately invalidating any live share link.
+        Both operations are admin-only; the token is a public credential.
+        """
+        import uuid as _uuid
+        board, role = get_board_for_user(pk, request.user)
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        if request.method == "POST":
+            board.share_token = _uuid.uuid4()
+            board.save(update_fields=["share_token"])
+            share_url = request.build_absolute_uri(f"/share/{board.share_token}")
+            return Response({"share_token": str(board.share_token), "share_url": share_url})
+        # DELETE
+        board.share_token = None
+        board.save(update_fields=["share_token"])
+        return Response({"share_token": None})
 
     @action(detail=True, methods=["post"], url_path="move-group")
     def move_group(self, request, pk=None):
@@ -2384,3 +2406,36 @@ class ServeMediaView(APIView):
         response["X-Accel-Redirect"] = f"/protected-media/{path}"
         response["Content-Type"] = ""
         return response
+
+
+# ---------------------------------------------------------------------------
+# Public board share-link
+# ---------------------------------------------------------------------------
+
+class ShareBoardView(APIView):
+    """GET /api/share/<token>/ — public read-only board view, no authentication required.
+
+    The UUID token is the sole credential. Returns a stripped board payload
+    (columns, swimlanes, cards, labels) with all PII removed:
+    - No user PKs or emails in assignee or any nested user object
+    - No swimlane contact_email or notes
+    - No comments, movement history, or member list
+    - No share_token in the response body
+    """
+
+    permission_classes = []
+    authentication_classes = []
+    throttle_classes = []
+
+    def get(self, request, token):
+        import uuid as _uuid
+        try:
+            token_uuid = _uuid.UUID(token)
+        except ValueError:
+            from django.http import Http404
+            raise Http404
+        board = get_object_or_404(
+            Board.objects.prefetch_related("columns", "swimlanes", "labels"),
+            share_token=token_uuid,
+        )
+        return Response(PublicBoardSerializer(board).data)

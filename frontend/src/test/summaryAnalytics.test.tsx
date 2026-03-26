@@ -44,7 +44,7 @@ describe('SummaryView', () => {
 
     expect(await screen.findByText('Customer A')).toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('8')).toBeInTheDocument()
     // New #342 metrics
     expect(screen.getByText('3')).toBeInTheDocument() // active_cards

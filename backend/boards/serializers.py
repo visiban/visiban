@@ -34,7 +34,7 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 class ColumnSerializer(serializers.ModelSerializer):
     class Meta:
         model = Column
-        fields = ["id", "uid", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation"]
+        fields = ["id", "uid", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation", "is_done"]
         read_only_fields = ["uid"]
 
 
@@ -249,13 +249,14 @@ class BoardFullSerializer(serializers.ModelSerializer):
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
     current_user_role = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
+    share_token = serializers.SerializerMethodField()
 
     class Meta:
         model = Board
         fields = [
             "id", "uid", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token",
         ]
         read_only_fields = ["uid"]
 
@@ -374,6 +375,23 @@ class BoardFullSerializer(serializers.ModelSerializer):
             return False
         return obj.favorites.filter(user=request.user).exists()
 
+    def get_share_token(self, obj):
+        """Return the share token only to board admins; return null for all other roles.
+
+        The token is a secret credential — exposing it to members/viewers would
+        let them share the board publicly without admin intent.
+        """
+        from .models import BoardMembership as BM
+        from .permissions import get_board_role, SITE_ADMIN
+        role = self.context.get("role")
+        if role is None:
+            request = self.context.get("request")
+            if request and request.user.is_authenticated:
+                role = get_board_role(request.user, obj)
+        if role in (BM.Role.ADMIN, SITE_ADMIN):
+            return str(obj.share_token) if obj.share_token else None
+        return None
+
 
 class SavedFilterSerializer(serializers.ModelSerializer):
     """Serializer for user-scoped saved filter presets on a board.
@@ -387,3 +405,68 @@ class SavedFilterSerializer(serializers.ModelSerializer):
         model = SavedFilter
         fields = ["id", "name", "state_json", "created_at"]
         read_only_fields = ["id", "created_at"]
+
+
+# ---------------------------------------------------------------------------
+# Public (unauthenticated) share-link serializers
+# ---------------------------------------------------------------------------
+
+class PublicAssigneeSerializer(serializers.Serializer):
+    """Minimal user representation for public board views — display_name only.
+
+    Intentionally omits id, username, and email to prevent PII leakage on
+    publicly accessible share-link endpoints.
+    """
+    display_name = serializers.CharField()
+
+
+class PublicCardSerializer(serializers.ModelSerializer):
+    """Read-only card representation for public share-link views.
+
+    Excludes comments, movement history, attachments, and any field that
+    could expose PII or sensitive board-internal data.
+    """
+    labels = LabelSerializer(many=True, read_only=True)
+    assignee = PublicAssigneeSerializer(read_only=True)
+    checklist_total = serializers.SerializerMethodField()
+    checklist_done = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Card
+        fields = [
+            "uid", "column", "swimlane", "title", "priority", "labels",
+            "due_date", "weight", "position",
+            "checklist_total", "checklist_done", "assignee",
+        ]
+
+    def get_checklist_total(self, obj):
+        return obj.checklist_items.count()
+
+    def get_checklist_done(self, obj):
+        return obj.checklist_items.filter(is_checked=True).count()
+
+
+class PublicBoardSerializer(serializers.ModelSerializer):
+    """Board payload served to unauthenticated share-link visitors.
+
+    Includes only the data required to render the static read-only board grid.
+    Excluded: members list, share_token, swimlane contact_email/notes,
+    card comments, card movements, and any user PK/email fields.
+    """
+    columns = ColumnSerializer(many=True, read_only=True)
+    swimlanes = SwimlaneSerializer(many=True, read_only=True)  # public variant — no contact_email/notes
+    labels = LabelSerializer(many=True, read_only=True)
+    cards = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Board
+        fields = ["uid", "name", "columns", "swimlanes", "labels", "cards"]
+
+    def get_cards(self, obj):
+        qs = (
+            obj.cards
+            .filter(archived_at__isnull=True)
+            .select_related("assignee")
+            .prefetch_related("labels", "checklist_items")
+        )
+        return PublicCardSerializer(qs, many=True).data

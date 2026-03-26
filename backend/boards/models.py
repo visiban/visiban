@@ -86,6 +86,10 @@ class Board(models.Model):
         default=True,
         help_text="When enabled, card moves into a column that would exceed its weight budget are blocked with a 409 response. Board admins can override with ?force=true.",
     )
+    share_token = models.UUIDField(
+        null=True, blank=True, default=None, editable=False, unique=True,
+        help_text="Public share token. Null means sharing is disabled. Never set directly — use the share action.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -143,6 +147,10 @@ class Column(models.Model):
     wip_limit = models.IntegerField(null=True, blank=True)
     weight_limit = models.IntegerField(null=True, blank=True)
     allow_card_creation = models.BooleanField(default=False)
+    is_done = models.BooleanField(
+        default=False,
+        help_text="Columns marked as done are used as completion targets for cycle-time and throughput metrics.",
+    )
 
     class Meta:
         db_table = "columns"

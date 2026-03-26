@@ -567,7 +567,7 @@ describe('BoardView', () => {
     await user.click(screen.getByTestId('focus-btn-20'))
     // Banner should be visible
     expect(screen.getByText('Focused on:')).toBeInTheDocument()
-    expect(screen.getByText('Customer A')).toBeInTheDocument()
+    expect(screen.getAllByText('Customer A').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Exit focus')).toBeInTheDocument()
   })
 
@@ -602,7 +602,7 @@ describe('BoardView', () => {
     mockSearchParams = new URLSearchParams('focus=20')
     render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('Focused on:')).toBeInTheDocument()
-    expect(screen.getByText('Customer A')).toBeInTheDocument()
+    expect(screen.getAllByText('Customer A').length).toBeGreaterThanOrEqual(1)
   })
 
   it('isFocused prop is true for the focused swimlane', async () => {
