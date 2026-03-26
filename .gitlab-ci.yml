@@ -366,7 +366,7 @@ changelog-check:
         '^\.gitlab(-ci\.yml|/)' \
         || true)
       MEANINGFUL=$(echo "$MEANINGFUL" | grep -Ev \
-        '^(docs/|README|CLAUDE\.md|\.gitignore|Makefile|scripts/)' \
+        '^(docs/|README|CLAUDE\.md|\.gitignore|Makefile|scripts/|mkdocs\.yml)' \
         || true)
       MEANINGFUL=$(echo "$MEANINGFUL" | grep -Ev \
         '\.(md|sh)$' \

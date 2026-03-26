@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 ### Added
+- New `docs/administration/authentication.md` page documents all supported authentication methods (OAuth providers, Generic OIDC, SAML) with a **Tech Preview** callout on the OIDC section — configuration plumbing is shipped but end-to-end login against a real identity provider is unvalidated
+- New `docs/architecture/open-core-boundary.md` page records the canonical OSS vs enterprise classification for every feature area decided through pre-1.0 planning, including the full extension point registry for enterprise integrations
 - Generic OIDC authentication is now configurable via three environment variables (`OIDC_CLIENT_ID`, `OIDC_SECRET`, `OIDC_SERVER_URL`); the provider is only registered when all three are set, preventing startup errors on partial configuration; an optional `OIDC_PROVIDER_NAME` variable controls the login button label (default "SSO") (#349)
 - Expanded sidebar now renders groups and their boards as a recursive tree — subgroups appear nested under their parent with indented chevron expand/collapse controls, and boards belonging to subgroups are shown inline under their group; the collapsed rail continues to show only top-level group icons
 - Card detail panel now includes a "Move to" button in the breadcrumb row; clicking it opens a popover to move the card to a different column and/or swimlane without closing the panel
