@@ -150,3 +150,47 @@ class CardMoveBroadcastRollbackTests(TransactionTestCase):
 
         # The on_commit callback should NOT have fired because the transaction rolled back.
         self.assertEqual(broadcast_calls, [])
+
+
+class HardWipBroadcastTests(TestCase):
+    """Verify that a hard-blocked move does not emit any broadcast event (#341).
+
+    The 409 response is returned before a CardMovement is created, so the
+    on_commit handler that broadcasts card.moved is never registered.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="hardwiptester", password="pass")
+        self.client.force_authenticate(self.user)
+        self.board = Board.objects.create(
+            name="Hard WIP Broadcast Board",
+            owner=self.user,
+            enforce_wip_hard=True,
+        )
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+        self.col_a = Column.objects.create(board=self.board, name="Backlog", position=0)
+        self.col_b = Column.objects.create(board=self.board, name="In Progress", position=1, wip_limit=1)
+        self.swim = Swimlane.objects.create(board=self.board, name="Acme", position=0)
+        # Fill col_b to its limit so the next move will be hard-blocked.
+        Card.objects.create(
+            board=self.board, column=self.col_b, swimlane=self.swim,
+            title="Blocker", created_by=self.user, position=0,
+        )
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Moving Card", created_by=self.user, position=0,
+        )
+
+    def test_no_broadcast_on_hard_blocked_move(self):
+        """No broadcast fires when a move is rejected by hard WIP enforcement."""
+        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.post(
+                    f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+                    {"column_id": self.col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
+                )
+            self.assertEqual(resp.status_code, 409)
+            self.assertEqual(resp.json()["code"], "wip_hard_blocked")
+            # The view must have returned before registering any on_commit broadcast.
+            mock_broadcast.assert_not_called()

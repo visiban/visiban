@@ -74,6 +74,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   const [stalenessThreshold, setStalenessThreshold] = useState(board.staleness_threshold_days ?? 14);
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
+  // Inline confirmation before enabling hard WIP mode — mirrors the member-removal confirm pattern.
+  const [pendingHardWip, setPendingHardWip] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -417,6 +419,50 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       className="w-4 h-4 rounded accent-blue-500 shrink-0"
                     />
                   </label>
+                  {/* Hard WIP mode — visually subordinated under the soft enforcement toggle */}
+                  <div className="ml-6 border-l-2 border-slate-700 pl-4 py-2 border-b border-slate-700/60">
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0 pr-4">
+                        <span className="text-sm text-slate-300">Hard mode (no admin override)</span>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Hard mode is active regardless of whether soft enforcement is on. When enabled, no one — including admins — can override a WIP block.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={board.enforce_wip_hard}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            // Require inline confirmation before enabling hard mode.
+                            setPendingHardWip(true);
+                          } else {
+                            onUpdateBoardSettings({ enforce_wip_hard: false });
+                          }
+                        }}
+                        className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                      />
+                    </div>
+                    {pendingHardWip && (
+                      <div className="mt-1.5 flex items-center gap-2 text-xs">
+                        <span className="text-slate-400">Enable hard mode? No one — including admins — will be able to bypass WIP limits.</span>
+                        <button
+                          onClick={() => {
+                            onUpdateBoardSettings({ enforce_wip_hard: true });
+                            setPendingHardWip(false);
+                          }}
+                          className="text-red-400 hover:text-red-300 font-medium transition"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setPendingHardWip(false)}
+                          className="text-slate-400 hover:text-slate-200 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <label className="flex items-center justify-between py-2 border-b border-slate-700/60 cursor-pointer">
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-slate-200">Enforce weight limits</span>
@@ -436,7 +482,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 <section>
                   <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Limit enforcement</h3>
                   <div className="flex flex-col gap-1 py-1">
-                    <p className="text-sm text-slate-300">WIP limits: {board.enforce_wip_limits ? "enforced" : "informational only"}</p>
+                    <p className="text-sm text-slate-300">
+                      WIP limits:{" "}
+                      {board.enforce_wip_hard
+                        ? "enforced (no override)"
+                        : board.enforce_wip_limits
+                          ? "enforced"
+                          : "informational only"}
+                    </p>
                     <p className="text-sm text-slate-300">Weight limits: {board.enforce_weight_limits ? "enforced" : "informational only"}</p>
                   </div>
                 </section>

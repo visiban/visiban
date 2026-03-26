@@ -22,7 +22,7 @@ function makeBoard(id: number, group: number | null = null): Board {
     id, uid: `uid${id}`, name: `Board ${id}`, description: '', owner: fakeUser,
     group, group_name: group !== null ? `Group ${group}` : null,
     member_count: 0, card_count: 0, staleness_threshold_days: 7,
-    stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false,
+    stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false,
     enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '',
   }
 }

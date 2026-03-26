@@ -1813,8 +1813,9 @@ class CardViewSet(viewsets.ModelViewSet):
         # concurrent moves from racing past either check. A single lock covers
         # both WIP and weight enforcement; acquiring it twice on the same row
         # would be a redundant round-trip.
+        wip_enforced = board.enforce_wip_limits or board.enforce_wip_hard
         if column_changed and (
-            (board.enforce_wip_limits and target_column.wip_limit is not None)
+            (wip_enforced and target_column.wip_limit is not None)
             or (board.enforce_weight_limits and target_column.weight_limit is not None)
         ):
             Column.objects.select_for_update().get(pk=target_column.pk)
@@ -1822,13 +1823,31 @@ class CardViewSet(viewsets.ModelViewSet):
         # WIP limit enforcement — only checked when the card is entering a different
         # column (pure swimlane moves within the same column also count). Pure
         # position reorders within the same column+swimlane are exempt.
-        if board.enforce_wip_limits and column_changed and target_column.wip_limit is not None:
+        #
+        # Hard mode (enforce_wip_hard) is independent of soft enforcement
+        # (enforce_wip_limits): it activates even when soft mode is off, and no
+        # force-override is accepted — not even from board admins. Hard mode
+        # must be checked BEFORE the ?force param is evaluated so the admin
+        # override path cannot be entered when hard mode is active.
+        if wip_enforced and column_changed and target_column.wip_limit is not None:
             wip_count = (
                 Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
                 .exclude(pk=card.pk)
                 .count()
             )
             if wip_count >= target_column.wip_limit:
+                if board.enforce_wip_hard:
+                    # Hard block: no bypass for any role. Return before reading
+                    # the ?force param so the force path is never reachable.
+                    return Response(
+                        {
+                            "code": "wip_hard_blocked",
+                            "column_name": target_column.name,
+                            "current_count": wip_count,
+                            "wip_limit": target_column.wip_limit,
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
                 force = request.query_params.get("force", "").lower() == "true"
                 if force:
                     # Only board admins and site admins may force past the limit.

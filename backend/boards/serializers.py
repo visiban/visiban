@@ -211,7 +211,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_weight_limits", "created_at", "updated_at", "is_starred"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "is_starred"]
         read_only_fields = ["uid", "created_at", "updated_at"]
 
     def validate_stale_warning_pct(self, value):
@@ -255,7 +255,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         fields = [
             "id", "uid", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred",
         ]
         read_only_fields = ["uid"]
 

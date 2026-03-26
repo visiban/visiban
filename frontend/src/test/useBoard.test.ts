@@ -52,7 +52,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     labels: [],
     members: [],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
-    enforce_wip_limits: false, enforce_weight_limits: false,
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
     is_starred: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
@@ -371,5 +371,70 @@ describe('useBoard', () => {
     await waitFor(() => {
       expect(result.current.board!.name).toBe('Reloaded')
     })
+  })
+
+  // ─── Hard-block 409 (#341) ────────────────────────────────────────────────
+
+  it('moveCard sets moveError on 409 wip_hard_blocked and rolls back', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          code: 'wip_hard_blocked',
+          column_name: 'In Progress',
+          current_count: 3,
+          wip_limit: 3,
+        },
+      },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    // Card must be rolled back to original column
+    expect(result.current.board!.cards[0].column).toBe(10)
+    // moveError must reflect the hard block code
+    expect(result.current.moveError).toEqual({
+      code: 'wip_hard_blocked',
+      column_name: 'In Progress',
+      current_count: 3,
+      wip_limit: 3,
+    })
+  })
+
+  it('forceMoveCard is a no-op after a hard-block (pendingMove is never set)', async () => {
+    // After a hard-block, forceMoveCard must not call the API again because
+    // pendingMove is null. We verify this by checking that moveCard was only
+    // called once (for the initial move) and not a second time via forceMoveCard.
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: {
+        status: 409,
+        data: { code: 'wip_hard_blocked', column_name: 'In Progress', current_count: 3, wip_limit: 3 },
+      },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    mockMoveCard.mockClear()
+
+    // forceMoveCard should be a no-op — pendingMove was never set
+    await act(async () => {
+      await result.current.forceMoveCard()
+    })
+
+    expect(mockMoveCard).not.toHaveBeenCalled()
   })
 })

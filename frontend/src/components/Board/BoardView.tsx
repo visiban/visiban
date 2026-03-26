@@ -803,6 +803,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                     abbreviation={columnAbbreviations.get(col.id)}
                     width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
+                    hardWipEnforced={board.enforce_wip_hard}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}

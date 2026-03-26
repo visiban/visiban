@@ -221,6 +221,7 @@ export interface Board {
   stale_warning_pct: number;
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
+  enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
   is_starred: boolean;
   created_at: string;
@@ -243,6 +244,7 @@ export interface BoardFull {
   stale_warning_pct: number;
   allowed_priorities: Priority[];
   enforce_wip_limits: boolean;
+  enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
   is_starred: boolean;
   created_at: string;

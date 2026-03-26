@@ -17,9 +17,10 @@ interface Props {
   abbreviation?: string;
   width?: number;
   onToggleCollapse: () => void;
+  hardWipEnforced?: boolean;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -169,8 +170,11 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
             {column.wip_limit !== null && (
               <span
                 className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
-                title="Cards in column / WIP limit"
+                title={hardWipEnforced ? "WIP hard limit — no override possible" : "Cards in column / WIP limit"}
               >
+                {hardWipEnforced && (
+                  <span className={overWip ? "text-red-400" : "text-slate-500"}>⛔ </span>
+                )}
                 WIP{" "}
                 <span className={`font-semibold ${overWip ? "text-red-400" : "text-slate-300"}`}>
                   {cardCount}/{column.wip_limit}
