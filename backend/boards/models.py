@@ -276,7 +276,17 @@ class CardMovement(models.Model):
     movement history. The corresponding *_name fields are denormalized copies of
     the names at write time, ensuring the human-readable history is preserved
     even after the referenced column/swimlane is deleted.
+
+    The movement_type field distinguishes regular moves from archive/restore
+    system events. This allows history consumers to filter out system events
+    (e.g. exclude_type=archived,unarchived) and focus on workflow transitions.
     """
+
+    class MovementType(models.TextChoices):
+        MOVE = "move", "Move"
+        ARCHIVED = "archived", "Archived"
+        UNARCHIVED = "unarchived", "Unarchived"
+
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="movements")
     from_column = models.ForeignKey(
         Column, on_delete=models.SET_NULL, null=True, related_name="+"
@@ -304,8 +314,13 @@ class CardMovement(models.Model):
     moved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )
-    moved_at = models.DateTimeField(auto_now_add=True)
+    moved_at = models.DateTimeField(auto_now_add=True, db_index=True)
     notes = models.CharField(max_length=500, blank=True)
+    movement_type = models.CharField(
+        max_length=20,
+        choices=MovementType.choices,
+        default=MovementType.MOVE,
+    )
 
     class Meta:
         db_table = "card_movements"

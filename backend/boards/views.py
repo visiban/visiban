@@ -1461,7 +1461,7 @@ class BoardViewSet(viewsets.ModelViewSet):
           - ``moved_after`` (ISO date): include movements on or after this date.
           - ``moved_before`` (ISO date): include movements on or before this date.
           - ``exclude_type`` (comma-separated): movement_type values to exclude
-            (e.g. ``archived,restored`` hides system events).
+            (e.g. ``archived,unarchived`` hides system events).
           - ``offset`` (int, default 0): pagination offset.
 
         Defaults to the last 30 days when no date params are provided.
@@ -1987,7 +1987,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     to_swimlane_name=card.swimlane.name if card.swimlane else "",
                     to_swimlane_uid=card.swimlane.uid if card.swimlane else "",
                     moved_by=request.user,
-                    movement_type=CardMovement.MovementType.RESTORED,
+                    movement_type=CardMovement.MovementType.UNARCHIVED,
                 )
             transaction.on_commit(lambda: broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
         return Response(CardSerializer(
