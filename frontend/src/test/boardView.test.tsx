@@ -121,6 +121,15 @@ vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
 vi.mock('../components/Board/BulkActionToolbar', () => ({
   default: () => <div data-testid="bulk-toolbar">Bulk Actions</div>,
 }))
+vi.mock('../hooks/useSavedFilters', () => ({
+  useSavedFilters: () => ({
+    savedFilters: [],
+    loading: false,
+    saveFilter: vi.fn(),
+    removeFilter: vi.fn(),
+    hydrateFilter: vi.fn(),
+  }),
+}))
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
