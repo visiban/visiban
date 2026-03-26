@@ -82,10 +82,12 @@ nav:
     - Overview: architecture/overview.md
     - Data Model: architecture/data-model.md
     - Deployment: architecture/deployment.md
+    - Open-Core Boundary: architecture/open-core-boundary.md
   - Administration:
     - administration/index.md
     - Site Admins: administration/site-admins.md
     - Admin Panel: administration/admin-panel.md
+    - Authentication: administration/authentication.md
     - Demo Data: administration/demo-data.md
     - Django Admin: administration/django-admin.md
     - Media Storage Security: administration/media-security.md
