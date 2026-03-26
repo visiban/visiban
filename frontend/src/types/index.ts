@@ -316,3 +316,10 @@ export interface GroupInviteLink {
   is_expired: boolean;
   created_at: string;
 }
+
+export interface SavedFilter {
+  id: number;
+  name: string;
+  state_json: Record<string, unknown>;
+  created_at: string;
+}
