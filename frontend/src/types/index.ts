@@ -81,6 +81,7 @@ export interface Column {
   wip_limit: number | null;
   weight_limit: number | null;
   allow_card_creation: boolean;
+  is_done?: boolean;
 }
 
 export interface Swimlane {
@@ -324,4 +325,39 @@ export interface SavedFilter {
   name: string;
   state_json: Record<string, unknown>;
   created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Public share-link types (unauthenticated board view)
+// ---------------------------------------------------------------------------
+
+export interface PublicAssignee {
+  display_name: string;
+}
+
+export interface PublicCard {
+  uid: string;
+  column: number;
+  swimlane: number;
+  title: string;
+  priority: Priority;
+  labels: Label[];
+  due_date: string | null;
+  weight: number;
+  position: number;
+  checklist_total: number;
+  checklist_done: number;
+  assignee: PublicAssignee | null;
+  last_moved_at: string | null;
+  is_stale: boolean;
+}
+
+export interface BoardPublic {
+  uid: string;
+  name: string;
+  staleness_threshold_days: number;
+  columns: Column[];
+  swimlanes: Swimlane[];
+  labels: Label[];
+  cards: PublicCard[];
 }
