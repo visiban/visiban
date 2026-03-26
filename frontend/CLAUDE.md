@@ -78,6 +78,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Consistent padding: `p-6` for content, `pb-4` for header
 - Close button: icon-only variant, top-right corner
 - **Fixed-height tabbed modals** — when a modal contains tabs with variable content height, give the panel a fixed height (`h-[85vh] max-h-[640px] min-h-0`) rather than only a max-height. This prevents layout jumping between tabs. The scrollable content region uses `overflow-y-auto flex-1` and the panel uses `flex flex-col`. Never use `max-h` alone on a tabbed modal panel.
+- **Inline confirmation for destructive toggles** — for settings toggles that have immediate, board-wide, non-reversible effects (e.g. enabling hard WIP enforcement), show an inline confirmation row before committing the change. On toggle click, replace the toggle row with a text prompt + Confirm + Cancel text buttons at `text-xs` scale (reuse the member-removal confirm pattern in `BoardSettingsModal`). On Cancel, revert the toggle. Do not use a modal-within-modal or a danger-zone text input for toggle-level confirmations.
 
 ## Badges and labels
 
@@ -291,9 +292,10 @@ When an action button is hidden until hover (`opacity-0 group-hover:opacity-100`
 ## Move-blocked toast (MoveBlockedToast)
 
 - **Use `MoveBlockedToast` for all card move constraint violations** — WIP limit, weight limit, or any future column constraint. Never add a second inline toast block in `App.tsx`.
-- **Always amber** — `border-amber-600 / text-amber-400`. Do not introduce a second color for a different limit type; severity is identical across all constraint violations.
+- **Always amber** — `border-amber-600 / text-amber-400`. Do not introduce a second color for a different limit type; severity is communicated via icon, not color.
 - **Always show three things**: what was blocked (column name), why (with numbers), and an admin override link when `isAdmin` is true.
 - **Admin override link**: `text-xs text-amber-400 hover:text-amber-200 underline transition` — never a button with background fill.
+- **Hard-block variant** (`error.code === "wip_hard_blocked"`): use `⛔` as the toast icon instead of `⚠`. This is the only permitted way to signal severity difference between soft and hard constraint blocks — do not change the amber color. Omit the admin override link for all roles. Add a `text-xs text-slate-400` resolution line: "To unblock, move a card out of [column], or ask an admin to raise the WIP limit."
 
 ## Collapsed sidebar rail
 
@@ -351,6 +353,50 @@ The expanded sidebar renders groups and their boards as a recursive tree. Rules:
 - **User-scoped keys:** `user:prefs:{pref-name}` — for preferences that apply across all boards (reading habits, display toggles)
 
 Each key in either namespace requires a `load()` function with try/catch + fallback-to-default, and a `save()` function that fails silently.
+
+## Mode indicator banners
+
+When a persistent board-wide mode is active (e.g. focus mode, a future "view-only" lock), render a full-width strip between the filter row and the scroll container. The strip must sit **outside** the scroll container so it does not scroll away.
+
+- Style: `bg-blue-600/15 border-b border-blue-500/40 px-4 py-2 flex items-center gap-3 text-sm text-blue-300 transition-opacity duration-150`
+- Use `bg-blue-600/15` to signal "active mode" — distinct from transient toast notices (`bg-slate-700/80`) and warnings (amber)
+- Exit controls within the strip use the **secondary button variant** (`text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded text-xs shrink-0 focus:ring-2 focus:ring-blue-500`) — never the primary variant
+- Mode name or target label: `font-medium text-blue-200 truncate max-w-[24rem]` with `flex-shrink-0` on the exit button
+
+## Common dropdown primitives
+
+`SingleSelectDropdown` and `CheckboxDropdown` live in `src/components/Common/`. Do not re-implement these inline in feature components. Both follow the dropdown menu spec (trigger: `bg-slate-800 border rounded px-2 py-1`, active/filtered state: `border-blue-400 text-blue-400`). Any new component that needs a select or checkbox dropdown must import from `Common`, never duplicate inline.
+
+## Summary and analytics table layout
+
+- Any table in a Summary or Analytics view that may exceed the viewport width must **pin its first column** sticky-left: `sticky left-0 bg-slate-900` (matching the column's own background token)
+- New metric columns grouped under a common section must use a two-row `<thead>`: first row `colspan` spanning the group with a `text-xs text-slate-500 uppercase tracking-wide` group label, second row with individual headers
+- Numeric metric cells: `font-mono text-slate-300`; zero or null values render `—` in `text-slate-500`, never `0`
+
+## System event visual treatment in timeline views
+
+Apply this consistently in `CardMovementTimeline` and `MovementHistoryView`:
+
+| Event type | Timeline dot | Card left border |
+|---|---|---|
+| Column move | `bg-blue-500` | none |
+| Activity (comment, assign) | `bg-slate-500` | none |
+| Archived | `bg-slate-600` | `border-l-2 border-slate-600` |
+| Reactivated (restored) | `bg-violet-500` | `border-l-2 border-violet-500` |
+
+- System event label text (`text-slate-400 italic` for "Archived", `text-violet-400` for "Reactivated") is visually distinct from column-move text (`text-slate-300 font-medium`)
+- Do not collapse system events by default — Jordan's audit trail use case requires them visible
+
+## Read-only mode for interactive components
+
+Any component that calls `useDraggable`, `useSortable`, or registers interactive event handlers must accept a `readOnly?: boolean` prop. When `readOnly={true}`:
+
+- Skip the DnD hook call entirely (avoids errors when the component is rendered outside a `DndContext`)
+- Replace `cursor-grab` with `cursor-default`
+- Remove `hover:-translate-y-0.5` and any other drag-affordance hover effects
+- Turn `onClick` into a no-op (or omit the handler entirely)
+
+This applies to `CardItem` and any future draggable component used in unauthenticated or view-only contexts (e.g. share board page, print view).
 
 ## Card metadata row coexistence
 

@@ -19,11 +19,11 @@ export default function LoginPage({ onLogin }: Props) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean } | null>(null);
+  const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
 
   useEffect(() => {
-    getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false }));
+    getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null }));
     getSiteConfig().then((c) => setRegistrationOpen(c.registration_open)).catch(() => setRegistrationOpen(true));
   }, []);
 
@@ -124,7 +124,7 @@ export default function LoginPage({ onLogin }: Props) {
         </form>
 
         {/* OAuth buttons — only shown when credentials are configured */}
-        {providers && (providers.google || providers.github || providers.gitlab) && (
+        {providers && (providers.google || providers.github || providers.gitlab || providers.oidc) && (
           <>
             <div className="flex items-center gap-3 mb-5">
               <div className="flex-1 h-px bg-slate-600" />
@@ -157,6 +157,14 @@ export default function LoginPage({ onLogin }: Props) {
                 >
                   <GitLabIcon />
                   Continue with GitLab
+                </a>
+              )}
+              {providers.oidc && (
+                <a
+                  href={`${API}/accounts/oidc/login/?process=login`}
+                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Continue with {providers.oidc_name ?? "SSO"}
                 </a>
               )}
             </div>

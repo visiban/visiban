@@ -27,12 +27,14 @@ import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
 import FilterBar, { countActiveFilters } from "./FilterBar";
+import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
+import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 
@@ -213,6 +215,13 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const { filters, setFilters } = usePersistedFilters(board.id);
+  const {
+    savedFilters,
+    loading: savedFiltersLoading,
+    saveFilter,
+    removeFilter,
+    hydrateFilter,
+  } = useSavedFilters(board.id);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -710,7 +719,16 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
       {/* Filter row — own row so it doesn't compress the toolbar */}
       {showFilters && (
-        <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
+        <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 flex items-center gap-2 flex-wrap">
+          <SavedFiltersDropdown
+            boardId={board.id}
+            filters={filters}
+            savedFilters={savedFilters}
+            loading={savedFiltersLoading}
+            onLoad={(sf) => setFilters(hydrateFilter(sf))}
+            onSave={(name) => saveFilter(name, filters)}
+            onDelete={removeFilter}
+          />
           <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />
         </div>
       )}

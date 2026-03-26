@@ -31,7 +31,7 @@ function renderLoginPage(locationState?: Record<string, unknown>) {
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
     mockGetSiteConfig.mockResolvedValue({ registration_open: true })
   })
 
@@ -116,7 +116,7 @@ describe('LoginPage', () => {
   })
 
   it('shows OAuth buttons when providers are available', async () => {
-    mockGetAuthProviders.mockResolvedValue({ google: true, github: true, gitlab: false })
+    mockGetAuthProviders.mockResolvedValue({ google: true, github: true, gitlab: false, oidc: false, oidc_name: null })
     renderLoginPage()
 
     expect(await screen.findByText('Continue with Google')).toBeInTheDocument()
@@ -185,5 +185,17 @@ describe('LoginPage', () => {
 
     // "Create one" link should still be present (fail open)
     expect(await screen.findByText('Create one')).toBeInTheDocument()
+  })
+
+  it('shows SSO button when oidc provider is enabled', async () => {
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: null })
+    renderLoginPage()
+    expect(await screen.findByText('Continue with SSO')).toBeInTheDocument()
+  })
+
+  it('shows OIDC provider name when oidc_name is set', async () => {
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: 'Acme Corp' })
+    renderLoginPage()
+    expect(await screen.findByText('Continue with Acme Corp')).toBeInTheDocument()
   })
 })

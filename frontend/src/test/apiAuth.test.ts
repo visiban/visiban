@@ -62,7 +62,7 @@ describe('auth API', () => {
   })
 
   it('getAuthProviders calls GET /api/auth/providers/', async () => {
-    const providers = { google: true, github: false, gitlab: false }
+    const providers = { google: true, github: false, gitlab: false, oidc: false, oidc_name: null }
     mockGet.mockResolvedValue({ data: providers })
     const result = await getAuthProviders()
     expect(mockGet).toHaveBeenCalledWith('/api/auth/providers/')

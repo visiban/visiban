@@ -45,7 +45,7 @@ function renderJoinPage(user: User | null = fakeUser, token = 'abc123') {
 describe('JoinPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
   })
 
   it('shows loading state initially', () => {
@@ -82,7 +82,7 @@ describe('JoinPage', () => {
 
   it('does not show social login buttons when no providers are configured', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
-    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
     renderJoinPage(null)
     await screen.findByText('Create an account')
     expect(screen.queryByText('Continue with Google')).not.toBeInTheDocument()
@@ -92,7 +92,7 @@ describe('JoinPage', () => {
 
   it('shows Google button when Google provider is configured', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
-    mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false })
+    mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false, oidc: false, oidc_name: null })
     renderJoinPage(null)
     expect(await screen.findByText('Continue with Google')).toBeInTheDocument()
     expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
@@ -100,7 +100,7 @@ describe('JoinPage', () => {
 
   it('shows GitHub and GitLab buttons when those providers are configured', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
-    mockGetAuthProviders.mockResolvedValue({ google: false, github: true, gitlab: true })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: true, gitlab: true, oidc: false, oidc_name: null })
     renderJoinPage(null)
     expect(await screen.findByText('Continue with GitHub')).toBeInTheDocument()
     expect(screen.getByText('Continue with GitLab')).toBeInTheDocument()
@@ -155,5 +155,19 @@ describe('JoinPage', () => {
     renderJoinPage(fakeUser)
     fireEvent.click(await screen.findByText('Join Engineering'))
     expect(await screen.findByText('Failed to join group. The invite may have expired.')).toBeInTheDocument()
+  })
+
+  it('shows SSO button when oidc provider is enabled', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: null })
+    renderJoinPage(null)
+    expect(await screen.findByText('Continue with SSO')).toBeInTheDocument()
+  })
+
+  it('shows OIDC provider name when oidc_name is set', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: true, oidc_name: 'Acme Corp' })
+    renderJoinPage(null)
+    expect(await screen.findByText('Continue with Acme Corp')).toBeInTheDocument()
   })
 })

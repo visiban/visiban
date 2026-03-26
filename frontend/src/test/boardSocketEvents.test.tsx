@@ -80,6 +80,15 @@ vi.mock('../components/Board/FilterBar', () => ({
 }))
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BulkActionToolbar', () => ({ default: () => <div /> }))
+vi.mock('../hooks/useSavedFilters', () => ({
+  useSavedFilters: () => ({
+    savedFilters: [],
+    loading: false,
+    saveFilter: vi.fn(),
+    removeFilter: vi.fn(),
+    hydrateFilter: vi.fn(),
+  }),
+}))
 
 // ---------------------------------------------------------------------------
 // Fixtures
