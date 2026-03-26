@@ -12,6 +12,7 @@ export interface ViewPrefs {
   hideDueDate: boolean;
   hideAssignee: boolean;
   hidePriority: boolean;
+  hideLastMoved: boolean;
 }
 
 const DEFAULT_PREFS: ViewPrefs = {
@@ -25,6 +26,7 @@ const DEFAULT_PREFS: ViewPrefs = {
   hideDueDate: false,
   hideAssignee: false,
   hidePriority: false,
+  hideLastMoved: false,
 };
 
 function storageKey(boardId: number): string {
@@ -47,6 +49,7 @@ function load(boardId: number): ViewPrefs {
       hideDueDate: typeof parsed.hideDueDate === "boolean" ? parsed.hideDueDate : false,
       hideAssignee: typeof parsed.hideAssignee === "boolean" ? parsed.hideAssignee : false,
       hidePriority: typeof parsed.hidePriority === "boolean" ? parsed.hidePriority : false,
+      hideLastMoved: typeof parsed.hideLastMoved === "boolean" ? parsed.hideLastMoved : false,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -147,7 +150,7 @@ export function useViewPrefs(boardId: number) {
   );
 
   const setCardFieldPref = useCallback(
-    (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority", value: boolean) => {
+    (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority" | "hideLastMoved", value: boolean) => {
       setPrefs((prev) => ({ ...prev, [field]: value }));
     },
     [setPrefs],

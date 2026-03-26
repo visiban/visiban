@@ -22,12 +22,13 @@ interface Props {
   hideDueDate?: boolean;
   hideAssignee?: boolean;
   hidePriority?: boolean;
+  hideLastMoved?: boolean;
   userTimezone?: string;
   userDateFormat?: string;
   width?: number;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat, width }: Props) {
+export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -78,6 +79,7 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
               hideDueDate={hideDueDate}
               hideAssignee={hideAssignee}
               hidePriority={hidePriority}
+              hideLastMoved={hideLastMoved}
               userTimezone={userTimezone}
               userDateFormat={userDateFormat}
             />

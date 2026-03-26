@@ -3,7 +3,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
-import { formatDueDate } from "../../utils/date";
+import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
 
 
 
@@ -18,11 +18,12 @@ interface Props {
   hideDueDate?: boolean;
   hideAssignee?: boolean;
   hidePriority?: boolean;
+  hideLastMoved?: boolean;
   userTimezone?: string;
   userDateFormat?: string;
 }
 
-export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone = "", userDateFormat = "MM/DD/YYYY" }: Props) {
+export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY" }: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
   const [hovered, setHovered] = useState(false);
 
@@ -31,6 +32,8 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
     : false;
 
   const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone, userDateFormat) : null;
+  // Show a text label for cards moved ≥24h ago; the blue dot (isRecent) handles the <24h case
+  const movedLabel = (!hideLastMoved && !isRecent) ? formatRelativeMovedAt(card.last_moved_at, userDateFormat) : null;
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
 
   const hasMetadata =
@@ -43,6 +46,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
     card.weight > 1 ||
     card.is_stale ||
     isRecent ||
+    !!movedLabel ||
     (!hidePriority && card.priority !== "low");
 
   return (
@@ -165,9 +169,14 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
               <span title="Stale — no movement recently" className="text-amber-400 text-[10px] leading-none shrink-0">⏱</span>
             )}
 
-            {/* Recently moved dot — visible on hover only */}
+            {/* Recently moved dot — visible on hover only (<24h) */}
             {isRecent && !card.is_stale && (
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" title="Recently moved" />
+            )}
+
+            {/* Last-moved text label — for cards moved ≥24h ago */}
+            {movedLabel && (
+              <span className="text-[10px] text-slate-500 shrink-0">{movedLabel}</span>
             )}
 
             {/* Priority badge — always visible for medium and above */}

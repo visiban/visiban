@@ -39,11 +39,12 @@ interface Props {
   hideDueDate?: boolean;
   hideAssignee?: boolean;
   hidePriority?: boolean;
+  hideLastMoved?: boolean;
   userTimezone?: string;
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat }: Props) {
   const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -316,6 +317,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 hideDueDate={hideDueDate}
                 hideAssignee={hideAssignee}
                 hidePriority={hidePriority}
+                hideLastMoved={hideLastMoved}
                 userTimezone={userTimezone}
                 userDateFormat={userDateFormat}
                 width={cellWidth}
