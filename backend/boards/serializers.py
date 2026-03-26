@@ -9,7 +9,7 @@ from accounts.serializers import UserSerializer
 
 from .models import (
     Board, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card, CardMovement,
-    CardComment, CardActivity, CardAttachment, CardChecklist,
+    CardComment, CardActivity, CardAttachment, CardChecklist, SavedFilter,
 )
 
 
@@ -373,3 +373,17 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.favorites.filter(user=request.user).exists()
+
+
+class SavedFilterSerializer(serializers.ModelSerializer):
+    """Serializer for user-scoped saved filter presets on a board.
+
+    ``state_json`` is accepted as-is from the frontend and returned unchanged;
+    schema validation is the frontend's responsibility since the filter shape
+    evolves independently of the API contract.
+    """
+
+    class Meta:
+        model = SavedFilter
+        fields = ["id", "name", "state_json", "created_at"]
+        read_only_fields = ["id", "created_at"]

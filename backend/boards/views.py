@@ -29,7 +29,7 @@ from .utils import extract_mentions, _get_effective_member_ids, notify_new_menti
 from .models import (
     Board, BoardFavorite, BoardMembership, BoardTemplate, Column, Swimlane, Label,
     Card, CardMovement, CardActivity, CardAttachment, CardChecklist, CardComment,
-    Notification,
+    Notification, SavedFilter,
 )
 from .permissions import get_board_role, SITE_ADMIN
 from .serializers import (
@@ -38,6 +38,7 @@ from .serializers import (
     ColumnSerializer, SwimlaneSerializer, SwimlaneAdminSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
+    SavedFilterSerializer,
     _card_queryset,
 )
 from .templates import BOARD_TEMPLATES
@@ -819,6 +820,72 @@ class BoardViewSet(viewsets.ModelViewSet):
         """
         board, role = get_board_for_user(pk, request.user)
         return Response(BoardFullSerializer(board, context={"request": request, "role": role}).data)
+
+    @action(detail=True, methods=["get", "post"], url_path="saved-filters")
+    def saved_filters(self, request, pk=None):
+        """List or create saved filter presets for the requesting user on this board.
+
+        GET  — returns all saved filters belonging to the requesting user on this board.
+        POST — creates a new saved filter; name must be unique per user per board.
+
+        Saved filters are private to the requesting user. Any board member (including
+        viewer-role) can save and restore their own filter presets; no shared presets.
+        """
+        board, _ = get_board_for_user(pk, request.user)
+
+        if request.method == "GET":
+            qs = SavedFilter.objects.filter(user=request.user, board=board)
+            return Response(SavedFilterSerializer(qs, many=True).data)
+
+        # POST — create a new saved filter for this user on this board.
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(name) > 100:
+            return Response(
+                {"detail": "name must be 100 characters or fewer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        state_json = request.data.get("state_json")
+        if state_json is None:
+            return Response({"detail": "state_json is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(state_json, dict):
+            return Response(
+                {"detail": "state_json must be an object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            saved = SavedFilter.objects.create(
+                user=request.user,
+                board=board,
+                name=name,
+                state_json=state_json,
+            )
+        except Exception:
+            # unique_together violation — a filter with this name already exists.
+            return Response(
+                {"detail": "A saved filter with this name already exists on this board."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(SavedFilterSerializer(saved).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path=r"saved-filters/(?P<filter_pk>[0-9]+)")
+    def saved_filter_delete(self, request, pk=None, filter_pk=None):
+        """Delete a single saved filter preset owned by the requesting user.
+
+        The queryset is scoped to request.user — attempting to delete another
+        user's saved filter returns 404, not 403, to avoid confirming existence.
+        """
+        board, _ = get_board_for_user(pk, request.user)
+        try:
+            saved = SavedFilter.objects.get(pk=filter_pk, user=request.user, board=board)
+        except SavedFilter.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        saved.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):

@@ -426,3 +426,46 @@ class Notification(models.Model):
     class Meta:
         db_table = "notifications"
         ordering = ["-created_at"]
+
+
+class SavedFilter(models.Model):
+    """A named filter combination saved by a user for a specific board.
+
+    Filters are private to the owning user — no sharing across board members.
+    Shared presets are deferred to a future release so the RBAC model can be
+    designed properly (see #343 follow-up).
+
+    ``state_json`` stores the serialized FilterState object from the frontend:
+    {search, assigneeIds, labelIds, priorities, dueDate}. The schema is
+    intentionally unvalidated at the model layer — changes to the filter shape
+    are backward-compatible additions and the frontend validates on load.
+
+    All columns are nullable or have defaults so this migration is zero-downtime.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_filters",
+    )
+    board = models.ForeignKey(
+        Board,
+        on_delete=models.CASCADE,
+        related_name="saved_filters",
+    )
+    name = models.CharField(max_length=100)
+    state_json = models.JSONField(
+        default=dict,
+        help_text="Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate}.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "saved_filters"
+        ordering = ["name"]
+        # One name per user per board — prevents duplicate filter names from
+        # being created via rapid concurrent requests.
+        unique_together = ["user", "board", "name"]
+
+    def __str__(self):
+        return f"{self.user} / {self.board} / {self.name}"
