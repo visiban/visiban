@@ -251,6 +251,7 @@ export interface BoardFull {
   created_at: string;
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
+  share_token?: string | null;
 }
 
 export interface GroupLabel {

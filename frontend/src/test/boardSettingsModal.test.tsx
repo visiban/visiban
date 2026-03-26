@@ -81,7 +81,6 @@ const fakeBoard: BoardFull = {
   updated_at: '',
   current_user_role: 'admin',
   share_token: null,
-  capabilities: { movement_export: false },
 }
 
 // ─── Modal basics ──────────────────────────────────────────────────────────
