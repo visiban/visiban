@@ -7,8 +7,10 @@ Switch between board views using the toggle in the toolbar: **Board**, **Summary
 Shows a table of all swimlanes with:
 
 - Total card count with an inline proportional bar
-- **7-day velocity** — cards that moved to the final column in the last 7 days
+- **7-day velocity** — cards that moved into any column marked `is_done = true` in the last 7 days
 - **30-day velocity** — same over 30 days
+
+Columns are marked as done in the **Edit Column** modal ("Mark as done column" checkbox). Multiple done columns are supported — for example, boards with both a "Done" and a "Released" column will count movements into either as completed. See [Board & Cards — Columns](board.md#columns).
 
 Useful for a quick health check across all active pipelines.
 
@@ -37,6 +39,8 @@ Switch between **7 days**, **30 days**, and **90 days** to control which card mo
 Analytics includes archived cards as part of the historical record. When a card is archived, its dwell time in the most recent stage is calculated using the **archive timestamp** as the exit time — not the current date. This means archived cards accurately reflect how long they were actively worked on, and dwell times stop accumulating at the moment of archiving.
 
 Active cards continue to accumulate dwell time in their current stage until they move again.
+
+Dwell-time calculations use only `movement_type = move` events. Archive and restore events are excluded so that archiving a card does not distort the time-in-stage figures for surrounding cards.
 
 ### Stalled cards
 

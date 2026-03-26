@@ -33,6 +33,7 @@ Get board summary. Response includes:
 | `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `true` for new boards) |
 | `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `true` for new boards) |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
+| `share_token` | string / null | Public share token UUID, or `null` if sharing is disabled. Only returned for `admin` and `site_admin` roles; all other roles receive `null`. |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
 ### `PUT /api/boards/{id}/`
@@ -44,7 +45,7 @@ Update board fields. Requires board admin.
 Delete board. Requires board owner or site admin.
 
 ### `GET /api/boards/{id}/full/`
-Full board state — columns, swimlanes, cards, labels, members, and `current_user_role`. All objects include their `uid` field.
+Full board state — columns, swimlanes, cards, labels, members, and `current_user_role`. All objects include their `uid` field. Also includes `share_token` (admin-only, see `GET /api/boards/{id}/` above).
 
 ### `POST /api/boards/{id}/star/`
 Star (favorite) a board. Returns `201 Created` on first star, `200 OK` if already starred.
@@ -166,6 +167,82 @@ CSV export (`Export CSV` button) is available to `admin` and `site_admin` roles 
 
 ---
 
+### `GET /api/boards/{id}/movements/`
+Board-level movement history for all cards on the board, sorted newest first. Requires any board membership (viewer and above).
+
+**Permissions:** any board member (`viewer` and above).
+
+**Pagination:** fixed page size of 50 results. Use `offset` to page through results.
+
+**Query parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `swimlane_id` | integer | Filter by the card's current swimlane |
+| `to_column_id` | integer | Filter by destination column |
+| `assignee_id` | integer | Filter by card assignee |
+| `moved_after` | ISO date | Include movements on or after this date (e.g. `2026-01-01`) |
+| `moved_before` | ISO date | Include movements on or before this date |
+| `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,restored` hides system events) |
+| `offset` | integer | Pagination offset (default: `0`) |
+
+When neither `moved_after` nor `moved_before` is specified, results default to the last 30 days.
+
+**Response**
+```json
+{
+  "count": 142,
+  "offset": 0,
+  "results": [
+    {
+      "id": 1089,
+      "card_id": 42,
+      "card_title": "Fix login bug",
+      "card_uid": "a1b2c3d4e5f60001",
+      "from_column": 2,
+      "from_column_name": "In Progress",
+      "from_column_uid": "c0l0abc123456701",
+      "to_column": 3,
+      "to_column_name": "Done",
+      "to_column_uid": "c0l0abc123456702",
+      "from_swimlane": 1,
+      "from_swimlane_name": "Acme Corp",
+      "from_swimlane_uid": "sw1mabcdef123401",
+      "to_swimlane": 1,
+      "to_swimlane_name": "Acme Corp",
+      "to_swimlane_uid": "sw1mabcdef123401",
+      "moved_by": { "display_name": "Alice" },
+      "moved_at": "2026-03-25T14:30:00Z",
+      "movement_type": "move",
+      "notes": ""
+    }
+  ]
+}
+```
+
+Each result object fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Movement record ID |
+| `card_id` | integer | Card database ID |
+| `card_title` | string | Card title at time of retrieval |
+| `card_uid` | string | Card stable 16-char hex UID |
+| `from_column`, `to_column` | integer / null | Column FK IDs (may be `null` if column was deleted) |
+| `from_column_name`, `to_column_name` | string | Denormalized column names (preserved after deletion) |
+| `from_column_uid`, `to_column_uid` | string | Denormalized column UIDs |
+| `from_swimlane`, `to_swimlane` | integer / null | Swimlane FK IDs (may be `null` if swimlane was deleted) |
+| `from_swimlane_name`, `to_swimlane_name` | string | Denormalized swimlane names |
+| `from_swimlane_uid`, `to_swimlane_uid` | string | Denormalized swimlane UIDs |
+| `moved_by` | object | User who performed the move (`display_name` only) |
+| `moved_at` | string | ISO 8601 timestamp |
+| `movement_type` | string | One of `move`, `archived`, `restored` |
+| `notes` | string | Optional notes recorded at move time |
+
+**Errors:** `403 Forbidden` if the caller is not a board member; `404 Not Found` if the board does not exist.
+
+---
+
 ## Export & Import
 
 ### `GET /api/boards/{id}/export/`
@@ -227,6 +304,41 @@ Remove a member. Requires board admin. Cannot remove a site admin.
 
 ---
 
+## Board sharing
+
+### `POST /api/boards/{id}/share/`
+Generate (or regenerate) a public share token for the board. Requires board admin.
+
+If a token already exists, calling this endpoint immediately invalidates the previous one and returns a new UUID. Any existing share links stop working as soon as the new token is issued.
+
+**Permissions:** board `admin` or `site_admin` only.
+
+**Response**
+```json
+{
+  "share_token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "share_url": "https://your-instance.example.com/share/3fa85f64-5717-4562-b3fc-2c963f66afa6"
+}
+```
+
+**Errors:** `403 Forbidden` if the caller is not a board admin.
+
+### `DELETE /api/boards/{id}/share/`
+Revoke the public share token for the board. Requires board admin. All existing share links immediately return `404 Not Found` after revocation.
+
+**Permissions:** board `admin` or `site_admin` only.
+
+**Response**
+```json
+{
+  "share_token": null
+}
+```
+
+**Errors:** `403 Forbidden` if the caller is not a board admin.
+
+---
+
 ## Columns
 
 Column objects include a `uid` field — a stable 16-character hex identifier that does not change when the column is renamed or reordered. The `uid` is read-only; any `uid` value sent in a request body is ignored.
@@ -234,7 +346,20 @@ Column objects include a `uid` field — a stable 16-character hex identifier th
 ### `POST /api/boards/{id}/columns/`
 Create a column. Requires board admin.
 
-**Request** `{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false }`
+**Request** `{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false, "is_done": false }`
+
+Column objects returned by all endpoints include the following fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id`, `uid` | integer, string | Database ID and stable 16-char hex UID (read-only) |
+| `name` | string | Column name |
+| `position` | integer | Display order (0-based) |
+| `color` | string | Hex color code |
+| `wip_limit` | integer / null | Maximum number of cards; `null` means unlimited |
+| `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited |
+| `allow_card_creation` | boolean | When `false`, new cards cannot be created directly in this column |
+| `is_done` | boolean | When `true`, marks this column as a "done" stage used for cycle-time and throughput metrics. Default: `false`. |
 
 > When `allow_card_creation` is `false`, posting a new card to that column returns `400 Bad Request` with `{"column": "Card creation is not allowed in this column."}`.
 >
@@ -243,7 +368,7 @@ Create a column. Requires board admin.
 ### `PUT /api/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.
 
-**Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean)
+**Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean)
 
 ### `DELETE /api/boards/{id}/columns/{col_id}/`
 Delete a column. Requires board admin.
@@ -302,3 +427,76 @@ Update a label. Requires board admin.
 
 ### `DELETE /api/boards/{id}/labels/{label_id}/`
 Delete a label. Requires board admin.
+
+---
+
+## Public share endpoint
+
+### `GET /api/share/{token}/`
+Returns a read-only board payload identified by its UUID share token. No authentication is required.
+
+**Authentication:** none required (public endpoint).
+
+**Rate limiting:** 120 requests/hour per IP. Exceeding the limit returns `429 Too Many Requests`.
+
+**Errors:** `404 Not Found` if the token is invalid, has been revoked, or does not exist.
+
+**Response**
+```json
+{
+  "uid": "a1b2c3d4e5f60001",
+  "name": "Sales Pipeline",
+  "staleness_threshold_days": 7,
+  "columns": [
+    {
+      "id": 1,
+      "uid": "c0l0abc123456701",
+      "name": "Backlog",
+      "position": 0,
+      "color": "#64748B",
+      "wip_limit": null,
+      "weight_limit": null,
+      "allow_card_creation": true,
+      "is_done": false
+    }
+  ],
+  "swimlanes": [
+    { "id": 1, "uid": "sw1mabcdef123401", "name": "Acme Corp", "position": 0, "color": "#3B82F6" }
+  ],
+  "cards": [
+    {
+      "uid": "crd0abc123456701",
+      "column": 1,
+      "swimlane": 1,
+      "title": "Fix login bug",
+      "priority": "high",
+      "assignee": { "display_name": "Alice" },
+      "labels": [{ "id": 3, "name": "Bug", "color": "#EF4444" }],
+      "due_date": "2026-04-01",
+      "weight": 2,
+      "position": 0,
+      "last_moved_at": "2026-03-25T14:30:00Z",
+      "checklist_total": 3,
+      "checklist_done": 1,
+      "is_stale": false
+    }
+  ],
+  "labels": [
+    { "id": 3, "name": "Bug", "color": "#EF4444" }
+  ]
+}
+```
+
+Response fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `uid` | string | Board stable 16-char hex UID |
+| `name` | string | Board name |
+| `staleness_threshold_days` | integer | Days without movement before a card is considered stale |
+| `columns` | array | Column objects; includes `is_done` flag (see Columns section) |
+| `swimlanes` | array | Swimlane objects; `contact_email` and `notes` are never included |
+| `cards` | array | Active (non-archived) card objects |
+| `labels` | array | Label objects |
+
+Card objects in the public payload use `uid` as the identifier (not `id`) and do not include a database `id`. The `assignee` field contains `display_name` only; email, username, and avatar are omitted. Comments and checklist item text are not included; only `checklist_total` and `checklist_done` counts are present. The `is_stale` field is `true` when the card has not moved within the board's `staleness_threshold_days` window.

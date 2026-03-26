@@ -170,6 +170,7 @@ Each column (stage) can have:
 - A **WIP limit** — maximum number of cards. Header turns red when exceeded
 - A **weight limit** — maximum total card weight. Header turns orange when exceeded
 - An **allow card creation** toggle — disable on "Done" columns to prevent accidental adds
+- A **done column** flag — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported
 
 ### Cards
 
@@ -192,7 +193,7 @@ Each card has:
 
 ### Card movement history
 
-Every time a card moves to a different column or swimlane, a movement record is saved: who moved it, when, and from where. Each card's detail view shows the full timeline alongside comments and other activity (priority changes, assignee changes, etc.).
+Every time a card moves to a different column or swimlane, a movement record is saved: who moved it, when, and from where. Each card's detail view shows the full timeline alongside comments and other activity (priority changes, assignee changes, etc.). A board-level **History** tab in the toolbar shows movements across all cards, filterable by swimlane, column, assignee, and date range.
 
 ### Filters
 
@@ -206,13 +207,14 @@ Filter the board client-side without a page reload. Filters stack — all condit
 
 ### Views
 
-Switch between three views from the toolbar:
+Switch between four views from the toolbar:
 
 | View | What it shows |
 |---|---|
 | **Board** | The live kanban grid with drag-and-drop |
 | **Summary** | Table of swimlane card counts with 7-day and 30-day velocity |
 | **Analytics** | Dwell-time heatmap per stage, outlier detection, stalled card list, CSV export (admin only) |
+| **History** | Chronological log of all card movements across the board, filterable by swimlane, column, assignee, and date range |
 
 ### Export & import
 
@@ -223,6 +225,10 @@ Import a board from a previously exported JSON or CSV file via the **Import** bu
 ### Real-time sync
 
 All open tabs on the same board stay in sync over a WebSocket connection. Card moves, edits, additions, deletions, and structural changes (columns, swimlanes) appear immediately without refreshing. The toolbar shows a green **Live** dot when connected. The client reconnects automatically if the connection drops.
+
+### Board sharing
+
+Generate a read-only public link from **Board Settings → Sharing**. Anyone with the link can view the full board without signing in — no account required. The public view is read-only: drag-and-drop and editing are disabled. Admins can revoke the link at any time; the previous URL stops working immediately and a new token is issued if sharing is re-enabled.
 
 ### Groups
 
