@@ -223,3 +223,191 @@ class WipEnforcementTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.board.refresh_from_db()
         self.assertFalse(self.board.enforce_wip_limits)
+
+
+class TestHardWipEnforcement(TestCase):
+    """Tests for enforce_wip_hard — the no-bypass hard WIP limit mode (#341).
+
+    Hard mode is independent of enforce_wip_limits and cannot be overridden
+    by any role, including board admins, even with ?force=true.
+    """
+
+    def setUp(self):
+        self._broadcast_patcher = patch("boards.views.broadcast_board_event")
+        self._broadcast_patcher.start()
+
+        self.client = APIClient()
+        self.admin = User.objects.create_user(username="hardadmin", password="pass")
+        self.member = User.objects.create_user(username="hardmember", password="pass")
+
+        # Board with hard enforcement enabled; soft enforcement left at its default (True)
+        # to ensure hard mode is tested independently of soft mode interactions.
+        self.board = Board.objects.create(
+            name="Hard WIP Board",
+            owner=self.admin,
+            enforce_wip_hard=True,
+        )
+        BoardMembership.objects.create(board=self.board, user=self.admin, role=BoardMembership.Role.ADMIN)
+        BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
+
+        self.col_a = Column.objects.create(board=self.board, name="Backlog", position=0)
+        self.col_b = Column.objects.create(board=self.board, name="In Progress", position=1, wip_limit=2)
+        self.swimlane = Swimlane.objects.create(board=self.board, name="Acme", position=0)
+
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swimlane,
+            title="Moving Card", created_by=self.admin, position=0,
+        )
+
+    def tearDown(self):
+        self._broadcast_patcher.stop()
+
+    def _move_url(self, card=None):
+        c = card or self.card
+        return f"/api/boards/{self.board.pk}/cards/{c.pk}/move/"
+
+    def _fill_column(self, column, count):
+        for i in range(count):
+            Card.objects.create(
+                board=self.board, column=column, swimlane=self.swimlane,
+                title=f"Filler {i}", created_by=self.admin, position=i,
+            )
+
+    # ------------------------------------------------------------------
+    # Hard block — member
+    # ------------------------------------------------------------------
+
+    def test_hard_mode_blocks_member(self):
+        """Hard mode returns 409 wip_hard_blocked for a regular member."""
+        self._fill_column(self.col_b, 2)
+        self.client.force_authenticate(self.member)
+        resp = self.client.post(self._move_url(), {
+            "column_id": self.col_b.pk,
+            "swimlane_id": self.swimlane.pk,
+            "position": 0,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
+        data = resp.json()
+        self.assertEqual(data["code"], "wip_hard_blocked")
+        self.assertEqual(data["column_name"], self.col_b.name)
+        self.assertEqual(data["current_count"], 2)
+        self.assertEqual(data["wip_limit"], 2)
+
+    # ------------------------------------------------------------------
+    # Hard block — admin with force=true
+    # ------------------------------------------------------------------
+
+    def test_hard_mode_blocks_admin_with_force(self):
+        """Hard mode blocks even board admins — ?force=true is rejected with 409 not 200."""
+        self._fill_column(self.col_b, 2)
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            self._move_url() + "?force=true",
+            {"column_id": self.col_b.pk, "swimlane_id": self.swimlane.pk, "position": 0},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(resp.json()["code"], "wip_hard_blocked")
+
+    # ------------------------------------------------------------------
+    # Hard mode active when enforce_wip_limits=False
+    # ------------------------------------------------------------------
+
+    def test_hard_mode_independent_of_soft_enforcement(self):
+        """Hard mode activates even when enforce_wip_limits is False."""
+        self.board.enforce_wip_limits = False
+        self.board.save()
+        self._fill_column(self.col_b, 2)
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(self._move_url(), {
+            "column_id": self.col_b.pk,
+            "swimlane_id": self.swimlane.pk,
+            "position": 0,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(resp.json()["code"], "wip_hard_blocked")
+
+    # ------------------------------------------------------------------
+    # Hard mode does not fire when column has no WIP limit
+    # ------------------------------------------------------------------
+
+    def test_hard_mode_does_not_fire_when_no_wip_limit(self):
+        """A column without a wip_limit set is never blocked, even in hard mode."""
+        col_unlimited = Column.objects.create(board=self.board, name="Done", position=2)
+        self._fill_column(col_unlimited, 100)
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(self._move_url(), {
+            "column_id": col_unlimited.pk,
+            "swimlane_id": self.swimlane.pk,
+            "position": 0,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # ------------------------------------------------------------------
+    # Hard mode allows the move when column has capacity
+    # ------------------------------------------------------------------
+
+    def test_hard_mode_allows_move_when_column_has_capacity(self):
+        """Hard mode does not block a move when the target column is below its WIP limit."""
+        self._fill_column(self.col_b, 1)  # 1 card; limit is 2
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(self._move_url(), {
+            "column_id": self.col_b.pk,
+            "swimlane_id": self.swimlane.pk,
+            "position": 0,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # ------------------------------------------------------------------
+    # Soft mode still works when enforce_wip_hard=False
+    # ------------------------------------------------------------------
+
+    def test_soft_mode_unaffected_when_hard_mode_off(self):
+        """Soft enforcement (wip_limit_exceeded + admin force) still works when hard mode is off."""
+        self.board.enforce_wip_hard = False
+        self.board.enforce_wip_limits = True
+        self.board.save()
+        self._fill_column(self.col_b, 2)
+
+        # Non-force: blocked with wip_limit_exceeded (not wip_hard_blocked)
+        self.client.force_authenticate(self.member)
+        resp = self.client.post(self._move_url(), {
+            "column_id": self.col_b.pk,
+            "swimlane_id": self.swimlane.pk,
+            "position": 0,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(resp.json()["code"], "wip_limit_exceeded")
+
+        # Admin with force=true: allowed
+        self.client.force_authenticate(self.admin)
+        resp = self.client.post(
+            self._move_url() + "?force=true",
+            {"column_id": self.col_b.pk, "swimlane_id": self.swimlane.pk, "position": 0},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # ------------------------------------------------------------------
+    # RBAC: enforce_wip_hard field protection
+    # ------------------------------------------------------------------
+
+    def test_non_admin_cannot_write_enforce_wip_hard(self):
+        """PATCH enforce_wip_hard by a non-admin returns 403."""
+        self.client.force_authenticate(self.member)
+        resp = self.client.patch(
+            f"/api/boards/{self.board.pk}/",
+            {"enforce_wip_hard": False},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_write_enforce_wip_hard(self):
+        """Board admin can toggle enforce_wip_hard via PATCH."""
+        self.client.force_authenticate(self.admin)
+        resp = self.client.patch(
+            f"/api/boards/{self.board.pk}/",
+            {"enforce_wip_hard": False},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertFalse(self.board.enforce_wip_hard)

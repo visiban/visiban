@@ -91,3 +91,52 @@ describe('MoveBlockedToast', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 })
+
+// ─── Hard-block variant (#341) ─────────────────────────────────────────────
+
+const hardBlockError: MoveBlockedError = {
+  code: 'wip_hard_blocked',
+  column_name: 'In Progress',
+  current_count: 3,
+  wip_limit: 3,
+}
+
+describe('MoveBlockedToast — hard-block variant', () => {
+  it('renders ⛔ icon (not ⚠) for hard-blocked moves', () => {
+    const { container } = render(
+      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(container.textContent).toContain('⛔')
+    expect(container.textContent).not.toContain('⚠')
+  })
+
+  it('renders hard-block title "Column at capacity — no exceptions"', () => {
+    render(
+      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(screen.getByText(/Column at capacity — no exceptions/)).toBeInTheDocument()
+  })
+
+  it('does NOT show admin override link for hard-blocked moves, even when isAdmin=true', () => {
+    render(
+      <MoveBlockedToast error={hardBlockError} isAdmin={true} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(screen.queryByText(/Move anyway/)).not.toBeInTheDocument()
+  })
+
+  it('shows resolution copy for hard-blocked moves', () => {
+    render(
+      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(screen.getByText(/To unblock, move a card out of/)).toBeInTheDocument()
+    expect(screen.getByText(/ask an admin to raise the WIP limit/)).toBeInTheDocument()
+  })
+
+  it('toast stays amber (border-amber-600) for hard-blocked moves', () => {
+    const { container } = render(
+      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    const alert = container.querySelector('[role="alert"]') as HTMLElement
+    expect(alert.className).toContain('border-amber-600')
+  })
+})

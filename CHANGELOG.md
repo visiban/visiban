@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - The "Show full history" toggle in the card activity panel now persists across card opens, page refreshes, and sessions via `localStorage` — users who prefer the full history no longer need to re-enable it on each card (#333)
 - Card weight is now shown in the card metadata row when weight is above 1 — teams using column weight limits can scan card weights from the board view without opening the card detail panel (#266)
 - Card face now shows a relative "last moved" label (e.g. "moved yesterday", "moved 3 days ago") for cards not moved within the last 24 hours; cards moved within 24 hours continue to show the existing blue dot indicator on hover; the label can be hidden per-board via Board Settings → Card fields → Last moved (#338)
+- Hard WIP enforcement mode: board setting that blocks all card moves into over-limit columns for all roles with no admin bypass (#341)
 
 ### Changed
 - Board sub-nav tabs (Board / Summary / Analytics) are now URL-addressable — switching tabs updates the `?view=` search param with `{ replace: true }` so the browser Back button skips tab transitions and tab views can be bookmarked and shared (#332)

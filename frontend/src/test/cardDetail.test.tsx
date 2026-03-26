@@ -94,7 +94,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     cards: [], labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
-    enforce_wip_limits: false, enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
     ...overrides,
   }
 }

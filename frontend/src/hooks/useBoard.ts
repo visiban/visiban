@@ -6,6 +6,7 @@ import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "
 
 export type MoveBlockedError =
   | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
+  | { code: "wip_hard_blocked"; column_name: string; current_count: number; wip_limit: number }
   | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number };
 
 /** @deprecated Use MoveBlockedError */
@@ -88,6 +89,9 @@ export function useBoard() {
         if (data?.code === "wip_limit_exceeded" || data?.code === "weight_limit_exceeded") {
           setMoveError(data);
           setPendingMove({ cardId, columnId, swimlaneId, position });
+        } else if (data?.code === "wip_hard_blocked") {
+          // Hard-blocked moves have no retry path — never set pendingMove.
+          setMoveError(data);
         }
       }
     }

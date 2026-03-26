@@ -75,6 +75,13 @@ class Board(models.Model):
         default=True,
         help_text="When enabled, card moves into a column at or over its WIP limit are blocked with a 409 response. Board admins can override with ?force=true.",
     )
+    enforce_wip_hard = models.BooleanField(
+        default=False,
+        help_text=(
+            "When True, WIP limits become a hard stop for all roles including board admins. "
+            "No override is possible. Active regardless of enforce_wip_limits."
+        ),
+    )
     enforce_weight_limits = models.BooleanField(
         default=True,
         help_text="When enabled, card moves into a column that would exceed its weight budget are blocked with a 409 response. Board admins can override with ?force=true.",
