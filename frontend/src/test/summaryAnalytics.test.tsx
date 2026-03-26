@@ -98,6 +98,42 @@ describe('AnalyticsView', () => {
     expect(screen.getByText('90d')).toBeInTheDocument()
   })
 
+  it('renders heatmap column headers and cell values when movements exist (#361 regression guard)', async () => {
+    // This test prevents the heatmap table being accidentally wrapped in a conditional —
+    // the table must always render, even when some cells are null.
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['Backlog', 'In Progress', 'Done'],
+      swimlanes: [
+        {
+          id: 1, name: 'Acme Corp',
+          avg_days_per_column: { 'Backlog': 3, 'In Progress': 7, 'Done': null },
+          is_outlier: { 'Backlog': false, 'In Progress': false, 'Done': false },
+          deal_velocity_days: 10,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+
+    // Column headers must be visible in the heatmap thead
+    expect(await screen.findByText('Backlog')).toBeInTheDocument()
+    expect(screen.getByText('In Progress')).toBeInTheDocument()
+    expect(screen.getByText('Done')).toBeInTheDocument()
+    // Swimlane row and cell values
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument()
+    expect(screen.getByText('3d')).toBeInTheDocument()
+    // '7d' also appears as a period button — assert at least one instance exists
+    expect(screen.getAllByText('7d').length).toBeGreaterThanOrEqual(1)
+    // Null cell renders em-dash
+    expect(screen.getByText('—')).toBeInTheDocument()
+    // Velocity
+    expect(screen.getByText('10d')).toBeInTheDocument()
+  })
+
   it('shows export CSV button for admins', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
