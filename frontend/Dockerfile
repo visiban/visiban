@@ -5,7 +5,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --include=dev
+# Run npm ci twice to work around the npm optional-dependency bug on Alpine/musl
+# (https://github.com/npm/cli/issues/4828) where platform-specific packages like
+# @rollup/rollup-linux-arm64-musl are not installed on the first pass.
+RUN npm ci --include=dev && npm ci --include=dev
 
 # VITE_API_URL="" → frontend uses relative URLs; nginx proxies /api/ and /ws/
 ARG VITE_API_URL=""
@@ -28,7 +31,9 @@ FROM node:20-alpine AS dev
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+# Run npm install twice to work around the npm optional-dependency bug on Alpine/musl
+# (https://github.com/npm/cli/issues/4828).
+RUN npm install && npm install
 
 COPY . .
 

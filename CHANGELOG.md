@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 ### Added
+- Boards can now be shared as a public read-only link with no login required — board admins generate or revoke a share token from Board Settings; the link serves a static board view at `/share/:token` showing the full grid (columns, swimlanes, cards) without comments, attachments, or movement history; revoking the token immediately invalidates the link (#348)
 - New `docs/administration/authentication.md` page documents all supported authentication methods (OAuth providers, Generic OIDC, SAML) with a **Tech Preview** callout on the OIDC section — configuration plumbing is shipped but end-to-end login against a real identity provider is unvalidated
 - New `docs/architecture/open-core-boundary.md` page records the canonical OSS vs enterprise classification for every feature area decided through pre-1.0 planning, including the full extension point registry for enterprise integrations
 - Generic OIDC authentication is now configurable via three environment variables (`OIDC_CLIENT_ID`, `OIDC_SECRET`, `OIDC_SERVER_URL`); the provider is only registered when all three are set, preventing startup errors on partial configuration; an optional `OIDC_PROVIDER_NAME` variable controls the login button label (default "SSO") (#349)

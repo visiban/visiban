@@ -9,6 +9,9 @@ interface SwimlaneRow {
   stage_distribution: Record<string, number>;
   velocity_7d: number;
   velocity_30d: number;
+  active_cards: number;
+  done_30d: number;
+  avg_cycle_days: number | null;
 }
 
 interface SummaryData {
@@ -40,12 +43,21 @@ export default function SummaryView({ boardId, columns }: Props) {
     <div className="flex-1 overflow-auto p-4 bg-slate-900">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-b border-slate-700 text-left text-xs text-slate-500 uppercase tracking-wider">
-            <th className="pb-2 pr-4 font-medium">Swimlane</th>
-            <th className="pb-2 pr-4 font-medium text-right">Cards</th>
-            <th className="pb-2 pr-6 font-medium">Stage Distribution</th>
-            <th className="pb-2 pr-4 font-medium text-right">7d Velocity</th>
-            <th className="pb-2 font-medium text-right">30d Velocity</th>
+          <tr className="border-b border-slate-700 text-xs text-slate-500 uppercase tracking-wider">
+            {/* Row 1: Section headers */}
+            <th className="pb-2 pr-4 font-medium text-left" rowSpan={2}>Swimlane</th>
+            <th className="pb-2 pr-4 font-medium text-right" rowSpan={2}>Cards</th>
+            <th className="pb-2 pr-6 font-medium" rowSpan={2}>Stage Distribution</th>
+            <th className="pb-2 pr-4 font-medium text-right" rowSpan={2}>7d Velocity</th>
+            <th className="pb-2 pr-4 font-medium text-right" rowSpan={2}>30d Velocity</th>
+            <th className="pb-2 font-medium text-center border-l border-slate-700 pl-4" colSpan={3}>
+              Metrics (30d)
+            </th>
+          </tr>
+          <tr className="border-b border-slate-700 text-xs text-slate-500 uppercase tracking-wider">
+            <th className="pb-2 font-medium text-right border-l border-slate-700 pl-4">Active</th>
+            <th className="pb-2 font-medium text-right pl-4">Done 30d</th>
+            <th className="pb-2 font-medium text-right pl-4">Avg cycle (days)</th>
           </tr>
         </thead>
         <tbody>
@@ -53,7 +65,7 @@ export default function SummaryView({ boardId, columns }: Props) {
             const total = row.total_cards || 1;
             return (
               <tr key={row.id} className="border-b border-slate-700 hover:bg-slate-800/50">
-                <td className="py-2 pr-4">
+                <td className="py-2 pr-4 sticky left-0 bg-slate-900">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
                     <span className="font-medium text-slate-200">{row.name}</span>
@@ -87,10 +99,20 @@ export default function SummaryView({ boardId, columns }: Props) {
                     {row.velocity_7d}
                   </span>
                 </td>
-                <td className="py-2 text-right font-mono">
+                <td className="py-2 pr-4 text-right font-mono">
                   <span className={row.velocity_30d > 0 ? "text-green-400 font-semibold" : "text-slate-400"}>
                     {row.velocity_30d}
                   </span>
+                </td>
+                {/* New #342 metrics columns */}
+                <td className="py-2 text-right font-mono text-slate-300 border-l border-slate-700 pl-4">
+                  {row.active_cards > 0 ? row.active_cards : <span className="text-slate-500">—</span>}
+                </td>
+                <td className="py-2 text-right font-mono text-slate-300 pl-4">
+                  {row.done_30d > 0 ? row.done_30d : <span className="text-slate-500">—</span>}
+                </td>
+                <td className="py-2 text-right font-mono text-slate-300 pl-4">
+                  {row.avg_cycle_days != null ? row.avg_cycle_days : <span className="text-slate-500">—</span>}
                 </td>
               </tr>
             );

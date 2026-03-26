@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardMembership, BoardTemplate, Column, Swimlane, Label } from "../types";
+import type { Board, BoardFull, BoardMembership, BoardTemplate, BoardPublic, Column, Swimlane, Label } from "../types";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -82,6 +82,9 @@ export const getBoardAnalytics = (id: number, days = 30, stalledDays?: number) =
     })
     .then((r) => r.data);
 
+export const getBoardMovements = (boardId: number, params: Record<string, string> = {}) =>
+  client.get(`/api/boards/${boardId}/movements/`, { params }).then((r) => r.data);
+
 // Export
 export const exportBoardCsv = (boardId: number) => {
   window.open(`${client.defaults.baseURL}/api/boards/${boardId}/export/`, '_blank');
@@ -105,3 +108,13 @@ export const importBoard = (file: File, name?: string, groupId?: number) => {
   if (groupId) formData.append('group_id', String(groupId));
   return client.post<Board>('/api/boards/import/', formData).then((r) => r.data);
 };
+
+// Share link
+export const getPublicBoard = (token: string) =>
+  client.get<BoardPublic>(`/api/share/${token}/`).then((r) => r.data);
+
+export const enableBoardSharing = (boardId: number) =>
+  client.post<{ share_token: string; share_url: string }>(`/api/boards/${boardId}/share/`).then((r) => r.data);
+
+export const disableBoardSharing = (boardId: number) =>
+  client.delete(`/api/boards/${boardId}/share/`);

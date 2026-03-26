@@ -21,10 +21,15 @@ interface Props {
   hideLastMoved?: boolean;
   userTimezone?: string;
   userDateFormat?: string;
+  /** When true, the card is non-interactive: no drag, no hover lift, no onClick. Used on the share page. */
+  readOnly?: boolean;
 }
 
-export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY" }: Props) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
+export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false }: Props) {
+  // useDraggable must be called unconditionally (hook rules). When readOnly,
+  // we do not attach its ref or event listeners so the card is non-draggable.
+  const draggable = useDraggable({ id: card.id, disabled: readOnly });
+  const { attributes, listeners, setNodeRef, isDragging } = draggable;
   const [hovered, setHovered] = useState(false);
 
   const isRecent = card.last_moved_at
@@ -54,10 +59,10 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      onClick={onClick}
+      onClick={readOnly ? undefined : onClick}
       data-no-pan
-      className={`group bg-slate-800 rounded-md cursor-pointer select-none transition-all border relative z-0
-        hover:-translate-y-0.5 hover:z-20
+      className={`group bg-slate-800 rounded-md select-none transition-all border relative z-0
+        ${readOnly ? "cursor-default" : "cursor-pointer hover:-translate-y-0.5 hover:z-20"}
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}

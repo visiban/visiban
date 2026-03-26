@@ -36,6 +36,7 @@ describe('SummaryView', () => {
           id: 1, name: 'Customer A', color: '#3B82F6', total_cards: 5,
           stage_distribution: { 'To Do': 3, 'Done': 2 },
           velocity_7d: 2, velocity_30d: 8,
+          active_cards: 3, done_30d: 2, avg_cycle_days: 4.5,
         },
       ],
     })
@@ -45,6 +46,9 @@ describe('SummaryView', () => {
     expect(screen.getByText('5')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('8')).toBeInTheDocument()
+    // New #342 metrics
+    expect(screen.getByText('3')).toBeInTheDocument() // active_cards
+    expect(screen.getByText('4.5')).toBeInTheDocument() // avg_cycle_days
   })
 
   it('renders column headers', async () => {
@@ -55,6 +59,29 @@ describe('SummaryView', () => {
     expect(screen.getByText('Cards')).toBeInTheDocument()
     expect(screen.getByText('7d Velocity')).toBeInTheDocument()
     expect(screen.getByText('30d Velocity')).toBeInTheDocument()
+    // New #342 metric headers
+    expect(screen.getByText('Metrics (30d)')).toBeInTheDocument()
+    expect(screen.getByText('Active')).toBeInTheDocument()
+    expect(screen.getByText('Done 30d')).toBeInTheDocument()
+    expect(screen.getByText('Avg cycle (days)')).toBeInTheDocument()
+  })
+
+  it('shows em-dash for null avg_cycle_days', async () => {
+    mockGetBoardSummary.mockResolvedValue({
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A', color: '#3B82F6', total_cards: 0,
+          stage_distribution: {},
+          velocity_7d: 0, velocity_30d: 0,
+          active_cards: 0, done_30d: 0, avg_cycle_days: null,
+        },
+      ],
+    })
+    render(<SummaryView boardId={1} columns={[]} />)
+    await screen.findByText('Customer A')
+    const dashes = screen.getAllByText('—')
+    // At least the avg_cycle_days, active_cards and done_30d cells show —
+    expect(dashes.length).toBeGreaterThanOrEqual(3)
   })
 })
 

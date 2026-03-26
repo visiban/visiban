@@ -28,8 +28,8 @@ vi.mock('../components/Board/EditSwimlaneModal', () => ({
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
 
 const columns: Column[] = [
-  { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
-  { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
+  { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+  { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
 ]
 
 const swimlane: Swimlane = {
@@ -47,6 +47,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
   }
 }
 
+// collapsed/onToggleCollapse/onFocus/isFocused are now controlled props (Step 2 of #340).
 const defaultProps = () => ({
   swimlane,
   columns,
@@ -63,6 +64,10 @@ const defaultProps = () => ({
   onCardAdded: vi.fn(),
   onSwimlaneUpdated: vi.fn(),
   onSwimlaneDeleted: vi.fn(),
+  collapsed: false,
+  onToggleCollapse: vi.fn(),
+  onFocus: vi.fn(),
+  isFocused: false,
 })
 
 describe('SwimlaneRow', () => {
@@ -87,32 +92,40 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTitle('Collapse')).toBeInTheDocument()
   })
 
-  it('collapsing swimlane shows compact count', async () => {
+  it('collapse button calls onToggleCollapse (controlled — no internal state)', async () => {
     const props = defaultProps()
-    props.cards = [makeCard({ id: 1, column: 10 }), makeCard({ id: 2, column: 10 })]
     render(<SwimlaneRow {...props} />)
     await userEvent.setup().click(screen.getByTitle('Collapse'))
+    expect(props.onToggleCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('collapsed=true shows compact count (controlled prop)', () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1, column: 10 }), makeCard({ id: 2, column: 10 })]
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 
-  it('collapsing swimlane hides contact email', async () => {
-    render(<SwimlaneRow {...defaultProps()} />)
-    expect(screen.getByText('a@test.com')).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByTitle('Collapse'))
+  it('collapsed=true hides contact email', () => {
+    const props = defaultProps()
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
     expect(screen.queryByText('a@test.com')).not.toBeInTheDocument()
   })
 
-  it('collapsing swimlane hides edit button', async () => {
-    render(<SwimlaneRow {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByTitle('Collapse'))
+  it('collapsed=true hides edit button', () => {
+    const props = defaultProps()
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
     expect(screen.queryByTitle('Edit swimlane')).not.toBeInTheDocument()
   })
 
-  it('collapsed swimlane shows nothing for empty cells', async () => {
+  it('collapsed=true shows nothing for empty cells', () => {
     const props = defaultProps()
     props.cards = []
+    props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    await userEvent.setup().click(screen.getByTitle('Collapse'))
     expect(screen.queryByText('0')).not.toBeInTheDocument()
   })
 
@@ -144,22 +157,42 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTestId('edit-swimlane-modal')).toBeInTheDocument()
   })
 
-  it('collapsed swimlane shows card count pill for non-empty cells', async () => {
+  it('collapsed=true shows card count pill for non-empty cells', () => {
     const props = defaultProps()
     props.cards = [makeCard({ id: 1, column: 10 }), makeCard({ id: 2, column: 10 })]
+    props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    await userEvent.setup().click(screen.getByTitle('Collapse'))
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 
-  it('collapsed swimlane highlights filter matches in blue', async () => {
+  it('collapsed=true highlights filter matches in blue', () => {
     const props = defaultProps()
     const card = makeCard({ id: 1, column: 10 })
     props.cards = [card]
     props.filteredCardIds = new Set([card.id])
+    props.collapsed = true
     render(<SwimlaneRow {...props} />)
-    await userEvent.setup().click(screen.getByTitle('Collapse'))
     const badge = screen.getByText('1')
     expect(badge.className).toContain('text-blue-400')
+  })
+
+  it('renders focus icon button with tooltip', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    expect(screen.getByTitle('Focus on Customer A')).toBeInTheDocument()
+  })
+
+  it('clicking focus button calls onFocus with swimlane id', async () => {
+    const props = defaultProps()
+    render(<SwimlaneRow {...props} />)
+    await userEvent.setup().click(screen.getByTitle('Focus on Customer A'))
+    expect(props.onFocus).toHaveBeenCalledWith(20)
+  })
+
+  it('isFocused=true renders focus icon with blue color class', () => {
+    const props = defaultProps()
+    props.isFocused = true
+    render(<SwimlaneRow {...props} />)
+    const btn = screen.getByTitle('Focus on Customer A')
+    expect(btn.className).toContain('text-blue-400')
   })
 })

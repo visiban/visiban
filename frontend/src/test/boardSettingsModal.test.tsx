@@ -11,13 +11,15 @@ vi.mock('../api/boards', () => ({
   exportBoardJson: vi.fn(),
   patchBoard: vi.fn(),
   deleteBoard: vi.fn(),
+  enableBoardSharing: vi.fn(),
+  disableBoardSharing: vi.fn(),
 }))
 
 vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
 }))
 
-import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard } from '../api/boards'
+import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard, enableBoardSharing, disableBoardSharing } from '../api/boards'
 import { searchUsers } from '../api/auth'
 
 const mockSetBoardMember = setBoardMember as ReturnType<typeof vi.fn>
@@ -26,6 +28,8 @@ const mockExportBoardCsv = exportBoardCsv as ReturnType<typeof vi.fn>
 const mockExportBoardJson = exportBoardJson as ReturnType<typeof vi.fn>
 const mockPatchBoard = patchBoard as ReturnType<typeof vi.fn>
 const mockSearchUsers = searchUsers as ReturnType<typeof vi.fn>
+const mockEnableBoardSharing = enableBoardSharing as ReturnType<typeof vi.fn>
+const mockDisableBoardSharing = disableBoardSharing as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -76,6 +80,8 @@ const fakeBoard: BoardFull = {
   created_at: '',
   updated_at: '',
   current_user_role: 'admin',
+  share_token: null,
+  capabilities: { movement_export: false },
 }
 
 // ─── Modal basics ──────────────────────────────────────────────────────────
@@ -566,5 +572,67 @@ describe('BoardSettingsModal — initialTab prop', () => {
     )
     expect(screen.getByText('Admin User')).toBeInTheDocument()
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+  })
+})
+
+// ─── Sharing tab ───────────────────────────────────────────────────────────
+
+describe('BoardSettingsModal — Sharing tab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockEnableBoardSharing.mockResolvedValue({ share_token: 'abc-token-123', share_url: 'http://localhost/share/abc-token-123' })
+    mockDisableBoardSharing.mockResolvedValue({})
+  })
+
+  it('Sharing tab is visible for admins', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Sharing' })).toBeInTheDocument()
+  })
+
+  it('Sharing tab is NOT visible for non-admins', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Sharing' })).toBeNull()
+  })
+
+  it('Sharing tab shows toggle and explanatory copy', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    expect(screen.getByText('Public sharing')).toBeInTheDocument()
+    expect(screen.getByText('Enable public share link')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+  })
+
+  it('enabling share calls enableBoardSharing and shows URL', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+
+    const checkbox = screen.getByRole('checkbox')
+    expect(checkbox).not.toBeChecked()
+
+    await user.click(checkbox)
+    await waitFor(() => expect(mockEnableBoardSharing).toHaveBeenCalledWith(1))
+    await waitFor(() => expect(screen.getByText(/abc-token-123/)).toBeInTheDocument())
+  })
+
+  it('disabling share calls disableBoardSharing and hides URL', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    const boardWithToken = { ...fakeBoard, share_token: 'existing-token-xyz' }
+    render(<BoardSettingsModal board={boardWithToken} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+
+    // URL should be visible initially
+    expect(screen.getByText(/existing-token-xyz/)).toBeInTheDocument()
+
+    const checkbox = screen.getByRole('checkbox')
+    expect(checkbox).toBeChecked()
+
+    await user.click(checkbox)
+    await waitFor(() => expect(mockDisableBoardSharing).toHaveBeenCalledWith(1))
+    await waitFor(() => expect(screen.queryByText(/existing-token-xyz/)).toBeNull())
+  })
+
+  it('does not show Sharing tab content for non-admin even if navigated directly', () => {
+    // Non-admin cannot select "sharing" tab — it won't exist in DOM
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByText('Public sharing')).toBeNull()
   })
 })

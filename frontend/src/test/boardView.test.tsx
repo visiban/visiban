@@ -86,8 +86,18 @@ vi.mock('../components/Board/ColumnHeader', () => ({
     <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
   ),
 }))
+// SwimlaneRow mock exposes onFocus so tests can trigger focus-entry programmatically.
+let capturedOnFocus: ((id: number) => void) | undefined
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane }: { swimlane: { id: number; name: string } }) => <div data-testid={`swim-${swimlane.id}`}>{swimlane.name}</div>,
+  default: ({ swimlane, onFocus, isFocused }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; isFocused?: boolean }) => {
+    capturedOnFocus = onFocus
+    return (
+      <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)}>
+        {swimlane.name}
+        <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
+      </div>
+    )
+  },
 }))
 vi.mock('../components/Card/CardItem', () => ({
   default: ({ card }: { card: { title: string } }) => <div>{card.title}</div>,
@@ -96,9 +106,9 @@ vi.mock('../components/Card/CardDetail', () => ({
   default: ({ card, onClose }: { card: { title: string }; onClose: () => void }) => <div data-testid="card-detail">{card.title}<button onClick={onClose}>Close Detail</button></div>,
 }))
 vi.mock('../components/Board/AddColumnModal', () => ({
-  default: ({ onAdded }: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true }) => void }) => (
+  default: ({ onAdded }: { onAdded: (col: { id: number; name: string; position: number; color: string; wip_limit: null; weight_limit: null; allow_card_creation: true; is_done: false }) => void }) => (
     <div data-testid="add-column-modal">
-      <button onClick={() => onAdded({ id: 99, name: 'New Column', position: 2, color: '#000', wip_limit: null, weight_limit: null, allow_card_creation: true })}>
+      <button onClick={() => onAdded({ id: 99, name: 'New Column', position: 2, color: '#000', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false })}>
         Confirm Add
       </button>
     </div>
@@ -130,6 +140,9 @@ vi.mock('../hooks/useSavedFilters', () => ({
     hydrateFilter: vi.fn(),
   }),
 }))
+vi.mock('../components/Board/MovementHistoryView', () => ({
+  default: () => <div data-testid="movement-history-view">Movement History</div>,
+}))
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -141,8 +154,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     columns: [
-      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
-      { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
+      { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+      { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
     ],
     swimlanes: [
       { id: 20, uid: 'laneuid00001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01' },
@@ -157,6 +170,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',
+    capabilities: { movement_export: false },
     ...overrides,
   }
 }
@@ -543,5 +557,73 @@ describe('BoardView', () => {
 
     // The guard should prevent onMoveCard from being called
     expect(props.onMoveCard).not.toHaveBeenCalled()
+  })
+
+  // --- Focus mode tests (#340) ---
+
+  it('clicking focus button sets ?focus= param and shows banner', async () => {
+    render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('focus-btn-20'))
+    // Banner should be visible
+    expect(screen.getByText('Focused on:')).toBeInTheDocument()
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+    expect(screen.getByText('Exit focus')).toBeInTheDocument()
+  })
+
+  it('clicking Exit focus removes the banner', async () => {
+    render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('focus-btn-20'))
+    expect(screen.getByText('Focused on:')).toBeInTheDocument()
+    await user.click(screen.getByText('Exit focus'))
+    expect(screen.queryByText('Focused on:')).not.toBeInTheDocument()
+  })
+
+  it('Escape key exits focus mode (priority 12)', async () => {
+    render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('focus-btn-20'))
+    expect(screen.getByText('Exit focus')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText('Exit focus')).not.toBeInTheDocument()
+  })
+
+  it('invalid ?focus=999 param is silently ignored — full board shown', () => {
+    mockSearchParams = new URLSearchParams('focus=999')
+    render(<BoardView {...defaultProps()} />)
+    // No focus banner
+    expect(screen.queryByText('Focused on:')).not.toBeInTheDocument()
+    // Normal swimlane row still shown
+    expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+  })
+
+  it('valid ?focus=20 param on mount shows focus banner', () => {
+    mockSearchParams = new URLSearchParams('focus=20')
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByText('Focused on:')).toBeInTheDocument()
+    expect(screen.getByText('Customer A')).toBeInTheDocument()
+  })
+
+  it('isFocused prop is true for the focused swimlane', async () => {
+    render(<BoardView {...defaultProps()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('focus-btn-20'))
+    expect(screen.getByTestId('swim-20')).toHaveAttribute('data-focused', 'true')
+  })
+
+  it('swimlane.deleted event for focused swimlane exits focus', async () => {
+    // Start with focus=20
+    mockSearchParams = new URLSearchParams('focus=20')
+    const props = defaultProps()
+    const { rerender } = render(<BoardView {...props} />)
+    expect(screen.getByText('Focused on:')).toBeInTheDocument()
+
+    // Simulate swimlane deleted — remove it from the board prop
+    const boardWithoutSwimlane = makeBoard({ swimlanes: [] })
+    rerender(<BoardView {...props} board={boardWithoutSwimlane} />)
+
+    // Focus banner should be gone since the focused swimlane no longer exists
+    expect(screen.queryByText('Focused on:')).not.toBeInTheDocument()
   })
 })
