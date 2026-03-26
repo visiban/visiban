@@ -100,6 +100,9 @@ class AuthProvidersViewTests(TestCase):
         self.assertIn("google", data)
         self.assertIn("github", data)
         self.assertIn("gitlab", data)
+        # OIDC keys added in #349 — must always be present even when not configured.
+        self.assertIn("oidc", data)
+        self.assertIn("oidc_name", data)
 
     def test_providers_unauthenticated_allowed(self):
         # AllowAny — no auth needed

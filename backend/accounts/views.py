@@ -52,16 +52,27 @@ class UserSearchView(APIView):
 
 
 class AuthProvidersView(APIView):
-    """Return which OAuth providers (Google, GitHub, GitLab) are configured on this instance."""
+    """Return which social login providers are configured on this instance.
+
+    Used by the frontend to conditionally render login buttons. OIDC is
+    reported separately from the pre-configured providers so the frontend
+    can display a generic "SSO" button with the configured provider name.
+    """
 
     permission_classes = [AllowAny]
 
     def get(self, request):
         providers = settings.SOCIALACCOUNT_PROVIDERS
+        oidc_apps = providers.get("openid_connect", {}).get("APPS", [])
+        oidc_app = oidc_apps[0] if oidc_apps else {}
         return Response({
             "google": bool(providers.get("google", {}).get("APP", {}).get("client_id")),
             "github": bool(providers.get("github", {}).get("APP", {}).get("client_id")),
             "gitlab": bool(providers.get("gitlab", {}).get("APP", {}).get("client_id")),
+            # Generic OIDC — present when OIDC_CLIENT_ID/OIDC_SECRET/OIDC_SERVER_URL are set.
+            # name comes from OIDC_PROVIDER_NAME (default "SSO") for the login button label.
+            "oidc": bool(oidc_app.get("client_id")),
+            "oidc_name": oidc_app.get("name", "SSO") if oidc_app.get("client_id") else None,
         })
 
 
