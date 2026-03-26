@@ -17,6 +17,11 @@ See the [OAuth Setup](../getting-started/oauth.md) guide for step-by-step config
 
 ## Generic OIDC
 
+!!! warning "Tech Preview — not tested against a real identity provider"
+    The OIDC configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. However, **the end-to-end login flow has not been validated against any real identity provider** — Keycloak, Okta, Authentik, Dex, or otherwise. Treat this as a tech preview: the wiring is in place, but you may encounter issues with token exchange, scope mapping, or callback handling that have not yet been discovered.
+
+    If you test this against your IdP, please report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
+
 Generic OIDC is available in the OSS edition via `allauth.socialaccount.providers.openid_connect`, which is already included in the `django-allauth` dependency. No additional packages are required.
 
 Use this when your identity provider supports standard OIDC but is not one of the pre-configured providers (Google, GitHub, GitLab). Common examples: Keycloak, Authentik, Dex, Okta, and any other OIDC-compliant IdP.
