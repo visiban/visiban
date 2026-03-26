@@ -967,6 +967,72 @@ class BoardViewSet(viewsets.ModelViewSet):
         return Response({"swimlanes": result})
 
     @action(detail=True, methods=["get"])
+    def movements(self, request, pk=None):
+        """Return a paginated, filterable movement history for the entire board.
+
+        Query params:
+          - ``swimlane_id`` (int): filter to a specific swimlane.
+          - ``column_id`` (int): filter to movements that landed in a column.
+          - ``user_id`` (int): filter by the user who triggered the move.
+          - ``since`` (ISO 8601 date, e.g. "2026-01-01"): movements on or after this date.
+          - ``until`` (ISO 8601 date): movements on or before this date.
+          - ``page`` (int, default 1): page number.
+          - ``page_size`` (int, default 50, max 200): items per page.
+        """
+        from django.core.paginator import Paginator, InvalidPage
+
+        board, _ = get_board_for_user(pk, request.user)
+        qs = (
+            CardMovement.objects
+            .filter(card__board=board)
+            .select_related(
+                "card", "from_column", "to_column",
+                "from_swimlane", "to_swimlane", "moved_by",
+            )
+            .order_by("-moved_at")
+        )
+
+        swimlane_id = request.query_params.get("swimlane_id")
+        if swimlane_id:
+            qs = qs.filter(Q(from_swimlane_id=swimlane_id) | Q(to_swimlane_id=swimlane_id))
+
+        column_id = request.query_params.get("column_id")
+        if column_id:
+            qs = qs.filter(to_column_id=column_id)
+
+        user_id = request.query_params.get("user_id")
+        if user_id:
+            qs = qs.filter(moved_by_id=user_id)
+
+        since = request.query_params.get("since")
+        if since:
+            qs = qs.filter(moved_at__date__gte=since)
+
+        until = request.query_params.get("until")
+        if until:
+            qs = qs.filter(moved_at__date__lte=until)
+
+        try:
+            page_size = min(int(request.query_params.get("page_size", 50)), 200)
+            page_num = int(request.query_params.get("page", 1))
+        except (ValueError, TypeError):
+            page_size, page_num = 50, 1
+
+        paginator = Paginator(qs, page_size)
+        try:
+            page = paginator.page(page_num)
+        except InvalidPage:
+            page = paginator.page(1)
+
+        serializer = CardMovementSerializer(
+            page.object_list, many=True, context={"request": request}
+        )
+        return Response({
+            "count": paginator.count,
+            "results": serializer.data,
+        })
+
+    @action(detail=True, methods=["get"])
     def analytics(self, request, pk=None):
         """Time-in-stage heatmap with outlier detection and stalled cards.
 
