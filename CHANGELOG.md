@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 
 ### Fixed
+- Login page and join-invite page now render an SSO button for OIDC-only installs — the OAuth section gate previously excluded OIDC from its visibility condition, so the button was never shown even when OIDC was the only configured provider; the button label uses the configured `oidc_name` value (falls back to "SSO")
 - Checking or unchecking a checklist item now immediately updates the `✓ done/total` count on the card tile in the board view — previously the count was calculated from a stale delta that could produce a wrong value or revert on rapid successive checks (#330)
 - Board columns are now expanded by default on every initial view — including imported boards, template-created boards, and newly-added columns — eliminating cases where columns appeared collapsed until a user interaction or page effect fired
 - Space+drag board panning re-attaches event listeners after switching between Board, Summary, and Analytics views — previously the hook captured a stale DOM reference on first mount and lost pan mode whenever the scroll container remounted

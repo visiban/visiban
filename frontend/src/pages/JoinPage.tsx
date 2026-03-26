@@ -21,7 +21,7 @@ export default function JoinPage({ user }: Props) {
   const [invalid, setInvalid] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(5);
-  const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean } | null>(null);
+  const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -42,7 +42,7 @@ export default function JoinPage({ user }: Props) {
     if (!user) {
       getAuthProviders()
         .then(setProviders)
-        .catch(() => setProviders({ google: false, github: false, gitlab: false }));
+        .catch(() => setProviders({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null }));
     }
   }, [user]);
 
@@ -92,7 +92,7 @@ export default function JoinPage({ user }: Props) {
     );
   }
 
-  const hasOAuth = providers && (providers.google || providers.github || providers.gitlab);
+  const hasOAuth = providers && (providers.google || providers.github || providers.gitlab || providers.oidc);
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -175,6 +175,14 @@ export default function JoinPage({ user }: Props) {
                     >
                       <GitLabIcon />
                       Continue with GitLab
+                    </button>
+                  )}
+                  {providers.oidc && (
+                    <button
+                      onClick={() => handleOAuthRedirect("oidc")}
+                      className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Continue with {providers.oidc_name ?? "SSO"}
                     </button>
                   )}
                 </div>
