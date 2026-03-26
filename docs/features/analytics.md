@@ -46,15 +46,11 @@ Dwell-time calculations use only `movement_type = move` events. Archive and rest
 
 Below the heatmap, cards that haven't moved in more than the configured stalled-days threshold are listed with their swimlane, column, assignee, and days since last movement. Click any row to open the card detail panel directly — no need to navigate back to the board view first.
 
-> **Added in 1.0.0-rc.9:** Stalled card rows are now clickable.
-
 Archived cards are excluded from stalled card detection — they are no longer in-flight and flagging them as stalled would be misleading.
 
 ### Empty period
 
 When the selected time window contains no movement data at all (for example, a newly created board or a period before the board had any activity), the analytics view shows an informational message rather than an empty heatmap. Widen the period or add some card movements to populate the view.
-
-> **Added in 1.0.0-rc.9:** Empty-period message.
 
 ### CSV export
 

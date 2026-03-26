@@ -1,7 +1,5 @@
 # Admin API
 
-> **Added in 1.0.0-rc.6**
-
 All endpoints in this section require **site admin** authentication. Non-admin users receive `403 Forbidden`.
 
 See [Admin Panel](../administration/admin-panel.md) for the equivalent UI and [Site Admins](../administration/site-admins.md) for first-boot setup.

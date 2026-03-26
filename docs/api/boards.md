@@ -95,8 +95,6 @@ List all active board templates. Requires authentication. Used by the board crea
 
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Content Production**, **Hiring & Recruiting**, **Legal & Compliance**, **Infrastructure & DevOps**, **Blank Board**.
 
-> **Added in 1.0.0-rc.9:** Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps templates.
-
 ### `GET /api/boards/{id}/summary/`
 Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.
 

@@ -17,8 +17,6 @@ The top-right corner of the board toolbar shows the connection state:
 - 🟡 **Reconnecting…** — connection dropped; client is retrying automatically; dot pulses amber
 - ⚫ **Offline** — connection permanently failed (authentication error or repeated failures); dot is grey and static — reload the page to reconnect
 
-> **Changed in 1.0.0-rc.8:** The indicator now has three distinct states. Previously "Reconnecting…" and "Offline" were both shown as a static grey dot with no text.
-
 The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**.
 
 ## Event types

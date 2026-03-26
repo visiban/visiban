@@ -1,7 +1,5 @@
 # Personal Access Tokens
 
-> **Added in 1.0.0-rc.10**
-
 Personal Access Tokens (PATs) let you authenticate API requests from scripts, CI pipelines, and integrations without sharing your password or relying on a browser session cookie. Each token acts on your behalf with your full access rights.
 
 When to use a PAT:

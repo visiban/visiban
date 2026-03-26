@@ -333,7 +333,7 @@ Returns the authenticated user's profile.
 | Field | Type | Description |
 |---|---|---|
 | `is_site_admin` | boolean | Whether the user can access the `/admin` admin panel and admin API. |
-| `can_access_all_content` | boolean | Whether the user has read/write access to every board and group regardless of membership. Independent of `is_site_admin` as of 1.0.0-rc.9 — see [Site Admins](../administration/site-admins.md). |
+| `can_access_all_content` | boolean | Whether the user has read/write access to every board and group regardless of membership. Independent of `is_site_admin` — see [Site Admins](../administration/site-admins.md). |
 | `uploads_enabled` | boolean | Instance-wide setting reflecting whether file attachment uploads are currently permitted. When `false`, the attachment UI is hidden and upload attempts return `403`. |
 
 ### `PATCH /api/auth/me/`

@@ -71,14 +71,12 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. > **Added in 1.0.0-rc.7:** WIP limit enforcement (was informational-only in earlier releases). > **Changed in 1.0.0-rc.8:** Enforcement is **on by default** for newly created boards; existing boards are unchanged.
-- **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. > **Added in 1.0.0-rc.7:** Weight limit enforcement. > **Changed in 1.0.0-rc.8:** Enforcement is **on by default** for newly created boards; existing boards are unchanged.
+- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
+- **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 
 Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone or by clicking the **Delete column** button at the bottom of the column settings modal.
-
-> **Added in 1.0.0-rc.9:** Delete column button in the column settings modal (#267).
 
 ### Adding columns and swimlanes
 
@@ -129,8 +127,6 @@ Every drag that changes column or swimlane creates a `CardMovement` audit record
 
 ### Board panning
 
-> **Added in 1.0.0-rc.9**
-
 Hold **Space** and drag to pan the board in any direction. This is useful on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode.
 
 ## Bulk card operations
@@ -180,8 +176,6 @@ Click **Filters** in the toolbar (or press `f`) to open the filter bar below the
 An active filter count badge appears on the Filters button when filters are in use. Click **Clear** to reset all filters at once.
 
 When all filters are active and no cards match, a **"No cards match"** banner appears across the board area so it is clear the board has cards but none satisfy the current criteria.
-
-> **Added in 1.0.0-rc.9:** The "No cards match" banner (#263).
 
 ## Views
 

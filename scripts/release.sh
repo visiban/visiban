@@ -49,6 +49,11 @@ fi
 # so the Settings → About page reads the version from here.
 sed -i '' "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" frontend/package.json
 
+# Update README.md release badge — shields.io encodes hyphens as double-hyphens
+# e.g. v1.0.0-rc.9 → v1.0.0--rc.9 in the badge URL
+BADGE_VER=$(echo "$TAG" | sed 's/-/--/g')
+sed -i '' "s|^\[!\[release\].*$|[![release](https://img.shields.io/badge/release-${BADGE_VER}-blue)](https://gitlab.com/visiban/visiban/-/releases/${TAG})|" README.md
+
 # Rotate CHANGELOG: rename [Unreleased] → [v{VERSION}] and prepend a fresh [Unreleased]
 if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
   echo "Error: CHANGELOG.md has no [Unreleased] section" >&2
@@ -72,10 +77,10 @@ awk -v version="$VERSION" -v date="$TODAY" '
   { print }
 ' CHANGELOG.md > "$TMP" && mv "$TMP" CHANGELOG.md
 
-echo "Updated .env.example, docker-compose.yml, frontend/package.json, CHANGELOG.md"
+echo "Updated .env.example, docker-compose.yml, frontend/package.json, CHANGELOG.md, README.md"
 
 # Commit and push branch
-git add CHANGELOG.md .env.example docker-compose.yml frontend/package.json
+git add CHANGELOG.md .env.example docker-compose.yml frontend/package.json README.md
 git commit -m "chore: release ${TAG}"
 git push -u origin "$RELEASE_BRANCH"
 
