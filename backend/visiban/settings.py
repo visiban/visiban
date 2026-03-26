@@ -31,6 +31,16 @@ if not DEBUG and SECRET_KEY in _INSECURE_SECRET_KEYS:
     )
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+# Resolve OIDC env vars early so INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS
+# both reference the same computed flag instead of calling env() twice.
+_OIDC_CLIENT_ID = env("OIDC_CLIENT_ID", default="")
+_OIDC_SECRET = env("OIDC_SECRET", default="")
+_OIDC_SERVER_URL = env("OIDC_SERVER_URL", default="")
+# True when all three OIDC env vars are present. The provider app is only
+# registered in INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS when this is True
+# so that allauth does not attempt discovery with an empty server_url.
+_OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_SECRET and _OIDC_SERVER_URL)
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -53,6 +63,13 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.github",
     "allauth.socialaccount.providers.gitlab",
+    # openid_connect is only registered when all three OIDC env vars are set
+    # (_OIDC_ENABLED, computed above). Registering the app without a valid
+    # configuration causes allauth startup errors on discovery, so the guard
+    # here keeps INSTALLED_APPS in sync with SOCIALACCOUNT_PROVIDERS below.
+    *([
+        "allauth.socialaccount.providers.openid_connect",
+    ] if _OIDC_ENABLED else []),
     "dj_rest_auth",
     "dj_rest_auth.registration",
     "drf_spectacular",
@@ -294,6 +311,25 @@ SOCIALACCOUNT_PROVIDERS = {
             "secret": env("GITLAB_CLIENT_SECRET", default=""),
         },
     },
+    # Generic OIDC — only populated when all three env vars are set so that
+    # allauth does not attempt to discover endpoints with an empty server_url.
+    # OIDC_SERVER_URL must be the issuer URL (e.g. https://idp.example.com/realms/my-realm).
+    # allauth appends /.well-known/openid-configuration automatically.
+    **({
+        "openid_connect": {
+            "APPS": [
+                {
+                    "provider_id": "oidc",
+                    "name": env("OIDC_PROVIDER_NAME", default="SSO"),
+                    "client_id": _OIDC_CLIENT_ID,
+                    "secret": _OIDC_SECRET,
+                    "settings": {
+                        "server_url": _OIDC_SERVER_URL,
+                    },
+                }
+            ],
+        },
+    } if _OIDC_ENABLED else {}),
 }
 
 # dj-rest-auth
