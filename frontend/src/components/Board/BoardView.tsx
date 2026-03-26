@@ -437,7 +437,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       ];
       onColumnsReordered(newOrder);
     }
-  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered, toggleCollapsedColumn]);
+  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
 
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
     onSwimlaneAdded(swimlane);

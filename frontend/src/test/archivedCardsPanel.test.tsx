@@ -16,7 +16,7 @@ const mockUnarchiveCard = unarchiveCard as ReturnType<typeof vi.fn>
 const fakeBoard: BoardFull = {
   id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
   columns: [
-    { id: 10, uid: 'coluid000001', name: 'Backlog', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
+    { id: 10, uid: 'coluid000001', name: 'Backlog', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
   ],
   swimlanes: [
     { id: 20, uid: 'laneuid00001', name: 'General', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },

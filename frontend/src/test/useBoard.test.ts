@@ -41,7 +41,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     description: '',
     group: null,
     group_name: null,
-    columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true }],
+    columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }],
     swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01T00:00:00Z' }],
     cards: [{
       id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium',
@@ -151,7 +151,7 @@ describe('useBoard', () => {
     const { result } = renderHook(() => useBoard())
     await waitFor(() => expect(result.current.board).not.toBeNull())
 
-    const newCol: Column = { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true }
+    const newCol: Column = { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false }
     act(() => { result.current.addColumn(newCol) })
     expect(result.current.board!.columns).toHaveLength(2)
   })
@@ -343,8 +343,8 @@ describe('useBoard', () => {
   it('reorderColumns optimistically updates and applies server response', async () => {
     const board = makeBoard({
       columns: [
-        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true },
-        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true },
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
       ],
     })
     mockGetBoardFull.mockResolvedValue(board)
