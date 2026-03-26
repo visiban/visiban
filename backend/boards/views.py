@@ -214,7 +214,14 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         if template["columns"]:
             Column.objects.bulk_create([
-                Column(board=board, name=col["name"], position=i, color=col["color"], allow_card_creation=(i == 0))
+                Column(
+                    board=board,
+                    name=col["name"],
+                    position=i,
+                    color=col["color"],
+                    allow_card_creation=(i == 0),
+                    is_done=col.get("is_done", False),
+                )
                 for i, col in enumerate(template["columns"])
             ])
 
@@ -477,6 +484,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                     wip_limit=col.get("wip_limit"),
                     weight_limit=col.get("weight_limit"),
                     allow_card_creation=col.get("allow_card_creation", i == 0),
+                    is_done=col.get("is_done", False),
                 )
                 column_map[col["name"]] = column
 
@@ -1300,6 +1308,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                         "wip_limit": col.wip_limit,
                         "weight_limit": col.weight_limit,
                         "allow_card_creation": col.allow_card_creation,
+                        "is_done": col.is_done,
                     }
                     for col in columns
                 ],
