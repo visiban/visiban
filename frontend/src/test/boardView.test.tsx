@@ -87,10 +87,10 @@ vi.mock('../components/Board/ColumnHeader', () => ({
   ),
 }))
 // SwimlaneRow mock exposes onFocus so tests can trigger focus-entry programmatically.
-let capturedOnFocus: ((id: number) => void) | undefined
+let _capturedOnFocus: ((id: number) => void) | undefined
 vi.mock('../components/Board/SwimlaneRow', () => ({
   default: ({ swimlane, onFocus, isFocused }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; isFocused?: boolean }) => {
-    capturedOnFocus = onFocus
+    _capturedOnFocus = onFocus
     return (
       <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)}>
         {swimlane.name}

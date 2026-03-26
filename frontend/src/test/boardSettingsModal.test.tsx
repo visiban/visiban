@@ -595,7 +595,6 @@ describe('BoardSettingsModal — Sharing tab', () => {
   })
 
   it('Sharing tab shows toggle and explanatory copy', async () => {
-    const user = (await import('@testing-library/user-event')).default.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     expect(screen.getByText('Public sharing')).toBeInTheDocument()
     expect(screen.getByText('Enable public share link')).toBeInTheDocument()
