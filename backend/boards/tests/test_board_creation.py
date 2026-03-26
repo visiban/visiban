@@ -121,13 +121,13 @@ class BoardCreationTests(TestCase):
         self.assertEqual(names, ["Idea", "Validated", "Scoped", "Prioritized", "In Build", "Beta", "Launched", "Monitoring"])
 
     def test_project_delivery_columns(self):
-        """Project Delivery template creates the correct 6 columns."""
+        """Project Delivery template creates the correct 7 columns, ending with Done."""
         resp = self._create_board(template="project_delivery")
         board_id = resp.data["id"]
         names = list(
             Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
         )
-        self.assertEqual(names, ["Planning", "Kickoff", "Execution", "Milestone Review", "Wrap-up", "Retro"])
+        self.assertEqual(names, ["Planning", "Kickoff", "Execution", "Milestone Review", "Wrap-up", "Retro", "Done"])
 
     def test_blank_template_creates_no_columns(self):
         """Blank template creates no columns."""
