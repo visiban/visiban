@@ -81,7 +81,7 @@ export interface Column {
   wip_limit: number | null;
   weight_limit: number | null;
   allow_card_creation: boolean;
-  is_done: boolean;
+  is_done?: boolean;
 }
 
 export interface Swimlane {
@@ -158,9 +158,6 @@ export interface Notification {
 
 export interface CardMovement {
   id: number;
-  /** Identifies the card this movement belongs to — useful in board-level history lists. */
-  card_uid: string;
-  card_title: string;
   from_column: number | null;
   from_column_name: string | null;
   from_column_uid: string;
@@ -254,7 +251,6 @@ export interface BoardFull {
   created_at: string;
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
-  share_token?: string | null;
 }
 
 export interface GroupLabel {
@@ -329,39 +325,4 @@ export interface SavedFilter {
   name: string;
   state_json: Record<string, unknown>;
   created_at: string;
-}
-
-// ---------------------------------------------------------------------------
-// Public share-link types (unauthenticated board view)
-// ---------------------------------------------------------------------------
-
-export interface PublicAssignee {
-  display_name: string;
-}
-
-export interface PublicCard {
-  uid: string;
-  column: number;
-  swimlane: number;
-  title: string;
-  priority: Priority;
-  labels: Label[];
-  due_date: string | null;
-  weight: number;
-  position: number;
-  checklist_total: number;
-  checklist_done: number;
-  assignee: PublicAssignee | null;
-  last_moved_at: string | null;
-  is_stale: boolean;
-}
-
-export interface BoardPublic {
-  uid: string;
-  name: string;
-  staleness_threshold_days: number;
-  columns: Column[];
-  swimlanes: Swimlane[];
-  labels: Label[];
-  cards: PublicCard[];
 }

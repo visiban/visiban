@@ -18,7 +18,6 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 
@@ -33,38 +32,16 @@ from .models import (
     Notification, SavedFilter,
 )
 from .permissions import get_board_role, SITE_ADMIN
-from .hooks import MOVEMENT_EXPORT_BACKENDS
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     BoardTemplateSerializer,
     ColumnSerializer, SwimlaneSerializer, SwimlaneAdminSerializer, LabelSerializer,
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
-    SavedFilterSerializer, PublicBoardSerializer,
+    SavedFilterSerializer,
     _card_queryset,
 )
 from .templates import BOARD_TEMPLATES
-
-
-# ---------------------------------------------------------------------------
-# Throttle classes
-# ---------------------------------------------------------------------------
-
-class ShareLinkThrottle(SimpleRateThrottle):
-    """Rate-limit unauthenticated reads of public share-link boards.
-
-    Scope 'share_link' maps to DEFAULT_THROTTLE_RATES['share_link'] in settings
-    (120/hour in production).  Keyed on client IP so the limit applies per
-    visitor, not per token.
-    """
-
-    scope = "share_link"
-
-    def get_cache_key(self, request, view):
-        return self.cache_format % {
-            "scope": self.scope,
-            "ident": self.get_ident(request),
-        }
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +219,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                     name=col["name"],
                     position=i,
                     color=col["color"],
-                    allow_card_creation=(i == 0),
+                    allow_card_creation=col.get("allow_card_creation", i == 0),
                     is_done=col.get("is_done", False),
                 )
                 for i, col in enumerate(template["columns"])
@@ -300,37 +277,6 @@ class BoardViewSet(viewsets.ModelViewSet):
         # change just made — the object fetched by get_object() above is stale.
         board = self.get_queryset().get(pk=board.pk)
         return Response(self.get_serializer(board).data)
-
-    @action(detail=True, methods=["post", "delete"], url_path="share")
-    def share(self, request, pk=None):
-        """Enable or revoke the public share link for a board.
-
-        POST  — generates a fresh UUID token (replaces any existing token).
-        DELETE — clears the token, immediately invalidating any live share link.
-        Both operations are admin-only; the token is a public credential.
-        """
-        import uuid as _uuid
-        board, role = get_board_for_user(pk, request.user)
-        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied
-        if request.method == "POST":
-            board.share_token = _uuid.uuid4()
-            board.save(update_fields=["share_token"])
-            share_url = request.build_absolute_uri(f"/share/{board.share_token}")
-            response_data = {"share_token": str(board.share_token), "share_url": share_url}
-        else:
-            # DELETE
-            board.share_token = None
-            board.save(update_fields=["share_token"])
-            response_data = {"share_token": None}
-
-        # Notify connected clients so the Sharing tab updates without a reload.
-        board_id = board.pk
-        board_summary = BoardSerializer(board, context={"request": request}).data
-        transaction.on_commit(
-            lambda: broadcast_board_event(board_id, "board.updated", board_summary)
-        )
-        return Response(response_data)
 
     @action(detail=True, methods=["post"], url_path="move-group")
     def move_group(self, request, pk=None):
@@ -516,7 +462,6 @@ class BoardViewSet(viewsets.ModelViewSet):
                     wip_limit=col.get("wip_limit"),
                     weight_limit=col.get("weight_limit"),
                     allow_card_creation=col.get("allow_card_creation", i == 0),
-                    is_done=col.get("is_done", False),
                 )
                 column_map[col["name"]] = column
 
@@ -964,7 +909,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         columns = list(board.columns.order_by("position"))
         swimlanes = list(board.swimlanes.order_by("position"))
-        done_column_ids = {col.id for col in columns if col.is_done}
+        last_column = columns[-1] if columns else None
 
         # Query 1: card count per (swimlane, column) in one shot.
         raw_counts = (
@@ -976,12 +921,12 @@ class BoardViewSet(viewsets.ModelViewSet):
         for row in raw_counts:
             counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
 
-        # Query 2: velocity + done_30d per swimlane using is_done columns.
+        # Query 2: velocity per swimlane — conditional COUNT avoids two round-trips.
         vel_by_swimlane: dict[int, dict] = {}
-        if done_column_ids:
+        if last_column:
             vel_qs = (
                 CardMovement.objects
-                .filter(card__board=board, card__archived_at__isnull=True, to_column_id__in=done_column_ids)
+                .filter(card__board=board, card__archived_at__isnull=True, to_column=last_column)
                 .values("card__swimlane_id")
                 .annotate(
                     vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),
@@ -990,50 +935,10 @@ class BoardViewSet(viewsets.ModelViewSet):
             )
             vel_by_swimlane = {r["card__swimlane_id"]: r for r in vel_qs}
 
-        # Query 3: avg cycle time per swimlane — time from first movement to first
-        # done-column entry, averaged across cards completed in the last 30d.
-        avg_cycle_by_swimlane: dict[int, float | None] = {}
-        if done_column_ids:
-            from django.db.models import Min
-            # 3a: first done-column entry per card in the last 30d.
-            done_entries = {
-                r["card_id"]: r
-                for r in CardMovement.objects
-                .filter(
-                    card__board=board,
-                    card__archived_at__isnull=True,
-                    to_column_id__in=done_column_ids,
-                    moved_at__gte=cutoff_30d,
-                )
-                .values("card_id", "card__swimlane_id")
-                .annotate(done_at=Min("moved_at"))
-            }
-            if done_entries:
-                # 3b: first movement per card (proxy for work-start) — single query.
-                start_by_card = {
-                    r["card_id"]: r["start_at"]
-                    for r in CardMovement.objects
-                    .filter(card_id__in=done_entries.keys())
-                    .values("card_id")
-                    .annotate(start_at=Min("moved_at"))
-                }
-                buckets: dict[int, list[float]] = {}
-                for card_id, entry in done_entries.items():
-                    start = start_by_card.get(card_id)
-                    done_at = entry["done_at"]
-                    if start and done_at and done_at > start:
-                        days = (done_at - start).total_seconds() / 86400
-                        buckets.setdefault(entry["card__swimlane_id"], []).append(days)
-                avg_cycle_by_swimlane = {
-                    k: round(sum(v) / len(v), 1) for k, v in buckets.items()
-                }
-
         result = []
         for swimlane in swimlanes:
             col_counts = counts.get(swimlane.id, {})
             vel = vel_by_swimlane.get(swimlane.id, {})
-            done_card_count = sum(col_counts.get(cid, 0) for cid in done_column_ids)
-            active_cards = sum(col_counts.values()) - done_card_count
             result.append({
                 "id": swimlane.id,
                 "name": swimlane.name,
@@ -1042,84 +947,9 @@ class BoardViewSet(viewsets.ModelViewSet):
                 "stage_distribution": {col.name: col_counts.get(col.id, 0) for col in columns},
                 "velocity_7d": vel.get("vel_7d", 0),
                 "velocity_30d": vel.get("vel_30d", 0),
-                "active_cards": active_cards,
-                "done_30d": vel.get("vel_30d", 0),
-                "avg_cycle_days": avg_cycle_by_swimlane.get(swimlane.id),
             })
 
         return Response({"swimlanes": result})
-
-    @action(detail=True, methods=["get"])
-    def movements(self, request, pk=None):
-        """Return a paginated, filterable movement history for the entire board.
-
-        Query params:
-          - ``swimlane_id`` (int): filter to a specific swimlane.
-          - ``column_id`` (int): filter to movements that landed in a column.
-          - ``user_id`` (int): filter by the user who triggered the move.
-          - ``since`` (ISO 8601 date, e.g. "2026-01-01"): movements on or after this date.
-          - ``until`` (ISO 8601 date): movements on or before this date.
-          - ``page`` (int, default 1): page number.
-          - ``page_size`` (int, default 50, max 200): items per page.
-        """
-        from django.core.paginator import Paginator, InvalidPage
-
-        board, _ = get_board_for_user(pk, request.user)
-        qs = (
-            CardMovement.objects
-            .filter(card__board=board)
-            .select_related(
-                "card", "from_column", "to_column",
-                "from_swimlane", "to_swimlane", "moved_by",
-            )
-            .order_by("-moved_at")
-        )
-
-        swimlane_id = request.query_params.get("swimlane_id")
-        if swimlane_id:
-            qs = qs.filter(Q(from_swimlane_id=swimlane_id) | Q(to_swimlane_id=swimlane_id))
-
-        column_id = request.query_params.get("column_id")
-        if column_id:
-            qs = qs.filter(to_column_id=column_id)
-
-        user_id = request.query_params.get("user_id")
-        if user_id:
-            qs = qs.filter(moved_by_id=user_id)
-
-        since = request.query_params.get("since")
-        if since:
-            qs = qs.filter(moved_at__date__gte=since)
-
-        until = request.query_params.get("until")
-        if until:
-            qs = qs.filter(moved_at__date__lte=until)
-
-        # Enterprise export hook: if a backend is registered and ?export=1 is
-        # set, delegate the full (unpaginated) queryset to the first backend.
-        # OSS renders no export UI when MOVEMENT_EXPORT_BACKENDS is empty.
-        if request.query_params.get("export") == "1" and MOVEMENT_EXPORT_BACKENDS:
-            return MOVEMENT_EXPORT_BACKENDS[0](board, qs, request)
-
-        try:
-            page_size = min(int(request.query_params.get("page_size", 50)), 200)
-            page_num = int(request.query_params.get("page", 1))
-        except (ValueError, TypeError):
-            page_size, page_num = 50, 1
-
-        paginator = Paginator(qs, page_size)
-        try:
-            page = paginator.page(page_num)
-        except InvalidPage:
-            page = paginator.page(1)
-
-        serializer = CardMovementSerializer(
-            page.object_list, many=True, context={"request": request}
-        )
-        return Response({
-            "count": paginator.count,
-            "results": serializer.data,
-        })
 
     @action(detail=True, methods=["get"])
     def analytics(self, request, pk=None):
@@ -1346,7 +1176,6 @@ class BoardViewSet(viewsets.ModelViewSet):
                         "wip_limit": col.wip_limit,
                         "weight_limit": col.weight_limit,
                         "allow_card_creation": col.allow_card_creation,
-                        "is_done": col.is_done,
                     }
                     for col in columns
                 ],
@@ -2151,7 +1980,7 @@ class CardViewSet(viewsets.ModelViewSet):
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         movements = card.movements.select_related(
-            "card", "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"
+            "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"
         )
         return Response(CardMovementSerializer(movements, many=True).data)
 
@@ -2562,36 +2391,3 @@ class ServeMediaView(APIView):
         response["X-Accel-Redirect"] = f"/protected-media/{path}"
         response["Content-Type"] = ""
         return response
-
-
-# ---------------------------------------------------------------------------
-# Public board share-link
-# ---------------------------------------------------------------------------
-
-class ShareBoardView(APIView):
-    """GET /api/share/<token>/ — public read-only board view, no authentication required.
-
-    The UUID token is the sole credential. Returns a stripped board payload
-    (columns, swimlanes, cards, labels) with all PII removed:
-    - No user PKs or emails in assignee or any nested user object
-    - No swimlane contact_email or notes
-    - No comments, movement history, or member list
-    - No share_token in the response body
-    """
-
-    permission_classes = []
-    authentication_classes = []
-    throttle_classes = [ShareLinkThrottle]
-
-    def get(self, request, token):
-        import uuid as _uuid
-        try:
-            token_uuid = _uuid.UUID(token)
-        except ValueError:
-            from django.http import Http404
-            raise Http404
-        board = get_object_or_404(
-            Board.objects.prefetch_related("columns", "swimlanes", "labels"),
-            share_token=token_uuid,
-        )
-        return Response(PublicBoardSerializer(board).data)

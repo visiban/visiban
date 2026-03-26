@@ -102,13 +102,13 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Prospect",      "color": "#6B7280", "allow_card_creation": True},
-            {"name": "Qualified",     "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Qualified",     "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Discovery",     "color": "#8B5CF6", "allow_card_creation": False},
             {"name": "Demo",          "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Proposal Sent", "color": "#F97316", "allow_card_creation": False},
             {"name": "Negotiation",   "color": "#EF4444", "allow_card_creation": False},
-            {"name": "Closed Won",    "color": "#10B981", "allow_card_creation": False},
-            {"name": "Closed Lost",   "color": "#9CA3AF", "allow_card_creation": False},
+            {"name": "Closed Won",    "color": "#10B981", "allow_card_creation": False, "is_done": True},
+            {"name": "Closed Lost",   "color": "#9CA3AF", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "Enterprise", "color": "#6366F1"},
@@ -469,12 +469,12 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "New",               "color": "#6B7280", "allow_card_creation": True},
-            {"name": "Triaged",           "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Triaged",           "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Investigating",     "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Awaiting Customer", "color": "#F97316", "allow_card_creation": False},
             {"name": "Escalated",         "color": "#EF4444", "allow_card_creation": False},
-            {"name": "Resolved",          "color": "#10B981", "allow_card_creation": False},
-            {"name": "Closed",            "color": "#9CA3AF", "allow_card_creation": False},
+            {"name": "Resolved",          "color": "#10B981", "allow_card_creation": False, "is_done": True},
+            {"name": "Closed",            "color": "#9CA3AF", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "Bug",             "color": "#EF4444"},
@@ -822,11 +822,11 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Onboarding", "color": "#3B82F6", "allow_card_creation": True},
-            {"name": "Adoption",   "color": "#8B5CF6", "allow_card_creation": True},
+            {"name": "Adoption",   "color": "#8B5CF6", "allow_card_creation": False},
             {"name": "Healthy",    "color": "#10B981", "allow_card_creation": False},
             {"name": "Expansion",  "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Renewal",    "color": "#F97316", "allow_card_creation": False},
-            {"name": "Churned",    "color": "#EF4444", "allow_card_creation": False},
+            {"name": "Churned",    "color": "#EF4444", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "At Risk",               "color": "#EF4444"},
@@ -1139,10 +1139,10 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Backlog", "color": "#6B7280", "allow_card_creation": True},
-            {"name": "To Do",   "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "To Do",   "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Doing",   "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Review",  "color": "#8B5CF6", "allow_card_creation": False},
-            {"name": "Done",    "color": "#10B981", "allow_card_creation": False},
+            {"name": "Done",    "color": "#10B981", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "Bug",       "color": "#EF4444"},
@@ -1468,12 +1468,12 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Idea",        "color": "#8B5CF6", "allow_card_creation": True},
-            {"name": "Validated",   "color": "#6B7280", "allow_card_creation": True},
+            {"name": "Validated",   "color": "#6B7280", "allow_card_creation": False},
             {"name": "Scoped",      "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Prioritized", "color": "#F97316", "allow_card_creation": False},
             {"name": "In Build",    "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Beta",        "color": "#EC4899", "allow_card_creation": False},
-            {"name": "Launched",    "color": "#10B981", "allow_card_creation": False},
+            {"name": "Launched",    "color": "#10B981", "allow_card_creation": False, "is_done": True},
             {"name": "Monitoring",  "color": "#14B8A6", "allow_card_creation": False},
         ],
         "labels": [
@@ -1815,11 +1815,12 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Planning",         "color": "#6B7280", "allow_card_creation": True},
-            {"name": "Kickoff",          "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Kickoff",          "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Execution",        "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Milestone Review", "color": "#8B5CF6", "allow_card_creation": False},
             {"name": "Wrap-up",          "color": "#F97316", "allow_card_creation": False},
-            {"name": "Retro",            "color": "#10B981", "allow_card_creation": False},
+            {"name": "Retro",            "color": "#14B8A6", "allow_card_creation": False},
+            {"name": "Done",             "color": "#10B981", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "Blocked",             "color": "#EF4444"},
@@ -2119,13 +2120,13 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Idea",            "color": "#8B5CF6", "allow_card_creation": True},
-            {"name": "Assigned",        "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Assigned",        "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Draft",           "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Internal Review", "color": "#F97316", "allow_card_creation": False},
             {"name": "Edits",           "color": "#EF4444", "allow_card_creation": False},
             {"name": "Final Approval",  "color": "#EC4899", "allow_card_creation": False},
             {"name": "Scheduled",       "color": "#14B8A6", "allow_card_creation": False},
-            {"name": "Published",       "color": "#10B981", "allow_card_creation": False},
+            {"name": "Published",       "color": "#10B981", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "SEO",        "color": "#3B82F6"},
@@ -2426,13 +2427,13 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Applied",          "color": "#6B7280", "allow_card_creation": True},
-            {"name": "Phone Screen",     "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Phone Screen",     "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Technical Screen", "color": "#8B5CF6", "allow_card_creation": False},
             {"name": "Interview",        "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Reference Check",  "color": "#F97316", "allow_card_creation": False},
             {"name": "Offer Extended",   "color": "#EC4899", "allow_card_creation": False},
-            {"name": "Hired",            "color": "#10B981", "allow_card_creation": False},
-            {"name": "Rejected",         "color": "#9CA3AF", "allow_card_creation": False},
+            {"name": "Hired",            "color": "#10B981", "allow_card_creation": False, "is_done": True},
+            {"name": "Rejected",         "color": "#9CA3AF", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "Strong Yes",  "color": "#10B981"},
@@ -2730,11 +2731,11 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Submitted",           "color": "#6B7280", "allow_card_creation": True},
-            {"name": "Under Review",        "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Under Review",        "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Needs Clarification", "color": "#F97316", "allow_card_creation": False},
-            {"name": "Approved",            "color": "#10B981", "allow_card_creation": False},
-            {"name": "Denied",              "color": "#EF4444", "allow_card_creation": False},
-            {"name": "Archived",            "color": "#9CA3AF", "allow_card_creation": False},
+            {"name": "Approved",            "color": "#10B981", "allow_card_creation": False, "is_done": True},
+            {"name": "Denied",              "color": "#EF4444", "allow_card_creation": False, "is_done": True},
+            {"name": "Closed",              "color": "#9CA3AF", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "GDPR",        "color": "#3B82F6"},
@@ -3045,13 +3046,13 @@ TEMPLATE_DATA: dict[str, dict] = {
         ),
         "columns": [
             {"name": "Reported",      "color": "#6B7280", "allow_card_creation": True},
-            {"name": "Triaged",       "color": "#3B82F6", "allow_card_creation": True},
+            {"name": "Triaged",       "color": "#3B82F6", "allow_card_creation": False},
             {"name": "Assigned",      "color": "#8B5CF6", "allow_card_creation": False},
             {"name": "In Progress",   "color": "#F59E0B", "allow_card_creation": False},
             {"name": "Testing",       "color": "#F97316", "allow_card_creation": False},
             {"name": "Change Window", "color": "#EC4899", "allow_card_creation": False},
             {"name": "Deployed",      "color": "#14B8A6", "allow_card_creation": False},
-            {"name": "Verified",      "color": "#10B981", "allow_card_creation": False},
+            {"name": "Verified",      "color": "#10B981", "allow_card_creation": False, "is_done": True},
         ],
         "labels": [
             {"name": "P0 - Critical", "color": "#EF4444"},
@@ -3506,6 +3507,7 @@ class Command(BaseCommand):
                     name=spec["name"],
                     color=spec["color"],
                     allow_card_creation=spec.get("allow_card_creation", True),
+                    is_done=spec.get("is_done", False),
                 )
             )
         return cols
