@@ -81,7 +81,7 @@ export interface Column {
   wip_limit: number | null;
   weight_limit: number | null;
   allow_card_creation: boolean;
-  is_done?: boolean;
+  is_done: boolean;
 }
 
 export interface Swimlane {
