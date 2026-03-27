@@ -73,6 +73,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Analytics stall detection now defaults to the board's configured staleness threshold instead of the period window length; `stalled_days` query param still accepted as an explicit override
 - Analytics heatmap layout is now pinned so the heatmap is always visible at the top; the stalled cards list below it scrolls independently instead of sharing a single scroll container
 - Analytics heatmap dwell-time calculations now exclude columns marked as done (`is_done=True`) — a card's clock stops when it enters a done column, and cards sitting in done columns are no longer flagged as stalled
+- Race-condition test for single-use invite tokens now explicitly closes thread-local database connections after each worker thread exits, preventing `destroy_test_db` from failing with "database is being accessed by other users" on PostgreSQL CI runners
 
 ---
 
