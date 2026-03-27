@@ -961,7 +961,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         completion columns. avg_cycle_days measures the time from a card's first
         movement to its first entry into a done column.
         """
-        from django.db.models import Avg, Count, FloatField, Min
+        from django.db.models import Count, Min
         board, _ = get_board_for_user(pk, request.user)
         now = timezone.now()
         cutoff_7d = now - datetime.timedelta(days=7)
@@ -986,7 +986,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         if done_column_ids:
             vel_qs = (
                 CardMovement.objects
-                .filter(card__board=board, card__archived_at__isnull=True, to_column_id__in=done_column_ids)
+                .filter(card__board=board, card__archived_at__isnull=True, to_column_id__in=done_column_ids, movement_type=CardMovement.MovementType.MOVE)
                 .values("card__swimlane_id")
                 .annotate(
                     vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),

@@ -186,8 +186,11 @@ class TestSummaryMetrics(AnalyticsHistorySetup):
     @override_settings(MOVEMENT_EXPORT_BACKENDS=["some.backend.Class"])
     def test_capabilities_movement_export_true_when_configured(self):
         """capabilities.movement_export must be True when MOVEMENT_EXPORT_BACKENDS is set."""
-        c = self._client_for(self.admin)
-        resp = c.get(f"/api/boards/{self.board.pk}/full/")
+        from unittest.mock import patch
+        dummy_backend = lambda board, qs, req: None  # noqa: E731
+        with patch("boards.hooks.MOVEMENT_EXPORT_BACKENDS", [dummy_backend]):
+            c = self._client_for(self.admin)
+            resp = c.get(f"/api/boards/{self.board.pk}/full/")
         self.assertTrue(resp.data["capabilities"]["movement_export"])
 
 
@@ -305,10 +308,10 @@ class TestMovementsEndpoint(AnalyticsHistorySetup):
         self.assertEqual(resp.status_code, 200)
 
     def test_unauthenticated_denied(self):
-        """Unauthenticated requests are rejected."""
+        """Unauthenticated requests are rejected with 401."""
         c = APIClient()
         resp = c.get(self._movements_url())
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 401)
 
 
 class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):

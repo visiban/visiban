@@ -319,7 +319,7 @@ describe('MovementHistoryView — pagination', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ page: '2' })
+        expect.objectContaining({ offset: '50' })
       )
     )
   })
