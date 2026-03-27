@@ -32,12 +32,18 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
   const { attributes, listeners, setNodeRef, isDragging } = draggable;
   const [hovered, setHovered] = useState(false);
 
+  // 24h is intentional here — it represents "moved in the current working session",
+  // not the board's staleness threshold. The two concepts are independent:
+  // staleness_threshold_days flags cards that need attention; the 24h window
+  // controls which cards show a dot (very recent) vs. a text label (older).
   const isRecent = card.last_moved_at
     ? Date.now() - new Date(card.last_moved_at).getTime() < 86_400_000
     : false;
 
   const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone, userDateFormat) : null;
-  // Show a text label for cards moved ≥24h ago; the blue dot (isRecent) handles the <24h case
+  // Show a text label for cards moved ≥24h ago; the blue dot (isRecent) handles the <24h case.
+  // formatRelativeMovedAt returns "moved today" for ms < 86_400_000, which is unreachable here
+  // because movedLabel is only computed when !isRecent (same threshold). See date.ts JSDoc.
   const movedLabel = (!hideLastMoved && !isRecent) ? formatRelativeMovedAt(card.last_moved_at, userDateFormat) : null;
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
 

@@ -104,7 +104,11 @@ export function formatDateTime(isoStr: string, dateFormat = "MM/DD/YYYY", timeFo
 /** Returns a short relative label for when a card was last moved (e.g. "moved today", "moved 3 days ago").
  *  Returns null for null/undefined input, '' for invalid date strings.
  *  < 24 h → "moved today"; 24–48 h → "moved yesterday"; 2–13 d → "moved N days ago";
- *  ≥ 14 d → "moved MM/DD" (month and day only, respecting dateFormat). */
+ *  ≥ 14 d → "moved MM/DD" (month and day only, respecting dateFormat).
+ *
+ *  Note: CardItem gates on `!isRecent` (ms < 86_400_000) before calling this function,
+ *  so the "moved today" branch is unreachable from that call site. The branch is kept
+ *  so callers that do NOT apply the isRecent gate receive a complete, self-contained result. */
 export function formatRelativeMovedAt(isoString: string | null | undefined, dateFormat = "MM/DD/YYYY"): string | null {
   if (isoString == null) return null;
   if (isoString === "") return "";
