@@ -85,10 +85,6 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
   return (
     <div className="flex-1 overflow-auto p-4 flex flex-col gap-6 bg-slate-900">
-      {/* DEBUG — remove before merge */}
-      <div className="border border-yellow-400 text-yellow-300 text-xs p-2 rounded">
-        DEBUG: swimlanes={data.swimlanes.length} cols={data.columns.length} threshold={data.staleness_threshold_days ?? "MISSING"} warningPct={data.stale_warning_pct ?? "MISSING"} hasData={String(data.swimlanes.some(sw => data.columns.some(col => sw.avg_days_per_column[col] !== null)))}
-      </div>
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <span className="text-sm text-slate-400 font-medium">Period:</span>
