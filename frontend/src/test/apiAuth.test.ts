@@ -141,7 +141,7 @@ describe('admin invite link API', () => {
   it('deactivateAdminUser calls POST /api/admin/users/:id/deactivate/ with transfers', async () => {
     const user = { id: 5, username: 'bob', is_active: false }
     mockPost.mockResolvedValue({ data: user })
-    const transfers = [{ board_id: 10, transfer_to_user_id: 3 }]
+    const transfers = [{ board_id: 10, transfer_to: 3 }]
     const result = await deactivateAdminUser(5, transfers)
     expect(mockPost).toHaveBeenCalledWith('/api/admin/users/5/deactivate/', { transfers })
     expect(result).toEqual(user)

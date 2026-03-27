@@ -432,7 +432,7 @@ class AdminUserDeactivateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from boards.models import Board, BoardMembership
+        from boards.models import Board
 
         owned_boards = list(Board.objects.filter(owner=target).values("id", "uid", "name"))
 
