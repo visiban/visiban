@@ -28,6 +28,35 @@ Each swimlane can be collapsed to save vertical space. Click the chevron on the 
 
 Admins can double-click the swimlane label to open the Edit Swimlane modal.
 
+### Swimlane focus mode
+
+> **Added in 1.0.0-rc.10** (#340)
+
+Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction — useful on dense boards with many swimlanes.
+
+**Entering focus mode:**
+
+Hover over any swimlane label panel to reveal the crosshair icon (⊙) in the top-right corner of the label. Click it to enter focus mode for that swimlane. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
+
+**What changes when focus is active:**
+
+- All other swimlane rows are collapsed and their cards are hidden
+- A blue banner appears between the board toolbar and the scroll area: "Focused on: *[swimlane name]*"
+- The URL updates to include `?focus=<swimlane_id>` — focus mode can be bookmarked and shared
+
+**Exiting focus mode:**
+
+- Click **Exit focus** in the blue banner
+- Press **Escape**
+- Reload the page without the `?focus=` param
+
+On exit, the swimlane collapse state is restored to exactly what it was before focus was entered.
+
+**Edge cases:**
+
+- If the focused swimlane is deleted while focus mode is active (e.g. by another session), focus mode exits automatically and the collapse state is restored
+- If the `?focus=` URL param contains an ID that no longer exists on the board, it is silently ignored
+
 ## Collapsed columns
 
 Clicking a column header collapses it to a narrow vertical strip. When collapsed:
