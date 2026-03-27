@@ -1,16 +1,19 @@
+import hashlib
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, update_session_auth_hash
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from rest_framework.throttling import UserRateThrottle
+from dj_rest_auth.registration.views import RegisterView
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
-from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting
+from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, InviteLink, get_registration_mode
 from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer
 
 User = get_user_model()
@@ -210,3 +213,72 @@ class PersonalAccessTokenDeleteView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         pat.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RegisterAnonThrottle(AnonRateThrottle):
+    """Per-IP rate limit for the registration endpoint.
+
+    The endpoint is unauthenticated, so invite token brute-force attempts are
+    rate-limited here. 10 req/min is generous for legitimate use but prevents
+    enumeration attacks against the token space.
+    """
+
+    scope = "register"
+
+
+class InviteRegisterView(RegisterView):
+    """Registration endpoint that enforces invite-only mode when configured.
+
+    In INVITE_ONLY mode: validates and consumes the invite token atomically
+    with user creation so a single-use token cannot be replayed under concurrent
+    load (select_for_update on the token row).
+
+    In OPEN mode: delegates to the parent RegisterView unchanged.
+    In CLOSED mode: adapter.save_user raises PermissionDenied before this runs.
+    """
+
+    # Declared at the class level to override the parent RegisterView (which
+    # sets no throttle classes) — applies in both OPEN and INVITE_ONLY modes.
+    throttle_classes = [RegisterAnonThrottle]
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        mode = get_registration_mode()
+        if mode != SiteSetting.RegistrationMode.INVITE_ONLY:
+            return super().create(request, *args, **kwargs)
+
+        token_raw = (request.data.get("invite_token") or "").strip()
+        if not token_raw:
+            return Response(
+                {"invite_token": ["An invite link is required to register."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        token_hash = hashlib.sha256(token_raw.encode()).hexdigest()
+        try:
+            link = InviteLink.objects.select_for_update().get(
+                token_hash=token_hash,
+                used_at__isnull=True,
+                revoked_at__isnull=True,
+            )
+        except InviteLink.DoesNotExist:
+            return Response(
+                {"invite_token": ["Invalid or expired invite link."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if link.expires_at and link.expires_at < timezone.now():
+            return Response(
+                {"invite_token": ["This invite link has expired."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Token is valid — proceed with registration then stamp used_at.
+        # Both happen in the same transaction so a failed registration leaves
+        # the token unconsumed.
+        response = super().create(request, *args, **kwargs)
+        if response.status_code in (200, 201) and link.single_use:
+            link.used_at = timezone.now()
+            link.save(update_fields=["used_at"])
+
+        return response

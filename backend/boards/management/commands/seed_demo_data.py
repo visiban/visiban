@@ -690,7 +690,10 @@ class Command(BaseCommand):
             CardMovement.objects.filter(pk=mv.pk).update(moved_at=moved_at)
 
     def _add_activity(self, card, users):
-        """Add one field-change activity record (priority or assignee change).
+        """Add one field-change activity record.
+
+        Covers priority, assignee, label, comment, and weight changes so that
+        the history panel shows a realistic mix of event types. (#364)
 
         created_at is anchored to SEED_ANCHOR_DATE so regenerated exports are
         git-stable — auto_now_add=True ignores explicit values, so we back-fill
@@ -700,6 +703,9 @@ class Command(BaseCommand):
         event = random.choice([
             CardActivity.EventType.PRIORITY_CHANGE,
             CardActivity.EventType.ASSIGNEE_CHANGE,
+            CardActivity.EventType.LABEL_CHANGE,
+            CardActivity.EventType.COMMENT_ADDED,
+            CardActivity.EventType.WEIGHT_CHANGE,
         ])
         # Anchor timestamp so exports are deterministic regardless of run date.
         anchor = datetime.datetime(
@@ -709,6 +715,7 @@ class Command(BaseCommand):
             tzinfo=datetime.timezone.utc,
         )
         activity_at = anchor - datetime.timedelta(days=random.randint(1, 30))
+
         if event == CardActivity.EventType.PRIORITY_CHANGE:
             old_priority = random.choice(["low", "medium", "high"])
             act = CardActivity.objects.create(
@@ -718,13 +725,47 @@ class Command(BaseCommand):
                 to_value=card.priority,
                 actor=actor,
             )
-        else:
+        elif event == CardActivity.EventType.ASSIGNEE_CHANGE:
             old_user = random.choice(users)
             act = CardActivity.objects.create(
                 card=card,
                 event_type=event,
                 from_value=old_user.username,
                 to_value=card.assignee.username if card.assignee else "",
+                actor=actor,
+            )
+        elif event == CardActivity.EventType.LABEL_CHANGE:
+            sample_labels = ["Bug", "Feature", "Urgent", "Review", "Blocked"]
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=event,
+                from_value="",
+                to_value=random.choice(sample_labels),
+                actor=actor,
+            )
+        elif event == CardActivity.EventType.COMMENT_ADDED:
+            sample_comments = [
+                "Looks good — moving forward.",
+                "Needs another review pass.",
+                "Blocked on dependencies.",
+                "Updated per feedback.",
+                "Ready for QA.",
+            ]
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=event,
+                from_value="",
+                to_value=random.choice(sample_comments),
+                actor=actor,
+            )
+        else:  # WEIGHT_CHANGE
+            old_weight = random.randint(1, 8)
+            new_weight = random.randint(1, 8)
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=event,
+                from_value=str(old_weight),
+                to_value=str(new_weight),
                 actor=actor,
             )
         # Back-fill created_at; auto_now_add=True ignores values at create time.

@@ -232,6 +232,8 @@ REST_FRAMEWORK = {
         "user_search": "9999/hour" if DEBUG else "30/min",
         # Invite-link redemption: low ceiling prevents token brute-force scanning.
         "join_group": "9999/hour" if DEBUG else "10/hour",
+        # Registration: prevents invite token brute-force and mass account creation.
+        "register": "9999/hour" if DEBUG else "10/min",
         # Public board share-link reads: generous but bounded to limit scraping.
         "share_link": "120/hour",
     },

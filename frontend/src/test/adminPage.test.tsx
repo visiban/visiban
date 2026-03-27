@@ -33,6 +33,10 @@ const mockPatchAdminSettings = vi.fn()
 const mockGetAdminUsers = vi.fn()
 const mockCreateAdminUser = vi.fn()
 const mockPatchAdminUser = vi.fn()
+const mockGetAdminInviteLinks = vi.fn()
+const mockCreateAdminInviteLink = vi.fn()
+const mockDeactivateAdminUser = vi.fn()
+const mockRevokeAdminInviteLink = vi.fn()
 
 vi.mock('../api/auth', () => ({
   getAdminSettings: (...args: unknown[]) => mockGetAdminSettings(...args),
@@ -40,6 +44,10 @@ vi.mock('../api/auth', () => ({
   getAdminUsers: (...args: unknown[]) => mockGetAdminUsers(...args),
   createAdminUser: (...args: unknown[]) => mockCreateAdminUser(...args),
   patchAdminUser: (...args: unknown[]) => mockPatchAdminUser(...args),
+  getAdminInviteLinks: (...args: unknown[]) => mockGetAdminInviteLinks(...args),
+  createAdminInviteLink: (...args: unknown[]) => mockCreateAdminInviteLink(...args),
+  deactivateAdminUser: (...args: unknown[]) => mockDeactivateAdminUser(...args),
+  revokeAdminInviteLink: (...args: unknown[]) => mockRevokeAdminInviteLink(...args),
   // Keep other auth exports as no-ops to avoid errors from other tests
   getCurrentUser: vi.fn(),
   getVersion: vi.fn(),
@@ -94,9 +102,10 @@ const fakeAdminUsers: AdminUser[] = [
     avatar_url: '',
     is_active: true,
     is_site_admin: true,
-  can_access_all_content: false,
+    can_access_all_content: false,
     must_change_password: false,
     date_joined: '2024-01-01T00:00:00Z',
+    owned_boards: [],
   },
   {
     id: 3,
@@ -108,9 +117,10 @@ const fakeAdminUsers: AdminUser[] = [
     avatar_url: '',
     is_active: true,
     is_site_admin: false,
-  can_access_all_content: false,
+    can_access_all_content: false,
     must_change_password: false,
     date_joined: '2024-02-01T00:00:00Z',
+    owned_boards: [],
   },
 ]
 
@@ -131,6 +141,7 @@ describe('AdminPage — access control', () => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+    mockGetAdminInviteLinks.mockResolvedValue([])
   })
 
   it('redirects non-admins to /', () => {
@@ -155,6 +166,7 @@ describe('AdminPage — Settings tab', () => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+    mockGetAdminInviteLinks.mockResolvedValue([])
   })
 
   it('shows registration mode options', async () => {
@@ -199,6 +211,7 @@ describe('AdminPage — Users tab', () => {
       previous: null,
       results: fakeAdminUsers,
     })
+    mockGetAdminInviteLinks.mockResolvedValue([])
   })
 
   it('shows users table after switching to Users tab', async () => {
@@ -238,9 +251,10 @@ describe('AdminPage — Users tab', () => {
       avatar_url: '',
       is_active: true,
       is_site_admin: false,
-  can_access_all_content: false,
+      can_access_all_content: false,
       must_change_password: true,
       date_joined: '2024-03-01T00:00:00Z',
+      owned_boards: [],
     }
     mockCreateAdminUser.mockResolvedValue(newUser)
     renderAdminPage()
@@ -305,6 +319,7 @@ describe('AdminPage — Escape key', () => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 2, next: null, previous: null, results: fakeAdminUsers })
+    mockGetAdminInviteLinks.mockResolvedValue([])
   })
 
   it('Escape navigates back from the admin page', async () => {
@@ -333,12 +348,16 @@ describe('AdminPage — Escape key', () => {
 // ---------------------------------------------------------------------------
 
 describe('admin API — api/auth.ts', () => {
-  it('getAdminSettings and patchAdminSettings are exported', async () => {
+  it('all admin functions are exported', async () => {
     const mod = await import('../api/auth')
     expect(typeof mod.getAdminSettings).toBe('function')
     expect(typeof mod.patchAdminSettings).toBe('function')
     expect(typeof mod.getAdminUsers).toBe('function')
     expect(typeof mod.createAdminUser).toBe('function')
     expect(typeof mod.patchAdminUser).toBe('function')
+    expect(typeof mod.getAdminInviteLinks).toBe('function')
+    expect(typeof mod.createAdminInviteLink).toBe('function')
+    expect(typeof mod.deactivateAdminUser).toBe('function')
+    expect(typeof mod.revokeAdminInviteLink).toBe('function')
   })
 })

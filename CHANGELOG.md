@@ -30,6 +30,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - The "Move to" button in the card detail breadcrumb row now shows a first-encounter dot indicator for users who have not yet clicked it, improving discoverability; the dot is dismissed on first click and the dismissed state persists across sessions via `localStorage` (#339)
 - Analytics API response now includes a `done_columns` list of column names that are excluded from dwell-time calculations, so callers can surface which columns are omitted
 - A footer note below the analytics heatmap now shows how many done columns are not included in the heatmap, making the exclusion visible to the user at a glance
+- Admins can now create invite links with an optional TTL (1 day / 7 days / 30 days) and a single-use flag from the Admin panel — generated tokens can be shared directly with new users
+- When `INVITE_ONLY` registration mode is enabled, account creation requires a valid invite token; attempts without a token are rejected at `/api/auth/registration/`
+- Deactivating a user now triggers an offboarding flow: board ownership on any boards the user owns is transferred to an eligible member before the account is deactivated; deactivation is blocked when no eligible transfer target exists on any owned board (`POST /api/admin/users/{id}/deactivate/`)
+- Admin panel includes a new "Invite Links" tab showing each token's status badge and a one-time reveal of the token value; links can be revoked inline
 
 ### Changed
 - Clicking the crosshair (focus) button on an already-focused swimlane now toggles focus mode off; Escape key and the banner "Exit focus" button remain as alternative exit paths; the button now carries `aria-pressed` for screen reader accessibility (#363)
@@ -58,6 +62,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Collapsed sidebar no longer renders an unbounded list of board icons — starred boards, starred groups, and personal boards are now accessible via two flyout panels (Favorites ★ and Personal boards) that open on click, cap at a scrollable max height, and show board names; active-board state is reflected on the trigger icon
 - Creating a board inside a group now respects the `template` field from the request — previously the group board creation endpoint ignored the chosen template and always applied the default Backlog/To Do/Doing/Done columns
 - Groups flyout panel in the collapsed sidebar now shows subgroups indented under their parent at the correct nesting depth — previously all groups appeared at the same visual level because the flyout read from the flat groups array instead of the sidebar tree
+- BoardView layout containers now use flex wrappers instead of fragments, eliminating layout shifts when transitioning between empty, loading, and ready states
 - The release script now bumps `frontend/package.json` version as part of each release commit, so the Settings → About page always shows the correct version number after a release
 - `frontend/package.json` version corrected from `1.0.0-rc.8` to `1.0.0-rc.9` to match the current release tag
 - Escape key is now consistent across the whole app — pressing Escape always closes the topmost open modal, popover, or confirm dialog before falling through to page-level back navigation; addressed surfaces: `ForceChangePasswordModal` (no longer falls through to page nav), `AdminPage` confirm and add-user dialogs, `GroupDetail` transfer-ownership and delete-group overlays, `CollapsedFlyout` (migrated to the priority stack), and the FilterBar search input (Escape clears search and blurs the field) (closes #331, #334)

@@ -1,5 +1,8 @@
 """Tests for #211/#212: site admin API endpoints."""
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -356,3 +359,309 @@ class SuperuserSiteAdminBootstrapTests(TestCase):
         u = User.objects.create_user(username="normal", password="normalpass123!")
         u.refresh_from_db()
         self.assertFalse(u.is_site_admin)
+
+
+# ---------------------------------------------------------------------------
+# AdminUserDeactivateView — POST /api/admin/users/{pk}/deactivate/
+# ---------------------------------------------------------------------------
+
+class AdminUserDeactivateViewTests(TestCase):
+    def setUp(self):
+        from boards.models import Board, BoardMembership
+        self.Board = Board
+        self.BoardMembership = BoardMembership
+
+        self.admin = make_admin()
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def _make_user(self, username, **kwargs):
+        return make_user(username=username, **kwargs)
+
+    def _make_board(self, owner, name="Test Board"):
+        return self.Board.objects.create(name=name, owner=owner)
+
+    def _deactivate(self, pk, payload=None):
+        return self.client.post(f"/api/admin/users/{pk}/deactivate/", payload or {}, format="json")
+
+    # --- happy path: no boards ---
+
+    def test_deactivate_user_with_no_boards_succeeds(self):
+        target = self._make_user("noboards")
+        r = self._deactivate(target.pk)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        target.refresh_from_db()
+        self.assertFalse(target.is_active)
+
+    def test_response_reflects_is_active_false(self):
+        target = self._make_user("noboards2")
+        r = self._deactivate(target.pk)
+        self.assertFalse(r.json()["is_active"])
+
+    # --- 409 when user owns boards and no transfers provided ---
+
+    def test_deactivate_board_owner_without_transfers_returns_409(self):
+        owner = self._make_user("boardowner")
+        self._make_board(owner)
+        r = self._deactivate(owner.pk)
+        self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(r.json()["code"], "owned_boards")
+
+    def test_409_response_lists_owned_boards(self):
+        owner = self._make_user("boardowner2")
+        self._make_board(owner, name="Alpha")
+        r = self._deactivate(owner.pk)
+        board_names = [b["name"] for b in r.json()["owned_boards"]]
+        self.assertIn("Alpha", board_names)
+
+    def test_user_not_deactivated_after_409(self):
+        owner = self._make_user("boardowner3")
+        self._make_board(owner)
+        self._deactivate(owner.pk)
+        owner.refresh_from_db()
+        self.assertTrue(owner.is_active)
+
+    # --- happy path: boards with valid transfers ---
+
+    def test_deactivate_with_valid_transfer_succeeds(self):
+        owner = self._make_user("xferowner")
+        member = self._make_user("xfermember")
+        board = self._make_board(owner)
+        self.BoardMembership.objects.create(board=board, user=member, role="member")
+
+        r = self._deactivate(owner.pk, {"transfers": [{"board_id": board.pk, "transfer_to": member.pk}]})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_board_ownership_transferred_after_deactivation(self):
+        owner = self._make_user("xferowner2")
+        member = self._make_user("xfermember2")
+        board = self._make_board(owner)
+        self.BoardMembership.objects.create(board=board, user=member, role="member")
+
+        self._deactivate(owner.pk, {"transfers": [{"board_id": board.pk, "transfer_to": member.pk}]})
+        board.refresh_from_db()
+        self.assertEqual(board.owner_id, member.pk)
+
+    def test_deactivated_user_marked_inactive_after_transfer(self):
+        owner = self._make_user("xferowner3")
+        member = self._make_user("xfermember3")
+        board = self._make_board(owner)
+        self.BoardMembership.objects.create(board=board, user=member, role="member")
+
+        self._deactivate(owner.pk, {"transfers": [{"board_id": board.pk, "transfer_to": member.pk}]})
+        owner.refresh_from_db()
+        self.assertFalse(owner.is_active)
+
+    # --- transfer target is not a board member ---
+
+    def test_transfer_to_non_member_returns_400(self):
+        owner = self._make_user("nonmemberowner")
+        outsider = self._make_user("outsider")
+        board = self._make_board(owner)
+        # outsider has no BoardMembership for this board
+
+        r = self._deactivate(owner.pk, {"transfers": [{"board_id": board.pk, "transfer_to": outsider.pk}]})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_transfer_to_non_member_does_not_deactivate_user(self):
+        owner = self._make_user("nonmemberowner2")
+        outsider = self._make_user("outsider2")
+        board = self._make_board(owner)
+        self._deactivate(owner.pk, {"transfers": [{"board_id": board.pk, "transfer_to": outsider.pk}]})
+        owner.refresh_from_db()
+        self.assertTrue(owner.is_active)
+
+    # --- transfer target is inactive ---
+
+    def test_transfer_to_inactive_user_returns_400(self):
+        owner = self._make_user("inactiveowner")
+        inactive = self._make_user("inactivetarget")
+        inactive.is_active = False
+        inactive.save(update_fields=["is_active"])
+        board = self._make_board(owner)
+        self.BoardMembership.objects.create(board=board, user=inactive, role="member")
+
+        r = self._deactivate(owner.pk, {"transfers": [{"board_id": board.pk, "transfer_to": inactive.pk}]})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # --- incomplete transfers (not all owned boards covered) ---
+
+    def test_missing_transfer_for_one_board_returns_400(self):
+        owner = self._make_user("twoboardowner")
+        member = self._make_user("twoboardmember")
+        board1 = self._make_board(owner, name="Board One")
+        board2 = self._make_board(owner, name="Board Two")
+        self.BoardMembership.objects.create(board=board1, user=member, role="member")
+        self.BoardMembership.objects.create(board=board2, user=member, role="member")
+
+        # Only provide a transfer for board1, not board2.
+        r = self._deactivate(owner.pk, {"transfers": [{"board_id": board1.pk, "transfer_to": member.pk}]})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # --- invite links revoked on deactivation ---
+
+    def test_pending_invite_links_revoked_on_deactivation(self):
+        from accounts.models import InviteLink
+        target = self._make_user("inviteuser")
+        link, _ = InviteLink.generate(created_by=target)
+        self.assertIsNone(link.revoked_at)
+
+        self._deactivate(target.pk)
+
+        link.refresh_from_db()
+        self.assertIsNotNone(link.revoked_at)
+
+    def test_already_used_invite_link_not_touched_on_deactivation(self):
+        from accounts.models import InviteLink
+        target = self._make_user("inviteuser2")
+        link, _ = InviteLink.generate(created_by=target)
+        link.used_at = timezone.now()
+        link.save(update_fields=["used_at"])
+
+        self._deactivate(target.pk)
+
+        # used_at links are not pending — revoked_at should stay null.
+        link.refresh_from_db()
+        self.assertIsNone(link.revoked_at)
+
+    def test_already_revoked_invite_link_not_re_stamped(self):
+        from accounts.models import InviteLink
+        target = self._make_user("inviteuser3")
+        original_revoked = timezone.now() - timedelta(hours=1)
+        link, _ = InviteLink.generate(created_by=target)
+        link.revoked_at = original_revoked
+        link.save(update_fields=["revoked_at"])
+
+        self._deactivate(target.pk)
+
+        link.refresh_from_db()
+        # The timestamp should not be updated — the bulk update only touches
+        # links where revoked_at__isnull=True, so this link is not re-stamped.
+        self.assertAlmostEqual(
+            link.revoked_at.timestamp(),
+            original_revoked.timestamp(),
+            delta=1,
+        )
+
+    # --- self-deactivation guard ---
+
+    def test_cannot_deactivate_self(self):
+        r = self._deactivate(self.admin.pk)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cannot deactivate", r.json()["detail"].lower())
+
+    def test_self_remains_active_after_rejected_attempt(self):
+        self._deactivate(self.admin.pk)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    # --- already-inactive user ---
+
+    def test_cannot_deactivate_already_inactive_user(self):
+        target = self._make_user("alreadyinactive")
+        target.is_active = False
+        target.save(update_fields=["is_active"])
+        r = self._deactivate(target.pk)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already inactive", r.json()["detail"].lower())
+
+    # --- 404 ---
+
+    def test_nonexistent_user_returns_404(self):
+        r = self._deactivate(99999)
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    # --- permission ---
+
+    def test_non_admin_rejected(self):
+        target = self._make_user("noadmindeact")
+        regular = self._make_user("regulardeact")
+        self.client.force_authenticate(regular)
+        r = self._deactivate(target.pk)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# ---------------------------------------------------------------------------
+# AdminUserDetailView.patch — 409 guard for board-owning users
+# ---------------------------------------------------------------------------
+
+class AdminPatchUserBoardOwner409Tests(TestCase):
+    def setUp(self):
+        from boards.models import Board
+        self.Board = Board
+
+        self.admin = make_admin(username="patch409admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_patch_is_active_false_on_board_owner_returns_409(self):
+        owner = make_user(username="patchboardowner")
+        self.Board.objects.create(name="Owned Board", owner=owner)
+
+        r = self.client.patch(f"/api/admin/users/{owner.pk}/", {"is_active": False})
+        self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
+
+    def test_409_response_contains_code_and_owned_boards(self):
+        owner = make_user(username="patchboardowner2")
+        self.Board.objects.create(name="My Board", owner=owner)
+
+        r = self.client.patch(f"/api/admin/users/{owner.pk}/", {"is_active": False})
+        data = r.json()
+        self.assertEqual(data["code"], "owned_boards")
+        self.assertTrue(len(data["owned_boards"]) > 0)
+        self.assertIn("My Board", [b["name"] for b in data["owned_boards"]])
+
+    def test_409_does_not_deactivate_user(self):
+        owner = make_user(username="patchboardowner3")
+        self.Board.objects.create(name="Safe Board", owner=owner)
+
+        self.client.patch(f"/api/admin/users/{owner.pk}/", {"is_active": False})
+        owner.refresh_from_db()
+        self.assertTrue(owner.is_active)
+
+    def test_patch_is_active_false_on_user_without_boards_succeeds(self):
+        # Confirm the 409 only triggers when boards are owned.
+        target = make_user(username="patchnoboards")
+        r = self.client.patch(f"/api/admin/users/{target.pk}/", {"is_active": False})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# MustNotHavePendingPasswordChange enforced on all admin endpoints
+# ---------------------------------------------------------------------------
+
+class AdminMustChangePwdBlocksTests(TestCase):
+    """An admin with must_change_password=True must be blocked from all admin endpoints.
+
+    _ADMIN_PERMISSIONS includes MustNotHavePendingPasswordChange explicitly
+    because class-level permission_classes replaces the global DEFAULT list.
+    This test verifies that the constant actually enforces the block.
+    """
+
+    def setUp(self):
+        self.admin = make_admin(username="pwdblock_admin")
+        self.admin.must_change_password = True
+        self.admin.save(update_fields=["must_change_password"])
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_get_settings_blocked(self):
+        r = self.client.get("/api/admin/settings/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_users_blocked(self):
+        r = self.client.get("/api/admin/users/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_invite_links_blocked(self):
+        r = self.client.get("/api/admin/invite-links/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_post_invite_links_blocked(self):
+        r = self.client.post("/api/admin/invite-links/", {})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_deactivate_user_blocked(self):
+        target = make_user(username="pwdblock_target")
+        r = self.client.post(f"/api/admin/users/{target.pk}/deactivate/", {})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)

@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteSettings, AdminUser, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
+import type { User, SiteSettings, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/auth/user/").then((r) => r.data);
@@ -78,3 +78,21 @@ export const patchAdminUser = (
   data: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "must_change_password">>
 ) =>
   client.patch<AdminUser>(`/api/admin/users/${id}/`, data).then((r) => r.data);
+
+export const deactivateAdminUser = (
+  id: number,
+  transfers: Array<{ board_id: number; transfer_to: number }> = []
+) =>
+  client.post<AdminUser>(`/api/admin/users/${id}/deactivate/`, { transfers }).then((r) => r.data);
+
+export const getAdminInviteLinks = () =>
+  client.get<AdminInviteLink[]>("/api/admin/invite-links/").then((r) => r.data);
+
+export const createAdminInviteLink = (data: {
+  expires_in_days: number | null;
+  single_use: boolean;
+}) =>
+  client.post<CreatedAdminInviteLink>("/api/admin/invite-links/", data).then((r) => r.data);
+
+export const revokeAdminInviteLink = (id: number) =>
+  client.delete<AdminInviteLink>(`/api/admin/invite-links/${id}/`).then((r) => r.data);
