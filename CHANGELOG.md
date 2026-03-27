@@ -59,6 +59,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Board settings modal no longer resizes when switching between Members, Display, Rules, and Data tabs — panel now uses a fixed height (`h-[85vh] max-h-[640px] min-h-0`) so content scrolls within a stable container (#328)
 - Analytics heatmap now shows dwell-time data in 7-day and 30-day views — previously, cards whose last column entry was older than the selected period showed no data even if they were still sitting in that column; dwell time is now clamped to the period boundary so all active cards contribute to the heatmap (#327)
 - Analytics stalled-card detection now always uses the board-configured staleness threshold (`staleness_threshold_days`) regardless of which period is selected, rather than defaulting to 7 days from the query param (#327)
+- Analytics heatmap now renders data correctly for 7d, 30d, and 90d period views — period-cutoff math fixed so cards that entered a column before the selected window no longer show zero dwell time
+- Analytics stall detection now defaults to the board's configured staleness threshold instead of the period window length; `stalled_days` query param still accepted as an explicit override
 
 ---
 

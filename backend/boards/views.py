@@ -1127,16 +1127,20 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         Query params:
           - ``days`` (int, default 30): window for dwell-time and velocity calculations.
-
-        The stall threshold is always taken from ``board.staleness_threshold_days``
-        (configurable per-board in Board Settings). Any ``stalled_days`` query param
-        is silently ignored — the board setting is the single source of truth.
+          - ``stalled_days`` (int, optional): overrides ``board.staleness_threshold_days``
+            for this request when explicitly provided; omit to use the board setting.
 
         Dwell time is measured as the number of days a card spent in each column:
         the gap between consecutive movement timestamps (or "now" for the current
-        position). Per-swimlane averages are compared against board-wide medians;
-        a swimlane/column cell is flagged as an outlier when its average exceeds
-        2× the board median for that column.
+        position). Period-cutoff math uses ``effective_entry = max(mv.moved_at,
+        period_cutoff)`` so cards that entered a column before the selected window
+        correctly contribute only the in-window portion of their dwell time rather
+        than showing zero.
+
+        ``is_outlier`` is ``True`` when a swimlane/column cell's average dwell time
+        meets or exceeds ``staleness_threshold_days`` (previously used a 2× board
+        median heuristic — changed to an absolute threshold in this fix).
+        ``board_medians`` is retained in the response for backward compatibility.
         """
         board, _ = get_board_for_user(pk, request.user)
         try:
