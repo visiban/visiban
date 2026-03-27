@@ -97,7 +97,10 @@ function ColorPicker({
     };
   }, [open]);
 
-  const active = currentColor !== "" && currentColor !== "#f1f5f9";
+  // Any non-empty color value (including White) means a color is actively set.
+  // Previously excluded #f1f5f9 (White) from the active state, causing the
+  // toolbar indicator to show as inactive when the user explicitly chose White.
+  const active = currentColor !== "";
 
   return (
     <div ref={ref} className="relative">
@@ -179,8 +182,13 @@ export default function RichTextEditor({
       Color,
       Placeholder.configure({ placeholder }),
       Markdown.configure({
-        // html: true (default) allows <span style="color:..."> to round-trip
-        // through the markdown serializer so text colors are preserved on save.
+        // html: true (default) is required — html: false strips <span style="color:...">
+        // from the serialized output, silently discarding text colors on save.
+        // Trade-off: html: true means tiptap-markdown will parse HTML-like sequences
+        // (e.g. </path> in URL paths or self-closing tags like />) as raw HTML nodes.
+        // In practice this is rare and the content round-trips correctly for typical
+        // card descriptions. If the slash-parsing edge case becomes a user complaint,
+        // investigate tiptap-markdown's `escapeSlash` option (added in 0.8.x).
         transformPastedText: true,
         transformCopiedText: false,
       }),
