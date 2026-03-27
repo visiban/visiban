@@ -24,6 +24,12 @@ interface Props {
   onCardAdded: (card: Card) => void;
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
   onSwimlaneDeleted: (swimlaneId: number) => void;
+  /** Controlled collapsed state — driven by useViewPrefs.collapsedSwimlaneIds. */
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  onFocus: (id: number) => void;
+  /** True when this swimlane is currently the active focus target. */
+  isFocused: boolean;
   sidebarWidth?: number;
   setSidebarWidth?: (w: number) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
@@ -44,8 +50,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat }: Props) {
-  const [collapsed, setCollapsed] = useState(swimlane.is_collapsed);
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, isFocused, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -162,8 +167,22 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 ✎
               </button>
             )}
+            {/* Focus icon — collapse all other swimlanes and enter single-swimlane focus mode */}
             <button
-              onClick={() => setCollapsed((c) => !c)}
+              onClick={() => onFocus(swimlane.id)}
+              className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-blue-500 rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-blue-400" : "text-slate-400 hover:text-white"}`}
+              title={`Focus on ${swimlane.name}`}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="8" cy="8" r="3" />
+                <line x1="8" y1="1" x2="8" y2="4" />
+                <line x1="8" y1="12" x2="8" y2="15" />
+                <line x1="1" y1="8" x2="4" y2="8" />
+                <line x1="12" y1="8" x2="15" y2="8" />
+              </svg>
+            </button>
+            <button
+              onClick={onToggleCollapse}
               className="text-slate-400 hover:text-white transition shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
               title={collapsed ? "Expand" : "Collapse"}
             >

@@ -12,7 +12,7 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS 3, @dnd-kit, Tiptap (rich text), React Router v6, Axios
 - **Real-time:** WebSockets (Django Channels)
 - **Infra:** Docker Compose, Nginx, kaniko (CI builds)
-- **Auth:** django-allauth headless/API mode, OAuth (Google, GitHub, GitLab)
+- **Auth:** django-allauth headless/API mode, OAuth (Google, GitHub, GitLab), OIDC
 
 ---
 
@@ -31,13 +31,17 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 
 ### Board templates
 
-7 built-in templates seed columns and a lane label on creation:
+11 built-in templates seed columns and a lane label on creation:
 - Sales Pipeline
 - Customer Support
 - Customer Success
 - Simple Kanban
 - Product Roadmap
 - Project Delivery
+- Content Production
+- Hiring & Recruiting
+- Legal & Compliance
+- Infrastructure & DevOps
 - Blank Board
 
 ### Board creation flow
@@ -69,6 +73,7 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 - Create inline (click "+ Add card", double-click empty cell, or right-click cell)
 - Edit all fields in a card detail panel
 - Move via drag-and-drop between cells (optimistic update + rollback on failure)
+- Move via "Move to" button in the card detail panel (column + swimlane picker without closing the panel)
 - Archive (soft-delete) — hidden from board, restorable from Archived panel; shows toast with direct link to Archived panel
 - Delete (permanent, confirmation required)
 - Bulk select + bulk archive / bulk assign / bulk priority / bulk delete
@@ -83,7 +88,17 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 - File attachments (up to 10 MB, allowlisted MIME types) — collapsible section
 - Movement history (which columns/swimlanes the card moved through, and when)
 - Field-change activity log (who changed what and when) — tracks title, description, priority, weight, assignee, labels, due date, checklist items, comments, attachments; rapid-fire changes to the same field are debounced and collapsed into a single net entry
+- "Show full history" toggle persists across sessions via `localStorage`
 - Scroll gradient when content overflows
+
+### Card face metadata
+
+- Priority border color (full border, all sides)
+- Label chips (up to 3, truncated)
+- Checklist progress (`✓ done/total`)
+- Due date (overdue shown in red)
+- Weight — shown when weight > 1
+- Last-moved label — relative text (e.g. "moved yesterday", "moved 3 days ago") for cards not moved within the last 24 hours; cards moved within 24 hours show a blue dot indicator on hover; togglable per-board via Board Settings → Card fields
 
 ### Card movement audit trail
 
@@ -108,6 +123,12 @@ Pure reorders (same cell, different position) do not create movement records.
 - Column headers sticky on scroll, show WIP count
 - Optional WIP limit enforcement (`enforce_wip_limits` board setting): moving a card into a full column returns an error; board admins can override; archived cards excluded from count
 - Optional weight limit enforcement (`enforce_weight_limits` board setting): moving a card that would push a column over its weight budget is blocked; board admins can override; archived cards excluded from weight sum
+- Both WIP and weight enforcement default to **on** for newly created boards
+
+### Board navigation
+
+- Sub-nav tabs (Board / Summary / Analytics) are URL-addressable via `?view=` — tabs can be bookmarked and shared; Back button skips tab transitions
+- Space + drag panning — hold Space to enter pan mode (cursor changes to grab), then drag to scroll the board without activating card drag-and-drop
 
 ### Resizing
 
@@ -119,6 +140,8 @@ Pure reorders (same cell, different position) do not create movement records.
 
 - Rename inline: click the name, Enter to confirm, Escape to cancel
 - Full settings modal: double-click header / label, or ✎ icon
+- Column settings modal includes an admin-only "Delete column" danger button (alternative to the drag-to-trash gesture)
+- `is_done` flag per column — marks columns as completion targets for cycle-time and throughput metrics; set automatically on terminal columns (e.g. Done, Closed Won) when using a template
 - Add column/swimlane via "+" on the separator handles
 - Reorder by dragging (collapsed columns can also be dragged)
 - Collapse columns (click to toggle); collapsed columns with filter matches pulse with a count badge
@@ -129,10 +152,11 @@ Pure reorders (same cell, different position) do not create movement records.
 - Active filter count badge on the filter bar
 - Server-side card search (title + description, case-insensitive, debounced 300ms with AbortController cancellation); client-side filters intersected with server results
 - Filter state persisted to localStorage per board
+- "No cards match the active filters" banner when filters produce zero results
 
 ### Keyboard shortcuts
 
-- `Escape` — closes card detail, then clears selection, then navigates back
+- `Escape` — closes the topmost open modal/popover/dialog, then clears selection, then navigates back (consistent across all pages and modals)
 - `f` — opens filter panel (disabled when typing in editor/input)
 - Enter in new-card input — configurable per-user (submit + close or just submit)
 
@@ -144,6 +168,17 @@ Pure reorders (same cell, different position) do not create movement records.
 - Contact email and notes fields
 - Color picker
 - Position reorder
+
+---
+
+## Board sharing
+
+Boards can be shared as a public read-only link with no login required.
+
+- Board admins generate or revoke a share token from Board Settings
+- Share link serves a static read-only board view at `/share/:token` — full grid with column headers, swimlane labels, and card tiles (title, labels, checklist progress, due date, weight, assignee)
+- Revoking the token immediately invalidates the link; visitors see a "This board is no longer shared" page
+- Share links expose only non-sensitive card fields — no comments, attachments, or movement history
 
 ---
 
@@ -164,10 +199,14 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 
 ### Group features
 
+- Optional description field — visible on the group detail page, inline-editable by admins, settable at creation
+- Ancestor breadcrumb chain on the group detail page for subgroups, linking up through the hierarchy
+- Inline group rename by clicking the group name heading (admin only)
 - Invite links (shareable URL granting a specified role on redemption)
 - Transfer group ownership
 - Default board member role setting (controls what role new board members get)
 - Allowed card priorities setting
+- Sidebar shows groups and boards as a recursive tree in expanded mode; collapsed rail shows a Groups flyout with subgroups nested at correct depth
 
 ---
 
@@ -183,24 +222,39 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 | Post comments | ❌ | ✅ | ✅ | ✅ |
 | Delete own comment | ❌ | ✅ | ✅ | ✅ |
 | Delete any comment | ❌ | ❌ | ✅ | ✅ |
-| Upload / delete attachments | ❌ | ✅ | ✅ | ✅ |
+| Upload attachments | ❌ | ✅ | ✅ | ✅ |
+| Delete own attachment | ❌ | ✅ | ✅ | ✅ |
+| Delete any attachment | ❌ | ❌ | ✅ | ✅ |
 | Add / edit / delete checklist items | ❌ | ✅ | ✅ | ✅ |
 | Create / edit / move / delete cards | ❌ | ❌ | ✅ | ✅ |
 | Archive / unarchive cards | ❌ | ❌ | ✅ | ✅ |
 | Manage columns / swimlanes / labels | ❌ | ❌ | ❌ | ✅ |
 | Manage board members | ❌ | ❌ | ❌ | ✅ |
+| Generate / revoke share link | ❌ | ❌ | ❌ | ✅ |
 | Export board | ✅ | ✅ | ✅ | ✅ |
 
 ### Site admin
 
-- `is_site_admin` boolean on User
-- Gates `/api/admin/*` endpoints
-- Also bypasses all board membership checks (post-1.0: this will be narrowed)
+- `is_site_admin` boolean on User — gates `/api/admin/*` endpoints and the Admin Panel
+- `can_access_all_content` boolean — separately controls omniscient board/group access (existing site admins are automatically migrated to `can_access_all_content=True`)
 
 ### Site admin panel (`/admin`)
 
 - Registration mode: Open / Invite-only / Closed
 - User management: list, create, deactivate, promote to site admin, force password reset
+- File uploads toggle — enable or disable attachment uploads instance-wide; existing attachments remain accessible when uploads are disabled
+
+---
+
+## Authentication
+
+- Email + password
+- OAuth: Google, GitHub, GitLab (via django-allauth)
+- Generic OIDC — configurable via `OIDC_CLIENT_ID`, `OIDC_SECRET`, `OIDC_SERVER_URL`; optional `OIDC_PROVIDER_NAME` controls the login button label (default "SSO"); provider only registered when all three required vars are set
+- Personal Access Tokens (PATs) — create from Settings → Access Tokens; carry a `vbn_` prefix; shown only once at creation; optional expiry up to one year; max 10 per user; all tokens revoked on password change
+- Invite-only and closed registration modes
+- Force-password-reset on first login (admin-assignable)
+- Default board redirect on login
 
 ---
 
@@ -225,13 +279,19 @@ All board mutations broadcast to connected clients after `transaction.on_commit(
 - Label created / updated / deleted
 - Member added / updated / removed
 - Column / swimlane reordered
+- Board updated / deleted
+
+Live indicator is three-state: green "Live" when connected, amber "Reconnecting…" while attempting to reconnect, grey "Offline" when the connection has permanently failed. Evicted members have their WebSocket connection closed immediately on removal.
 
 ---
 
 ## Analytics
 
-- Dwell-time heatmap: how long cards spend in each column
-- Stale card detection: cards inactive beyond a configurable threshold
+- **Dwell-time heatmap** — how long cards spend in each column; coloring is threshold-based: green (well under threshold), yellow (within the warning band), red (at or above threshold)
+- `staleness_threshold_days` board setting — configurable stale threshold; used by both the heatmap and stall detection
+- `stale_warning_pct` board setting (0–100, default 50) — controls the yellow warning band width in the heatmap
+- **Stale card detection** — lists cards inactive beyond the board's stale threshold; stalled card rows are clickable and open the card detail panel
+- **Period filter** (7d / 30d / 90d) — correctly scopes dwell times and velocity calculations to the selected window; shows "No card movements recorded in the last N days" when the window is empty
 - Analytics export (CSV) — admin only
 - Board summary endpoint
 
@@ -241,12 +301,12 @@ All board mutations broadcast to connected clients after `transaction.on_commit(
 
 ### Export
 
-- JSON (full board state: columns, swimlanes, labels, cards, movements)
-- CSV (one row per card; headers: Card ID, Title, Description, Column, Swimlane, Priority, Assignee, Labels, Due Date, Weight, Created At, Created By, Last Moved At, Movement Count, Movement History)
+- **JSON** (recommended) — full board state: columns, swimlanes, labels, cards, movements, activity log, assignees; includes `schema_version: 1`
+- **CSV** — one row per card; card data only, no movement history
 
 ### Import
 
-- JSON (Visiban export format)
+- JSON (Visiban export format) — restores full card history including movements, activities, and assignees
 - CSV (flexible: accepts lowercase/snake_case headers; `due_date`, `duedate`, `Due Date` all work)
 - Limits: 500 cards, 50 columns, 100 swimlanes per import
 - Auto-creates columns, swimlanes, labels from values seen in the file
@@ -261,16 +321,6 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - Read-only (never changes on rename/move)
 - Never reused after deletion
 - Suitable for external integrations and webhooks
-
----
-
-## Authentication
-
-- Email + password
-- OAuth: Google, GitHub, GitLab (via django-allauth)
-- Invite-only and closed registration modes
-- Force-password-reset on first login (admin-assignable)
-- Default board redirect on login
 
 ---
 
@@ -308,27 +358,18 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - Cards with checklists, comments, movement history, archived cards, varied priorities and due dates
 - All cards (including Backlog) have at least one creation movement so the History tab is never empty
 - `--wipe`: removes the existing demo board first (refuses on production without `--force`)
-- `--export`: regenerates `scripts/seed/demo_board.json` and `scripts/seed/demo_board.csv`
+- `--export`: regenerates seed JSON/CSV files
+
+`python manage.py seed_template_boards` — seeds all 10 non-blank board templates with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement + CardActivity history. Seed files exported to `backend/boards/seed_data/<slug>.json`.
 
 ---
 
 ## User preferences
 
-- "Close editor on Enter" — per-user, controls whether Enter in the new-card input submits and closes
+- "Close editor on Enter" — per-user, controls whether Enter in the new-card input submits and closes (defaults to on for new accounts)
+- "Show full history" — per-user, controls whether the card activity panel shows all activity or just movements; persists across sessions via localStorage
 - Default board — login redirects to this board
 - Avatar color — distinct per user in comment threads
-
----
-
-## v1.0 scope note
-
-Visiban 1.0 ships the production-ready core. The following are **not in v1.0** by explicit decision — they are planned for v1.1 or later:
-
-| Feature | Why deferred |
-|---|---|
-| Email notifications | Significant infra; in-app notifications cover the core case at 1.0 |
-| Card watchers / subscriptions | Assignee + @mention covers the primary notification case |
-| Global board activity feed | Not required for core workflow |
 
 ---
 
@@ -341,7 +382,6 @@ Visiban 1.0 ships the production-ready core. The following are **not in v1.0** b
 | Styled date picker | Replace native `<input type="date">` (#243) |
 | Archive organizer | Search, filter, sort, bulk actions, permanent delete (#250) |
 | Custom color scheme | User-selectable accent color (#251) |
-| is_site_admin scope narrowing | Separate site-settings access from all-boards access (#247) |
 | Site admin: change user email | Update email address from admin panel (#215) |
 | Site admin: delete user account | Permanent deletion with data-cleanup (#214) |
 | Site admin: view user's boards | See all boards a user belongs to (#216) |
@@ -356,19 +396,3 @@ Visiban 1.0 ships the production-ready core. The following are **not in v1.0** b
 | PDF/print export | CSS print or headless renderer |
 | Column archival | Soft-delete columns instead of hard delete |
 | Migration squash to 1.0 baseline | Reduce startup time |
-
----
-
-## Enterprise (not in OSS)
-
-- SSO / SAML
-- Audit logs
-- Workflow automation / rules engine
-- Custom fields
-- Recurring cards
-- Time tracking
-- Advanced analytics (CFD)
-- Slack / GitHub / Jira integrations
-- Multi-tenancy
-- White-labeling
-- i18n / multi-language

@@ -9,6 +9,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 ### Added
+- Boards can now be shared as a public read-only link with no login required — board admins generate or revoke a share token from Board Settings; the link serves a static board view at `/share/:token` showing the full grid (columns, swimlanes, cards) without comments, attachments, or movement history; revoking the token immediately invalidates the link (#348)
+- Board-level movement history view — new "History" tab on any board shows all card movements across the board with filters by swimlane, column, user, and date range; clicking a row opens a read-only card detail slide-in panel; paginated 50 per page (#344)
+- Swimlane focus mode — clicking the crosshair icon on any swimlane row collapses all other rows and locks the URL to `?focus=<id>`; the blue banner at the top provides a single-click exit; Escape also exits focus mode (#340)
+- Column `is_done` property — board admins can mark any column as "Count as completed (for cycle-time metrics)" in Edit Column; multiple terminal columns are supported (e.g. Closed Won + Closed Lost); the Summary view now shows Active cards, Done (30d), and Avg cycle (days) columns per swimlane (#342)
 - New `docs/administration/authentication.md` page documents all supported authentication methods (OAuth providers, Generic OIDC, SAML) with a **Tech Preview** callout on the OIDC section — configuration plumbing is shipped but end-to-end login against a real identity provider is unvalidated
 - New `docs/architecture/open-core-boundary.md` page records the canonical OSS vs enterprise classification for every feature area decided through pre-1.0 planning, including the full extension point registry for enterprise integrations
 - Generic OIDC authentication is now configurable via three environment variables (`OIDC_CLIENT_ID`, `OIDC_SECRET`, `OIDC_SERVER_URL`); the provider is only registered when all three are set, preventing startup errors on partial configuration; an optional `OIDC_PROVIDER_NAME` variable controls the login button label (default "SSO") (#349)
@@ -31,6 +35,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 
 ### Fixed
+- Public share endpoint now enforces rate limiting (120 req/hour per IP via `ShareLinkThrottle`) — previously `throttle_classes` was empty, leaving the unauthenticated endpoint unprotected against scraping (#348)
+- Public board serializer now includes `staleness_threshold_days`, `is_stale`, and `last_moved_at` on each public card using prefetched movement history — previously all three fields were missing from the share endpoint response (#348)
+- Toggling a board's share link now broadcasts a `board.updated` event to connected clients so the share token state updates in real time without a page refresh (#348)
+- `CardMovementSerializer` now exposes `card_uid` and `card_title` so the board-level history view can identify cards without secondary API calls (#342)
+- `ShareBoardPage` swimlane rows now use `<Fragment key={...}>` instead of shorthand `<>` — the shorthand syntax cannot carry a `key` prop, causing React key warnings on multi-swimlane boards (#348)
 - Pressing Escape on the Analytics view now returns directly to the Board view — previously it navigated to Summary first, requiring a second Escape press (#360)
 - Added targeted regression test asserting heatmap column headers and cell values always render in `AnalyticsView`, preventing the recurring silent regression where the table disappears without failing the test suite (#361)
 - Login page and join-invite page now render an SSO button for OIDC-only installs — the OAuth section gate previously excluded OIDC from its visibility condition, so the button was never shown even when OIDC was the only configured provider; the button label uses the configured `oidc_name` value (falls back to "SSO")

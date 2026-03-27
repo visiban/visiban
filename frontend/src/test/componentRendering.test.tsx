@@ -78,6 +78,7 @@ function makeColumn(overrides: Partial<Column> = {}): Column {
     wip_limit: null,
     weight_limit: null,
     allow_card_creation: true,
+    is_done: false,
     ...overrides,
   }
 }
@@ -550,6 +551,10 @@ const swimlaneRowBaseProps = {
   onCardAdded: () => {},
   onSwimlaneUpdated: () => {},
   onSwimlaneDeleted: () => {},
+  collapsed: false,
+  onToggleCollapse: () => {},
+  onFocus: () => {},
+  isFocused: false,
 }
 
 describe('SwimlaneRow', () => {

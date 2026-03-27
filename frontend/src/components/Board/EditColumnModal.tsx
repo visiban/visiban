@@ -20,6 +20,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const [wipLimit, setWipLimit] = useState(column.wip_limit?.toString() ?? "");
   const [weightLimit, setWeightLimit] = useState(column.weight_limit?.toString() ?? "");
   const [allowCardCreation, setAllowCardCreation] = useState(column.allow_card_creation);
+  const [isDone, setIsDone] = useState(column.is_done);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -32,6 +33,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         wip_limit: wipLimit ? parseInt(wipLimit) : null,
         weight_limit: weightLimit ? parseInt(weightLimit) : null,
         allow_card_creation: allowCardCreation,
+        is_done: isDone,
       });
       onUpdated(updated);
       onClose();
@@ -101,6 +103,24 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             />
             <span className="text-sm text-slate-300">Allow card creation</span>
           </label>
+
+          <div className="border-t border-slate-700 mt-3 pt-3">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Analytics behavior</p>
+            <label className="flex flex-col gap-0.5 cursor-pointer select-none">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isDone}
+                  onChange={(e) => setIsDone(e.target.checked)}
+                  className="w-4 h-4 rounded accent-blue-600"
+                />
+                <span className="text-sm text-slate-300">Count as completed (for cycle-time metrics)</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5 ml-6">
+                Cards moved into this column are counted as completed in analytics.
+              </p>
+            </label>
+          </div>
         </div>
 
         <div className="border-t border-slate-700 mt-5 pt-5">

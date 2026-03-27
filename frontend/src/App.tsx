@@ -12,6 +12,7 @@ import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
+import ShareBoardPage from "./pages/ShareBoardPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import type { User } from "./types";
@@ -57,6 +58,7 @@ export default function App() {
     <Routes>
       {/* Public — accessible regardless of auth */}
       <Route path="/join/:token" element={<JoinPage user={user} onLogin={handleLogin} />} />
+      <Route path="/share/:token" element={<ShareBoardPage />} />
 
       {/* Auth-gated routes */}
       {user ? (

@@ -153,4 +153,50 @@ describe('useViewPrefs', () => {
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
     expect(result.current.prefs.collapsedColumnIds).toEqual([])
   })
+
+  // --- collapsedSwimlaneIds tests (#340) ---
+
+  it('collapsedSwimlaneIds defaults to empty array', () => {
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    expect(result.current.prefs.collapsedSwimlaneIds).toEqual([])
+  })
+
+  it('toggleCollapsedSwimlane adds a swimlane id', () => {
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    act(() => { result.current.toggleCollapsedSwimlane(20) })
+    expect(result.current.prefs.collapsedSwimlaneIds).toContain(20)
+  })
+
+  it('toggleCollapsedSwimlane removes an already-collapsed swimlane id', () => {
+    localStorage.setItem(storageKey(), JSON.stringify({ collapsedSwimlaneIds: [20] }))
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    act(() => { result.current.toggleCollapsedSwimlane(20) })
+    expect(result.current.prefs.collapsedSwimlaneIds).not.toContain(20)
+  })
+
+  it('collapseAllSwimlanes sets collapsedSwimlaneIds to the provided list', () => {
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    act(() => { result.current.collapseAllSwimlanes([10, 20, 30]) })
+    expect(result.current.prefs.collapsedSwimlaneIds).toEqual([10, 20, 30])
+  })
+
+  it('expandAllSwimlanes clears collapsedSwimlaneIds', () => {
+    localStorage.setItem(storageKey(), JSON.stringify({ collapsedSwimlaneIds: [10, 20] }))
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    act(() => { result.current.expandAllSwimlanes() })
+    expect(result.current.prefs.collapsedSwimlaneIds).toEqual([])
+  })
+
+  it('collapsedSwimlaneIds is persisted to localStorage', () => {
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    act(() => { result.current.toggleCollapsedSwimlane(5) })
+    const stored = JSON.parse(localStorage.getItem(storageKey()) ?? '{}')
+    expect(stored.collapsedSwimlaneIds).toContain(5)
+  })
+
+  it('collapsedSwimlaneIds loads from localStorage on init', () => {
+    localStorage.setItem(storageKey(), JSON.stringify({ collapsedSwimlaneIds: [7, 8] }))
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    expect(result.current.prefs.collapsedSwimlaneIds).toEqual([7, 8])
+  })
 })

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
+import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
@@ -96,10 +97,10 @@ function ViewToggle({
   view,
   onChange,
 }: {
-  view: "board" | "summary" | "analytics";
-  onChange: (v: "board" | "summary" | "analytics") => void;
+  view: "board" | "summary" | "history" | "analytics";
+  onChange: (v: "board" | "summary" | "history" | "analytics") => void;
 }) {
-  const btn = (label: string, val: "board" | "summary" | "analytics") => (
+  const btn = (label: string, val: "board" | "summary" | "history" | "analytics") => (
     <button
       onClick={() => onChange(val)}
       className={`text-xs px-2.5 py-1 rounded transition ${
@@ -115,6 +116,7 @@ function ViewToggle({
     <div className="flex items-center gap-0.5 bg-slate-700 rounded p-0.5">
       {btn("Board", "board")}
       {btn("Summary", "summary")}
+      {btn("History", "history")}
       {btn("Analytics", "analytics")}
     </div>
   );
@@ -124,7 +126,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id);
 
   // Wrap in useMemo so downstream memos don't re-run on every render due to new Set instances
   const hiddenColumnIds = useMemo(() => new Set(viewPrefs.hiddenColumnIds), [viewPrefs.hiddenColumnIds]);
@@ -132,6 +134,11 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // Collapsed = explicitly listed in collapsedColumnIds. All other columns are expanded by default.
   const collapsedColumnIds = useMemo(() => new Set(viewPrefs.collapsedColumnIds), [viewPrefs.collapsedColumnIds]);
   const allColumnsExpanded = board.columns.every((c) => !collapsedColumnIds.has(c.id));
+  // Swimlane collapsed state — driven by useViewPrefs, seeded from board.swimlanes[*].is_collapsed on first load.
+  const collapsedSwimlaneIds = useMemo(() => new Set(viewPrefs.collapsedSwimlaneIds), [viewPrefs.collapsedSwimlaneIds]);
+
+  // Suppress unused-variable warning — expandAllSwimlanes is available for future toolbar use.
+  void expandAllSwimlanes;
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
@@ -191,6 +198,54 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   const [archiveToast, setArchiveToast] = useState(false);
   const archiveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- Focus mode ---
+  // Parse ?focus= param; validate against board.swimlanes; null if absent or invalid (silent ignore).
+  const rawFocus = searchParams.get("focus");
+  const focusedSwimlaneId: number | null = (() => {
+    if (!rawFocus) return null;
+    const id = parseInt(rawFocus, 10);
+    if (isNaN(id)) return null;
+    return board.swimlanes.some((s) => s.id === id) ? id : null;
+  })();
+  const focusedSwimlane = focusedSwimlaneId !== null ? board.swimlanes.find((s) => s.id === focusedSwimlaneId) ?? null : null;
+
+  // Snapshot of collapsedSwimlaneIds at the moment focus is entered — restored on exit.
+  // Stored in a ref so it doesn't trigger re-renders and is not persisted to localStorage.
+  const preFocusCollapsedSwimlaneIds = useRef<number[] | null>(null);
+
+  const enterFocus = useCallback((swimlaneId: number) => {
+    // Snapshot current collapse state before overwriting it.
+    preFocusCollapsedSwimlaneIds.current = viewPrefs.collapsedSwimlaneIds.slice();
+    // Collapse all swimlanes except the focused one so they disappear from DOM.
+    collapseAllSwimlanes(board.swimlanes.filter((s) => s.id !== swimlaneId).map((s) => s.id));
+    setSearchParams((prev) => { prev.set("focus", String(swimlaneId)); return prev; });
+  }, [board.swimlanes, collapseAllSwimlanes, viewPrefs.collapsedSwimlaneIds, setSearchParams]);
+
+  const exitFocus = useCallback(() => {
+    // Restore the pre-focus collapse state if we have a snapshot.
+    if (preFocusCollapsedSwimlaneIds.current !== null) {
+      collapseAllSwimlanes(preFocusCollapsedSwimlaneIds.current);
+      preFocusCollapsedSwimlaneIds.current = null;
+    }
+    setSearchParams((prev) => { prev.delete("focus"); return prev; });
+  }, [collapseAllSwimlanes, setSearchParams]);
+
+  // Keep a stable ref to exitFocus so the deletion-detection effect below always calls the
+  // latest version of exitFocus without needing to re-run the effect when exitFocus changes.
+  const exitFocusRef = useRef<() => void>(exitFocus);
+  exitFocusRef.current = exitFocus;
+
+  // When a focused swimlane is deleted via WebSocket, board.swimlanes no longer contains it, so
+  // focusedSwimlaneId resolves to null. This effect detects that transition and exits focus cleanly.
+  const prevFocusedSwimlaneIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    const prev = prevFocusedSwimlaneIdRef.current;
+    prevFocusedSwimlaneIdRef.current = focusedSwimlaneId;
+    if (prev !== null && focusedSwimlaneId === null) {
+      exitFocusRef.current();
+    }
+  }, [focusedSwimlaneId]);
+
   // Auto-open card from ?card= query param (e.g. from notification deep-link)
   useEffect(() => {
     const cardId = Number(searchParams.get("card"));
@@ -229,10 +284,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
   // Using replace: true when switching tabs so the browser Back button skips tab transitions
   // and users can bookmark/share a specific sub-view URL.
-  const VALID_VIEWS = ["board", "summary", "analytics"] as const;
+  const VALID_VIEWS = ["board", "summary", "history", "analytics"] as const;
   const rawView = searchParams.get("view");
-  const view: "board" | "summary" | "analytics" = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as "board" | "summary" | "analytics") : "board";
-  const setView = (v: "board" | "summary" | "analytics") => setSearchParams({ view: v }, { replace: true });
+  const view: "board" | "summary" | "history" | "analytics" = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as "board" | "summary" | "history" | "analytics") : "board";
+  const setView = (v: "board" | "summary" | "history" | "analytics") => setSearchParams({ view: v }, { replace: true });
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -286,9 +341,15 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
   }, []);
 
   useEscapeStack(() => {
-    if (view === "analytics" || view === "summary") { setView("board"); return; }
+    if (view === "analytics" || view === "history" || view === "summary") { setView("board"); return; }
     return false;
   }, 15);
+
+  // Priority 12 — above selection-clear (10), below view-toggle (15).
+  useEscapeStack(() => {
+    if (focusedSwimlaneId === null) return false;
+    exitFocus();
+  }, 12);
 
   useEscapeStack(() => {
     if (selectedCardIds.size === 0) return false;
@@ -376,7 +437,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       ];
       onColumnsReordered(newOrder);
     }
-  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered, toggleCollapsedColumn]);
+  }, [board.columns, insertPosition, onColumnAdded, onColumnsReordered]);
 
   const handleSwimlaneAdded = useCallback((swimlane: Swimlane) => {
     onSwimlaneAdded(swimlane);
@@ -598,6 +659,17 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
     );
   }
 
+  if (view === "history") {
+    return (
+      <>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
+          <ViewToggle view={view} onChange={setView} />
+        </div>
+        <MovementHistoryView board={board} />
+      </>
+    );
+  }
+
   if (view === "analytics") {
     return (
       <>
@@ -747,6 +819,26 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           <button onClick={() => setArchiveToast(false)} className="text-slate-400 hover:text-white transition text-lg leading-none shrink-0">×</button>
         </div>
       )}
+
+      {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
+      {focusedSwimlaneId !== null && (
+        <div className="bg-blue-600/15 border-b border-blue-500/40 px-4 py-2 flex items-center gap-3 text-sm text-blue-300 transition-opacity duration-150">
+          <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="8" cy="8" r="3" />
+            <line x1="8" y1="1" x2="8" y2="4" />
+            <line x1="8" y1="12" x2="8" y2="15" />
+            <line x1="1" y1="8" x2="4" y2="8" />
+            <line x1="12" y1="8" x2="15" y2="8" />
+          </svg>
+          <span className="text-blue-300">Focused on:</span>
+          <span className="font-medium text-blue-200 truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
+          <div className="flex-1" />
+          <button onClick={exitFocus} className="text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            Exit focus
+          </button>
+        </div>
+      )}
+
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/*
           Single scroll container — header and body share the same horizontal
@@ -837,6 +929,8 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
           {/* Swimlane rows */}
           {board.columns.length > 0 && (
+            // SortableContext always receives the full swimlanes array regardless of focus mode
+            // so that DnD reordering remains functional even in focus mode.
             <SortableContext items={board.swimlanes.map((s) => `swim:${s.id}`)} strategy={verticalListSortingStrategy}>
               {(() => {
                 const visible = board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id));
@@ -881,6 +975,10 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       onCardAdded={onCardAdded}
                       onSwimlaneUpdated={onSwimlaneUpdated}
                       onSwimlaneDeleted={onSwimlaneDeleted}
+                      collapsed={collapsedSwimlaneIds.has(swimlane.id)}
+                      onToggleCollapse={() => toggleCollapsedSwimlane(swimlane.id)}
+                      onFocus={enterFocus}
+                      isFocused={focusedSwimlaneId === swimlane.id}
                       hideLabels={viewPrefs.hideLabels}
                       hideDueDate={viewPrefs.hideDueDate}
                       hideAssignee={viewPrefs.hideAssignee}

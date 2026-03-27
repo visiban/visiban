@@ -28,6 +28,35 @@ Each swimlane can be collapsed to save vertical space. Click the chevron on the 
 
 Admins can double-click the swimlane label to open the Edit Swimlane modal.
 
+### Swimlane focus mode
+
+> **Added in 1.0.0-rc.10** (#340)
+
+Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction — useful on dense boards with many swimlanes.
+
+**Entering focus mode:**
+
+Hover over any swimlane label panel to reveal the crosshair icon (⊙) in the top-right corner of the label. Click it to enter focus mode for that swimlane. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
+
+**What changes when focus is active:**
+
+- All other swimlane rows are collapsed and their cards are hidden
+- A blue banner appears between the board toolbar and the scroll area: "Focused on: *[swimlane name]*"
+- The URL updates to include `?focus=<swimlane_id>` — focus mode can be bookmarked and shared
+
+**Exiting focus mode:**
+
+- Click **Exit focus** in the blue banner
+- Press **Escape**
+- Reload the page without the `?focus=` param
+
+On exit, the swimlane collapse state is restored to exactly what it was before focus was entered.
+
+**Edge cases:**
+
+- If the focused swimlane is deleted while focus mode is active (e.g. by another session), focus mode exits automatically and the collapse state is restored
+- If the `?focus=` URL param contains an ID that no longer exists on the board, it is silently ignored
+
 ## Collapsed columns
 
 Clicking a column header collapses it to a narrow vertical strip. When collapsed:
@@ -45,6 +74,7 @@ Columns represent pipeline stages. Each column has:
 - **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. > **Added in 1.0.0-rc.7:** WIP limit enforcement (was informational-only in earlier releases). > **Changed in 1.0.0-rc.8:** Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. > **Added in 1.0.0-rc.7:** Weight limit enforcement. > **Changed in 1.0.0-rc.8:** Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
+- **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 
 Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone or by clicking the **Delete column** button at the bottom of the column settings modal.
 
@@ -155,15 +185,44 @@ When all filters are active and no cards match, a **"No cards match"** banner ap
 
 ## Views
 
-The toolbar provides three views for the same board data:
+The toolbar provides four views for the same board data:
 
 | View | Description |
 |---|---|
 | **Board** | Default kanban grid with drag-and-drop |
 | **Summary** | Table of swimlanes with card counts, stage distribution, and 7/30-day velocity |
 | **Analytics** | Heatmap of average dwell time per stage, outlier detection, stalled card list, CSV export |
+| **History** | Chronological log of all card movements across the board, filterable by swimlane, column, assignee, and date range |
 
-See [Analytics](analytics.md) for details.
+See [Analytics](analytics.md) for details on the Summary and Analytics views.
+
+### History view
+
+> **Added in 1.0.0-rc.10**
+
+The **History** tab in the board toolbar shows a chronological log of all card movements across the entire board, newest first, paginated at 50 records per page.
+
+#### Filters
+
+All filters are URL-synced and persist across page reloads.
+
+| Filter | Description |
+|---|---|
+| **Swimlane** | Limit results to cards currently in a specific swimlane |
+| **To column** | Limit results to movements whose destination was a specific column |
+| **Assignee** | Limit results to cards assigned to a specific member |
+| **Moved after** | Lower bound date (inclusive) |
+| **Moved before** | Upper bound date (inclusive) |
+
+When no date range is specified, the view defaults to the last 30 days.
+
+#### Detail panel
+
+Click any row to open a slide-in detail panel showing the full movement record: card title, from/to column, from/to swimlane, moved by, and any notes recorded at the time of the move.
+
+#### Archive and restore events
+
+Archive and restore events are excluded from the History view by default. They continue to appear on the individual card's **History** tab. Use `exclude_type=archived,restored` in the API to control this behavior explicitly.
 
 ## Export & import
 
@@ -217,3 +276,46 @@ Admins can manage board members directly from the board toolbar via the **Member
 ## Real-time indicator
 
 The toolbar shows a pulsing green **Live** dot in the top-right area when the WebSocket connection is active. The dot is static and grey when disconnected. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
+
+## Board sharing
+
+> **Added in 1.0.0-rc.10**
+
+Board admins can generate a public read-only link that lets anyone view the board without signing in.
+
+### Enabling a share link
+
+1. Open **Board Settings** and go to the **Sharing** tab.
+2. Toggle **Enable public share link** to the on position.
+3. A URL in the format `https://<host>/share/<token>` is displayed with a **Copy** button.
+
+Share that URL with anyone — recipients do not need a Visiban account.
+
+### What the public view shows
+
+The public view renders the full board grid (columns, swimlane rows, and cards) in read-only mode. The following card metadata is visible:
+
+- Title
+- Labels
+- Checklist progress (e.g. 2/5)
+- Due date
+- Weight
+- Assignee name
+
+Drag-and-drop, card click-to-open, and all editing actions are disabled in the public view.
+
+### Revoking a share link
+
+Toggle **Enable public share link** off to revoke the current token immediately. Any visitor who follows the old URL will see a "This board is no longer shared" page with a link to sign in. Toggling sharing back on generates a new token — the previous link cannot be restored.
+
+### Rate limiting
+
+The public board endpoint is rate-limited to **60 requests per minute per IP address** to prevent token enumeration.
+
+### API
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/boards/{id}/share/` | Board admin | Generate or regenerate the share token |
+| `DELETE` | `/api/boards/{id}/share/` | Board admin | Revoke the share token |
+| `GET` | `/api/share/{token}/` | None (public) | Read-only board payload; rate-limited |

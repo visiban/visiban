@@ -5,6 +5,8 @@ export interface ViewPrefs {
   hiddenSwimlaneIds: number[];
   // Columns the user has explicitly collapsed. All others are expanded (open by default).
   collapsedColumnIds: number[];
+  // Swimlanes the user has explicitly collapsed. Seeded from swimlane.is_collapsed on first load.
+  collapsedSwimlaneIds: number[];
   swimlaneColumnWidth: number;
   columnWidths: Record<number, number>;
   swimlaneHeights: Record<number, number>;
@@ -19,6 +21,7 @@ const DEFAULT_PREFS: ViewPrefs = {
   hiddenColumnIds: [],
   hiddenSwimlaneIds: [],
   collapsedColumnIds: [],
+  collapsedSwimlaneIds: [],
   swimlaneColumnWidth: 220,
   columnWidths: {},
   swimlaneHeights: {},
@@ -42,6 +45,7 @@ function load(boardId: number): ViewPrefs {
       hiddenColumnIds: Array.isArray(parsed.hiddenColumnIds) ? parsed.hiddenColumnIds : [],
       hiddenSwimlaneIds: Array.isArray(parsed.hiddenSwimlaneIds) ? parsed.hiddenSwimlaneIds : [],
       collapsedColumnIds: Array.isArray(parsed.collapsedColumnIds) ? parsed.collapsedColumnIds : [],
+      collapsedSwimlaneIds: Array.isArray(parsed.collapsedSwimlaneIds) ? parsed.collapsedSwimlaneIds : [],
       swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" ? parsed.swimlaneColumnWidth : 220,
       columnWidths: (typeof parsed.columnWidths === "object" && parsed.columnWidths !== null && !Array.isArray(parsed.columnWidths)) ? parsed.columnWidths as Record<number, number> : {},
       swimlaneHeights: (typeof parsed.swimlaneHeights === "object" && parsed.swimlaneHeights !== null && !Array.isArray(parsed.swimlaneHeights)) ? parsed.swimlaneHeights as Record<number, number> : {},
@@ -149,6 +153,30 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
+  const toggleCollapsedSwimlane = useCallback(
+    (swimlaneId: number) => {
+      setPrefs((prev) => {
+        const collapsed = prev.collapsedSwimlaneIds.includes(swimlaneId)
+          ? prev.collapsedSwimlaneIds.filter((id) => id !== swimlaneId)
+          : [...prev.collapsedSwimlaneIds, swimlaneId];
+        return { ...prev, collapsedSwimlaneIds: collapsed };
+      });
+    },
+    [setPrefs],
+  );
+
+  // Collapse all swimlanes: mark every swimlane in the provided list as explicitly collapsed.
+  const collapseAllSwimlanes = useCallback(
+    (swimlaneIds: number[]) => setPrefs((prev) => ({ ...prev, collapsedSwimlaneIds: swimlaneIds })),
+    [setPrefs],
+  );
+
+  // Expand all swimlanes: clear the collapsed list so every swimlane reverts to its default (open) state.
+  const expandAllSwimlanes = useCallback(
+    () => setPrefs((prev) => ({ ...prev, collapsedSwimlaneIds: [] })),
+    [setPrefs],
+  );
+
   const setCardFieldPref = useCallback(
     (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority" | "hideLastMoved", value: boolean) => {
       setPrefs((prev) => ({ ...prev, [field]: value }));
@@ -156,5 +184,5 @@ export function useViewPrefs(boardId: number) {
     [setPrefs],
   );
 
-  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref };
+  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref };
 }

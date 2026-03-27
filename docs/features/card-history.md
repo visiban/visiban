@@ -12,10 +12,13 @@ A `CardMovement` record is created whenever a card changes column or swimlane. E
 - From swimlane UID / to swimlane UID — stable even after the swimlane is deleted or renamed
 - Denormalized names at the time of the move (from_column_name, to_column_name, etc.)
 - Who moved it (`moved_by`)
-- When (`moved_at`)
+- When (`moved_at`) — indexed for query performance
 - Optional notes
+- **Movement type** (`movement_type`) — one of `move` (standard drag-and-drop or API move), `archived` (card was archived), or `restored` (card was restored from archive)
 
 Pure position reorders within the same cell do **not** create a movement record.
+
+`archived` and `restored` events appear in the individual card timeline but are excluded from the board-level History view by default.
 
 The movement timeline is visible in the card detail panel under the **History** tab.
 
@@ -64,4 +67,28 @@ GET /api/boards/{board_id}/cards/{card_id}/movements/
 GET /api/boards/{board_id}/cards/{card_id}/activities/
 ```
 
-Movement records include `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, `to_swimlane_uid`, `moved_by`, and `moved_at`. The name and UID fields are denormalized — they are captured at write time and remain accurate regardless of future renames or deletions. See [Stable UIDs](stable-uids.md) for full field reference and integration examples.
+Movement records include `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, `to_swimlane_uid`, `moved_by`, `moved_at`, and `movement_type`. The name and UID fields are denormalized — they are captured at write time and remain accurate regardless of future renames or deletions. See [Stable UIDs](stable-uids.md) for full field reference and integration examples.
+
+## Board-level movement history
+
+> **Added in 1.0.0-rc.10**
+
+In addition to the per-card timeline, the **History** tab in the board toolbar shows movements across all cards on the board. See [Board & Cards — History view](board.md#history-view) for the UI description.
+
+### API
+
+```
+GET /api/boards/{id}/movements/
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `swimlane_id` | integer | Filter by the card's current swimlane |
+| `to_column_id` | integer | Filter by destination column |
+| `assignee_id` | integer | Filter by card assignee |
+| `moved_after` | ISO date | Lower bound (inclusive) |
+| `moved_before` | ISO date | Upper bound (inclusive) |
+| `exclude_type` | comma-separated string | Exclude movement types — e.g. `archived,restored` |
+| `offset` | integer | Pagination offset (default `0`) |
+
+Page size is fixed at 50. When no date range is supplied, the endpoint defaults to the last 30 days. Archive and restore events are excluded by default by the History view UI (via `exclude_type=archived,restored`), but the API returns all types unless the parameter is provided.

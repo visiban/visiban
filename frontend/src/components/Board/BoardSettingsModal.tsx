@@ -4,7 +4,7 @@ import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, BoardMembership, User } from "../../types";
 import { userDisplayName } from "../../types";
-import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard } from "../../api/boards";
+import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing } from "../../api/boards";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
@@ -25,7 +25,7 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "display" | "rules" | "data";
+  initialTab?: "members" | "display" | "rules" | "sharing" | "data";
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -34,7 +34,7 @@ interface Props {
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
 }
 
-type Tab = "members" | "display" | "rules" | "data";
+type Tab = "members" | "display" | "rules" | "sharing" | "data";
 
 interface StagedInvite {
   user: User;
@@ -76,6 +76,49 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
   // Inline confirmation before enabling hard WIP mode — mirrors the member-removal confirm pattern.
   const [pendingHardWip, setPendingHardWip] = useState(false);
+
+  // Sharing tab state — token is initialized from the board payload (admin-only field).
+  const [shareToken, setShareToken] = useState<string | null>(board.share_token ?? null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+
+  const shareUrl = shareToken ? `${window.location.origin}/share/${shareToken}` : null;
+
+  const handleEnableShare = async () => {
+    setShareLoading(true);
+    setShareStatus(null);
+    try {
+      const data = await enableBoardSharing(board.id);
+      setShareToken(data.share_token);
+      setShareStatus(null);
+    } catch {
+      setShareStatus("Failed to enable sharing. Please try again.");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleDisableShare = async () => {
+    setShareLoading(true);
+    setShareStatus(null);
+    try {
+      await disableBoardSharing(board.id);
+      setShareToken(null);
+      setShareStatus(null);
+    } catch {
+      setShareStatus("Failed to disable sharing. Please try again.");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleCopyShareUrl = () => {
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  };
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -192,11 +235,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 px-6 gap-1">
-          {(["members", "display", "rules", "data"] as Tab[]).map((t) => {
+          {(["members", "display", "rules", ...(isAdmin ? ["sharing"] : []), "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
               : t === "display" ? "Display"
               : t === "rules" ? "Rules"
+              : t === "sharing" ? "Sharing"
               : "Data";
             return (
               <button
@@ -540,6 +584,59 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 ) : (
                   <p className="text-sm text-slate-300">{board.staleness_threshold_days ?? 14} days · {board.stale_warning_pct ?? 50}% warning</p>
                 )}
+              </section>
+            </div>
+          )}
+
+          {/* ── Sharing tab (admin-only) ── */}
+          {tab === "sharing" && isAdmin && (
+            <div className="flex flex-col gap-5">
+              <section>
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Public sharing</h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Anyone with this link can view this board without signing in. They cannot edit, comment, or see member details.
+                </p>
+
+                {/* Toggle row */}
+                <label className="flex items-center justify-between py-2 border-b border-slate-700/60 cursor-pointer mb-3">
+                  <span className="text-sm text-slate-200">Enable public share link</span>
+                  <input
+                    type="checkbox"
+                    checked={shareToken !== null}
+                    disabled={shareLoading}
+                    onChange={() => {
+                      if (shareToken !== null) {
+                        handleDisableShare();
+                      } else {
+                        handleEnableShare();
+                      }
+                    }}
+                    className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                  />
+                </label>
+
+                {/* URL field — shown when enabled */}
+                {shareToken !== null && shareUrl && (
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex-1 text-[11px] bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-400 truncate"
+                      title={shareUrl}
+                    >
+                      {shareUrl}
+                    </div>
+                    <button
+                      onClick={handleCopyShareUrl}
+                      className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                    >
+                      {shareCopied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Status row — always reserve height */}
+                <p className="text-xs h-4 mt-2">
+                  {shareStatus && <span className="text-red-400">{shareStatus}</span>}
+                </p>
               </section>
             </div>
           )}
