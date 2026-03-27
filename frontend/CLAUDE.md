@@ -345,6 +345,27 @@ The expanded sidebar renders groups and their boards as a recursive tree. Rules:
 - **`SidebarGroupNode` is the recursive component** — it renders a group row, its boards (as `BoardItem`), then its subgroup children. Boards appear before subgroups within the same level.
 - **`BoardItem` uses `depth: number`** — never the old `indent: 1 | 2` prop. Depth cascades down from the containing group.
 
+## First-encounter indicators
+
+When surfacing a feature that users may not discover on their own, use a static dot indicator:
+
+- **Token:** `bg-blue-500 rounded-full` — distinct from `bg-blue-400`, which is reserved for active filter/selection states
+- **Size:** `w-2 h-2` minimum — `w-1.5` (6px) is too small to draw attention at desktop scale
+- **Position:** `absolute top-0 right-0` inside the button's `relative` wrapper
+- **Pointer events:** always `pointer-events-none` — the dot must never intercept clicks intended for the button beneath it
+- **Dismissal trigger:** first intentional click/activation of the associated button — not hover (hover is passive and transient)
+- **Persistence:** use `user:prefs:{pref-name}` localStorage key with `false` as the "unseen" default (show dot); `true` means seen (hide dot). Follow the try/catch + fallback pattern in `useShowFullHistoryPref.ts`
+- **No animation** — no pulsing, no fade-in. A static dot is sufficient and avoids motion-sensitivity concerns
+- **Gate it on the same condition as the button** — if the button is hidden for viewers (`canEdit && onMoveCard`), the dot must be hidden too
+
+## Toggle buttons (icon-only)
+
+Icon-only buttons that toggle a persistent mode (e.g. focus mode, collapse) must include:
+
+- `aria-pressed={boolean}` — exposes toggle state to screen readers; color-only treatment is invisible to assistive technology
+- Updated `title` attribute when active (e.g. `isFocused ? "Exit focus" : \`Focus on ${name}\``) — tooltip text must reflect the current action, not the initial one
+- The active visual treatment (e.g. `text-blue-400 !opacity-100`) is sufficient for sighted users; `aria-pressed` covers the rest
+
 ## User preference persistence
 
 **User-scoped UI preferences** (toggles reflecting a reading habit or display style not tied to a specific board) use a single flat localStorage key in the format `user:prefs:{preference-name}`. Do not embed a board ID. Do not extend `useViewPrefs`. Create a dedicated hook following the try/catch + fallback pattern in `useViewPrefs.ts`. Never store UI-only preferences in the backend `UserSerializer` unless cross-device sync is an explicit requirement.

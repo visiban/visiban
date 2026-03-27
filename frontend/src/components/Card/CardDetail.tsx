@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -102,6 +103,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [moveTargetSwimlane, setMoveTargetSwimlane] = useState<number | null>(null);
   const [moveSubmitting, setMoveSubmitting] = useState(false);
   const [movePopoverError, setMovePopoverError] = useState<string | null>(null);
+  const [moveToSeen, setMoveToSeen] = useMoveToSeenPref();
 
   useEffect(() => {
     getCardComments(board.id, card.id).then(setComments);
@@ -368,9 +370,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               </button>
               {canEdit && onMoveCard && (
                 <div className="relative shrink-0 group/move ml-1">
+                  {!moveToSeen && (
+                    // First-encounter dot: disappears after the user clicks Move for the first time.
+                    // bg-blue-500 is the notification indicator token — distinct from bg-blue-400
+                    // (active filter/selection state). pointer-events-none prevents the dot from
+                    // intercepting clicks intended for the button.
+                    <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-blue-500 pointer-events-none" aria-hidden="true" />
+                  )}
                   <button
                     ref={moveButtonRef}
                     onClick={() => {
+                      setMoveToSeen(true);
                       // Calculate fixed position from the button's viewport rect so the
                       // popover isn't clipped by the panel's overflow-hidden container.
                       const rect = moveButtonRef.current?.getBoundingClientRect();

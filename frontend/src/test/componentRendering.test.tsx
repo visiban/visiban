@@ -554,6 +554,7 @@ const swimlaneRowBaseProps = {
   collapsed: false,
   onToggleCollapse: () => {},
   onFocus: () => {},
+  onExitFocus: () => {},
   isFocused: false,
 }
 

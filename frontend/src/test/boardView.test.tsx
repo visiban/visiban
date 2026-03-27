@@ -86,13 +86,14 @@ vi.mock('../components/Board/ColumnHeader', () => ({
     <div data-testid={`col-${column.id}`} data-collapsed={String(collapsed)}>{column.name}</div>
   ),
 }))
-// SwimlaneRow mock renders name + focus button so focus tests can fire onFocus via click.
+// SwimlaneRow mock renders name + focus/exit buttons so focus tests can fire onFocus/onExitFocus via click.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onFocus, isFocused }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; isFocused?: boolean }) => {
+  default: ({ swimlane, onFocus, onExitFocus, isFocused }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean }) => {
     return (
       <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
+        <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
       </div>
     )
   },
