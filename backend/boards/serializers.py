@@ -88,7 +88,7 @@ class CardMovementSerializer(serializers.ModelSerializer):
             "to_column", "to_column_name", "to_column_uid",
             "from_swimlane", "from_swimlane_name", "from_swimlane_uid",
             "to_swimlane", "to_swimlane_name", "to_swimlane_uid",
-            "moved_by", "moved_at", "notes",
+            "moved_by", "moved_at", "notes", "movement_type",
         ]
 
 
@@ -258,13 +258,14 @@ class BoardFullSerializer(serializers.ModelSerializer):
     current_user_role = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
     share_token = serializers.SerializerMethodField()
+    capabilities = serializers.SerializerMethodField()
 
     class Meta:
         model = Board
         fields = [
             "id", "uid", "name", "description", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "capabilities",
         ]
         read_only_fields = ["uid"]
 
@@ -399,6 +400,15 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if role in (BM.Role.ADMIN, SITE_ADMIN):
             return str(obj.share_token) if obj.share_token else None
         return None
+
+    def get_capabilities(self, obj):
+        """Return feature flags for enterprise-registered extension points.
+
+        OSS always returns False for all keys; enterprise registers backends
+        (e.g. MOVEMENT_EXPORT_BACKENDS) to flip the relevant flag.
+        """
+        from .hooks import MOVEMENT_EXPORT_BACKENDS
+        return {"movement_export": bool(MOVEMENT_EXPORT_BACKENDS)}
 
 
 class SavedFilterSerializer(serializers.ModelSerializer):

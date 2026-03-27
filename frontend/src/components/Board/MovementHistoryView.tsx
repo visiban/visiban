@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getBoardMovements } from "../../api/boards";
-import type { BoardFull, CardMovement } from "../../types";
+import type { BoardFull, BoardMovement } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 
@@ -26,12 +26,12 @@ const EMPTY_FILTERS: HistoryFilters = {
 };
 
 function filtersToParams(f: HistoryFilters, page: number): Record<string, string> {
-  const p: Record<string, string> = { page: String(page) };
+  const p: Record<string, string> = { offset: String((page - 1) * PAGE_SIZE) };
   if (f.swimlaneId !== null) p.swimlane_id = String(f.swimlaneId);
-  if (f.columnId !== null) p.column_id = String(f.columnId);
-  if (f.userId !== null) p.user_id = String(f.userId);
-  if (f.since) p.since = f.since;
-  if (f.until) p.until = f.until;
+  if (f.columnId !== null) p.to_column_id = String(f.columnId);
+  if (f.userId !== null) p.assignee_id = String(f.userId);
+  if (f.since) p.moved_after = f.since;
+  if (f.until) p.moved_before = f.until;
   return p;
 }
 
@@ -50,9 +50,9 @@ function hasFilters(f: HistoryFilters): boolean {
 // ---------------------------------------------------------------------------
 
 interface SlideInPanelProps {
-  movement: CardMovement;
+  movement: BoardMovement;
   /** All movements for the same card visible on the current page — for context. */
-  relatedMovements: CardMovement[];
+  relatedMovements: BoardMovement[];
   onClose: () => void;
 }
 
@@ -178,10 +178,10 @@ export default function MovementHistoryView({ board }: Props) {
     return { ...EMPTY_FILTERS, columnId: columnId ? Number(columnId) : null };
   });
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<{ results: CardMovement[]; count: number } | null>(null);
+  const [data, setData] = useState<{ results: BoardMovement[]; count: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [selectedMovement, setSelectedMovement] = useState<CardMovement | null>(null);
+  const [selectedMovement, setSelectedMovement] = useState<BoardMovement | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1;

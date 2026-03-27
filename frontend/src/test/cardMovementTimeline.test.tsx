@@ -45,7 +45,7 @@ describe('CardMovementTimeline', () => {
 
   it('renders "Created in" for initial move', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: null, from_column_name: null, to_column: 10, to_column_name: 'To Do', from_swimlane: null, from_swimlane_name: null, to_swimlane: 20, to_swimlane_name: 'Customer A', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '' },
+      { id: 1, from_column: null, from_column_name: null, from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: null, from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'Customer A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
     mockGetActivities.mockResolvedValue([])
     render(<CardMovementTimeline boardId={1} cardId={1} />)
@@ -57,8 +57,8 @@ describe('CardMovementTimeline', () => {
 
   it('renders column transitions', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: null, from_column_name: null, to_column: 10, to_column_name: 'To Do', from_swimlane: null, from_swimlane_name: null, to_swimlane: 20, to_swimlane_name: 'A', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '' },
-      { id: 2, from_column: 10, from_column_name: 'To Do', to_column: 11, to_column_name: 'In Progress', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: fakeUser, moved_at: '2026-01-02T00:00:00Z', notes: '' },
+      { id: 1, from_column: null, from_column_name: null, from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: null, from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
+      { id: 2, from_column: 10, from_column_name: 'To Do', from_column_uid: 'c1', to_column: 11, to_column_name: 'In Progress', to_column_uid: 'c2', from_swimlane: 20, from_swimlane_name: 'A', from_swimlane_uid: 's1', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-02T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
     mockGetActivities.mockResolvedValue([])
     render(<CardMovementTimeline boardId={1} cardId={1} />)
@@ -69,9 +69,9 @@ describe('CardMovementTimeline', () => {
 
   it('shows time spent between moves', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: null, from_column_name: null, to_column: 10, to_column_name: 'To Do', from_swimlane: null, from_swimlane_name: null, to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
-      { id: 2, from_column: 10, from_column_name: 'To Do', to_column: 11, to_column_name: 'In Progress', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-03T00:00:00Z', notes: '' },
-      { id: 3, from_column: 11, from_column_name: 'In Progress', to_column: 12, to_column_name: 'Done', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-05T00:00:00Z', notes: '' },
+      { id: 1, from_column: null, from_column_name: null, from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: null, from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
+      { id: 2, from_column: 10, from_column_name: 'To Do', from_column_uid: 'c1', to_column: 11, to_column_name: 'In Progress', to_column_uid: 'c2', from_swimlane: 20, from_swimlane_name: 'A', from_swimlane_uid: 's1', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-03T00:00:00Z', notes: '', movement_type: 'move' as const },
+      { id: 3, from_column: 11, from_column_name: 'In Progress', from_column_uid: 'c2', to_column: 12, to_column_name: 'Done', to_column_uid: 'c3', from_swimlane: 20, from_swimlane_name: 'A', from_swimlane_uid: 's1', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-05T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
     mockGetActivities.mockResolvedValue([])
     render(<CardMovementTimeline boardId={1} cardId={1} />)
@@ -82,7 +82,7 @@ describe('CardMovementTimeline', () => {
 
   it('shows swimlane change', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: 10, from_column_name: 'To Do', to_column: 10, to_column_name: 'To Do', from_swimlane: 20, from_swimlane_name: 'Customer A', to_swimlane: 21, to_swimlane_name: 'Customer B', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
+      { id: 1, from_column: 10, from_column_name: 'To Do', from_column_uid: 'c1', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: 20, from_swimlane_name: 'Customer A', from_swimlane_uid: 's1', to_swimlane: 21, to_swimlane_name: 'Customer B', to_swimlane_uid: 's2', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
     mockGetActivities.mockResolvedValue([])
     render(<CardMovementTimeline boardId={1} cardId={1} />)
@@ -110,7 +110,7 @@ describe('CardMovementTimeline', () => {
 
   it('shows deleted column name in italic red when column id is not in columnIds', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: 10, from_column_name: 'Old Column', to_column: 11, to_column_name: 'In Progress', from_swimlane: 20, from_swimlane_name: 'A', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
+      { id: 1, from_column: 10, from_column_name: 'Old Column', from_column_uid: 'c1', to_column: 11, to_column_name: 'In Progress', to_column_uid: 'c2', from_swimlane: 20, from_swimlane_name: 'A', from_swimlane_uid: 's1', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
     mockGetActivities.mockResolvedValue([])
     // columnIds only contains 11 (In Progress) — column 10 (Old Column) is deleted

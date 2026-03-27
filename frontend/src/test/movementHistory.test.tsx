@@ -41,6 +41,7 @@ const mockBoard: BoardFull = {
   stale_warning_pct: 50,
   allowed_priorities: [],
   enforce_wip_limits: true,
+  enforce_wip_hard: false,
   enforce_weight_limits: true,
   is_starred: false,
   created_at: '2024-01-01T00:00:00Z',
