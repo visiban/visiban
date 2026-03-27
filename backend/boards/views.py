@@ -33,7 +33,6 @@ from .models import (
     Notification, SavedFilter,
 )
 from .permissions import get_board_role, SITE_ADMIN
-from .hooks import MOVEMENT_EXPORT_BACKENDS
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     BoardTemplateSerializer,

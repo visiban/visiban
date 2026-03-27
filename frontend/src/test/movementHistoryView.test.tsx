@@ -163,7 +163,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ column_id: '11' })
+        expect.objectContaining({ to_column_id: '11' })
       )
     )
   })
@@ -178,7 +178,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ user_id: '5' })
+        expect.objectContaining({ assignee_id: '5' })
       )
     )
   })
@@ -192,7 +192,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ since: '2026-01-01' })
+        expect.objectContaining({ moved_after: '2026-01-01' })
       )
     )
   })
@@ -211,7 +211,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenLastCalledWith(
         fakeBoard.id,
-        expect.not.objectContaining({ column_id: '11' })
+        expect.not.objectContaining({ to_column_id: '11' })
       )
     )
   })
