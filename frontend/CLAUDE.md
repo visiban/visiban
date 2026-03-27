@@ -394,6 +394,17 @@ When a persistent board-wide mode is active (e.g. focus mode, a future "view-onl
 - New metric columns grouped under a common section must use a two-row `<thead>`: first row `colspan` spanning the group with a `text-xs text-slate-500 uppercase tracking-wide` group label, second row with individual headers
 - Numeric metric cells: `font-mono text-slate-300`; zero or null values render `—` in `text-slate-500`, never `0`
 
+## Analytics / split-panel scroll layout
+
+When a panel contains a fixed reference section (toolbar + table) and a scrollable list below it:
+
+- Use `flex-1 overflow-hidden flex flex-col` on the outer container — **no `overflow-auto` on the outer container**
+- Pinned section: `shrink-0 flex flex-col` — grows to natural height; add `overflow-x-auto overflow-y-auto max-h-[40vh]` on the table wrapper if it can overflow vertically (many rows)
+- Scrollable section: `flex-1 overflow-y-auto min-h-0` with an explicit `minHeight: "8rem"` floor so the section is never a zero-height peephole
+- Separate the two regions with the standard engraved double-`<div>` separator (`h-px bg-slate-900` / `h-px bg-slate-600/50`) — never a plain `border-t` alone; the engraved pattern is used everywhere else in the design system
+- Add a count label inline with the section heading (`flex items-center gap-2`) using `text-xs text-slate-500` — e.g. "N cards stalled" or "N items". Use a ternary for singular/plural (`"1 card"` / `"N cards"`), never the `(s)` parenthetical form
+- Sticky first-column cells inside a horizontally-scrolling table must carry `bg-slate-900` to match the scroll container's background; verify this is not broken when the outer `p-4` moves to inner sections
+
 ## System event visual treatment in timeline views
 
 Apply this consistently in `CardMovementTimeline` and `MovementHistoryView`:

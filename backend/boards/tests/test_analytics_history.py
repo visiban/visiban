@@ -66,6 +66,9 @@ class AnalyticsHistorySetup(TestCase):
         card = card or self.card
         return f"/api/boards/{self.board.pk}/cards/{card.pk}/unarchive/"
 
+    def _analytics_url(self):
+        return f"/api/boards/{self.board.pk}/analytics/"
+
 
 class TestSummaryMetrics(AnalyticsHistorySetup):
 
@@ -379,3 +382,86 @@ class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):
             card=self.card, movement_type=CardMovement.MovementType.UNARCHIVED
         ).count()
         self.assertEqual(initial_count, final_count)
+
+
+class TestAnalyticsDoneColumns(AnalyticsHistorySetup):
+    """Analytics heatmap: done column dwell exclusion, stalled detection, done_columns field."""
+
+    def _move(self, card, to_column, days_ago):
+        """Create a CardMovement record as if it happened `days_ago` days in the past.
+
+        moved_at uses auto_now_add so it cannot be passed to create(); we update
+        it with a direct queryset call immediately after creation.
+        """
+        mv = CardMovement.objects.create(
+            card=card,
+            to_column=to_column,
+            to_column_name=to_column.name,
+            moved_by=self.admin,
+        )
+        moved_at = timezone.now() - datetime.timedelta(days=days_ago)
+        CardMovement.objects.filter(pk=mv.pk).update(moved_at=moved_at)
+        mv.refresh_from_db()
+        return mv
+
+    def test_done_columns_excluded_from_avg_days_per_column(self):
+        """Done columns must not appear as keys in avg_days_per_column."""
+        self._move(self.card, self.col_todo, days_ago=5)
+        self._move(self.card, self.col_done, days_ago=2)
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url())
+        self.assertEqual(resp.status_code, 200)
+
+        sw = resp.data["swimlanes"][0]
+        self.assertIn("To Do", sw["avg_days_per_column"])
+        self.assertNotIn("Done", sw["avg_days_per_column"])
+
+    def test_done_columns_field_in_response(self):
+        """Response must include done_columns listing is_done column names."""
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url())
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("done_columns", resp.data)
+        self.assertEqual(resp.data["done_columns"], ["Done"])
+
+    def test_columns_field_unchanged_includes_done(self):
+        """columns field must still include done column names for backward compat."""
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url())
+        self.assertIn("To Do", resp.data["columns"])
+        self.assertIn("Done", resp.data["columns"])
+
+    def test_card_in_done_column_not_flagged_as_stalled(self):
+        """A card whose last movement was into a done column must not appear in stalled_cards."""
+        # Move card to done column 60 days ago — well past any staleness threshold.
+        self._move(self.card, self.col_todo, days_ago=65)
+        self._move(self.card, self.col_done, days_ago=60)
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url() + "?stalled_days=7")
+        self.assertEqual(resp.status_code, 200)
+        stalled_ids = [s["id"] for s in resp.data["swimlanes"][0]["stalled_cards"]]
+        self.assertNotIn(self.card.pk, stalled_ids)
+
+    def test_active_column_dwell_still_tracked(self):
+        """Dwell time in non-done columns must still be calculated correctly."""
+        # Card spent 5 days in To Do, then moved to Done.
+        self._move(self.card, self.col_todo, days_ago=5)
+        self._move(self.card, self.col_done, days_ago=0)
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        avg = resp.data["swimlanes"][0]["avg_days_per_column"]["To Do"]
+        self.assertIsNotNone(avg)
+        self.assertAlmostEqual(avg, 5.0, delta=0.2)
+
+    def test_board_with_no_done_columns_returns_empty_done_columns(self):
+        """done_columns must be an empty list when no columns are marked done."""
+        self.col_done.is_done = False
+        self.col_done.save(update_fields=["is_done"])
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url())
+        self.assertEqual(resp.data["done_columns"], [])
