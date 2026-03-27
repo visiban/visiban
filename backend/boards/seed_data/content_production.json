@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "name": "Template: Content Production",
-  "description": "Manage content from idea through publication. Each swimlane is a content type; each card is a piece of content.",
+  "description": "Track content pieces from idea through publication. Each swimlane is a content type; each card is a piece of content.",
   "columns": [
     {
       "name": "Idea",
       "position": 0,
-      "color": "#6B7280",
+      "color": "#8B5CF6",
       "wip_limit": null,
       "allow_card_creation": true
     },
@@ -15,26 +15,26 @@
       "position": 1,
       "color": "#3B82F6",
       "wip_limit": null,
-      "allow_card_creation": true
+      "allow_card_creation": false
     },
     {
       "name": "Draft",
       "position": 2,
-      "color": "#8B5CF6",
+      "color": "#F59E0B",
       "wip_limit": null,
       "allow_card_creation": false
     },
     {
       "name": "Internal Review",
       "position": 3,
-      "color": "#F59E0B",
+      "color": "#F97316",
       "wip_limit": null,
       "allow_card_creation": false
     },
     {
       "name": "Edits",
       "position": 4,
-      "color": "#F97316",
+      "color": "#EF4444",
       "wip_limit": null,
       "allow_card_creation": false
     },
@@ -48,14 +48,14 @@
     {
       "name": "Scheduled",
       "position": 6,
-      "color": "#10B981",
+      "color": "#14B8A6",
       "wip_limit": null,
       "allow_card_creation": false
     },
     {
       "name": "Published",
       "position": 7,
-      "color": "#14B8A6",
+      "color": "#10B981",
       "wip_limit": null,
       "allow_card_creation": false
     }
@@ -65,36 +65,36 @@
       "name": "Blog Posts",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "blog@example.com",
-      "notes": "Long-form SEO content. Target: 2 posts/week. Owner: content team."
+      "contact_email": "content@internal.example",
+      "notes": "Long-form articles. Target: 2 per week. Min length: 1,000 words."
     },
     {
       "name": "Case Studies",
       "position": 1,
       "color": "#10B981",
-      "contact_email": "stories@example.com",
-      "notes": "Customer stories. Requires customer approval. 4-6 week production time."
+      "contact_email": "content@internal.example",
+      "notes": "Customer success stories. Requires customer approval before publishing."
     },
     {
       "name": "Video & Webinars",
       "position": 2,
-      "color": "#EC4899",
-      "contact_email": "video@example.com",
-      "notes": "Product demos, thought leadership webinars, YouTube tutorials."
+      "color": "#8B5CF6",
+      "contact_email": "content@internal.example",
+      "notes": "Product demo videos, webinars, and YouTube tutorials."
     },
     {
       "name": "Email & Newsletter",
       "position": 3,
       "color": "#F59E0B",
-      "contact_email": "email@example.com",
-      "notes": "Weekly newsletter, drip sequences, product announcements. Audience: 28,000."
+      "contact_email": "content@internal.example",
+      "notes": "Weekly newsletter (Fri) + product update emails. List: 12k subscribers."
     },
     {
       "name": "Social & Short-form",
       "position": 4,
-      "color": "#8B5CF6",
-      "contact_email": "social@example.com",
-      "notes": "Twitter/X, LinkedIn, short-form video (TikTok, Reels). 2-3 posts/day."
+      "color": "#EC4899",
+      "contact_email": "content@internal.example",
+      "notes": "LinkedIn, X/Twitter, and short-form posts. Cadence: 3x per week per channel."
     }
   ],
   "labels": [
@@ -108,890 +108,521 @@
     },
     {
       "name": "Product",
-      "color": "#10B981"
-    },
-    {
-      "name": "Customer",
       "color": "#F59E0B"
     },
     {
-      "name": "Event",
-      "color": "#EC4899"
+      "name": "Customer Story",
+      "color": "#10B981"
+    },
+    {
+      "name": "Evergreen",
+      "color": "#14B8A6"
     }
   ],
   "cards": [
     {
-      "title": "\"How we cut API latency by 80%\" — technical deep dive",
-      "description": "Technical deep dive on the N+1 query fix and cursor-based pagination improvements. Target keywords: API performance, Django query optimization. 2,400 words.",
-      "priority": "high",
-      "column": "Published",
-      "swimlane": "Blog Posts",
-      "due_date": "2026-03-03",
-      "weight": 4,
-      "labels": [
-        "SEO",
-        "Thought Leadership"
-      ],
-      "checklist": [
-        {
-          "text": "Outline approved",
-          "is_checked": true
-        },
-        {
-          "text": "Draft complete (2,400 words)",
-          "is_checked": true
-        },
-        {
-          "text": "Edited — 1 round",
-          "is_checked": true
-        },
-        {
-          "text": "SEO review: 3 target keywords",
-          "is_checked": true
-        },
-        {
-          "text": "Published to blog",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "This post hit 4,200 views in 48 hours — best performing technical post this quarter.",
-          "author": "demo1"
-        },
-        {
-          "body": "HN front page for 6 hours. Linking it to the docs and changelog.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Internal Review",
-          "to_column": "Edits",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Edits",
-          "to_column": "Final Approval",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Final Approval",
-          "to_column": "Scheduled",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Scheduled",
-          "to_column": "Final Approval",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Final Approval",
-          "to_column": "Scheduled",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Scheduled",
-          "to_column": "Published",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2025-12-23T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SEO, Thought Leadership",
-          "actor": "demo3",
-          "created_at": "2025-12-23T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2025-12-23T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-03",
-          "actor": "demo3",
-          "created_at": "2025-12-23T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Outline approved",
-          "actor": "demo3",
-          "created_at": "2025-12-23T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Outline approved",
-          "actor": "demo4",
-          "created_at": "2025-12-23T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft complete (2,400 words)",
-          "actor": "demo3",
-          "created_at": "2025-12-23T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Draft complete (2,400 words)",
-          "actor": "demo4",
-          "created_at": "2025-12-23T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Edited — 1 round",
-          "actor": "demo3",
-          "created_at": "2025-12-23T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Edited — 1 round",
-          "actor": "demo4",
-          "created_at": "2025-12-23T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "SEO review: 3 target keywords",
-          "actor": "demo3",
-          "created_at": "2025-12-23T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "SEO review: 3 target keywords",
-          "actor": "demo4",
-          "created_at": "2025-12-23T23:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Published to blog",
-          "actor": "demo3",
-          "created_at": "2025-12-23T23:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Published to blog",
-          "actor": "demo4",
-          "created_at": "2025-12-23T23:40:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "This post hit 4,200 views in 48 hours — best performing technical post this quarter.",
-          "actor": "demo1",
-          "created_at": "2025-12-23T23:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "HN front page for 6 hours. Linking it to the docs and changelog.",
-          "actor": "demo3",
-          "created_at": "2025-12-24T01:55:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "\"Kanban vs Scrum: which fits your team?\" — SEO pillar",
-      "description": "SEO pillar post targeting 'kanban vs scrum' keyword cluster (12k monthly searches). Long-form comparison targeting teams evaluating project management methods.",
-      "priority": "medium",
-      "column": "Edits",
-      "swimlane": "Blog Posts",
-      "due_date": "2026-03-19",
-      "weight": 5,
-      "labels": [
-        "SEO"
-      ],
-      "checklist": [
-        {
-          "text": "Keyword research: 12,000 monthly searches",
-          "is_checked": true
-        },
-        {
-          "text": "Outline approved",
-          "is_checked": true
-        },
-        {
-          "text": "Draft complete (3,100 words)",
-          "is_checked": true
-        },
-        {
-          "text": "Second edit pass",
-          "is_checked": false
-        },
-        {
-          "text": "SEO check — add FAQ section",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Good draft but needs a clearer CTA at the end. Added comments in the doc.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Assigned",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Internal Review",
-          "to_column": "Edits",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SEO",
-          "actor": "demo5",
-          "created_at": "2026-02-02T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-19",
-          "actor": "demo5",
-          "created_at": "2026-02-02T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Keyword research: 12,000 monthly searches",
-          "actor": "demo5",
-          "created_at": "2026-02-02T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Keyword research: 12,000 monthly searches",
-          "actor": "demo1",
-          "created_at": "2026-02-02T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Outline approved",
-          "actor": "demo5",
-          "created_at": "2026-02-02T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Outline approved",
-          "actor": "demo1",
-          "created_at": "2026-02-02T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft complete (3,100 words)",
-          "actor": "demo5",
-          "created_at": "2026-02-02T18:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Draft complete (3,100 words)",
-          "actor": "demo1",
-          "created_at": "2026-02-02T18:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Second edit pass",
-          "actor": "demo5",
-          "created_at": "2026-02-02T18:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "SEO check — add FAQ section",
-          "actor": "demo5",
-          "created_at": "2026-02-02T19:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Good draft but needs a clearer CTA at the end. Added comments in the doc.",
-          "actor": "demo2",
-          "created_at": "2026-02-02T19:25:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "\"5 ways to use swimlanes beyond customers\" — use case post",
-      "description": "Use case post showing creative applications of swimlanes: projects, time periods, risk tiers, teams, and kanban stages within stages. Targets existing users and trial signups.",
-      "priority": "medium",
+      "title": "Why your CRM and project tool shouldn't be the same app",
+      "description": "Opinion piece differentiating Visiban from tools that try to do too much. Target audience: ops and sales leaders.",
+      "priority": "low",
+      "assignee": "demo2",
       "column": "Draft",
       "swimlane": "Blog Posts",
-      "due_date": "2026-03-25",
-      "weight": 3,
-      "labels": [
-        "SEO",
-        "Product"
-      ],
-      "checklist": [
-        {
-          "text": "Topic approved",
-          "is_checked": true
-        },
-        {
-          "text": "Outline done",
-          "is_checked": true
-        },
-        {
-          "text": "First draft in progress — 60% done",
-          "is_checked": false
-        },
-        {
-          "text": "Internal review",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Blog Posts",
-          "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-29T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SEO, Product",
-          "actor": "demo2",
-          "created_at": "2025-12-29T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-25",
-          "actor": "demo2",
-          "created_at": "2025-12-29T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Topic approved",
-          "actor": "demo2",
-          "created_at": "2025-12-29T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Topic approved",
-          "actor": "demo3",
-          "created_at": "2025-12-29T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Outline done",
-          "actor": "demo2",
-          "created_at": "2025-12-29T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Outline done",
-          "actor": "demo3",
-          "created_at": "2025-12-29T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "First draft in progress — 60% done",
-          "actor": "demo2",
-          "created_at": "2025-12-29T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Internal review",
-          "actor": "demo2",
-          "created_at": "2025-12-29T20:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "\"Building a remote-first team process\" — thought leadership",
-      "description": "Thought leadership post on remote team processes, featuring Visiban as the backbone tool. Needs an authentic angle — brief founder for quotes.",
-      "priority": "low",
-      "column": "Idea",
-      "swimlane": "Blog Posts",
-      "due_date": "2026-04-14",
+      "due_date": "2026-04-02",
       "weight": 2,
       "labels": [
         "Thought Leadership"
       ],
       "checklist": [
         {
-          "text": "Validate angle with marketing lead",
-          "is_checked": false
+          "text": "Assigned to writer",
+          "is_checked": true
         },
         {
-          "text": "Research — 3 data sources",
-          "is_checked": false
-        },
-        {
-          "text": "Outline",
+          "text": "Draft due",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
           "to_swimlane": "Blog Posts",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Idea",
+          "to_column": "Assigned",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "Draft",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-18T13:00:00+00:00"
+          "to_value": "Sam Chen",
+          "actor": "demo5",
+          "created_at": "2026-02-24T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Thought Leadership",
           "actor": "demo4",
-          "created_at": "2026-01-18T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo4",
-          "created_at": "2026-01-18T18:00:00+00:00"
+          "created_at": "2026-02-25T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-04-14",
-          "actor": "demo4",
-          "created_at": "2026-01-18T20:00:00+00:00"
+          "to_value": "2026-04-02",
+          "actor": "demo2",
+          "created_at": "2026-02-26T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Validate angle with marketing lead",
-          "actor": "demo4",
-          "created_at": "2026-01-18T21:00:00+00:00"
+          "to_value": "Assigned to writer",
+          "actor": "demo2",
+          "created_at": "2026-02-28T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Research — 3 data sources",
-          "actor": "demo4",
-          "created_at": "2026-01-18T21:20:00+00:00"
+          "to_value": "Draft due",
+          "actor": "demo1",
+          "created_at": "2026-03-01T00:00:00+00:00"
         },
         {
-          "event_type": "checklist_item_added",
+          "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Outline",
-          "actor": "demo4",
-          "created_at": "2026-01-18T21:40:00+00:00"
+          "to_value": "Assigned to writer",
+          "actor": "demo2",
+          "created_at": "2026-03-04T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "TechNova Inc — from Jira to Visiban in 30 days",
-      "description": "TechNova case study covering their migration from Jira, onboarding process, and outcomes (34% cycle time reduction). Customer approved all quotes and statistics.",
-      "priority": "high",
-      "column": "Published",
-      "swimlane": "Case Studies",
-      "due_date": "2026-02-25",
-      "weight": 5,
+      "title": "5 ways to run a better sprint retrospective",
+      "description": "Practical tips for engineering teams running retros. Tie in Visiban retro board template as a CTA.",
+      "priority": "medium",
+      "assignee": "demo1",
+      "column": "Final Approval",
+      "swimlane": "Blog Posts",
+      "due_date": "2026-03-20",
+      "weight": 3,
       "labels": [
-        "Customer"
+        "Product",
+        "SEO"
       ],
       "checklist": [
         {
-          "text": "Customer interview completed",
+          "text": "Outline approved",
           "is_checked": true
         },
         {
-          "text": "Draft approved by TechNova marketing",
+          "text": "Draft written (1,200 words)",
           "is_checked": true
         },
         {
-          "text": "Design and layout done",
+          "text": "Internal review by content lead",
           "is_checked": true
         },
         {
-          "text": "Published to /customers page",
+          "text": "SEO edits applied",
           "is_checked": true
         },
         {
-          "text": "Shared in newsletter",
-          "is_checked": true
+          "text": "Final approval from marketing director",
+          "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "TechNova saw 34% reduction in cycle time after switching. Lead gen form on the page converting at 8.2%.",
-          "author": "demo4"
-        },
-        {
-          "body": "Best performing case study ever. Requesting follow-up video version.",
+          "body": "Good draft. Reviewer requested 2 more concrete examples.",
           "author": "demo1"
         }
       ],
-      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-10T12:00:00+00:00",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-01-18T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
           "from_column": "Idea",
           "to_column": "Assigned",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Assigned",
           "to_column": "Draft",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Draft",
           "to_column": "Internal Review",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Internal Review",
           "to_column": "Edits",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Edits",
           "to_column": "Final Approval",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Final Approval",
-          "to_column": "Scheduled",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-02-11T12:00:00+00:00",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2"
-        },
-        {
-          "from_column": "Scheduled",
-          "to_column": "Published",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-10T13:00:00+00:00"
+          "to_value": "Alex Rivera",
+          "actor": "demo4",
+          "created_at": "2026-01-19T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Customer",
+          "to_value": "SEO, Product",
+          "actor": "demo4",
+          "created_at": "2026-01-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo5",
+          "created_at": "2026-01-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Outline approved",
+          "actor": "demo4",
+          "created_at": "2026-01-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft written (1,200 words)",
           "actor": "demo1",
-          "created_at": "2026-01-10T15:00:00+00:00"
+          "created_at": "2026-01-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Outline approved",
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Internal review by content lead",
+          "actor": "demo5",
+          "created_at": "2026-01-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "SEO edits applied",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Final approval from marketing director",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-30T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Internal review by content lead",
+          "actor": "demo3",
+          "created_at": "2026-01-30T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft written (1,200 words)",
+          "actor": "demo1",
+          "created_at": "2026-01-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "SEO edits applied",
+          "actor": "demo3",
+          "created_at": "2026-02-01T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "How Visiban's swimlane model reduces handoff delays",
+      "description": "Thought leadership piece explaining how grouping work by account or team in swimlanes reduces the handoff friction common in column-only kanban tools.\n\nTarget keywords: kanban swimlane, reduce handoffs, team kanban.",
+      "priority": "high",
+      "assignee": "demo2",
+      "column": "Published",
+      "swimlane": "Blog Posts",
+      "due_date": null,
+      "weight": 4,
+      "labels": [
+        "Evergreen",
+        "SEO",
+        "Thought Leadership"
+      ],
+      "checklist": [
+        {
+          "text": "Keyword research complete",
+          "is_checked": true
+        },
+        {
+          "text": "Outline approved by marketing lead",
+          "is_checked": true
+        },
+        {
+          "text": "First draft written",
+          "is_checked": true
+        },
+        {
+          "text": "SEO review",
+          "is_checked": true
+        },
+        {
+          "text": "Published and indexed",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Published 2026-03-05. Ranking on page 2 for target keyword after 10 days.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Idea",
+          "from_swimlane": null,
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2025-12-15T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Idea",
+          "to_column": "Assigned",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-01-01T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "Draft",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-01-11T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Draft",
+          "to_column": "Internal Review",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Internal Review",
+          "to_column": "Edits",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Edits",
+          "to_column": "Final Approval",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Final Approval",
+          "to_column": "Scheduled",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Scheduled",
+          "to_column": "Published",
+          "from_swimlane": "Blog Posts",
+          "to_swimlane": "Blog Posts",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo5",
+          "created_at": "2025-12-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SEO, Thought Leadership, Evergreen",
+          "actor": "demo5",
+          "created_at": "2025-12-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Keyword research complete",
+          "actor": "demo4",
+          "created_at": "2025-12-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Outline approved by marketing lead",
+          "actor": "demo5",
+          "created_at": "2025-12-24T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-01-10T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-25",
-          "actor": "demo1",
-          "created_at": "2026-01-10T20:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2025-12-24T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Customer interview completed",
-          "actor": "demo1",
-          "created_at": "2026-01-10T21:00:00+00:00"
+          "to_value": "First draft written",
+          "actor": "demo3",
+          "created_at": "2025-12-25T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Customer interview completed",
-          "actor": "demo2",
-          "created_at": "2026-01-10T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft approved by TechNova marketing",
-          "actor": "demo1",
-          "created_at": "2026-01-10T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Draft approved by TechNova marketing",
-          "actor": "demo2",
-          "created_at": "2026-01-10T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Design and layout done",
-          "actor": "demo1",
-          "created_at": "2026-01-10T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Design and layout done",
-          "actor": "demo2",
-          "created_at": "2026-01-10T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Published to /customers page",
-          "actor": "demo1",
-          "created_at": "2026-01-10T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Published to /customers page",
-          "actor": "demo2",
-          "created_at": "2026-01-10T23:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Shared in newsletter",
-          "actor": "demo1",
-          "created_at": "2026-01-10T23:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Shared in newsletter",
-          "actor": "demo2",
-          "created_at": "2026-01-10T23:40:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "TechNova saw 34% reduction in cycle time after switching. Lead gen form on the page converting at 8.2%.",
+          "to_value": "Keyword research complete",
           "actor": "demo4",
-          "created_at": "2026-01-10T23:55:00+00:00"
+          "created_at": "2025-12-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "SEO review",
+          "actor": "demo4",
+          "created_at": "2025-12-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Published and indexed",
+          "actor": "demo1",
+          "created_at": "2025-12-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Outline approved by marketing lead",
+          "actor": "demo5",
+          "created_at": "2025-12-27T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Best performing case study ever. Requesting follow-up video version.",
+          "to_value": "",
           "actor": "demo1",
-          "created_at": "2026-01-11T04:55:00+00:00"
+          "created_at": "2025-12-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "SEO review",
+          "actor": "demo1",
+          "created_at": "2025-12-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Published and indexed",
+          "actor": "demo3",
+          "created_at": "2025-12-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "First draft written",
+          "actor": "demo3",
+          "created_at": "2025-12-29T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "BlueSky Health — HIPAA-compliant project management",
-      "description": "BlueSky Health case study focused on HIPAA-compliant use and healthcare project coordination. Required two rounds of legal review. Pending CMO sign-off before publication.",
-      "priority": "high",
-      "column": "Final Approval",
+      "title": "Mosaic Creative: managing 12 client campaigns on one board",
+      "description": "Short-form case study (500 words) on Mosaic Creative's swimlane-per-client workflow. Quick win — customer is enthusiastic.",
+      "priority": "medium",
+      "assignee": "demo1",
+      "column": "Internal Review",
       "swimlane": "Case Studies",
-      "due_date": "2026-03-17",
-      "weight": 6,
+      "due_date": "2026-03-25",
+      "weight": 3,
       "labels": [
-        "Customer"
+        "Customer Story"
       ],
       "checklist": [
         {
-          "text": "Interview transcript approved",
+          "text": "Phone interview with Mosaic ops manager",
           "is_checked": true
         },
         {
@@ -999,48 +630,198 @@
           "is_checked": true
         },
         {
-          "text": "Customer legal review — 2 rounds",
+          "text": "Internal review",
           "is_checked": true
         },
         {
-          "text": "Final sign-off from BlueSky CMO",
-          "is_checked": false
-        },
-        {
-          "text": "Schedule publication",
+          "text": "Send to customer for approval",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Legal review flagged one statistic — changed 'cut costs 40%' to 'reduced project overhead'. Now awaiting CMO sign-off.",
-          "author": "demo2"
+          "body": "Great quote in the interview. Sending draft to customer today.",
+          "author": "demo1"
         }
       ],
-      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
           "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Idea",
           "to_column": "Assigned",
           "from_swimlane": "Case Studies",
           "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Assigned",
           "to_column": "Draft",
           "from_swimlane": "Case Studies",
           "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-18T12:00:00+00:00",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Draft",
+          "to_column": "Internal Review",
+          "from_swimlane": "Case Studies",
+          "to_swimlane": "Case Studies",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo4",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Customer Story",
+          "actor": "demo1",
+          "created_at": "2026-02-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone interview with Mosaic ops manager",
+          "actor": "demo4",
+          "created_at": "2026-02-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft written",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo2",
+          "created_at": "2026-02-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send to customer for approval",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone interview with Mosaic ops manager",
+          "actor": "demo2",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft written",
+          "actor": "demo5",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo1",
+          "created_at": "2026-02-14T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "How TechNova cut sprint planning time by 40%",
+      "description": "Case study featuring TechNova's adoption of Visiban for engineering sprint tracking. Interview VP Engineering and 2 team leads.\n\nCustomer approved. Embargo until 2026-04-01.",
+      "priority": "high",
+      "assignee": "demo5",
+      "column": "Scheduled",
+      "swimlane": "Case Studies",
+      "due_date": "2026-03-30",
+      "weight": 5,
+      "labels": [
+        "Customer Story",
+        "Product"
+      ],
+      "checklist": [
+        {
+          "text": "Customer interview recorded",
+          "is_checked": true
+        },
+        {
+          "text": "Draft written",
+          "is_checked": true
+        },
+        {
+          "text": "Customer review and approval",
+          "is_checked": true
+        },
+        {
+          "text": "Legal cleared",
+          "is_checked": true
+        },
+        {
+          "text": "Scheduled for 2026-04-01 publish",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "TechNova approved final copy on 2026-03-20. Embargo in place.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Idea",
+          "from_swimlane": null,
+          "to_swimlane": "Case Studies",
+          "moved_at": "2026-01-03T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Idea",
+          "to_column": "Assigned",
+          "from_swimlane": "Case Studies",
+          "to_swimlane": "Case Studies",
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "Draft",
+          "from_swimlane": "Case Studies",
+          "to_swimlane": "Case Studies",
+          "moved_at": "2026-01-29T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -1048,7 +829,7 @@
           "to_column": "Internal Review",
           "from_swimlane": "Case Studies",
           "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-21T12:00:00+00:00",
+          "moved_at": "2026-02-13T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -1056,349 +837,241 @@
           "to_column": "Edits",
           "from_swimlane": "Case Studies",
           "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Edits",
           "to_column": "Final Approval",
           "from_swimlane": "Case Studies",
           "to_swimlane": "Case Studies",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Final Approval",
+          "to_column": "Scheduled",
+          "from_swimlane": "Case Studies",
+          "to_swimlane": "Case Studies",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-05T13:00:00+00:00"
+          "to_value": "Casey Osei",
+          "actor": "demo1",
+          "created_at": "2026-01-04T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Customer",
+          "to_value": "Product, Customer Story",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-30",
           "actor": "demo3",
-          "created_at": "2026-01-05T15:00:00+00:00"
+          "created_at": "2026-01-06T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2026-01-05T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-17",
-          "actor": "demo3",
-          "created_at": "2026-01-05T20:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-01-11T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Interview transcript approved",
+          "to_value": "Customer interview recorded",
           "actor": "demo3",
-          "created_at": "2026-01-05T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Interview transcript approved",
-          "actor": "demo4",
-          "created_at": "2026-01-05T21:20:00+00:00"
+          "created_at": "2026-01-14T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
           "to_value": "Draft written",
-          "actor": "demo3",
-          "created_at": "2026-01-05T21:35:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Customer review and approval",
+          "actor": "demo4",
+          "created_at": "2026-01-16T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
           "to_value": "Draft written",
           "actor": "demo4",
-          "created_at": "2026-01-05T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Customer legal review — 2 rounds",
-          "actor": "demo3",
-          "created_at": "2026-01-05T22:10:00+00:00"
+          "created_at": "2026-01-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Customer legal review — 2 rounds",
+          "to_value": "Customer interview recorded",
           "actor": "demo4",
-          "created_at": "2026-01-05T22:30:00+00:00"
+          "created_at": "2026-01-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Final sign-off from BlueSky CMO",
-          "actor": "demo3",
-          "created_at": "2026-01-05T22:45:00+00:00"
+          "to_value": "Legal cleared",
+          "actor": "demo4",
+          "created_at": "2026-01-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Schedule publication",
-          "actor": "demo3",
-          "created_at": "2026-01-05T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Legal review flagged one statistic — changed 'cut costs 40%' to 'reduced project overhead'. Now awaiting CMO sign-off.",
+          "to_value": "Scheduled for 2026-04-01 publish",
           "actor": "demo2",
-          "created_at": "2026-01-05T23:25:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Mosaic Creative — 30-person agency using swimlanes per client",
-      "description": "Mosaic Creative case study on using swimlanes to manage 30 simultaneous client campaigns. Unique use case that will resonate with agency prospects.",
-      "priority": "medium",
-      "column": "Internal Review",
-      "swimlane": "Case Studies",
-      "due_date": "2026-03-23",
-      "weight": 4,
-      "labels": [
-        "Customer"
-      ],
-      "checklist": [
-        {
-          "text": "Initial draft complete",
-          "is_checked": true
-        },
-        {
-          "text": "Marketing team review",
-          "is_checked": false
-        },
-        {
-          "text": "Share draft with Mosaic for fact-check",
-          "is_checked": false
-        },
-        {
-          "text": "Final approval",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Mosaic's story is genuinely compelling — 30 clients each as a swimlane, real-time visibility for their whole team.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Case Studies",
-          "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Customer",
-          "actor": "demo5",
-          "created_at": "2025-12-12T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo5",
-          "created_at": "2025-12-12T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Initial draft complete",
-          "actor": "demo5",
-          "created_at": "2025-12-12T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Initial draft complete",
-          "actor": "demo1",
-          "created_at": "2025-12-12T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Marketing team review",
-          "actor": "demo5",
-          "created_at": "2025-12-12T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Share draft with Mosaic for fact-check",
-          "actor": "demo5",
-          "created_at": "2025-12-12T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Final approval",
-          "actor": "demo5",
-          "created_at": "2025-12-12T18:15:00+00:00"
+          "created_at": "2026-01-18T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Mosaic's story is genuinely compelling — 30 clients each as a swimlane, real-time visibility for their whole team.",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Legal cleared",
+          "actor": "demo5",
+          "created_at": "2026-01-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Customer review and approval",
+          "actor": "demo1",
+          "created_at": "2026-01-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Scheduled for 2026-04-01 publish",
           "actor": "demo3",
-          "created_at": "2025-12-12T18:35:00+00:00"
+          "created_at": "2026-01-21T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "FinEdge Ltd — compliance-tracking board for fintech",
-      "description": "FinEdge case study on using Visiban to track compliance tasks and regulatory filings. Will highlight the checklist and due date features. Interview not yet scheduled.",
+      "title": "Live webinar: Kanban for customer success teams",
+      "description": "60-minute webinar targeting CS leaders. Demo Visiban's customer_success template with account health tracking.",
       "priority": "medium",
-      "column": "Assigned",
-      "swimlane": "Case Studies",
-      "due_date": "2026-04-04",
+      "assignee": "demo5",
+      "column": "Idea",
+      "swimlane": "Video & Webinars",
+      "due_date": "2026-04-14",
       "weight": 3,
       "labels": [
-        "Customer"
+        "Product",
+        "Thought Leadership"
       ],
       "checklist": [
         {
-          "text": "Schedule kick-off call with FinEdge contact",
+          "text": "Date confirmed (2026-04-15)",
           "is_checked": false
         },
         {
-          "text": "Prepare interview guide (10 questions)",
+          "text": "Speaker lineup confirmed",
           "is_checked": false
         },
         {
-          "text": "Submit for customer approval workflow",
+          "text": "Registration page live",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo2",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
-          "to_swimlane": "Case Studies",
-          "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Case Studies",
-          "to_swimlane": "Case Studies",
-          "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "to_swimlane": "Video & Webinars",
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
+          "to_value": "Casey Osei",
           "actor": "demo2",
-          "created_at": "2025-12-15T13:00:00+00:00"
+          "created_at": "2026-03-06T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Customer",
-          "actor": "demo2",
-          "created_at": "2025-12-15T15:00:00+00:00"
+          "to_value": "Thought Leadership, Product",
+          "actor": "demo5",
+          "created_at": "2026-03-08T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-04-04",
-          "actor": "demo2",
-          "created_at": "2025-12-15T18:00:00+00:00"
+          "to_value": "2026-04-14",
+          "actor": "demo3",
+          "created_at": "2026-03-09T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Schedule kick-off call with FinEdge contact",
-          "actor": "demo2",
-          "created_at": "2025-12-15T19:00:00+00:00"
+          "to_value": "Date confirmed (2026-04-15)",
+          "actor": "demo1",
+          "created_at": "2026-03-11T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Prepare interview guide (10 questions)",
-          "actor": "demo2",
-          "created_at": "2025-12-15T19:20:00+00:00"
+          "to_value": "Speaker lineup confirmed",
+          "actor": "demo5",
+          "created_at": "2026-03-12T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Submit for customer approval workflow",
-          "actor": "demo2",
-          "created_at": "2025-12-15T19:40:00+00:00"
+          "to_value": "Registration page live",
+          "actor": "demo4",
+          "created_at": "2026-03-13T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Product demo: new board pan + keyboard shortcuts",
-      "description": "Short product demo video covering the Space+drag pan feature and keyboard shortcut improvements. 4 minutes. Published to YouTube and embedded in the changelog.",
-      "priority": "medium",
-      "column": "Published",
+      "title": "Getting started with Visiban — 5-min explainer video",
+      "description": "Onboarding video covering: creating a board, adding swimlanes, creating cards, and inviting teammates.\n\nTarget: YouTube + embedded in the onboarding flow.",
+      "priority": "high",
+      "assignee": "demo3",
+      "column": "Edits",
       "swimlane": "Video & Webinars",
-      "due_date": "2026-03-07",
-      "weight": 3,
+      "due_date": "2026-03-22",
+      "weight": 4,
       "labels": [
+        "Evergreen",
         "Product"
       ],
       "checklist": [
         {
-          "text": "Script written",
+          "text": "Script written and approved",
           "is_checked": true
         },
         {
-          "text": "Screen recording done (4 min)",
+          "text": "Screen recording completed",
+          "is_checked": true
+        },
+        {
+          "text": "Voiceover recorded",
           "is_checked": true
         },
         {
@@ -1406,218 +1079,23 @@
           "is_checked": true
         },
         {
-          "text": "Published to YouTube + embedded in docs",
-          "is_checked": true
+          "text": "Awaiting final approval from marketing director",
+          "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "3,400 views in the first week. Adding it to the onboarding email sequence.",
+          "body": "Video looks great. Awaiting director sign-off before upload.",
           "author": "demo1"
         }
       ],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
           "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Internal Review",
-          "to_column": "Edits",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Edits",
-          "to_column": "Final Approval",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Final Approval",
-          "to_column": "Scheduled",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Scheduled",
-          "to_column": "Published",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-20T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Product",
-          "actor": "demo4",
-          "created_at": "2026-01-20T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-07",
-          "actor": "demo4",
-          "created_at": "2026-01-20T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Script written",
-          "actor": "demo4",
-          "created_at": "2026-01-20T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Script written",
-          "actor": "demo5",
-          "created_at": "2026-01-20T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Screen recording done (4 min)",
-          "actor": "demo4",
-          "created_at": "2026-01-20T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Screen recording done (4 min)",
-          "actor": "demo5",
-          "created_at": "2026-01-20T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Edited and captioned",
-          "actor": "demo4",
-          "created_at": "2026-01-20T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Edited and captioned",
-          "actor": "demo5",
-          "created_at": "2026-01-20T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Published to YouTube + embedded in docs",
-          "actor": "demo4",
-          "created_at": "2026-01-20T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Published to YouTube + embedded in docs",
-          "actor": "demo5",
-          "created_at": "2026-01-20T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "3,400 views in the first week. Adding it to the onboarding email sequence.",
-          "actor": "demo1",
-          "created_at": "2026-01-20T21:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Webinar: \"Running customer success teams with Kanban\"",
-      "description": "Live webinar featuring a Visiban customer discussing how they run their CS team with Kanban. 340 registrations so far. Recording will be gated behind email signup.",
-      "priority": "high",
-      "column": "Scheduled",
-      "swimlane": "Video & Webinars",
-      "due_date": "2026-03-22",
-      "weight": 5,
-      "labels": [
-        "Thought Leadership",
-        "Event"
-      ],
-      "checklist": [
-        {
-          "text": "Speaker confirmed: Kelly + guest from TechNova",
-          "is_checked": true
-        },
-        {
-          "text": "Registration page live — 340 signups",
-          "is_checked": true
-        },
-        {
-          "text": "Slide deck complete",
-          "is_checked": true
-        },
-        {
-          "text": "Run dry-run the day before",
-          "is_checked": false
-        },
-        {
-          "text": "Post recording within 24h",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "340 registrations already and we haven't sent the second reminder yet. Expecting 500+ by the date.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-06T12:00:00+00:00",
+          "moved_at": "2026-01-27T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -1625,604 +1103,372 @@
           "to_column": "Assigned",
           "from_swimlane": "Video & Webinars",
           "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Assigned",
           "to_column": "Draft",
           "from_swimlane": "Video & Webinars",
           "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Draft",
           "to_column": "Internal Review",
           "from_swimlane": "Video & Webinars",
           "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Internal Review",
           "to_column": "Edits",
           "from_swimlane": "Video & Webinars",
           "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Edits",
-          "to_column": "Final Approval",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-07T12:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo1"
-        },
-        {
-          "from_column": "Final Approval",
-          "to_column": "Scheduled",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-06T13:00:00+00:00"
+          "to_value": "Jordan Patel",
+          "actor": "demo3",
+          "created_at": "2026-01-28T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Thought Leadership, Event",
-          "actor": "demo1",
-          "created_at": "2026-01-06T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-01-06T18:00:00+00:00"
+          "to_value": "Product, Evergreen",
+          "actor": "demo5",
+          "created_at": "2026-01-30T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-22",
           "actor": "demo1",
-          "created_at": "2026-01-06T20:00:00+00:00"
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Speaker confirmed: Kelly + guest from TechNova",
-          "actor": "demo1",
-          "created_at": "2026-01-06T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Speaker confirmed: Kelly + guest from TechNova",
-          "actor": "demo2",
-          "created_at": "2026-01-06T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Registration page live — 340 signups",
-          "actor": "demo1",
-          "created_at": "2026-01-06T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Registration page live — 340 signups",
-          "actor": "demo2",
-          "created_at": "2026-01-06T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Slide deck complete",
-          "actor": "demo1",
-          "created_at": "2026-01-06T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Slide deck complete",
-          "actor": "demo2",
-          "created_at": "2026-01-06T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Run dry-run the day before",
-          "actor": "demo1",
-          "created_at": "2026-01-06T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Post recording within 24h",
-          "actor": "demo1",
-          "created_at": "2026-01-06T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "340 registrations already and we haven't sent the second reminder yet. Expecting 500+ by the date.",
-          "actor": "demo4",
-          "created_at": "2026-01-06T23:25:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Tutorial series: \"Visiban for beginners\" — Episode 3",
-      "description": "Episode 3 of the beginner tutorial series. Covers card detail view, comments, checklists, and due dates. Target length: 12 minutes post-editing.",
-      "priority": "medium",
-      "column": "Edits",
-      "swimlane": "Video & Webinars",
-      "due_date": "2026-03-20",
-      "weight": 4,
-      "labels": [
-        "Product"
-      ],
-      "checklist": [
-        {
-          "text": "Raw recording done (18 min)",
-          "is_checked": true
-        },
-        {
-          "text": "Episode 1 and 2 published",
-          "is_checked": true
-        },
-        {
-          "text": "Edit pass — trim to 12 min",
-          "is_checked": false
-        },
-        {
-          "text": "Add lower thirds and chapters",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Episode 1 and 2 are averaging 1,800 views each. Episode 3 covers card detail, comments, and checklists.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Internal Review",
-          "to_column": "Edits",
-          "from_swimlane": "Video & Webinars",
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
+          "to_value": "Script written and approved",
           "actor": "demo3",
-          "created_at": "2025-12-27T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Product",
-          "actor": "demo3",
-          "created_at": "2025-12-27T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo3",
-          "created_at": "2025-12-27T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Raw recording done (18 min)",
-          "actor": "demo3",
-          "created_at": "2025-12-27T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Raw recording done (18 min)",
-          "actor": "demo4",
-          "created_at": "2025-12-27T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Episode 1 and 2 published",
-          "actor": "demo3",
-          "created_at": "2025-12-27T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Episode 1 and 2 published",
-          "actor": "demo4",
-          "created_at": "2025-12-27T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Edit pass — trim to 12 min",
-          "actor": "demo3",
-          "created_at": "2025-12-27T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Add lower thirds and chapters",
-          "actor": "demo3",
-          "created_at": "2025-12-27T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Episode 1 and 2 are averaging 1,800 views each. Episode 3 covers card detail, comments, and checklists.",
-          "actor": "demo2",
-          "created_at": "2025-12-27T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "\"Visiban vs competitors\" — YouTube comparison video",
-      "description": "YouTube comparison video targeting 'visiban vs [competitor]' search queries. Needs a fair, factual framing. Legal must review before production starts.",
-      "priority": "low",
-      "column": "Idea",
-      "swimlane": "Video & Webinars",
-      "due_date": "2026-04-29",
-      "weight": 3,
-      "labels": [
-        "SEO"
-      ],
-      "checklist": [
-        {
-          "text": "Decide on comparison framing (fair, feature-by-feature)",
-          "is_checked": false
-        },
-        {
-          "text": "Legal review of competitor names in video",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Video & Webinars",
-          "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SEO",
-          "actor": "demo5",
-          "created_at": "2026-01-15T13:00:00+00:00"
+          "created_at": "2026-02-07T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo5",
-          "created_at": "2026-01-15T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-29",
-          "actor": "demo5",
-          "created_at": "2026-01-15T18:00:00+00:00"
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-08T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Decide on comparison framing (fair, feature-by-feature)",
-          "actor": "demo5",
-          "created_at": "2026-01-15T19:00:00+00:00"
+          "to_value": "Screen recording completed",
+          "actor": "demo1",
+          "created_at": "2026-02-08T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Legal review of competitor names in video",
+          "to_value": "Voiceover recorded",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Script written and approved",
           "actor": "demo5",
-          "created_at": "2026-01-15T19:20:00+00:00"
+          "created_at": "2026-02-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Edited and captioned",
+          "actor": "demo4",
+          "created_at": "2026-02-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Awaiting final approval from marketing director",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Screen recording completed",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Voiceover recorded",
+          "actor": "demo5",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Edited and captioned",
+          "actor": "demo5",
+          "created_at": "2026-02-12T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "April newsletter — product updates + case study feature",
-      "description": "April newsletter for 28,000 subscribers. Features the TechNova case study, Space+drag pan feature update, and a teaser for the upcoming webinar.",
+      "title": "Weekly newsletter — week of 2026-03-23",
+      "description": "Friday newsletter: 3 kanban tips, 1 customer spotlight (Mosaic), and the upcoming webinar announcement.",
       "priority": "medium",
-      "column": "Draft",
+      "assignee": "demo2",
+      "column": "Internal Review",
       "swimlane": "Email & Newsletter",
-      "due_date": "2026-03-18",
-      "weight": 3,
+      "due_date": "2026-03-17",
+      "weight": 2,
       "labels": [
-        "Product"
+        "Evergreen"
       ],
       "checklist": [
         {
-          "text": "Content plan approved",
+          "text": "Tips section written",
           "is_checked": true
         },
         {
-          "text": "TechNova case study teaser written",
+          "text": "Customer spotlight section written",
           "is_checked": true
         },
         {
-          "text": "Product update section drafted",
-          "is_checked": false
+          "text": "Internal review",
+          "is_checked": true
         },
         {
-          "text": "Subject line A/B test variants",
+          "text": "Scheduled in Mailchimp",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo2",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-05T12:00:00+00:00",
+          "moved_at": "2026-01-28T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
-          "from_column": "Assigned",
-          "to_column": "Idea",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
           "from_column": "Idea",
           "to_column": "Assigned",
           "from_swimlane": "Email & Newsletter",
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Assigned",
           "to_column": "Draft",
           "from_swimlane": "Email & Newsletter",
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-23T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Product",
-          "actor": "demo2",
-          "created_at": "2025-12-23T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-18",
-          "actor": "demo2",
-          "created_at": "2025-12-23T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Content plan approved",
-          "actor": "demo2",
-          "created_at": "2025-12-23T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Content plan approved",
-          "actor": "demo3",
-          "created_at": "2025-12-23T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "TechNova case study teaser written",
-          "actor": "demo2",
-          "created_at": "2025-12-23T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "TechNova case study teaser written",
-          "actor": "demo3",
-          "created_at": "2025-12-23T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Product update section drafted",
-          "actor": "demo2",
-          "created_at": "2025-12-23T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Subject line A/B test variants",
-          "actor": "demo2",
-          "created_at": "2025-12-23T20:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Onboarding drip — Day 7: advanced swimlane tips",
-      "description": "Day 7 onboarding email teaching advanced swimlane usage. Open rate 38.2%, CTR 6.1% — best in the sequence. Tips being repurposed as a blog post.",
-      "priority": "medium",
-      "column": "Published",
-      "swimlane": "Email & Newsletter",
-      "due_date": "2026-02-21",
-      "weight": 4,
-      "labels": [
-        "Product"
-      ],
-      "checklist": [
-        {
-          "text": "Copy written and reviewed",
-          "is_checked": true
-        },
-        {
-          "text": "Personalization tokens tested",
-          "is_checked": true
-        },
-        {
-          "text": "Sent to 12,400 Day-7 users",
-          "is_checked": true
-        },
-        {
-          "text": "Open rate: 38.2%, CTR: 6.1%",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "38.2% open rate — highest in the drip sequence. The swimlane tips resonated. Repurposing as a blog post.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Draft",
           "to_column": "Internal Review",
           "from_swimlane": "Email & Newsletter",
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-04T12:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Evergreen",
+          "actor": "demo5",
+          "created_at": "2026-01-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-17",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Tips section written",
+          "actor": "demo1",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Customer spotlight section written",
+          "actor": "demo1",
+          "created_at": "2026-02-03T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo3",
+          "created_at": "2026-02-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Scheduled in Mailchimp",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Tips section written",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Internal review",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Customer spotlight section written",
+          "actor": "demo5",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "March product update email",
+      "description": "Monthly product update email covering: template library v2, new Slack integration, and cursor pagination improvements.",
+      "priority": "high",
+      "assignee": "demo1",
+      "column": "Published",
+      "swimlane": "Email & Newsletter",
+      "due_date": null,
+      "weight": 3,
+      "labels": [
+        "Product"
+      ],
+      "checklist": [
+        {
+          "text": "Copy written",
+          "is_checked": true
+        },
+        {
+          "text": "Design reviewed",
+          "is_checked": true
+        },
+        {
+          "text": "A/B subject line test set up",
+          "is_checked": true
+        },
+        {
+          "text": "Sent to 12k subscribers",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Open rate: 34.2% (above 28% benchmark). Click-through: 8.1%.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Idea",
+          "from_swimlane": null,
+          "to_swimlane": "Email & Newsletter",
+          "moved_at": "2026-01-01T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Idea",
+          "to_column": "Assigned",
+          "from_swimlane": "Email & Newsletter",
+          "to_swimlane": "Email & Newsletter",
+          "moved_at": "2026-01-21T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "Draft",
+          "from_swimlane": "Email & Newsletter",
+          "to_swimlane": "Email & Newsletter",
+          "moved_at": "2026-01-28T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Draft",
+          "to_column": "Internal Review",
+          "from_swimlane": "Email & Newsletter",
+          "to_swimlane": "Email & Newsletter",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Internal Review",
           "to_column": "Edits",
           "from_swimlane": "Email & Newsletter",
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Edits",
           "to_column": "Final Approval",
           "from_swimlane": "Email & Newsletter",
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Final Approval",
           "to_column": "Scheduled",
           "from_swimlane": "Email & Newsletter",
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Scheduled",
           "to_column": "Published",
           "from_swimlane": "Email & Newsletter",
           "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-02-04T12:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo1"
         }
       ],
@@ -2230,941 +1476,350 @@
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-12T13:00:00+00:00"
+          "to_value": "Alex Rivera",
+          "actor": "demo1",
+          "created_at": "2026-01-02T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Product",
           "actor": "demo4",
-          "created_at": "2025-12-12T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-21",
-          "actor": "demo4",
-          "created_at": "2025-12-12T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Copy written and reviewed",
-          "actor": "demo4",
-          "created_at": "2025-12-12T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Copy written and reviewed",
-          "actor": "demo5",
-          "created_at": "2025-12-12T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Personalization tokens tested",
-          "actor": "demo4",
-          "created_at": "2025-12-12T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Personalization tokens tested",
-          "actor": "demo5",
-          "created_at": "2025-12-12T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Sent to 12,400 Day-7 users",
-          "actor": "demo4",
-          "created_at": "2025-12-12T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Sent to 12,400 Day-7 users",
-          "actor": "demo5",
-          "created_at": "2025-12-12T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Open rate: 38.2%, CTR: 6.1%",
-          "actor": "demo4",
-          "created_at": "2025-12-12T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Open rate: 38.2%, CTR: 6.1%",
-          "actor": "demo5",
-          "created_at": "2025-12-12T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "38.2% open rate — highest in the drip sequence. The swimlane tips resonated. Repurposing as a blog post.",
-          "actor": "demo3",
-          "created_at": "2025-12-12T21:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Re-engagement campaign — users inactive > 30 days",
-      "description": "Re-engagement email sequence for 4,200 users inactive for 30+ days. Three-email sequence. A/B testing value proposition framing versus social proof framing.",
-      "priority": "high",
-      "column": "Internal Review",
-      "swimlane": "Email & Newsletter",
-      "due_date": "2026-03-20",
-      "weight": 5,
-      "labels": [
-        "Product"
-      ],
-      "checklist": [
-        {
-          "text": "Audience segment defined (4,200 users)",
-          "is_checked": true
-        },
-        {
-          "text": "3-email sequence drafted",
-          "is_checked": true
-        },
-        {
-          "text": "A/B test: value prop vs social proof angle",
-          "is_checked": false
-        },
-        {
-          "text": "Legal review — unsubscribe compliance",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Segment is 4,200 users. Testing 'here's what you're missing' vs 'TechNova uses Visiban for this' angles.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-26T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Product",
-          "actor": "demo1",
-          "created_at": "2026-01-26T15:00:00+00:00"
+          "created_at": "2026-01-04T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
           "actor": "demo1",
-          "created_at": "2026-01-26T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo1",
-          "created_at": "2026-01-26T20:00:00+00:00"
+          "created_at": "2026-01-09T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Audience segment defined (4,200 users)",
+          "to_value": "Copy written",
+          "actor": "demo4",
+          "created_at": "2026-01-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design reviewed",
+          "actor": "demo2",
+          "created_at": "2026-01-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "A/B subject line test set up",
           "actor": "demo1",
-          "created_at": "2026-01-26T21:00:00+00:00"
+          "created_at": "2026-01-14T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Audience segment defined (4,200 users)",
+          "to_value": "Copy written",
+          "actor": "demo5",
+          "created_at": "2026-01-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Sent to 12k subscribers",
           "actor": "demo2",
-          "created_at": "2026-01-26T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "3-email sequence drafted",
-          "actor": "demo1",
-          "created_at": "2026-01-26T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "3-email sequence drafted",
-          "actor": "demo2",
-          "created_at": "2026-01-26T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "A/B test: value prop vs social proof angle",
-          "actor": "demo1",
-          "created_at": "2026-01-26T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Legal review — unsubscribe compliance",
-          "actor": "demo1",
-          "created_at": "2026-01-26T22:30:00+00:00"
+          "created_at": "2026-01-15T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Segment is 4,200 users. Testing 'here's what you're missing' vs 'TechNova uses Visiban for this' angles.",
+          "to_value": "",
           "actor": "demo1",
-          "created_at": "2026-01-26T22:50:00+00:00"
+          "created_at": "2026-01-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design reviewed",
+          "actor": "demo4",
+          "created_at": "2026-01-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "A/B subject line test set up",
+          "actor": "demo3",
+          "created_at": "2026-01-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Sent to 12k subscribers",
+          "actor": "demo5",
+          "created_at": "2026-01-17T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Product launch email — Groups feature announcement",
-      "description": "Announcement email for the Groups feature launch. Coordinate timing with product team to send on the same day as the blog post and social push.",
-      "priority": "high",
+      "title": "X thread: 5 kanban anti-patterns",
+      "description": "Thread covering common mistakes teams make on kanban boards: infinite WIP, no swimlanes, stale cards, etc.",
+      "priority": "low",
+      "assignee": "demo1",
       "column": "Assigned",
-      "swimlane": "Email & Newsletter",
+      "swimlane": "Social & Short-form",
       "due_date": "2026-03-27",
-      "weight": 4,
+      "weight": 1,
       "labels": [
-        "Product"
+        "Thought Leadership"
       ],
       "checklist": [
         {
-          "text": "Coordinate launch timing with product team",
+          "text": "Draft 10-tweet thread",
           "is_checked": false
         },
         {
-          "text": "Draft announcement email",
-          "is_checked": false
-        },
-        {
-          "text": "Write follow-up for non-openers",
-          "is_checked": false
-        },
-        {
-          "text": "Schedule send for launch day",
+          "text": "Review by marketing lead",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "to_swimlane": "Social & Short-form",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Idea",
           "to_column": "Assigned",
-          "from_swimlane": "Email & Newsletter",
-          "to_swimlane": "Email & Newsletter",
-          "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "from_swimlane": "Social & Short-form",
+          "to_swimlane": "Social & Short-form",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2025-12-25T13:00:00+00:00"
+          "to_value": "Alex Rivera",
+          "actor": "demo2",
+          "created_at": "2026-02-25T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Product",
-          "actor": "demo3",
-          "created_at": "2025-12-25T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2025-12-25T18:00:00+00:00"
+          "to_value": "Thought Leadership",
+          "actor": "demo4",
+          "created_at": "2026-02-26T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-27",
-          "actor": "demo3",
-          "created_at": "2025-12-25T20:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-28T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Coordinate launch timing with product team",
-          "actor": "demo3",
-          "created_at": "2025-12-25T21:00:00+00:00"
+          "to_value": "Draft 10-tweet thread",
+          "actor": "demo2",
+          "created_at": "2026-03-02T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Draft announcement email",
-          "actor": "demo3",
-          "created_at": "2025-12-25T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Write follow-up for non-openers",
-          "actor": "demo3",
-          "created_at": "2025-12-25T21:40:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Schedule send for launch day",
-          "actor": "demo3",
-          "created_at": "2025-12-25T22:00:00+00:00"
+          "to_value": "Review by marketing lead",
+          "actor": "demo1",
+          "created_at": "2026-03-03T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "LinkedIn carousel — \"10 Kanban metrics that matter\"",
-      "description": "10-slide LinkedIn carousel on Kanban metrics: cycle time, throughput, WIP age, lead time, blocked rate, flow efficiency, MTTR, escaped defects, velocity, predictability.",
+      "title": "LinkedIn carousel: swimlane vs. simple list",
+      "description": "10-slide LinkedIn carousel explaining when to use swimlanes vs. a simple columnar board. Visual-first. Each slide = one data point or scenario.",
       "priority": "medium",
-      "column": "Published",
+      "assignee": "demo5",
+      "column": "Final Approval",
       "swimlane": "Social & Short-form",
-      "due_date": "2026-03-09",
-      "weight": 3,
+      "due_date": "2026-03-19",
+      "weight": 2,
       "labels": [
+        "SEO",
         "Thought Leadership"
       ],
       "checklist": [
         {
-          "text": "10 slides designed",
+          "text": "Outline approved",
           "is_checked": true
         },
         {
-          "text": "Copy reviewed",
+          "text": "Slides designed",
           "is_checked": true
         },
         {
-          "text": "Posted to LinkedIn company page",
+          "text": "Copy written and reviewed",
           "is_checked": true
         },
         {
-          "text": "Shared by 3 team members",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Carousel hit 8,400 impressions. Highest organic reach this month. Repurposing as a blog post outline.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Internal Review",
-          "to_column": "Edits",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Edits",
-          "to_column": "Final Approval",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Final Approval",
-          "to_column": "Scheduled",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Scheduled",
-          "to_column": "Published",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Thought Leadership",
-          "actor": "demo5",
-          "created_at": "2025-12-27T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-09",
-          "actor": "demo5",
-          "created_at": "2025-12-27T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "10 slides designed",
-          "actor": "demo5",
-          "created_at": "2025-12-27T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "10 slides designed",
-          "actor": "demo1",
-          "created_at": "2025-12-27T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Copy reviewed",
-          "actor": "demo5",
-          "created_at": "2025-12-27T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Copy reviewed",
-          "actor": "demo1",
-          "created_at": "2025-12-27T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Posted to LinkedIn company page",
-          "actor": "demo5",
-          "created_at": "2025-12-27T18:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Posted to LinkedIn company page",
-          "actor": "demo1",
-          "created_at": "2025-12-27T18:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Shared by 3 team members",
-          "actor": "demo5",
-          "created_at": "2025-12-27T18:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Shared by 3 team members",
-          "actor": "demo1",
-          "created_at": "2025-12-27T19:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Carousel hit 8,400 impressions. Highest organic reach this month. Repurposing as a blog post outline.",
-          "actor": "demo2",
-          "created_at": "2025-12-27T19:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Twitter/X thread — launch of Space+drag pan feature",
-      "description": "Twitter/X thread announcing the Space+drag pan feature. 8 tweets with a GIF demo. Coordinated with blog post and YouTube demo publication.",
-      "priority": "medium",
-      "column": "Scheduled",
-      "swimlane": "Social & Short-form",
-      "due_date": "2026-03-16",
-      "weight": 2,
-      "labels": [
-        "Product"
-      ],
-      "checklist": [
-        {
-          "text": "8-tweet thread written",
+          "text": "Final approval",
           "is_checked": true
         },
         {
-          "text": "GIF recorded (Space+drag demo)",
-          "is_checked": true
-        },
-        {
-          "text": "Scheduled in Buffer for 9am ET launch day",
+          "text": "Scheduled in Buffer",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Thread links to the changelog and the YouTube demo. Scheduling for same hour as blog post publish.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Draft",
-          "to_column": "Internal Review",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Internal Review",
-          "to_column": "Edits",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Edits",
-          "to_column": "Final Approval",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Final Approval",
-          "to_column": "Scheduled",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-15T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Product",
-          "actor": "demo2",
-          "created_at": "2026-01-15T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-16",
-          "actor": "demo2",
-          "created_at": "2026-01-15T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "8-tweet thread written",
-          "actor": "demo2",
-          "created_at": "2026-01-15T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "8-tweet thread written",
-          "actor": "demo3",
-          "created_at": "2026-01-15T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "GIF recorded (Space+drag demo)",
-          "actor": "demo2",
-          "created_at": "2026-01-15T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "GIF recorded (Space+drag demo)",
-          "actor": "demo3",
-          "created_at": "2026-01-15T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Scheduled in Buffer for 9am ET launch day",
-          "actor": "demo2",
-          "created_at": "2026-01-15T20:10:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Thread links to the changelog and the YouTube demo. Scheduling for same hour as blog post publish.",
-          "actor": "demo4",
-          "created_at": "2026-01-15T20:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Short-form video — \"Visiban in 60 seconds\" for TikTok/Reels",
-      "description": "60-second product showcase video for TikTok and Instagram Reels format. Hook-style opening, showing drag-and-drop, swimlane collapse, and card filter in rapid cuts.",
-      "priority": "medium",
-      "column": "Edits",
-      "swimlane": "Social & Short-form",
-      "due_date": "2026-03-19",
-      "weight": 3,
-      "labels": [
-        "Product"
-      ],
-      "checklist": [
-        {
-          "text": "Storyboard approved (6 scenes)",
-          "is_checked": true
-        },
-        {
-          "text": "Screen capture recorded",
-          "is_checked": true
-        },
-        {
-          "text": "Voice-over recorded",
-          "is_checked": false
-        },
-        {
-          "text": "Edit + captions + subtitles",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Quick 60-second hook-style video showing drag-and-drop, swimlane collapse, and card filter. Good for top-of-funnel.",
+          "body": "Ready to schedule. Targeting Tuesday 9am for peak LinkedIn engagement.",
           "author": "demo1"
         }
       ],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Idea",
           "from_swimlane": null,
           "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-01-07T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Idea",
+          "to_column": "Assigned",
+          "from_swimlane": "Social & Short-form",
+          "to_swimlane": "Social & Short-form",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Assigned",
           "to_column": "Draft",
           "from_swimlane": "Social & Short-form",
           "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Draft",
           "to_column": "Internal Review",
           "from_swimlane": "Social & Short-form",
           "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Internal Review",
           "to_column": "Edits",
           "from_swimlane": "Social & Short-form",
           "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Edits",
+          "to_column": "Final Approval",
+          "from_swimlane": "Social & Short-form",
+          "to_swimlane": "Social & Short-form",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo5"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo4",
+          "to_value": "Casey Osei",
           "actor": "demo4",
-          "created_at": "2026-02-10T13:00:00+00:00"
+          "created_at": "2026-01-08T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Product",
-          "actor": "demo4",
-          "created_at": "2026-02-10T15:00:00+00:00"
+          "to_value": "SEO, Thought Leadership",
+          "actor": "demo2",
+          "created_at": "2026-01-10T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-19",
-          "actor": "demo4",
-          "created_at": "2026-02-10T18:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-11T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Storyboard approved (6 scenes)",
-          "actor": "demo4",
-          "created_at": "2026-02-10T19:00:00+00:00"
+          "to_value": "Outline approved",
+          "actor": "demo3",
+          "created_at": "2026-01-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Slides designed",
+          "actor": "demo2",
+          "created_at": "2026-01-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Copy written and reviewed",
+          "actor": "demo5",
+          "created_at": "2026-01-16T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Storyboard approved (6 scenes)",
-          "actor": "demo5",
-          "created_at": "2026-02-10T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Screen capture recorded",
+          "to_value": "Slides designed",
           "actor": "demo4",
-          "created_at": "2026-02-10T19:35:00+00:00"
+          "created_at": "2026-01-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Screen capture recorded",
-          "actor": "demo5",
-          "created_at": "2026-02-10T19:55:00+00:00"
+          "to_value": "Outline approved",
+          "actor": "demo3",
+          "created_at": "2026-01-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Voice-over recorded",
-          "actor": "demo4",
-          "created_at": "2026-02-10T20:10:00+00:00"
+          "to_value": "Final approval",
+          "actor": "demo2",
+          "created_at": "2026-01-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Edit + captions + subtitles",
-          "actor": "demo4",
-          "created_at": "2026-02-10T20:30:00+00:00"
+          "to_value": "Scheduled in Buffer",
+          "actor": "demo2",
+          "created_at": "2026-01-18T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Quick 60-second hook-style video showing drag-and-drop, swimlane collapse, and card filter. Good for top-of-funnel.",
+          "to_value": "",
           "actor": "demo1",
-          "created_at": "2026-02-10T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "LinkedIn thought leadership — CEO post series (3 posts)",
-      "description": "Ghost-writing 3 LinkedIn posts for the CEO on async work culture, kanban adoption, and team visibility. Posts go out weekly, starting next Monday.",
-      "priority": "medium",
-      "column": "Draft",
-      "swimlane": "Social & Short-form",
-      "due_date": "2026-03-23",
-      "weight": 4,
-      "labels": [
-        "Thought Leadership"
-      ],
-      "checklist": [
-        {
-          "text": "Topics approved by CEO: async work, kanban adoption, team visibility",
-          "is_checked": true
-        },
-        {
-          "text": "Draft post 1: async work culture",
-          "is_checked": false
-        },
-        {
-          "text": "Draft post 2: why kanban beats standups",
-          "is_checked": false
-        },
-        {
-          "text": "Draft post 3: the visibility problem",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Idea",
-          "from_swimlane": null,
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Idea",
-          "to_column": "Assigned",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Draft",
-          "from_swimlane": "Social & Short-form",
-          "to_swimlane": "Social & Short-form",
-          "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-13T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Thought Leadership",
-          "actor": "demo1",
-          "created_at": "2026-01-13T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo1",
-          "created_at": "2026-01-13T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Topics approved by CEO: async work, kanban adoption, team visibility",
-          "actor": "demo1",
-          "created_at": "2026-01-13T19:00:00+00:00"
+          "created_at": "2026-01-19T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Topics approved by CEO: async work, kanban adoption, team visibility",
+          "to_value": "Copy written and reviewed",
+          "actor": "demo3",
+          "created_at": "2026-01-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Final approval",
           "actor": "demo2",
-          "created_at": "2026-01-13T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft post 1: async work culture",
-          "actor": "demo1",
-          "created_at": "2026-01-13T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft post 2: why kanban beats standups",
-          "actor": "demo1",
-          "created_at": "2026-01-13T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft post 3: the visibility problem",
-          "actor": "demo1",
-          "created_at": "2026-01-13T20:15:00+00:00"
+          "created_at": "2026-01-21T00:00:00+00:00"
         }
       ]
     }

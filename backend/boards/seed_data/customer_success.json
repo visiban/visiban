@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "Template: Customer Success",
-  "description": "Track account health from onboarding through expansion and renewal. Each swimlane represents a customer segment.",
+  "description": "Track account health from onboarding through expansion and renewal. Each swimlane represents a customer account.",
   "columns": [
     {
       "name": "Onboarding",
@@ -15,7 +15,7 @@
       "position": 1,
       "color": "#8B5CF6",
       "wip_limit": null,
-      "allow_card_creation": true
+      "allow_card_creation": false
     },
     {
       "name": "Healthy",
@@ -107,418 +107,52 @@
   ],
   "cards": [
     {
-      "title": "Bright Solutions Inc — Onboarding",
-      "description": "New 150-seat account in onboarding phase. Strong champion in Taylor Chen (Head of Engineering). Technical team is eager to self-configure.",
+      "title": "Summit Logistics",
+      "description": "25-seat SMB account. Month 2 of annual plan.\n\nLow engagement — WAU sitting at 35%. Risk of churn at renewal.",
       "priority": "high",
-      "column": "Onboarding",
+      "assignee": "demo1",
+      "column": "Adoption",
       "swimlane": "Americas",
-      "due_date": "2026-03-29",
-      "weight": 4,
+      "due_date": "2026-03-22",
+      "weight": 3,
       "labels": [
-        "Champion"
+        "At Risk"
       ],
       "checklist": [
         {
-          "text": "Kickoff call completed",
+          "text": "Book check-in call with ops manager",
           "is_checked": true
         },
         {
-          "text": "Admin users set up",
-          "is_checked": true
-        },
-        {
-          "text": "Board templates configured",
+          "text": "Share adoption guide for mobile card creation",
           "is_checked": false
         },
         {
-          "text": "Training session scheduled",
+          "text": "Set 30-day re-check reminder",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Kickoff went great. Primary admin is Taylor Chen — very technical, will be self-sufficient quickly.",
+          "body": "Ops manager on leave until next week. Booking call for return.",
           "author": "demo1"
         }
       ],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Americas",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Champion",
-          "actor": "demo5",
-          "created_at": "2026-01-10T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-01-10T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-29",
-          "actor": "demo5",
-          "created_at": "2026-01-10T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Kickoff call completed",
-          "actor": "demo5",
-          "created_at": "2026-01-10T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Kickoff call completed",
-          "actor": "demo1",
-          "created_at": "2026-01-10T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Admin users set up",
-          "actor": "demo5",
-          "created_at": "2026-01-10T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Admin users set up",
-          "actor": "demo1",
-          "created_at": "2026-01-10T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Board templates configured",
-          "actor": "demo5",
-          "created_at": "2026-01-10T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Training session scheduled",
-          "actor": "demo5",
-          "created_at": "2026-01-10T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Kickoff went great. Primary admin is Taylor Chen — very technical, will be self-sufficient quickly.",
-          "actor": "demo1",
-          "created_at": "2026-01-10T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "RocketOps LLC — Adoption",
-      "description": "60-seat account in adoption. Board creation is good (12 boards) but only 30% of seats have been active in the last 30 days. QBR scheduled to review adoption blockers.",
-      "priority": "medium",
-      "column": "Adoption",
-      "swimlane": "Americas",
-      "due_date": "2026-04-05",
-      "weight": 3,
-      "labels": [
-        "QBR Needed"
-      ],
-      "checklist": [
-        {
-          "text": "Initial boards created",
-          "is_checked": true
-        },
-        {
-          "text": "Team training completed",
-          "is_checked": true
-        },
-        {
-          "text": "Review board utilization metrics",
-          "is_checked": false
-        },
-        {
-          "text": "Schedule QBR",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "Americas",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Americas",
-          "to_swimlane": "Americas",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-18T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "QBR Needed",
-          "actor": "demo2",
-          "created_at": "2026-01-18T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-05",
-          "actor": "demo2",
-          "created_at": "2026-01-18T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Initial boards created",
-          "actor": "demo2",
-          "created_at": "2026-01-18T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Initial boards created",
-          "actor": "demo3",
-          "created_at": "2026-01-18T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Team training completed",
-          "actor": "demo2",
-          "created_at": "2026-01-18T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Team training completed",
-          "actor": "demo3",
-          "created_at": "2026-01-18T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Review board utilization metrics",
-          "actor": "demo2",
-          "created_at": "2026-01-18T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Schedule QBR",
-          "actor": "demo2",
-          "created_at": "2026-01-18T20:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Cirrus Analytics — Healthy",
-      "description": "80-seat account in healthy state. VP Product (Jordan Lee) is an active champion and has recommended Visiban to two other companies in their portfolio.",
-      "priority": "medium",
-      "column": "Healthy",
-      "swimlane": "Americas",
-      "due_date": null,
-      "weight": 3,
-      "labels": [
-        "Champion"
-      ],
-      "checklist": [
-        {
-          "text": "Onboarding completed",
-          "is_checked": true
-        },
-        {
-          "text": "DAU/MAU above 70%",
-          "is_checked": true
-        },
-        {
-          "text": "Champion identified: VP Product",
-          "is_checked": true
-        }
-      ],
-      "comments": [],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "Americas",
-          "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Americas",
-          "to_swimlane": "Americas",
-          "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "Americas",
-          "to_swimlane": "Americas",
-          "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-11T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Champion",
-          "actor": "demo4",
-          "created_at": "2025-12-11T15:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Onboarding completed",
-          "actor": "demo4",
-          "created_at": "2025-12-11T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Onboarding completed",
-          "actor": "demo5",
-          "created_at": "2025-12-11T18:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "DAU/MAU above 70%",
-          "actor": "demo4",
-          "created_at": "2025-12-11T18:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "DAU/MAU above 70%",
-          "actor": "demo5",
-          "created_at": "2025-12-11T18:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Champion identified: VP Product",
-          "actor": "demo4",
-          "created_at": "2025-12-11T19:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Champion identified: VP Product",
-          "actor": "demo5",
-          "created_at": "2025-12-11T19:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Vertex Media — Expansion",
-      "description": "80-seat account is nearly at full capacity with 75 active users. Expansion to 150 seats in discussion. CFO meeting scheduled.",
-      "priority": "high",
-      "column": "Expansion",
-      "swimlane": "Americas",
-      "due_date": "2026-03-25",
-      "weight": 5,
-      "labels": [
-        "Expansion Opportunity"
-      ],
-      "checklist": [
-        {
-          "text": "Current usage at 95% seat capacity",
-          "is_checked": true
-        },
-        {
-          "text": "Expansion proposal drafted",
-          "is_checked": true
-        },
-        {
-          "text": "Present to CFO",
-          "is_checked": false
-        },
-        {
-          "text": "Update commercial terms",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "They've grown from 40 to 75 active users. Seat expansion from 80 to 150 is the right next step.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "Americas",
-          "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Americas",
-          "to_swimlane": "Americas",
-          "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "Americas",
-          "to_swimlane": "Americas",
-          "moved_at": "2026-01-01T12:00:00+00:00",
+          "moved_at": "2026-02-22T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
-          "from_column": "Healthy",
-          "to_column": "Expansion",
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
-          "moved_at": "2026-01-15T12:00:00+00:00",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
         }
       ],
@@ -526,1770 +160,711 @@
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-21T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Expansion Opportunity",
-          "actor": "demo1",
-          "created_at": "2025-12-21T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2025-12-21T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-25",
-          "actor": "demo1",
-          "created_at": "2025-12-21T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Current usage at 95% seat capacity",
-          "actor": "demo1",
-          "created_at": "2025-12-21T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Current usage at 95% seat capacity",
-          "actor": "demo2",
-          "created_at": "2025-12-21T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Expansion proposal drafted",
-          "actor": "demo1",
-          "created_at": "2025-12-21T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Expansion proposal drafted",
-          "actor": "demo2",
-          "created_at": "2025-12-21T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Present to CFO",
-          "actor": "demo1",
-          "created_at": "2025-12-21T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Update commercial terms",
-          "actor": "demo1",
-          "created_at": "2025-12-21T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "They've grown from 40 to 75 active users. Seat expansion from 80 to 150 is the right next step.",
-          "actor": "demo2",
-          "created_at": "2025-12-21T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Polaris Engineering GmbH — Onboarding",
-      "description": "New 120-seat German engineering firm. GDPR DPA signed. SSO configured via Azure AD. First boards going live this week.",
-      "priority": "medium",
-      "column": "Onboarding",
-      "swimlane": "EMEA",
-      "due_date": "2026-04-02",
-      "weight": 3,
-      "labels": [
-        "Champion"
-      ],
-      "checklist": [
-        {
-          "text": "GDPR DPA signed",
-          "is_checked": true
-        },
-        {
-          "text": "SSO configured",
-          "is_checked": true
-        },
-        {
-          "text": "Admin training completed",
-          "is_checked": false
-        },
-        {
-          "text": "First boards live",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-11T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Champion",
-          "actor": "demo3",
-          "created_at": "2026-01-11T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-02",
-          "actor": "demo3",
-          "created_at": "2026-01-11T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "GDPR DPA signed",
-          "actor": "demo3",
-          "created_at": "2026-01-11T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "GDPR DPA signed",
+          "to_value": "Alex Rivera",
           "actor": "demo4",
-          "created_at": "2026-01-11T19:20:00+00:00"
+          "created_at": "2026-02-23T00:00:00+00:00"
         },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "SSO configured",
-          "actor": "demo3",
-          "created_at": "2026-01-11T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "SSO configured",
-          "actor": "demo4",
-          "created_at": "2026-01-11T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Admin training completed",
-          "actor": "demo3",
-          "created_at": "2026-01-11T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "First boards live",
-          "actor": "demo3",
-          "created_at": "2026-01-11T20:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Meridian Consulting UK — Adoption",
-      "description": "100-seat UK consulting firm. 60 days post-onboarding and adoption is at 35% DAU. Risk of churn if we don't identify an internal champion quickly.",
-      "priority": "high",
-      "column": "Adoption",
-      "swimlane": "EMEA",
-      "due_date": "2026-03-22",
-      "weight": 4,
-      "labels": [
-        "At Risk",
-        "QBR Needed"
-      ],
-      "checklist": [
-        {
-          "text": "Training session completed",
-          "is_checked": true
-        },
-        {
-          "text": "Investigate low adoption (35% DAU)",
-          "is_checked": false
-        },
-        {
-          "text": "Identify internal champion",
-          "is_checked": false
-        },
-        {
-          "text": "QBR within 2 weeks",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Adoption is low — only 35% of seats active. Likely an internal champion problem. Need to identify a power user.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "At Risk, QBR Needed",
-          "actor": "demo5",
-          "created_at": "2026-01-24T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-01-24T16:00:00+00:00"
+          "to_value": "At Risk",
+          "actor": "demo2",
+          "created_at": "2026-02-25T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-22",
-          "actor": "demo5",
-          "created_at": "2026-01-24T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Training session completed",
-          "actor": "demo5",
-          "created_at": "2026-01-24T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Training session completed",
-          "actor": "demo1",
-          "created_at": "2026-01-24T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Investigate low adoption (35% DAU)",
-          "actor": "demo5",
-          "created_at": "2026-01-24T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Identify internal champion",
-          "actor": "demo5",
-          "created_at": "2026-01-24T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "QBR within 2 weeks",
-          "actor": "demo5",
-          "created_at": "2026-01-24T20:15:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Adoption is low — only 35% of seats active. Likely an internal champion problem. Need to identify a power user.",
           "actor": "demo3",
-          "created_at": "2026-01-24T20:35:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Solaris Digital — Healthy",
-      "description": "40-seat digital agency in healthy state. Self-sufficient — no CSM intervention needed. Utilization is strong at 85%.",
-      "priority": "low",
-      "column": "Healthy",
-      "swimlane": "EMEA",
-      "due_date": null,
-      "weight": 2,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Fully onboarded",
-          "is_checked": true
-        },
-        {
-          "text": "85% seat utilization",
-          "is_checked": true
-        },
-        {
-          "text": "Self-service",
-          "is_checked": true
-        }
-      ],
-      "comments": [],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Onboarding",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-30T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo2",
-          "created_at": "2026-01-30T15:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Fully onboarded",
-          "actor": "demo2",
-          "created_at": "2026-01-30T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Fully onboarded",
-          "actor": "demo3",
-          "created_at": "2026-01-30T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "85% seat utilization",
-          "actor": "demo2",
-          "created_at": "2026-01-30T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "85% seat utilization",
-          "actor": "demo3",
-          "created_at": "2026-01-30T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Self-service",
-          "actor": "demo2",
-          "created_at": "2026-01-30T18:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Self-service",
-          "actor": "demo3",
-          "created_at": "2026-01-30T18:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Atlas Logistics BV — Renewal",
-      "description": "200-seat logistics company renewal due in 10 days. Champion wants to add 30 seats. Legal review is the only open item.",
-      "priority": "urgent",
-      "column": "Renewal",
-      "swimlane": "EMEA",
-      "due_date": "2026-03-23",
-      "weight": 6,
-      "labels": [
-        "Renewal Due",
-        "Expansion Opportunity"
-      ],
-      "checklist": [
-        {
-          "text": "Renewal proposal sent",
-          "is_checked": true
-        },
-        {
-          "text": "Champion confirmed continuation",
-          "is_checked": true
-        },
-        {
-          "text": "Legal review in progress",
-          "is_checked": false
-        },
-        {
-          "text": "Close before end of month",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "1-year renewal + 30-seat expansion. Champion is pushing hard internally. Legal review is the only remaining blocker.",
-          "author": "demo1"
-        },
-        {
-          "body": "Need to close this month — affects Q1 revenue target.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Expansion",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Expansion",
-          "to_column": "Renewal",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-20T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Renewal Due, Expansion Opportunity",
-          "actor": "demo4",
-          "created_at": "2025-12-20T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "urgent",
-          "actor": "demo4",
-          "created_at": "2025-12-20T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo4",
-          "created_at": "2025-12-20T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Renewal proposal sent",
-          "actor": "demo4",
-          "created_at": "2025-12-20T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Renewal proposal sent",
-          "actor": "demo5",
-          "created_at": "2025-12-20T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Champion confirmed continuation",
-          "actor": "demo4",
-          "created_at": "2025-12-20T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Champion confirmed continuation",
-          "actor": "demo5",
-          "created_at": "2025-12-20T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Legal review in progress",
-          "actor": "demo4",
-          "created_at": "2025-12-20T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Close before end of month",
-          "actor": "demo4",
-          "created_at": "2025-12-20T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "1-year renewal + 30-seat expansion. Champion is pushing hard internally. Legal review is the only remaining blocker.",
-          "actor": "demo1",
-          "created_at": "2025-12-20T22:50:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Need to close this month — affects Q1 revenue target.",
-          "actor": "demo4",
-          "created_at": "2025-12-21T03:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Nexus Software — Onboarding",
-      "description": "50-seat Singapore software firm. Smooth onboarding — CTO is doing all admin setup personally, which is a great sign.",
-      "priority": "medium",
-      "column": "Onboarding",
-      "swimlane": "APAC",
-      "due_date": "2026-04-05",
-      "weight": 3,
-      "labels": [],
-      "checklist": [
-        {
-          "text": "Kickoff call done",
-          "is_checked": true
-        },
-        {
-          "text": "Admin setup complete",
-          "is_checked": true
-        },
-        {
-          "text": "Board templates configured",
-          "is_checked": false
-        },
-        {
-          "text": "Technical training scheduled",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-30T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-05",
-          "actor": "demo1",
-          "created_at": "2025-12-30T15:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Kickoff call done",
-          "actor": "demo1",
-          "created_at": "2025-12-30T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Kickoff call done",
-          "actor": "demo2",
-          "created_at": "2025-12-30T16:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Admin setup complete",
-          "actor": "demo1",
-          "created_at": "2025-12-30T16:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Admin setup complete",
-          "actor": "demo2",
-          "created_at": "2025-12-30T16:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Board templates configured",
-          "actor": "demo1",
-          "created_at": "2025-12-30T17:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Technical training scheduled",
-          "actor": "demo1",
-          "created_at": "2025-12-30T17:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Harbor Tech — Adoption",
-      "description": "80-seat Sydney firm 45 days post-onboarding. Board creation strong but advanced features (Analytics, History) underutilized. QBR to drive feature depth.",
-      "priority": "medium",
-      "column": "Adoption",
-      "swimlane": "APAC",
-      "due_date": null,
-      "weight": 3,
-      "labels": [
-        "QBR Needed"
-      ],
-      "checklist": [
-        {
-          "text": "Boards created",
-          "is_checked": true
-        },
-        {
-          "text": "Check feature adoption breadth",
-          "is_checked": false
-        },
-        {
-          "text": "Schedule QBR to review Analytics tab usage",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2025-12-23T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "QBR Needed",
-          "actor": "demo3",
-          "created_at": "2025-12-23T15:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Boards created",
-          "actor": "demo3",
-          "created_at": "2025-12-23T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Boards created",
-          "actor": "demo4",
-          "created_at": "2025-12-23T18:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Check feature adoption breadth",
-          "actor": "demo3",
-          "created_at": "2025-12-23T18:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Schedule QBR to review Analytics tab usage",
-          "actor": "demo3",
-          "created_at": "2025-12-23T18:55:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Pacific Ventures — Healthy",
-      "description": "30-seat VC fund in healthy state. Head of Product is an NPS 9. Will ask for reference call next quarter.",
-      "priority": "low",
-      "column": "Healthy",
-      "swimlane": "APAC",
-      "due_date": null,
-      "weight": 2,
-      "labels": [
-        "Champion"
-      ],
-      "checklist": [
-        {
-          "text": "NPS score: 9",
-          "is_checked": true
-        },
-        {
-          "text": "Champion: Head of Product",
-          "is_checked": true
-        }
-      ],
-      "comments": [],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Champion",
-          "actor": "demo5",
-          "created_at": "2026-01-24T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo5",
-          "created_at": "2026-01-24T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "NPS score: 9",
-          "actor": "demo5",
-          "created_at": "2026-01-24T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "NPS score: 9",
-          "actor": "demo1",
-          "created_at": "2026-01-24T18:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Champion: Head of Product",
-          "actor": "demo5",
-          "created_at": "2026-01-24T18:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Champion: Head of Product",
-          "actor": "demo1",
-          "created_at": "2026-01-24T18:55:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Koala Systems — Churned",
-      "description": "40-seat Melbourne firm churned at renewal. Low adoption (25% DAU) meant low perceived value. Price sensitivity was the stated objection.",
-      "priority": "medium",
-      "column": "Churned",
-      "swimlane": "APAC",
-      "due_date": "2026-02-13",
-      "weight": 4,
-      "labels": [
-        "At Risk"
-      ],
-      "checklist": [
-        {
-          "text": "Exit interview completed",
-          "is_checked": true
-        },
-        {
-          "text": "Churn reason logged: price",
-          "is_checked": true
-        },
-        {
-          "text": "Feedback shared with product team",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Churned to a cheaper tool. Price was the stated reason but low adoption was the real issue. Logged feedback.",
-          "author": "demo2"
-        },
-        {
-          "body": "Will re-engage in 12 months when contract with competitor expires.",
-          "author": "demo5"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Healthy",
-          "to_column": "Expansion",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Expansion",
-          "to_column": "Renewal",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Renewal",
-          "to_column": "Churned",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-22T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "At Risk",
-          "actor": "demo2",
-          "created_at": "2026-01-22T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-13",
-          "actor": "demo2",
-          "created_at": "2026-01-22T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Exit interview completed",
-          "actor": "demo2",
-          "created_at": "2026-01-22T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Exit interview completed",
-          "actor": "demo3",
-          "created_at": "2026-01-22T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Churn reason logged: price",
-          "actor": "demo2",
-          "created_at": "2026-01-22T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Churn reason logged: price",
-          "actor": "demo3",
-          "created_at": "2026-01-22T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Feedback shared with product team",
-          "actor": "demo2",
-          "created_at": "2026-01-22T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Feedback shared with product team",
-          "actor": "demo3",
-          "created_at": "2026-01-22T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Churned to a cheaper tool. Price was the stated reason but low adoption was the real issue. Logged feedback.",
-          "actor": "demo2",
-          "created_at": "2026-01-22T20:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Will re-engage in 12 months when contract with competitor expires.",
-          "actor": "demo5",
-          "created_at": "2026-01-23T00:45:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "TechNova Inc — Healthy",
-      "description": "500-seat enterprise account in healthy state. Executive sponsor is CTO. QBR completed with high satisfaction scores.",
-      "priority": "low",
-      "column": "Healthy",
-      "swimlane": "Enterprise Accounts",
-      "due_date": null,
-      "weight": 4,
-      "labels": [
-        "Champion"
-      ],
-      "checklist": [
-        {
-          "text": "500 seats active",
-          "is_checked": true
-        },
-        {
-          "text": "Executive sponsor confirmed",
-          "is_checked": true
-        },
-        {
-          "text": "QBR completed Q1",
-          "is_checked": true
-        }
-      ],
-      "comments": [],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-27T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Champion",
-          "actor": "demo4",
-          "created_at": "2025-12-27T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo4",
-          "created_at": "2025-12-27T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "500 seats active",
-          "actor": "demo4",
-          "created_at": "2025-12-27T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "500 seats active",
-          "actor": "demo5",
-          "created_at": "2025-12-27T20:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Executive sponsor confirmed",
-          "actor": "demo4",
-          "created_at": "2025-12-27T20:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Executive sponsor confirmed",
-          "actor": "demo5",
-          "created_at": "2025-12-27T20:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "QBR completed Q1",
-          "actor": "demo4",
-          "created_at": "2025-12-27T21:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "QBR completed Q1",
-          "actor": "demo5",
-          "created_at": "2025-12-27T21:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "BlueSky Health — Adoption",
-      "description": "200-seat healthcare enterprise 60 days post-onboarding. IT adoption is strong but clinical team adoption is lagging. QBR scheduled.",
-      "priority": "high",
-      "column": "Adoption",
-      "swimlane": "Enterprise Accounts",
-      "due_date": "2026-03-29",
-      "weight": 5,
-      "labels": [
-        "QBR Needed"
-      ],
-      "checklist": [
-        {
-          "text": "Onboarding completed",
-          "is_checked": true
-        },
-        {
-          "text": "Drive adoption across clinical teams",
-          "is_checked": false
-        },
-        {
-          "text": "QBR with VP Operations",
-          "is_checked": false
-        },
-        {
-          "text": "Review HIPAA feature usage",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "200 seats active but mostly in IT. Clinical teams haven't adopted yet. QBR with VP Ops next week.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Onboarding",
-          "from_swimlane": null,
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "QBR Needed",
-          "actor": "demo1",
-          "created_at": "2025-12-17T15:00:00+00:00"
+          "created_at": "2026-02-27T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-03-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Book check-in call with ops manager",
+          "actor": "demo5",
+          "created_at": "2026-03-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Share adoption guide for mobile card creation",
+          "actor": "demo5",
+          "created_at": "2026-03-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Set 30-day re-check reminder",
           "actor": "demo1",
-          "created_at": "2025-12-17T18:00:00+00:00"
+          "created_at": "2026-03-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-03-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Book check-in call with ops manager",
+          "actor": "demo1",
+          "created_at": "2026-03-13T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "TechNova Inc",
+      "description": "500-seat enterprise account. Onboarding completed ahead of schedule.\n\n## Health signals\n\n- WAU: 78% (target: 70%)\n- NPS: 62\n- Open support tickets: 2 (both minor)\n\nExpansion conversation in progress — 200 additional seats.",
+      "priority": "high",
+      "assignee": "demo1",
+      "column": "Expansion",
+      "swimlane": "Americas",
+      "due_date": "2026-03-29",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Schedule QBR with VP Engineering",
+          "is_checked": true
+        },
+        {
+          "text": "Present expansion ROI deck",
+          "is_checked": true
+        },
+        {
+          "text": "Get verbal commitment on 200 seat expansion",
+          "is_checked": false
+        },
+        {
+          "text": "Send expansion order form",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "QBR went great. VP Engineering openly mentioned expansion plans.",
+          "author": "demo1"
+        },
+        {
+          "body": "NPS 62 — best in the Americas portfolio this quarter.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Americas",
+          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Healthy",
+          "to_column": "Expansion",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo2",
+          "created_at": "2026-01-24T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-29",
-          "actor": "demo1",
-          "created_at": "2025-12-17T20:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-01-25T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Onboarding completed",
-          "actor": "demo1",
-          "created_at": "2025-12-17T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Onboarding completed",
-          "actor": "demo2",
-          "created_at": "2025-12-17T21:20:00+00:00"
+          "to_value": "Schedule QBR with VP Engineering",
+          "actor": "demo4",
+          "created_at": "2026-01-31T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Drive adoption across clinical teams",
-          "actor": "demo1",
-          "created_at": "2025-12-17T21:35:00+00:00"
+          "to_value": "Present expansion ROI deck",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "QBR with VP Operations",
+          "to_value": "Get verbal commitment on 200 seat expansion",
+          "actor": "demo3",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
           "actor": "demo1",
-          "created_at": "2025-12-17T21:55:00+00:00"
+          "created_at": "2026-02-02T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Review HIPAA feature usage",
+          "to_value": "Send expansion order form",
           "actor": "demo1",
-          "created_at": "2025-12-17T22:15:00+00:00"
+          "created_at": "2026-02-03T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "200 seats active but mostly in IT. Clinical teams haven't adopted yet. QBR with VP Ops next week.",
+          "to_value": "",
           "actor": "demo1",
-          "created_at": "2025-12-17T22:35:00+00:00"
+          "created_at": "2026-02-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Present expansion ROI deck",
+          "actor": "demo2",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Schedule QBR with VP Engineering",
+          "actor": "demo5",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Global Freight Co — Expansion",
-      "description": "300-seat freight company at 97% seat utilization. Headcount growth of 3 new business units makes 500-seat expansion a natural next step.",
-      "priority": "high",
-      "column": "Expansion",
-      "swimlane": "Enterprise Accounts",
-      "due_date": "2026-03-27",
-      "weight": 6,
-      "labels": [
-        "Expansion Opportunity"
-      ],
+      "title": "BlueSky Health",
+      "description": "200-seat healthcare account. In renewal cycle (2026-05-01).\n\nHealthy engagement but pushing for analytics add-on at no extra cost.",
+      "priority": "urgent",
+      "assignee": "demo5",
+      "column": "Renewal",
+      "swimlane": "Americas",
+      "due_date": "2026-03-12",
+      "weight": 5,
+      "labels": [],
       "checklist": [
         {
-          "text": "Current: 300 seats at 97% utilization",
+          "text": "Send renewal quote",
           "is_checked": true
         },
         {
-          "text": "Expansion proposal: 500 seats",
+          "text": "Negotiate analytics add-on pricing",
           "is_checked": true
         },
         {
-          "text": "VP CS presenting to CFO",
-          "is_checked": false
-        },
-        {
-          "text": "Update commercial agreement",
+          "text": "Get signed renewal form",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Growing fast — they've added 3 new business units since signing. 500-seat expansion is justified by headcount alone.",
-          "author": "demo3"
+          "body": "OVERDUE — renewal is past due. CIO is travelling. Escalated to VP CS.",
+          "author": "demo1"
         }
       ],
-      "assignee": "demo3",
       "movements": [
         {
           "from_column": null,
           "to_column": "Onboarding",
           "from_swimlane": null,
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "to_swimlane": "Americas",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Healthy",
-          "to_column": "Adoption",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-02-06T12:00:00+00:00",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-04T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Healthy",
           "to_column": "Expansion",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Expansion",
+          "to_column": "Renewal",
+          "from_swimlane": "Americas",
+          "to_swimlane": "Americas",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo3",
+          "to_value": "Casey Osei",
           "actor": "demo3",
-          "created_at": "2026-01-20T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Expansion Opportunity",
-          "actor": "demo3",
-          "created_at": "2026-01-20T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2026-01-20T18:00:00+00:00"
+          "created_at": "2026-01-21T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-03-27",
-          "actor": "demo3",
-          "created_at": "2026-01-20T20:00:00+00:00"
+          "to_value": "2026-03-12",
+          "actor": "demo2",
+          "created_at": "2026-01-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-01-29T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Current: 300 seats at 97% utilization",
-          "actor": "demo3",
-          "created_at": "2026-01-20T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Current: 300 seats at 97% utilization",
-          "actor": "demo4",
-          "created_at": "2026-01-20T21:20:00+00:00"
+          "to_value": "Send renewal quote",
+          "actor": "demo5",
+          "created_at": "2026-01-30T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Expansion proposal: 500 seats",
-          "actor": "demo3",
-          "created_at": "2026-01-20T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Expansion proposal: 500 seats",
-          "actor": "demo4",
-          "created_at": "2026-01-20T21:55:00+00:00"
+          "to_value": "Negotiate analytics add-on pricing",
+          "actor": "demo5",
+          "created_at": "2026-01-31T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "VP CS presenting to CFO",
-          "actor": "demo3",
-          "created_at": "2026-01-20T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Update commercial agreement",
-          "actor": "demo3",
-          "created_at": "2026-01-20T22:30:00+00:00"
+          "to_value": "Get signed renewal form",
+          "actor": "demo2",
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Growing fast — they've added 3 new business units since signing. 500-seat expansion is justified by headcount alone.",
-          "actor": "demo3",
-          "created_at": "2026-01-20T22:50:00+00:00"
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send renewal quote",
+          "actor": "demo5",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Negotiate analytics add-on pricing",
+          "actor": "demo1",
+          "created_at": "2026-02-03T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Pinnacle Finance — Renewal",
-      "description": "400-seat financial services firm renewal. Proposing a 3-year deal. CFO is actively involved. SOC 2 compliance documentation provided.",
-      "priority": "urgent",
-      "column": "Renewal",
-      "swimlane": "Enterprise Accounts",
-      "due_date": "2026-03-20",
-      "weight": 7,
-      "labels": [
-        "Renewal Due",
-        "Expansion Opportunity"
-      ],
+      "title": "FinEdge Ltd",
+      "description": "80-seat compliance-focused account. Adopted Visiban for regulatory workflow tracking.\n\nEngineering team (40 seats) just provisioned — still in onboarding.",
+      "priority": "high",
+      "assignee": "demo3",
+      "column": "Onboarding",
+      "swimlane": "EMEA",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [],
       "checklist": [
         {
-          "text": "3-year renewal proposal sent",
+          "text": "Run onboarding session 1: board setup",
           "is_checked": true
         },
         {
-          "text": "Champion confirmed",
-          "is_checked": true
-        },
-        {
-          "text": "CFO review in progress",
+          "text": "Run onboarding session 2: workflows and WIP limits",
           "is_checked": false
         },
         {
-          "text": "SOC 2 report sent to procurement",
+          "text": "Confirm all 80 users have logged in",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "CFO wants a 3-year deal with locked pricing. Working with RevOps on multi-year discount model.",
-          "author": "demo2"
-        },
-        {
-          "body": "SOC 2 Type II report sent — last open legal item resolved.",
-          "author": "demo4"
+          "body": "Session 1 complete. Engineering lead very engaged.",
+          "author": "demo1"
         }
       ],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Onboarding",
           "from_swimlane": null,
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Healthy",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Healthy",
-          "to_column": "Expansion",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Expansion",
-          "to_column": "Renewal",
-          "from_swimlane": "Enterprise Accounts",
-          "to_swimlane": "Enterprise Accounts",
-          "moved_at": "2026-01-31T12:00:00+00:00",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
         }
       ],
       "activities": [
         {
-          "event_type": "label_change",
+          "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "Renewal Due, Expansion Opportunity",
+          "to_value": "Jordan Patel",
+          "actor": "demo4",
+          "created_at": "2026-03-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
           "actor": "demo5",
-          "created_at": "2026-01-02T13:00:00+00:00"
+          "created_at": "2026-03-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run onboarding session 1: board setup",
+          "actor": "demo1",
+          "created_at": "2026-03-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run onboarding session 2: workflows and WIP limits",
+          "actor": "demo5",
+          "created_at": "2026-03-16T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
-          "to_value": "urgent",
+          "to_value": "high",
+          "actor": "demo2",
+          "created_at": "2026-03-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Run onboarding session 1: board setup",
+          "actor": "demo2",
+          "created_at": "2026-03-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm all 80 users have logged in",
+          "actor": "demo1",
+          "created_at": "2026-03-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-03-18T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Apex Retail Group",
+      "description": "300-seat enterprise account, newly signed. Rollout across 200 locations.\n\nComplex onboarding — need swimlane template for each region.",
+      "priority": "urgent",
+      "assignee": "demo5",
+      "column": "Onboarding",
+      "swimlane": "EMEA",
+      "due_date": "2026-03-20",
+      "weight": 5,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Assign dedicated onboarding specialist",
+          "is_checked": true
+        },
+        {
+          "text": "Create region swimlane template",
+          "is_checked": false
+        },
+        {
+          "text": "Run kickoff session with Apex ops leadership",
+          "is_checked": false
+        },
+        {
+          "text": "Provision all 300 seats",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Large rollout — dedicated onboarding specialist assigned.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Casey Osei",
           "actor": "demo5",
-          "created_at": "2026-01-02T16:00:00+00:00"
+          "created_at": "2026-03-01T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-20",
-          "actor": "demo5",
-          "created_at": "2026-01-02T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "3-year renewal proposal sent",
-          "actor": "demo5",
-          "created_at": "2026-01-02T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "3-year renewal proposal sent",
           "actor": "demo1",
-          "created_at": "2026-01-02T19:20:00+00:00"
+          "created_at": "2026-03-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo3",
+          "created_at": "2026-03-07T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Champion confirmed",
-          "actor": "demo5",
-          "created_at": "2026-01-02T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Champion confirmed",
-          "actor": "demo1",
-          "created_at": "2026-01-02T19:55:00+00:00"
+          "to_value": "Assign dedicated onboarding specialist",
+          "actor": "demo3",
+          "created_at": "2026-03-11T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "CFO review in progress",
-          "actor": "demo5",
-          "created_at": "2026-01-02T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "SOC 2 report sent to procurement",
-          "actor": "demo5",
-          "created_at": "2026-01-02T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "CFO wants a 3-year deal with locked pricing. Working with RevOps on multi-year discount model.",
+          "to_value": "Create region swimlane template",
           "actor": "demo2",
-          "created_at": "2026-01-02T20:50:00+00:00"
+          "created_at": "2026-03-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Assign dedicated onboarding specialist",
+          "actor": "demo5",
+          "created_at": "2026-03-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run kickoff session with Apex ops leadership",
+          "actor": "demo2",
+          "created_at": "2026-03-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provision all 300 seats",
+          "actor": "demo3",
+          "created_at": "2026-03-14T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "SOC 2 Type II report sent — last open legal item resolved.",
-          "actor": "demo4",
-          "created_at": "2026-01-02T22:50:00+00:00"
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-03-15T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Redwood Agency — Onboarding",
-      "description": "25-seat creative agency. Quick onboarding — CEO and two managers are the primary users. First board live.",
-      "priority": "medium",
-      "column": "Onboarding",
-      "swimlane": "Mid-Market",
-      "due_date": "2026-03-29",
-      "weight": 3,
+      "title": "Mosaic Creative",
+      "description": "30-seat creative agency. 3 months post-close, strong adoption.\n\nWAU: 88%. Using swimlane-per-client model effectively.",
+      "priority": "low",
+      "assignee": "demo3",
+      "column": "Healthy",
+      "swimlane": "EMEA",
+      "due_date": "2026-04-14",
+      "weight": 2,
       "labels": [],
       "checklist": [
         {
-          "text": "Welcome email sent",
+          "text": "Send 90-day check-in survey",
           "is_checked": true
         },
         {
-          "text": "Admin onboarding call done",
-          "is_checked": true
-        },
-        {
-          "text": "Team invites sent",
-          "is_checked": false
-        },
-        {
-          "text": "First board created",
+          "text": "Propose annual plan upgrade (currently monthly)",
           "is_checked": false
         }
       ],
-      "comments": [],
-      "assignee": "demo2",
+      "comments": [
+        {
+          "body": "Happy account. Good candidate for a case study.",
+          "author": "demo1"
+        }
+      ],
       "movements": [
         {
           "from_column": null,
           "to_column": "Onboarding",
           "from_swimlane": null,
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo1"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-20T13:00:00+00:00"
+          "to_value": "Jordan Patel",
+          "actor": "demo1",
+          "created_at": "2026-02-15T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-03-29",
-          "actor": "demo2",
-          "created_at": "2025-12-20T15:00:00+00:00"
+          "to_value": "2026-04-14",
+          "actor": "demo4",
+          "created_at": "2026-02-16T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Welcome email sent",
+          "to_value": "Send 90-day check-in survey",
           "actor": "demo2",
-          "created_at": "2025-12-20T16:00:00+00:00"
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Propose annual plan upgrade (currently monthly)",
+          "actor": "demo3",
+          "created_at": "2026-02-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-19T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Welcome email sent",
-          "actor": "demo3",
-          "created_at": "2025-12-20T16:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Admin onboarding call done",
+          "to_value": "Send 90-day check-in survey",
           "actor": "demo2",
-          "created_at": "2025-12-20T16:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Admin onboarding call done",
-          "actor": "demo3",
-          "created_at": "2025-12-20T16:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Team invites sent",
-          "actor": "demo2",
-          "created_at": "2025-12-20T17:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "First board created",
-          "actor": "demo2",
-          "created_at": "2025-12-20T17:30:00+00:00"
+          "created_at": "2026-02-22T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Ironside Manufacturing — Adoption",
-      "description": "75-seat manufacturing company with low adoption 30 days post-onboarding. No clear champion identified yet. At-risk of churning at 90 days.",
-      "priority": "medium",
+      "title": "NexGen Fintech JP",
+      "description": "60-seat Japanese fintech. Churned from previous provider.\n\nStill in early adoption — ensuring they see value before 90 days.",
+      "priority": "high",
+      "assignee": "demo4",
       "column": "Adoption",
-      "swimlane": "Mid-Market",
-      "due_date": "2026-04-05",
-      "weight": 3,
+      "swimlane": "APAC",
+      "due_date": "2026-03-23",
+      "weight": 4,
       "labels": [
         "At Risk"
       ],
       "checklist": [
         {
-          "text": "Training done",
+          "text": "Complete onboarding checklist with eng lead",
           "is_checked": true
         },
         {
-          "text": "Identify a champion in ops team",
-          "is_checked": false
+          "text": "Set up weekly check-in for first 90 days",
+          "is_checked": true
         },
         {
-          "text": "Check for support tickets",
-          "is_checked": false
-        },
-        {
-          "text": "Follow-up call in 1 week",
+          "text": "Confirm WAU target met by day 60",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Low login rate 30 days after onboarding. No assigned champion. Needs proactive outreach.",
+          "body": "Previous provider churned them due to poor support. We need to overcommunicate.",
           "author": "demo1"
         }
       ],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Onboarding",
           "from_swimlane": null,
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Onboarding",
           "to_column": "Adoption",
-          "from_swimlane": "Mid-Market",
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-01-19T12:00:00+00:00",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo5"
         }
       ],
@@ -2297,257 +872,412 @@
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-31T13:00:00+00:00"
+          "to_value": "Morgan Wu",
+          "actor": "demo3",
+          "created_at": "2026-03-03T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "At Risk",
-          "actor": "demo4",
-          "created_at": "2025-12-31T15:00:00+00:00"
+          "actor": "demo1",
+          "created_at": "2026-03-04T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-04-05",
-          "actor": "demo4",
-          "created_at": "2025-12-31T18:00:00+00:00"
+          "to_value": "2026-03-23",
+          "actor": "demo3",
+          "created_at": "2026-03-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-03-13T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Training done",
+          "to_value": "Complete onboarding checklist with eng lead",
           "actor": "demo4",
-          "created_at": "2025-12-31T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Training done",
-          "actor": "demo5",
-          "created_at": "2025-12-31T19:20:00+00:00"
+          "created_at": "2026-03-13T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Identify a champion in ops team",
-          "actor": "demo4",
-          "created_at": "2025-12-31T19:35:00+00:00"
+          "to_value": "Set up weekly check-in for first 90 days",
+          "actor": "demo3",
+          "created_at": "2026-03-14T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Check for support tickets",
-          "actor": "demo4",
-          "created_at": "2025-12-31T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Follow-up call in 1 week",
-          "actor": "demo4",
-          "created_at": "2025-12-31T20:15:00+00:00"
+          "to_value": "Confirm WAU target met by day 60",
+          "actor": "demo1",
+          "created_at": "2026-03-15T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Low login rate 30 days after onboarding. No assigned champion. Needs proactive outreach.",
+          "to_value": "",
           "actor": "demo1",
-          "created_at": "2025-12-31T20:35:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Complete onboarding checklist with eng lead",
+          "actor": "demo4",
+          "created_at": "2026-03-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Set up weekly check-in for first 90 days",
+          "actor": "demo2",
+          "created_at": "2026-03-19T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Skyline Retail — Healthy",
-      "description": "50-seat retail company in healthy state. Ops Manager is an engaged power user. Consistent 60% DAU for 3+ months.",
-      "priority": "low",
+      "title": "DataStream AU",
+      "description": "45-seat analytics firm. Adopted Visiban for sprint tracking.\n\nHealthy engagement. Champion is Head of Engineering.",
+      "priority": "medium",
+      "assignee": "demo4",
       "column": "Healthy",
-      "swimlane": "Mid-Market",
-      "due_date": null,
+      "swimlane": "APAC",
+      "due_date": "2026-04-05",
       "weight": 2,
       "labels": [],
       "checklist": [
         {
-          "text": "60% DAU",
+          "text": "Send quarterly product update digest",
           "is_checked": true
         },
         {
-          "text": "Champion: Ops Manager",
-          "is_checked": true
-        },
-        {
-          "text": "Last NPS: 8",
-          "is_checked": true
+          "text": "Invite to APAC customer roundtable",
+          "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Onboarding",
           "from_swimlane": null,
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Mid-Market",
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Adoption",
-          "to_column": "Onboarding",
-          "from_swimlane": "Mid-Market",
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Mid-Market",
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-17T12:00:00+00:00",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-11T00:00:00+00:00",
           "moved_by": "demo4"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Adoption",
           "to_column": "Healthy",
-          "from_swimlane": "Mid-Market",
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-30T13:00:00+00:00"
+          "to_value": "Morgan Wu",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:00:00+00:00"
         },
         {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo1",
-          "created_at": "2026-01-30T15:00:00+00:00"
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo5",
+          "created_at": "2026-02-14T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "60% DAU",
-          "actor": "demo1",
-          "created_at": "2026-01-30T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "60% DAU",
-          "actor": "demo2",
-          "created_at": "2026-01-30T17:20:00+00:00"
+          "to_value": "Send quarterly product update digest",
+          "actor": "demo5",
+          "created_at": "2026-02-16T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Champion: Ops Manager",
+          "to_value": "Invite to APAC customer roundtable",
           "actor": "demo1",
-          "created_at": "2026-01-30T17:35:00+00:00"
+          "created_at": "2026-02-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Champion: Ops Manager",
-          "actor": "demo2",
-          "created_at": "2026-01-30T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Last NPS: 8",
-          "actor": "demo1",
-          "created_at": "2026-01-30T18:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Last NPS: 8",
-          "actor": "demo2",
-          "created_at": "2026-01-30T18:30:00+00:00"
+          "to_value": "Send quarterly product update digest",
+          "actor": "demo4",
+          "created_at": "2026-02-19T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Fusion Labs — Churned",
-      "description": "35-seat startup churned mid-term. Consolidating to Notion for combined docs and boards. Product feedback logged for roadmap consideration.",
-      "priority": "medium",
-      "column": "Churned",
-      "swimlane": "Mid-Market",
-      "due_date": "2026-01-29",
-      "weight": 3,
-      "labels": [
-        "At Risk"
-      ],
+      "title": "GlobalBank Corp",
+      "description": "400-seat banking enterprise. Year 2 of a 3-year agreement.\n\nRenewal not at risk but annual business review is overdue.",
+      "priority": "high",
+      "assignee": "demo1",
+      "column": "Healthy",
+      "swimlane": "Enterprise Accounts",
+      "due_date": "2026-03-20",
+      "weight": 4,
+      "labels": [],
       "checklist": [
         {
-          "text": "Exit survey completed",
+          "text": "Schedule annual business review",
           "is_checked": true
         },
         {
-          "text": "Churn reason: consolidating to Notion",
-          "is_checked": true
+          "text": "Prepare YoY usage and ROI report",
+          "is_checked": false
         },
         {
-          "text": "Feedback logged",
-          "is_checked": true
+          "text": "Present roadmap preview",
+          "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Consolidating their toolset to Notion. Not a price issue — they want a single tool for docs + boards. We don't have a docs offering.",
-          "author": "demo3"
+          "body": "ABR overdue by 3 weeks. CIO has been traveling. Meeting confirmed for Friday.",
+          "author": "demo1"
         }
       ],
-      "assignee": "demo3",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo5",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo1",
+          "created_at": "2026-02-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Schedule annual business review",
+          "actor": "demo3",
+          "created_at": "2026-02-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Prepare YoY usage and ROI report",
+          "actor": "demo3",
+          "created_at": "2026-02-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Present roadmap preview",
+          "actor": "demo4",
+          "created_at": "2026-02-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Schedule annual business review",
+          "actor": "demo2",
+          "created_at": "2026-03-02T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "PharmaCo Ltd",
+      "description": "350-seat pharma enterprise. Clinical and regulatory teams on separate boards.\n\nExpansion conversation for 150 additional seats (R&D division).",
+      "priority": "medium",
+      "assignee": "demo2",
+      "column": "Expansion",
+      "swimlane": "Enterprise Accounts",
+      "due_date": "2026-04-04",
+      "weight": 3,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Map R&D team use cases",
+          "is_checked": true
+        },
+        {
+          "text": "Send expansion proposal",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "R&D director wants Visiban — IT procurement is the gatekeeper.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Healthy",
+          "to_column": "Expansion",
+          "from_swimlane": "Enterprise Accounts",
+          "to_swimlane": "Enterprise Accounts",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-04",
+          "actor": "demo3",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Map R&D team use cases",
+          "actor": "demo3",
+          "created_at": "2026-02-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send expansion proposal",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Map R&D team use cases",
+          "actor": "demo3",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "GreenLeaf Agency",
+      "description": "50-seat digital marketing agency. Strong adoption, all teams active.\n\nRenewal in 4 months. Low risk.",
+      "priority": "low",
+      "assignee": "demo5",
+      "column": "Healthy",
+      "swimlane": "Mid-Market",
+      "due_date": "2026-04-29",
+      "weight": 1,
+      "labels": [],
+      "checklist": [
+        {
+          "text": "Send renewal reminder at T-60",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
       "movements": [
         {
           "from_column": null,
           "to_column": "Onboarding",
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Onboarding",
-          "to_column": "Adoption",
-          "from_swimlane": "Mid-Market",
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-01-29T12:00:00+00:00",
+          "moved_at": "2026-02-16T00:00:00+00:00",
           "moved_by": "demo4"
         },
         {
-          "from_column": "Adoption",
-          "to_column": "Onboarding",
-          "from_swimlane": "Mid-Market",
-          "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
           "from_column": "Onboarding",
           "to_column": "Adoption",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-04T12:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
@@ -2555,104 +1285,179 @@
           "to_column": "Healthy",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-08T12:00:00+00:00",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Casey Osei",
+          "actor": "demo2",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-29",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send renewal reminder at T-60",
+          "actor": "demo2",
+          "created_at": "2026-02-20T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Ironclad Manufacturing",
+      "description": "80-seat industrial firm. Low product adoption — WAU at 22%.\n\nRisk: renewal in 60 days. Operations team not fully onboarded.",
+      "priority": "urgent",
+      "assignee": "demo5",
+      "column": "Churned",
+      "swimlane": "Mid-Market",
+      "due_date": null,
+      "weight": 4,
+      "labels": [
+        "At Risk"
+      ],
+      "checklist": [
+        {
+          "text": "Identify adoption blockers in ops team",
+          "is_checked": true
+        },
+        {
+          "text": "Offer complimentary re-onboarding session",
+          "is_checked": true
+        },
+        {
+          "text": "Set 2-week re-engagement goal",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Account manager says ops team resists new tools. Need exec sponsor.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Onboarding",
+          "from_swimlane": null,
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Onboarding",
+          "to_column": "Adoption",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Adoption",
+          "to_column": "Healthy",
+          "from_swimlane": "Mid-Market",
+          "to_swimlane": "Mid-Market",
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Healthy",
           "to_column": "Expansion",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Expansion",
           "to_column": "Renewal",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Renewal",
           "to_column": "Churned",
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
-          "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-19T13:00:00+00:00"
+          "to_value": "Casey Osei",
+          "actor": "demo2",
+          "created_at": "2026-01-18T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "At Risk",
-          "actor": "demo3",
-          "created_at": "2026-01-19T15:00:00+00:00"
+          "actor": "demo5",
+          "created_at": "2026-01-20T00:00:00+00:00"
         },
         {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-01-29",
-          "actor": "demo3",
-          "created_at": "2026-01-19T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Exit survey completed",
-          "actor": "demo3",
-          "created_at": "2026-01-19T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Exit survey completed",
-          "actor": "demo4",
-          "created_at": "2026-01-19T19:20:00+00:00"
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo5",
+          "created_at": "2026-01-24T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Churn reason: consolidating to Notion",
-          "actor": "demo3",
-          "created_at": "2026-01-19T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Churn reason: consolidating to Notion",
-          "actor": "demo4",
-          "created_at": "2026-01-19T19:55:00+00:00"
+          "to_value": "Identify adoption blockers in ops team",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Feedback logged",
-          "actor": "demo3",
-          "created_at": "2026-01-19T20:10:00+00:00"
+          "to_value": "Offer complimentary re-onboarding session",
+          "actor": "demo4",
+          "created_at": "2026-01-27T00:00:00+00:00"
         },
         {
-          "event_type": "checklist_item_checked",
+          "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Feedback logged",
-          "actor": "demo4",
-          "created_at": "2026-01-19T20:30:00+00:00"
+          "to_value": "Set 2-week re-engagement goal",
+          "actor": "demo1",
+          "created_at": "2026-01-28T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Consolidating their toolset to Notion. Not a price issue — they want a single tool for docs + boards. We don't have a do",
-          "actor": "demo3",
-          "created_at": "2026-01-19T20:45:00+00:00"
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identify adoption blockers in ops team",
+          "actor": "demo5",
+          "created_at": "2026-01-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Offer complimentary re-onboarding session",
+          "actor": "demo5",
+          "created_at": "2026-01-31T00:00:00+00:00"
         }
       ]
     }

@@ -1,21 +1,13 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Bright Solutions Inc — Onboarding,Onboarding,Americas,high,2026-03-29,4,Champion,,4,2,1,New 150-seat account in onboarding phase. Strong champion in Taylor Chen (Head o
-RocketOps LLC — Adoption,Adoption,Americas,medium,2026-04-05,3,QBR Needed,demo2,4,2,0,60-seat account in adoption. Board creation is good (12 boards) but only 30% of 
-Cirrus Analytics — Healthy,Healthy,Americas,medium,,3,Champion,demo4,3,3,0,80-seat account in healthy state. VP Product (Jordan Lee) is an active champion 
-Vertex Media — Expansion,Expansion,Americas,high,2026-03-25,5,Expansion Opportunity,demo1,4,2,1,80-seat account is nearly at full capacity with 75 active users. Expansion to 15
-Polaris Engineering GmbH — Onboarding,Onboarding,EMEA,medium,2026-04-02,3,Champion,demo3,4,2,0,New 120-seat German engineering firm. GDPR DPA signed. SSO configured via Azure 
-Meridian Consulting UK — Adoption,Adoption,EMEA,high,2026-03-22,4,"At Risk,QBR Needed",,4,1,1,100-seat UK consulting firm. 60 days post-onboarding and adoption is at 35% DAU.
-Solaris Digital — Healthy,Healthy,EMEA,low,,2,,demo2,3,3,0,40-seat digital agency in healthy state. Self-sufficient — no CSM intervention n
-Atlas Logistics BV — Renewal,Renewal,EMEA,urgent,2026-03-23,6,"Renewal Due,Expansion Opportunity",demo4,4,2,2,200-seat logistics company renewal due in 10 days. Champion wants to add 30 seat
-Nexus Software — Onboarding,Onboarding,APAC,medium,2026-04-05,3,,demo1,4,2,0,50-seat Singapore software firm. Smooth onboarding — CTO is doing all admin setu
-Harbor Tech — Adoption,Adoption,APAC,medium,,3,QBR Needed,demo3,3,1,0,80-seat Sydney firm 45 days post-onboarding. Board creation strong but advanced 
-Pacific Ventures — Healthy,Healthy,APAC,low,,2,Champion,,2,2,0,30-seat VC fund in healthy state. Head of Product is an NPS 9. Will ask for refe
-Koala Systems — Churned,Churned,APAC,medium,2026-02-13,4,At Risk,demo2,3,3,2,40-seat Melbourne firm churned at renewal. Low adoption (25% DAU) meant low perc
-TechNova Inc — Healthy,Healthy,Enterprise Accounts,low,,4,Champion,demo4,3,3,0,500-seat enterprise account in healthy state. Executive sponsor is CTO. QBR comp
-BlueSky Health — Adoption,Adoption,Enterprise Accounts,high,2026-03-29,5,QBR Needed,demo1,4,1,1,200-seat healthcare enterprise 60 days post-onboarding. IT adoption is strong bu
-Global Freight Co — Expansion,Expansion,Enterprise Accounts,high,2026-03-27,6,Expansion Opportunity,demo3,4,2,1,300-seat freight company at 97% seat utilization. Headcount growth of 3 new busi
-Pinnacle Finance — Renewal,Renewal,Enterprise Accounts,urgent,2026-03-20,7,"Renewal Due,Expansion Opportunity",,4,2,2,400-seat financial services firm renewal. Proposing a 3-year deal. CFO is active
-Redwood Agency — Onboarding,Onboarding,Mid-Market,medium,2026-03-29,3,,demo2,4,2,0,25-seat creative agency. Quick onboarding — CEO and two managers are the primary
-Ironside Manufacturing — Adoption,Adoption,Mid-Market,medium,2026-04-05,3,At Risk,demo4,4,1,1,75-seat manufacturing company with low adoption 30 days post-onboarding. No clea
-Skyline Retail — Healthy,Healthy,Mid-Market,low,,2,,demo1,3,3,0,50-seat retail company in healthy state. Ops Manager is an engaged power user. C
-Fusion Labs — Churned,Churned,Mid-Market,medium,2026-01-29,3,At Risk,demo3,3,3,1,35-seat startup churned mid-term. Consolidating to Notion for combined docs and 
+Summit Logistics,Adoption,Americas,high,2026-03-22,3,At Risk,demo1,3,1,1,25-seat SMB account. Month 2 of annual plan.  Low engagement — WAU sitting at 35
+TechNova Inc,Expansion,Americas,high,2026-03-29,5,,demo1,4,2,2,500-seat enterprise account. Onboarding completed ahead of schedule.  ## Health 
+BlueSky Health,Renewal,Americas,urgent,2026-03-12,5,,demo5,3,2,1,200-seat healthcare account. In renewal cycle (2026-05-01).  Healthy engagement 
+FinEdge Ltd,Onboarding,EMEA,high,2026-03-25,4,,demo3,3,1,1,80-seat compliance-focused account. Adopted Visiban for regulatory workflow trac
+Apex Retail Group,Onboarding,EMEA,urgent,2026-03-20,5,,demo5,4,1,1,"300-seat enterprise account, newly signed. Rollout across 200 locations.  Comple"
+Mosaic Creative,Healthy,EMEA,low,2026-04-14,2,,demo3,2,1,1,"30-seat creative agency. 3 months post-close, strong adoption.  WAU: 88%. Using "
+NexGen Fintech JP,Adoption,APAC,high,2026-03-23,4,At Risk,demo4,3,2,1,60-seat Japanese fintech. Churned from previous provider.  Still in early adopti
+DataStream AU,Healthy,APAC,medium,2026-04-05,2,,demo4,2,1,0,45-seat analytics firm. Adopted Visiban for sprint tracking.  Healthy engagement
+GlobalBank Corp,Healthy,Enterprise Accounts,high,2026-03-20,4,,demo1,3,1,1,400-seat banking enterprise. Year 2 of a 3-year agreement.  Renewal not at risk 
+PharmaCo Ltd,Expansion,Enterprise Accounts,medium,2026-04-04,3,,demo2,2,1,1,350-seat pharma enterprise. Clinical and regulatory teams on separate boards.  E
+GreenLeaf Agency,Healthy,Mid-Market,low,2026-04-29,1,,demo5,1,0,0,"50-seat digital marketing agency. Strong adoption, all teams active.  Renewal in"
+Ironclad Manufacturing,Churned,Mid-Market,urgent,,4,At Risk,demo5,3,2,1,80-seat industrial firm. Low product adoption — WAU at 22%.  Risk: renewal in 60

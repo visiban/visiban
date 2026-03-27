@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "Template: Infrastructure & DevOps",
-  "description": "Track infrastructure incidents, changes, and improvements. Each swimlane is a system; each card is a work item.",
+  "description": "Track incidents and change requests per service from report through verification. Each swimlane is a service or system; each card is an incident or change.",
   "columns": [
     {
       "name": "Reported",
@@ -15,7 +15,7 @@
       "position": 1,
       "color": "#3B82F6",
       "wip_limit": null,
-      "allow_card_creation": true
+      "allow_card_creation": false
     },
     {
       "name": "Assigned",
@@ -48,14 +48,14 @@
     {
       "name": "Deployed",
       "position": 6,
-      "color": "#10B981",
+      "color": "#14B8A6",
       "wip_limit": null,
       "allow_card_creation": false
     },
     {
       "name": "Verified",
       "position": 7,
-      "color": "#14B8A6",
+      "color": "#10B981",
       "wip_limit": null,
       "allow_card_creation": false
     }
@@ -65,2737 +65,1713 @@
       "name": "API Gateway",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "oncall-api@example.com",
-      "notes": "Kong gateway in front of all public endpoints. SLO: 99.9% uptime, p95 < 200ms."
+      "contact_email": "ops@internal.example",
+      "notes": "Kong API gateway. Handles all external API traffic. SLA: 99.95% uptime."
     },
     {
       "name": "PostgreSQL Cluster",
       "position": 1,
-      "color": "#F59E0B",
-      "contact_email": "oncall-db@example.com",
-      "notes": "Primary + 2 replicas. RDS PostgreSQL 16. Nightly backups to S3. Point-in-time recovery enabled."
+      "color": "#8B5CF6",
+      "contact_email": "ops@internal.example",
+      "notes": "Primary RDS PostgreSQL 15. Read replica in APAC. WAL streaming to S3."
     },
     {
       "name": "CI/CD Pipeline",
       "position": 2,
-      "color": "#8B5CF6",
-      "contact_email": "oncall-ci@example.com",
-      "notes": "GitLab CI on Kubernetes runners. Kaniko for image builds. p95 pipeline: 8 min."
+      "color": "#10B981",
+      "contact_email": "ops@internal.example",
+      "notes": "GitLab CI. Average pipeline: 12 min. Target: < 8 min."
     },
     {
       "name": "Object Storage (S3)",
       "position": 3,
-      "color": "#10B981",
-      "contact_email": "oncall-storage@example.com",
-      "notes": "AWS S3: attachments, backups, analytics exports. Versioning enabled. Cross-region replication to eu-west-1."
+      "color": "#F59E0B",
+      "contact_email": "ops@internal.example",
+      "notes": "AWS S3. Stores board exports, card attachments, and WAL backups."
     },
     {
       "name": "Kubernetes Cluster",
       "position": 4,
-      "color": "#EC4899",
-      "contact_email": "oncall-k8s@example.com",
-      "notes": "EKS 1.29. 3 node groups. HPA on API and worker deployments. Node count: 12."
+      "color": "#EF4444",
+      "contact_email": "ops@internal.example",
+      "notes": "EKS on AWS. Runs all backend services. Auto-scaling 3-12 nodes."
     }
   ],
   "labels": [
     {
-      "name": "Incident",
+      "name": "P0 - Critical",
       "color": "#EF4444"
+    },
+    {
+      "name": "P1 - High",
+      "color": "#F97316"
+    },
+    {
+      "name": "P2 - Medium",
+      "color": "#F59E0B"
     },
     {
       "name": "Change",
       "color": "#3B82F6"
     },
     {
-      "name": "Improve",
-      "color": "#10B981"
-    },
-    {
       "name": "Security",
       "color": "#8B5CF6"
-    },
-    {
-      "name": "Capacity",
-      "color": "#F59E0B"
     }
   ],
   "cards": [
     {
-      "title": "Kong rate-limit plugin — false positives on mobile clients",
-      "description": "Kong rate-limit plugin was triggering false 429s on mobile clients sharing a NAT IP. Fix: switched rate-limit key from IP to X-User-ID header. Deployed and verified.",
+      "title": "Add circuit breaker for downstream DB connections",
+      "description": "During last month's DB failover, the API gateway continued routing traffic, causing request queuing and timeout cascades.\n\nAdd a circuit breaker that opens after 3 consecutive DB timeouts.",
       "priority": "high",
-      "column": "Verified",
+      "assignee": "demo4",
+      "column": "Triaged",
       "swimlane": "API Gateway",
-      "due_date": "2026-02-28",
-      "weight": 5,
+      "due_date": "2026-04-05",
+      "weight": 4,
       "labels": [
-        "Incident"
-      ],
-      "checklist": [
-        {
-          "text": "Confirmed: mobile clients sharing IP via NAT hit global rate limit",
-          "is_checked": true
-        },
-        {
-          "text": "Config change: switch to user-id header as rate key",
-          "is_checked": true
-        },
-        {
-          "text": "Deployed to staging, no regressions",
-          "is_checked": true
-        },
-        {
-          "text": "Production deployment complete",
-          "is_checked": true
-        },
-        {
-          "text": "Monitoring 24h — zero further false positives",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Root cause: office NAT gateway sends all mobile client traffic from a single IP. Switched to X-User-ID header as the rate limit key.",
-          "author": "demo1"
-        },
-        {
-          "body": "24h post-fix: zero 429s from legitimate users. Incident closed.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Deployed",
-          "to_column": "Verified",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Incident",
-          "actor": "demo3",
-          "created_at": "2026-01-17T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2026-01-17T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-28",
-          "actor": "demo3",
-          "created_at": "2026-01-17T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Confirmed: mobile clients sharing IP via NAT hit global rate limit",
-          "actor": "demo3",
-          "created_at": "2026-01-17T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Confirmed: mobile clients sharing IP via NAT hit global rate limit",
-          "actor": "demo4",
-          "created_at": "2026-01-17T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Config change: switch to user-id header as rate key",
-          "actor": "demo3",
-          "created_at": "2026-01-17T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Config change: switch to user-id header as rate key",
-          "actor": "demo4",
-          "created_at": "2026-01-17T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Deployed to staging, no regressions",
-          "actor": "demo3",
-          "created_at": "2026-01-17T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Deployed to staging, no regressions",
-          "actor": "demo4",
-          "created_at": "2026-01-17T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Production deployment complete",
-          "actor": "demo3",
-          "created_at": "2026-01-17T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Production deployment complete",
-          "actor": "demo4",
-          "created_at": "2026-01-17T23:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Monitoring 24h — zero further false positives",
-          "actor": "demo3",
-          "created_at": "2026-01-17T23:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Monitoring 24h — zero further false positives",
-          "actor": "demo4",
-          "created_at": "2026-01-17T23:40:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Root cause: office NAT gateway sends all mobile client traffic from a single IP. Switched to X-User-ID header as the rat",
-          "actor": "demo1",
-          "created_at": "2026-01-17T23:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "24h post-fix: zero 429s from legitimate users. Incident closed.",
-          "actor": "demo3",
-          "created_at": "2026-01-18T09:55:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Upgrade Kong from 3.3 to 3.6 — CVE-2024-2087 patch",
-      "description": "Kong upgrade from 3.3 to 3.6 to patch CVE-2024-2087 (DoS via JWT plugin). Completed in Sunday change window in 12 minutes. Monitoring post-deploy.",
-      "priority": "high",
-      "column": "Deployed",
-      "swimlane": "API Gateway",
-      "due_date": "2026-03-13",
-      "weight": 5,
-      "labels": [
-        "Security",
         "Change"
       ],
       "checklist": [
         {
-          "text": "CVE assessed: denial-of-service in JWT plugin",
+          "text": "Design circuit breaker logic",
           "is_checked": true
         },
         {
-          "text": "Upgrade tested on staging — all 14 plugin configs validated",
-          "is_checked": true
-        },
-        {
-          "text": "Change window approved: Sunday 02:00 UTC",
-          "is_checked": true
-        },
-        {
-          "text": "Upgrade complete in 12 minutes",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Kong 3.6 upgrade completed in the change window. JWT plugin CVE patched. Monitoring for regressions.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Assigned",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Security, Change",
-          "actor": "demo5",
-          "created_at": "2026-01-22T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-01-22T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-13",
-          "actor": "demo5",
-          "created_at": "2026-01-22T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "CVE assessed: denial-of-service in JWT plugin",
-          "actor": "demo5",
-          "created_at": "2026-01-22T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "CVE assessed: denial-of-service in JWT plugin",
-          "actor": "demo1",
-          "created_at": "2026-01-22T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Upgrade tested on staging — all 14 plugin configs validated",
-          "actor": "demo5",
-          "created_at": "2026-01-22T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Upgrade tested on staging — all 14 plugin configs validated",
-          "actor": "demo1",
-          "created_at": "2026-01-22T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Change window approved: Sunday 02:00 UTC",
-          "actor": "demo5",
-          "created_at": "2026-01-22T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Change window approved: Sunday 02:00 UTC",
-          "actor": "demo1",
-          "created_at": "2026-01-22T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Upgrade complete in 12 minutes",
-          "actor": "demo5",
-          "created_at": "2026-01-22T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Upgrade complete in 12 minutes",
-          "actor": "demo1",
-          "created_at": "2026-01-22T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Kong 3.6 upgrade completed in the change window. JWT plugin CVE patched. Monitoring for regressions.",
-          "actor": "demo2",
-          "created_at": "2026-01-22T21:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Add distributed tracing headers (W3C traceparent) to gateway",
-      "description": "Add W3C traceparent distributed tracing headers to the API gateway. Enables end-to-end request tracing from Kong through Django and Celery. Load test pending.",
-      "priority": "medium",
-      "column": "Testing",
-      "swimlane": "API Gateway",
-      "due_date": "2026-03-23",
-      "weight": 4,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "W3C traceparent header propagation implemented in Kong plugin",
-          "is_checked": true
-        },
-        {
-          "text": "Tested with Jaeger — traces showing end-to-end",
-          "is_checked": true
-        },
-        {
-          "text": "Load test — confirm no latency regression at P99",
+          "text": "Implement in Kong config",
           "is_checked": false
         },
         {
-          "text": "Deploy to production",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Traces are flowing end-to-end in Jaeger. API → Django → Celery all connected. Load test next to confirm < 1ms overhead.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Reported",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-22T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo2",
-          "created_at": "2026-01-22T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo2",
-          "created_at": "2026-01-22T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "W3C traceparent header propagation implemented in Kong plugin",
-          "actor": "demo2",
-          "created_at": "2026-01-22T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "W3C traceparent header propagation implemented in Kong plugin",
-          "actor": "demo3",
-          "created_at": "2026-01-22T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Tested with Jaeger — traces showing end-to-end",
-          "actor": "demo2",
-          "created_at": "2026-01-22T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Tested with Jaeger — traces showing end-to-end",
-          "actor": "demo3",
-          "created_at": "2026-01-22T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Load test — confirm no latency regression at P99",
-          "actor": "demo2",
-          "created_at": "2026-01-22T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Deploy to production",
-          "actor": "demo2",
-          "created_at": "2026-01-22T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Traces are flowing end-to-end in Jaeger. API → Django → Celery all connected. Load test next to confirm < 1ms overhead.",
-          "actor": "demo4",
-          "created_at": "2026-01-22T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Gateway connection pool exhaustion alert — thresholds too low",
-      "description": "Current connection pool alerts fire at 50% utilization, causing alert fatigue. Updating thresholds to 70% warn and 90% critical based on 30-day usage analysis.",
-      "priority": "medium",
-      "column": "In Progress",
-      "swimlane": "API Gateway",
-      "due_date": "2026-03-19",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Analyzed connection pool metrics over 30 days",
-          "is_checked": true
-        },
-        {
-          "text": "New thresholds: warn at 70%, critical at 90%",
-          "is_checked": true
-        },
-        {
-          "text": "Update Alertmanager rules",
-          "is_checked": false
-        },
-        {
-          "text": "Test alert firing in staging",
+          "text": "Chaos test: simulate DB failure",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Reported",
           "from_swimlane": null,
           "to_swimlane": "API Gateway",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Reported",
           "to_column": "Triaged",
           "from_swimlane": "API Gateway",
           "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-11T12:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "API Gateway",
-          "to_swimlane": "API Gateway",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-31T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo4",
-          "created_at": "2026-01-31T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-19",
-          "actor": "demo4",
-          "created_at": "2026-01-31T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Analyzed connection pool metrics over 30 days",
-          "actor": "demo4",
-          "created_at": "2026-01-31T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Analyzed connection pool metrics over 30 days",
+          "to_value": "Morgan Wu",
           "actor": "demo5",
-          "created_at": "2026-01-31T19:20:00+00:00"
+          "created_at": "2026-02-22T00:00:00+00:00"
         },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "New thresholds: warn at 70%, critical at 90%",
-          "actor": "demo4",
-          "created_at": "2026-01-31T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "New thresholds: warn at 70%, critical at 90%",
-          "actor": "demo5",
-          "created_at": "2026-01-31T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Update Alertmanager rules",
-          "actor": "demo4",
-          "created_at": "2026-01-31T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Test alert firing in staging",
-          "actor": "demo4",
-          "created_at": "2026-01-31T20:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Replica lag spike — 45s lag during analytics export job",
-      "description": "Replica lag spike to 45s during analytics export job due to full-table scan on primary. Fix: export job routed to dedicated replica. Lag back to sub-second.",
-      "priority": "high",
-      "column": "Verified",
-      "swimlane": "PostgreSQL Cluster",
-      "due_date": "2026-02-25",
-      "weight": 6,
-      "labels": [
-        "Incident"
-      ],
-      "checklist": [
-        {
-          "text": "Confirmed: analytics export running full-table scan during business hours",
-          "is_checked": true
-        },
-        {
-          "text": "Fix: export job re-routed to dedicated replica",
-          "is_checked": true
-        },
-        {
-          "text": "Replica lag: back to < 1s",
-          "is_checked": true
-        },
-        {
-          "text": "Monitoring 7 days — no recurrence",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "The analytics export was doing a full sequential scan of card_movements (14M rows) on the primary, starving replication. Moved to a dedicated read replica.",
-          "author": "demo1"
-        },
-        {
-          "body": "7-day monitoring complete. Replica lag stays under 200ms even during export jobs.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Deployed",
-          "to_column": "Verified",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-06T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Incident",
-          "actor": "demo1",
-          "created_at": "2026-01-06T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-01-06T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-25",
-          "actor": "demo1",
-          "created_at": "2026-01-06T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Confirmed: analytics export running full-table scan during business hours",
-          "actor": "demo1",
-          "created_at": "2026-01-06T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Confirmed: analytics export running full-table scan during business hours",
-          "actor": "demo2",
-          "created_at": "2026-01-06T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Fix: export job re-routed to dedicated replica",
-          "actor": "demo1",
-          "created_at": "2026-01-06T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Fix: export job re-routed to dedicated replica",
-          "actor": "demo2",
-          "created_at": "2026-01-06T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Replica lag: back to < 1s",
-          "actor": "demo1",
-          "created_at": "2026-01-06T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Replica lag: back to < 1s",
-          "actor": "demo2",
-          "created_at": "2026-01-06T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Monitoring 7 days — no recurrence",
-          "actor": "demo1",
-          "created_at": "2026-01-06T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Monitoring 7 days — no recurrence",
-          "actor": "demo2",
-          "created_at": "2026-01-06T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "The analytics export was doing a full sequential scan of card_movements (14M rows) on the primary, starving replication.",
-          "actor": "demo1",
-          "created_at": "2026-01-06T23:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "7-day monitoring complete. Replica lag stays under 200ms even during export jobs.",
-          "actor": "demo3",
-          "created_at": "2026-01-07T08:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Index bloat cleanup — card_movements table",
-      "description": "Cleaned up index bloat on card_movements table. Removed 3 dead indexes, ran REINDEX CONCURRENTLY. Index size reduced from 4.2 GB to 1.1 GB. Query runtime -60%.",
-      "priority": "medium",
-      "column": "Deployed",
-      "swimlane": "PostgreSQL Cluster",
-      "due_date": "2026-03-10",
-      "weight": 4,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "REINDEX CONCURRENTLY run during low-traffic window",
-          "is_checked": true
-        },
-        {
-          "text": "Index size reduced from 4.2 GB to 1.1 GB",
-          "is_checked": true
-        },
-        {
-          "text": "Query performance on movement history: -60% runtime",
-          "is_checked": true
-        },
-        {
-          "text": "Bloat monitoring dashboard updated",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "card_movements had 3 dead indexes from schema iterations. REINDEX CONCURRENTLY ran in 18 min. Index size down 74%.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Triaged",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-03-05T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-03T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo3",
-          "created_at": "2026-02-03T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-10",
-          "actor": "demo3",
-          "created_at": "2026-02-03T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "REINDEX CONCURRENTLY run during low-traffic window",
-          "actor": "demo3",
-          "created_at": "2026-02-03T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "REINDEX CONCURRENTLY run during low-traffic window",
-          "actor": "demo4",
-          "created_at": "2026-02-03T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Index size reduced from 4.2 GB to 1.1 GB",
-          "actor": "demo3",
-          "created_at": "2026-02-03T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Index size reduced from 4.2 GB to 1.1 GB",
-          "actor": "demo4",
-          "created_at": "2026-02-03T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Query performance on movement history: -60% runtime",
-          "actor": "demo3",
-          "created_at": "2026-02-03T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Query performance on movement history: -60% runtime",
-          "actor": "demo4",
-          "created_at": "2026-02-03T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Bloat monitoring dashboard updated",
-          "actor": "demo3",
-          "created_at": "2026-02-03T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Bloat monitoring dashboard updated",
-          "actor": "demo4",
-          "created_at": "2026-02-03T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "card_movements had 3 dead indexes from schema iterations. REINDEX CONCURRENTLY ran in 18 min. Index size down 74%.",
-          "actor": "demo2",
-          "created_at": "2026-02-03T21:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Upgrade PostgreSQL 16.1 → 16.4 (minor patch)",
-      "description": "PostgreSQL minor upgrade 16.1 → 16.4. Three bug fixes including COPY binary encoding issue. Staging complete, failover test passed. Production Sunday 03:00 UTC.",
-      "priority": "medium",
-      "column": "Change Window",
-      "swimlane": "PostgreSQL Cluster",
-      "due_date": "2026-03-17",
-      "weight": 4,
-      "labels": [
-        "Change"
-      ],
-      "checklist": [
-        {
-          "text": "Patch notes reviewed — no breaking changes",
-          "is_checked": true
-        },
-        {
-          "text": "Staging upgrade complete",
-          "is_checked": true
-        },
-        {
-          "text": "Failover test passed: < 15s RTO",
-          "is_checked": true
-        },
-        {
-          "text": "Production upgrade Sunday 03:00 UTC",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Minor upgrade for 3 bug fixes (one affecting COPY with binary encoding). Staging upgrade clean. Production Sunday 03:00 UTC.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Change",
           "actor": "demo5",
-          "created_at": "2026-01-07T13:00:00+00:00"
+          "created_at": "2026-02-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo2",
+          "created_at": "2026-02-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-02-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design circuit breaker logic",
+          "actor": "demo3",
+          "created_at": "2026-03-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Implement in Kong config",
+          "actor": "demo2",
+          "created_at": "2026-03-03T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Chaos test: simulate DB failure",
+          "actor": "demo2",
+          "created_at": "2026-03-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design circuit breaker logic",
+          "actor": "demo4",
+          "created_at": "2026-03-05T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Upgrade Kong from 3.1 to 3.6",
+      "description": "Kong 3.1 reaches end of life 2026-05-01. Upgrade to 3.6 for security patches and performance improvements.\n\nBreaking changes: plugin API changes in 3.4. Test all custom plugins.",
+      "priority": "high",
+      "assignee": "demo4",
+      "column": "In Progress",
+      "swimlane": "API Gateway",
+      "due_date": "2026-03-29",
+      "weight": 4,
+      "labels": [
+        "Change",
+        "P2 - Medium"
+      ],
+      "checklist": [
+        {
+          "text": "Audit custom plugins for 3.4 breaking changes",
+          "is_checked": true
+        },
+        {
+          "text": "Update plugins in staging",
+          "is_checked": true
+        },
+        {
+          "text": "Staging smoke test",
+          "is_checked": false
+        },
+        {
+          "text": "Schedule production change window",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "2 custom plugins need minor updates for 3.4 API changes.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Reported",
+          "from_swimlane": null,
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reported",
+          "to_column": "Triaged",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Assigned",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "In Progress",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Morgan Wu",
+          "actor": "demo2",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P2 - Medium, Change",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-29",
+          "actor": "demo2",
+          "created_at": "2026-02-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Audit custom plugins for 3.4 breaking changes",
+          "actor": "demo3",
+          "created_at": "2026-02-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Update plugins in staging",
+          "actor": "demo3",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Staging smoke test",
+          "actor": "demo5",
+          "created_at": "2026-02-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Audit custom plugins for 3.4 breaking changes",
+          "actor": "demo2",
+          "created_at": "2026-02-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Schedule production change window",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Update plugins in staging",
+          "actor": "demo3",
+          "created_at": "2026-02-27T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Rate limit bypass on /api/export/ endpoint",
+      "description": "Reported by security scan: the /api/export/ endpoint bypasses the standard rate limiter. Large boards can be exported in a tight loop causing elevated DB load.\n\nSeverity: P1 — service degradation, not outage.",
+      "priority": "urgent",
+      "assignee": "demo3",
+      "column": "Change Window",
+      "swimlane": "API Gateway",
+      "due_date": "2026-03-16",
+      "weight": 5,
+      "labels": [
+        "P1 - High",
+        "Security"
+      ],
+      "checklist": [
+        {
+          "text": "Confirm rate limit bypass is reproducible",
+          "is_checked": true
+        },
+        {
+          "text": "Add rate limiter to /api/export/ in Kong config",
+          "is_checked": true
+        },
+        {
+          "text": "Test rate limit enforcement in staging",
+          "is_checked": true
+        },
+        {
+          "text": "Deploy during off-peak window",
+          "is_checked": true
+        },
+        {
+          "text": "Verify rate limit is active in production",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Fix tested in staging. Deploying tonight 02:00-04:00 UTC.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Reported",
+          "from_swimlane": null,
+          "to_swimlane": "API Gateway",
+          "moved_at": "2025-12-30T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Reported",
+          "to_column": "Triaged",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Assigned",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "In Progress",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "In Progress",
+          "to_column": "Testing",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Testing",
+          "to_column": "Change Window",
+          "from_swimlane": "API Gateway",
+          "to_swimlane": "API Gateway",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Jordan Patel",
+          "actor": "demo5",
+          "created_at": "2025-12-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P1 - High, Security",
+          "actor": "demo4",
+          "created_at": "2026-01-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-16",
+          "actor": "demo4",
+          "created_at": "2026-01-03T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-01-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm rate limit bypass is reproducible",
+          "actor": "demo1",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add rate limiter to /api/export/ in Kong config",
+          "actor": "demo4",
+          "created_at": "2026-01-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Test rate limit enforcement in staging",
+          "actor": "demo4",
+          "created_at": "2026-01-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Deploy during off-peak window",
+          "actor": "demo1",
+          "created_at": "2026-01-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add rate limiter to /api/export/ in Kong config",
+          "actor": "demo1",
+          "created_at": "2026-01-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify rate limit is active in production",
+          "actor": "demo5",
+          "created_at": "2026-01-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm rate limit bypass is reproducible",
+          "actor": "demo3",
+          "created_at": "2026-01-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Deploy during off-peak window",
+          "actor": "demo5",
+          "created_at": "2026-01-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Test rate limit enforcement in staging",
+          "actor": "demo4",
+          "created_at": "2026-01-18T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Add connection pooling via PgBouncer",
+      "description": "During peak traffic (Monday mornings) we approach the max_connections limit. Adding PgBouncer in transaction mode will reduce connection overhead.\n\nExpected: support 2x current peak traffic without hitting the limit.",
+      "priority": "high",
+      "assignee": "demo3",
+      "column": "Testing",
+      "swimlane": "PostgreSQL Cluster",
+      "due_date": "2026-03-22",
+      "weight": 4,
+      "labels": [
+        "Change",
+        "P1 - High"
+      ],
+      "checklist": [
+        {
+          "text": "Provision PgBouncer EC2 instance",
+          "is_checked": true
+        },
+        {
+          "text": "Configure transaction pooling mode",
+          "is_checked": true
+        },
+        {
+          "text": "Load test: simulate Monday peak",
+          "is_checked": true
+        },
+        {
+          "text": "Migrate app connections to PgBouncer in staging",
+          "is_checked": true
+        },
+        {
+          "text": "Production deployment scheduled",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Load test passed. Peak connection count down 68%. Ready for prod.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Reported",
+          "from_swimlane": null,
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reported",
+          "to_column": "Triaged",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Assigned",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "In Progress",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "In Progress",
+          "to_column": "Testing",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Jordan Patel",
+          "actor": "demo2",
+          "created_at": "2026-01-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P1 - High, Change",
+          "actor": "demo2",
+          "created_at": "2026-01-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo5",
+          "created_at": "2026-01-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provision PgBouncer EC2 instance",
+          "actor": "demo1",
+          "created_at": "2026-01-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Configure transaction pooling mode",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Load test: simulate Monday peak",
+          "actor": "demo1",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Migrate app connections to PgBouncer in staging",
+          "actor": "demo3",
+          "created_at": "2026-02-03T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Configure transaction pooling mode",
+          "actor": "demo3",
+          "created_at": "2026-02-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Production deployment scheduled",
+          "actor": "demo4",
+          "created_at": "2026-02-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Provision PgBouncer EC2 instance",
+          "actor": "demo4",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Load test: simulate Monday peak",
+          "actor": "demo4",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Migrate app connections to PgBouncer in staging",
+          "actor": "demo3",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Unplanned failover — primary DB unreachable",
+      "description": "2026-03-10 01:47 UTC: Primary RDS instance became unreachable. Failover to replica completed in 4m 22s.\n\nRoot cause: AZ-level network event in us-east-1b. Postmortem required.",
+      "priority": "urgent",
+      "assignee": "demo1",
+      "column": "Verified",
+      "swimlane": "PostgreSQL Cluster",
+      "due_date": null,
+      "weight": 5,
+      "labels": [
+        "P0 - Critical"
+      ],
+      "checklist": [
+        {
+          "text": "Incident declared and team paged",
+          "is_checked": true
+        },
+        {
+          "text": "Traffic rerouted to replica",
+          "is_checked": true
+        },
+        {
+          "text": "Primary restored",
+          "is_checked": true
+        },
+        {
+          "text": "Postmortem written",
+          "is_checked": true
+        },
+        {
+          "text": "Action items tracked",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Incident resolved. Postmortem published 2026-03-11. 3 action items.",
+          "author": "demo1"
+        },
+        {
+          "body": "Action items: (1) lower failover time SLA (2) add AZ redundancy (3) page SRE faster.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Reported",
+          "from_swimlane": null,
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2025-12-28T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reported",
+          "to_column": "Triaged",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Assigned",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-01-25T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "In Progress",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "In Progress",
+          "to_column": "Testing",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Testing",
+          "to_column": "Change Window",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Change Window",
+          "to_column": "Deployed",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Deployed",
+          "to_column": "Verified",
+          "from_swimlane": "PostgreSQL Cluster",
+          "to_swimlane": "PostgreSQL Cluster",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo2",
+          "created_at": "2025-12-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P0 - Critical",
+          "actor": "demo4",
+          "created_at": "2025-12-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Incident declared and team paged",
+          "actor": "demo1",
+          "created_at": "2026-01-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Traffic rerouted to replica",
+          "actor": "demo4",
+          "created_at": "2026-01-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo2",
+          "created_at": "2026-01-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Primary restored",
+          "actor": "demo2",
+          "created_at": "2026-01-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Postmortem written",
+          "actor": "demo3",
+          "created_at": "2026-01-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Incident declared and team paged",
+          "actor": "demo1",
+          "created_at": "2026-01-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Action items tracked",
+          "actor": "demo5",
+          "created_at": "2026-01-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Traffic rerouted to replica",
+          "actor": "demo2",
+          "created_at": "2026-01-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo2",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Primary restored",
+          "actor": "demo3",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Postmortem written",
+          "actor": "demo2",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Action items tracked",
+          "actor": "demo4",
+          "created_at": "2026-01-14T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Backend test suite taking 18+ minutes",
+      "description": "The backend test suite grew from 8 min to 18 min over the last quarter. Blocking developer velocity.\n\nInvestigation: serial test execution, no DB fixtures caching.",
+      "priority": "high",
+      "assignee": "demo4",
+      "column": "In Progress",
+      "swimlane": "CI/CD Pipeline",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [
+        "Change",
+        "P1 - High"
+      ],
+      "checklist": [
+        {
+          "text": "Profile slow tests (> 500ms each)",
+          "is_checked": true
+        },
+        {
+          "text": "Parallelize test runner across 4 workers",
+          "is_checked": true
+        },
+        {
+          "text": "Add setUpTestData for fixture-heavy test classes",
+          "is_checked": false
+        },
+        {
+          "text": "Verify pipeline drops below 8 min target",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Parallelization alone cut from 18 min to 11 min. setUpTestData should get us to ~7.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Reported",
+          "from_swimlane": null,
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-02-04T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Reported",
+          "to_column": "Triaged",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Assigned",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "In Progress",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Morgan Wu",
+          "actor": "demo1",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P1 - High, Change",
+          "actor": "demo4",
+          "created_at": "2026-02-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo3",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Profile slow tests (> 500ms each)",
+          "actor": "demo1",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Parallelize test runner across 4 workers",
+          "actor": "demo2",
+          "created_at": "2026-02-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add setUpTestData for fixture-heavy test classes",
+          "actor": "demo4",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify pipeline drops below 8 min target",
+          "actor": "demo4",
+          "created_at": "2026-02-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Parallelize test runner across 4 workers",
+          "actor": "demo4",
+          "created_at": "2026-02-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Profile slow tests (> 500ms each)",
+          "actor": "demo5",
+          "created_at": "2026-02-20T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Add SAST scan (Bandit + semgrep) to all MRs",
+      "description": "Static analysis security scanning is currently optional. Make it a required CI gate that blocks merge on high-severity findings.",
+      "priority": "medium",
+      "assignee": "demo1",
+      "column": "Verified",
+      "swimlane": "CI/CD Pipeline",
+      "due_date": null,
+      "weight": 3,
+      "labels": [
+        "Change",
+        "Security"
+      ],
+      "checklist": [
+        {
+          "text": "Add bandit job to .gitlab-ci.yml",
+          "is_checked": true
+        },
+        {
+          "text": "Add semgrep job with python ruleset",
+          "is_checked": true
+        },
+        {
+          "text": "Set job as required for merge",
+          "is_checked": true
+        },
+        {
+          "text": "Clear all pre-existing findings",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "SAST gate live. 0 pre-existing findings after cleanup sprint.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Reported",
+          "from_swimlane": null,
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-01-01T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reported",
+          "to_column": "Triaged",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-01-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Assigned",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-01-21T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Assigned",
+          "to_column": "In Progress",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-01-29T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "In Progress",
+          "to_column": "Testing",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Testing",
+          "to_column": "Change Window",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Change Window",
+          "to_column": "Deployed",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Deployed",
+          "to_column": "Verified",
+          "from_swimlane": "CI/CD Pipeline",
+          "to_swimlane": "CI/CD Pipeline",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo4",
+          "created_at": "2026-01-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Change, Security",
+          "actor": "demo2",
+          "created_at": "2026-01-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add bandit job to .gitlab-ci.yml",
+          "actor": "demo4",
+          "created_at": "2026-01-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Add semgrep job with python ruleset",
+          "actor": "demo2",
+          "created_at": "2026-01-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Set job as required for merge",
+          "actor": "demo4",
+          "created_at": "2026-01-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add bandit job to .gitlab-ci.yml",
+          "actor": "demo3",
+          "created_at": "2026-01-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Add semgrep job with python ruleset",
+          "actor": "demo4",
+          "created_at": "2026-01-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Clear all pre-existing findings",
+          "actor": "demo5",
+          "created_at": "2026-01-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Clear all pre-existing findings",
+          "actor": "demo5",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Set job as required for merge",
+          "actor": "demo4",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "WAL backup verification failure",
+      "description": "Automated WAL backup verification failed on 3 consecutive days. Backups are uploading but the checksum verification Lambda is timing out.\n\nActual backups appear intact — this is a monitoring issue, not a data loss risk.",
+      "priority": "high",
+      "assignee": "demo2",
+      "column": "Assigned",
+      "swimlane": "Object Storage (S3)",
+      "due_date": "2026-03-17",
+      "weight": 4,
+      "labels": [
+        "P1 - High"
+      ],
+      "checklist": [
+        {
+          "text": "Confirm backups are intact (manual spot check)",
+          "is_checked": true
+        },
+        {
+          "text": "Identify Lambda timeout root cause",
+          "is_checked": true
+        },
+        {
+          "text": "Increase Lambda timeout from 30s to 120s",
+          "is_checked": false
+        },
+        {
+          "text": "Verify verification passes for 3 consecutive runs",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Backups confirmed intact. Lambda timeout is the issue — fix in staging.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Reported",
+          "from_swimlane": null,
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reported",
+          "to_column": "Triaged",
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Triaged",
+          "to_column": "Assigned",
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo2",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "P1 - High",
+          "actor": "demo2",
+          "created_at": "2026-02-09T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-17",
           "actor": "demo5",
-          "created_at": "2026-01-07T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Patch notes reviewed — no breaking changes",
-          "actor": "demo5",
-          "created_at": "2026-01-07T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Patch notes reviewed — no breaking changes",
-          "actor": "demo1",
-          "created_at": "2026-01-07T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Staging upgrade complete",
-          "actor": "demo5",
-          "created_at": "2026-01-07T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Staging upgrade complete",
-          "actor": "demo1",
-          "created_at": "2026-01-07T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Failover test passed: < 15s RTO",
-          "actor": "demo5",
-          "created_at": "2026-01-07T18:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Failover test passed: < 15s RTO",
-          "actor": "demo1",
-          "created_at": "2026-01-07T18:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Production upgrade Sunday 03:00 UTC",
-          "actor": "demo5",
-          "created_at": "2026-01-07T18:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Minor upgrade for 3 bug fixes (one affecting COPY with binary encoding). Staging upgrade clean. Production Sunday 03:00 ",
-          "actor": "demo4",
-          "created_at": "2026-01-07T19:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Evaluate pg_partman for card_movements partitioning",
-      "description": "card_movements is growing at ~500k rows/week and will hit 30M rows in 6 months. Evaluating pg_partman range partitioning by created_at to keep table sizes manageable.",
-      "priority": "medium",
-      "column": "Triaged",
-      "swimlane": "PostgreSQL Cluster",
-      "due_date": "2026-04-09",
-      "weight": 5,
-      "labels": [
-        "Capacity"
-      ],
-      "checklist": [
-        {
-          "text": "Benchmark partition key options (board_id vs created_at)",
-          "is_checked": false
-        },
-        {
-          "text": "Test pg_partman on a clone of card_movements",
-          "is_checked": false
-        },
-        {
-          "text": "Estimate query plan changes",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "PostgreSQL Cluster",
-          "to_swimlane": "PostgreSQL Cluster",
-          "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-23T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Capacity",
-          "actor": "demo2",
-          "created_at": "2025-12-23T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-09",
-          "actor": "demo2",
-          "created_at": "2025-12-23T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Benchmark partition key options (board_id vs created_at)",
-          "actor": "demo2",
-          "created_at": "2025-12-23T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Test pg_partman on a clone of card_movements",
-          "actor": "demo2",
-          "created_at": "2025-12-23T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Estimate query plan changes",
-          "actor": "demo2",
-          "created_at": "2025-12-23T19:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Pipeline flakiness — Docker layer cache misses on main branch",
-      "description": "Pipeline flakiness caused by Kaniko layer cache eviction during peak hours (24h TTL too short). Fixed by increasing TTL to 7 days and adding dedicated cache storage.",
-      "priority": "high",
-      "column": "Verified",
-      "swimlane": "CI/CD Pipeline",
-      "due_date": "2026-03-03",
-      "weight": 5,
-      "labels": [
-        "Incident"
-      ],
-      "checklist": [
-        {
-          "text": "Root cause: Kaniko cache TTL set to 24h, cache evicted during peak hours",
-          "is_checked": true
-        },
-        {
-          "text": "Fix: increase TTL to 7 days, dedicate cache storage node",
-          "is_checked": true
-        },
-        {
-          "text": "Pipeline p95 time: 8 min → 5 min 40s",
-          "is_checked": true
-        },
-        {
-          "text": "Flaky test rate: 0%",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Kaniko's cache TTL was expiring during business hours causing full rebuilds. 7-day TTL + dedicated storage node resolved it.",
-          "author": "demo1"
-        },
-        {
-          "body": "p95 build time down from 8 min to 5:40. Cache hit rate is now 94%.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Deployed",
-          "to_column": "Verified",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-22T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Incident",
-          "actor": "demo4",
-          "created_at": "2025-12-22T15:00:00+00:00"
+          "created_at": "2026-02-10T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
           "actor": "demo4",
-          "created_at": "2025-12-22T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-03",
-          "actor": "demo4",
-          "created_at": "2025-12-22T20:00:00+00:00"
+          "created_at": "2026-02-18T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Root cause: Kaniko cache TTL set to 24h, cache evicted during peak hours",
-          "actor": "demo4",
-          "created_at": "2025-12-22T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Root cause: Kaniko cache TTL set to 24h, cache evicted during peak hours",
-          "actor": "demo5",
-          "created_at": "2025-12-22T21:20:00+00:00"
+          "to_value": "Confirm backups are intact (manual spot check)",
+          "actor": "demo2",
+          "created_at": "2026-02-18T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Fix: increase TTL to 7 days, dedicate cache storage node",
-          "actor": "demo4",
-          "created_at": "2025-12-22T21:35:00+00:00"
+          "to_value": "Identify Lambda timeout root cause",
+          "actor": "demo5",
+          "created_at": "2026-02-19T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Fix: increase TTL to 7 days, dedicate cache storage node",
-          "actor": "demo5",
-          "created_at": "2025-12-22T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Pipeline p95 time: 8 min → 5 min 40s",
-          "actor": "demo4",
-          "created_at": "2025-12-22T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Pipeline p95 time: 8 min → 5 min 40s",
-          "actor": "demo5",
-          "created_at": "2025-12-22T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Flaky test rate: 0%",
-          "actor": "demo4",
-          "created_at": "2025-12-22T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Flaky test rate: 0%",
-          "actor": "demo5",
-          "created_at": "2025-12-22T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Kaniko's cache TTL was expiring during business hours causing full rebuilds. 7-day TTL + dedicated storage node resolved",
-          "actor": "demo1",
-          "created_at": "2025-12-22T23:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "p95 build time down from 8 min to 5:40. Cache hit rate is now 94%.",
+          "to_value": "Confirm backups are intact (manual spot check)",
           "actor": "demo3",
-          "created_at": "2025-12-23T02:20:00+00:00"
+          "created_at": "2026-02-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Increase Lambda timeout from 30s to 120s",
+          "actor": "demo2",
+          "created_at": "2026-02-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Verify verification passes for 3 consecutive runs",
+          "actor": "demo4",
+          "created_at": "2026-02-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Identify Lambda timeout root cause",
+          "actor": "demo4",
+          "created_at": "2026-02-22T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Add SAST scanning job (Semgrep) to merge request pipelines",
-      "description": "Semgrep SAST scanning added to MR pipelines. Blocks on critical findings. Two real issues found on first run (now fixed). 12 false positives suppressed.",
-      "priority": "medium",
-      "column": "Deployed",
-      "swimlane": "CI/CD Pipeline",
-      "due_date": "2026-03-07",
-      "weight": 4,
+      "title": "Enable S3 Intelligent-Tiering for attachment bucket",
+      "description": "Card attachments older than 90 days are rarely accessed. Enable Intelligent-Tiering to automatically move cold objects to lower-cost storage.\n\nEstimated saving: $180/month.",
+      "priority": "low",
+      "assignee": "demo5",
+      "column": "Verified",
+      "swimlane": "Object Storage (S3)",
+      "due_date": null,
+      "weight": 2,
       "labels": [
-        "Security",
-        "Change"
+        "Change",
+        "P2 - Medium"
       ],
       "checklist": [
         {
-          "text": "Semgrep rules selected: OWASP, Django security, secrets detection",
+          "text": "Enable Intelligent-Tiering on attachment bucket",
           "is_checked": true
         },
         {
-          "text": "False positive baseline established",
+          "text": "Confirm no access pattern disruption",
           "is_checked": true
         },
         {
-          "text": "Job added to MR pipelines — blocking on critical findings",
-          "is_checked": true
-        },
-        {
-          "text": "Documentation updated",
+          "text": "Monitor costs for 30 days",
           "is_checked": true
         }
       ],
       "comments": [
         {
-          "body": "First scan found 2 real issues and 12 false positives. False positives added to .semgrepignore. Now running clean.",
-          "author": "demo2"
+          "body": "Enabled 2026-02-01. Month 1 saving: $193. Verified complete.",
+          "author": "demo1"
         }
       ],
-      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Reported",
           "from_swimlane": null,
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-02T12:00:00+00:00",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2025-12-17T00:00:00+00:00",
           "moved_by": "demo1"
         },
         {
           "from_column": "Reported",
           "to_column": "Triaged",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2025-12-31T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Triaged",
           "to_column": "Assigned",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-01-10T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Assigned",
           "to_column": "In Progress",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "In Progress",
           "to_column": "Testing",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Testing",
           "to_column": "Change Window",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Change Window",
           "to_column": "Deployed",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Deployed",
+          "to_column": "Verified",
+          "from_swimlane": "Object Storage (S3)",
+          "to_swimlane": "Object Storage (S3)",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo4"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-02-02T13:00:00+00:00"
+          "to_value": "Casey Osei",
+          "actor": "demo4",
+          "created_at": "2025-12-18T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Security, Change",
-          "actor": "demo1",
-          "created_at": "2026-02-02T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-07",
-          "actor": "demo1",
-          "created_at": "2026-02-02T18:00:00+00:00"
+          "to_value": "P2 - Medium, Change",
+          "actor": "demo4",
+          "created_at": "2025-12-19T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Semgrep rules selected: OWASP, Django security, secrets detection",
-          "actor": "demo1",
-          "created_at": "2026-02-02T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Semgrep rules selected: OWASP, Django security, secrets detection",
-          "actor": "demo2",
-          "created_at": "2026-02-02T19:20:00+00:00"
+          "to_value": "Enable Intelligent-Tiering on attachment bucket",
+          "actor": "demo5",
+          "created_at": "2025-12-21T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "False positive baseline established",
-          "actor": "demo1",
-          "created_at": "2026-02-02T19:35:00+00:00"
+          "to_value": "Confirm no access pattern disruption",
+          "actor": "demo4",
+          "created_at": "2025-12-22T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "False positive baseline established",
-          "actor": "demo2",
-          "created_at": "2026-02-02T19:55:00+00:00"
+          "to_value": "Enable Intelligent-Tiering on attachment bucket",
+          "actor": "demo3",
+          "created_at": "2025-12-23T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Job added to MR pipelines — blocking on critical findings",
-          "actor": "demo1",
-          "created_at": "2026-02-02T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Job added to MR pipelines — blocking on critical findings",
+          "to_value": "Monitor costs for 30 days",
           "actor": "demo2",
-          "created_at": "2026-02-02T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Documentation updated",
-          "actor": "demo1",
-          "created_at": "2026-02-02T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Documentation updated",
-          "actor": "demo2",
-          "created_at": "2026-02-02T21:05:00+00:00"
+          "created_at": "2025-12-23T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "First scan found 2 real issues and 12 false positives. False positives added to .semgrepignore. Now running clean.",
-          "actor": "demo2",
-          "created_at": "2026-02-02T21:20:00+00:00"
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2025-12-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Monitor costs for 30 days",
+          "actor": "demo1",
+          "created_at": "2025-12-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm no access pattern disruption",
+          "actor": "demo3",
+          "created_at": "2025-12-27T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Reduce test suite runtime — parallelize Vitest workers",
-      "description": "Frontend test suite was running 4 large suites sequentially. Increased Vitest workers from 2 to 6 and fixed sequential execution. Runtime reduced from 4:20 to 1:45.",
+      "title": "Upgrade Kubernetes from 1.28 to 1.30",
+      "description": "EKS 1.28 support ends 2026-11-01. Plan the upgrade path: 1.28 → 1.29 → 1.30 in separate change windows.\n\nTest all Helm charts and custom operators against 1.30 API changes.",
       "priority": "medium",
-      "column": "Testing",
-      "swimlane": "CI/CD Pipeline",
-      "due_date": "2026-03-20",
-      "weight": 4,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Profiled test suite — 4 slow suites identified",
-          "is_checked": true
-        },
-        {
-          "text": "Vitest worker count increased from 2 to 6",
-          "is_checked": true
-        },
-        {
-          "text": "Frontend test time: 4m20s → 1m45s",
-          "is_checked": true
-        },
-        {
-          "text": "Run final timing validation on CI",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "4 tests were running sequentially instead of in parallel. Worker count increase from 2 to 6 cut frontend test time by 60%.",
-          "author": "demo4"
-        }
-      ],
       "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-07T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo3",
-          "created_at": "2026-02-07T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo3",
-          "created_at": "2026-02-07T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Profiled test suite — 4 slow suites identified",
-          "actor": "demo3",
-          "created_at": "2026-02-07T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Profiled test suite — 4 slow suites identified",
-          "actor": "demo4",
-          "created_at": "2026-02-07T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Vitest worker count increased from 2 to 6",
-          "actor": "demo3",
-          "created_at": "2026-02-07T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Vitest worker count increased from 2 to 6",
-          "actor": "demo4",
-          "created_at": "2026-02-07T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Frontend test time: 4m20s → 1m45s",
-          "actor": "demo3",
-          "created_at": "2026-02-07T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Frontend test time: 4m20s → 1m45s",
-          "actor": "demo4",
-          "created_at": "2026-02-07T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Run final timing validation on CI",
-          "actor": "demo3",
-          "created_at": "2026-02-07T20:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "4 tests were running sequentially instead of in parallel. Worker count increase from 2 to 6 cut frontend test time by 60",
-          "actor": "demo4",
-          "created_at": "2026-02-07T21:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Dependency scanning job — automate CVE alerting",
-      "description": "Add automated dependency scanning to CI pipeline. Scan built Docker images for CVEs on every merge to main. Alert #security Slack channel on new high/critical findings.",
-      "priority": "medium",
-      "column": "Assigned",
-      "swimlane": "CI/CD Pipeline",
-      "due_date": "2026-03-25",
-      "weight": 3,
+      "column": "Reported",
+      "swimlane": "Kubernetes Cluster",
+      "due_date": "2026-05-14",
+      "weight": 4,
       "labels": [
-        "Security"
+        "Change",
+        "P2 - Medium"
       ],
       "checklist": [
         {
-          "text": "Select tool: Trivy vs Grype",
+          "text": "Audit deprecated APIs in current Helm charts",
           "is_checked": false
         },
         {
-          "text": "Configure job to scan Docker images on merge to main",
+          "text": "Test 1.29 upgrade in staging cluster",
           "is_checked": false
         },
         {
-          "text": "Wire alerts to #security Slack channel",
+          "text": "Test 1.30 upgrade in staging cluster",
           "is_checked": false
         },
         {
-          "text": "Document suppression process for false positives",
+          "text": "Schedule 1.29 production change window",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Reported",
           "from_swimlane": null,
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "CI/CD Pipeline",
-          "to_swimlane": "CI/CD Pipeline",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Security",
-          "actor": "demo5",
-          "created_at": "2026-01-25T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-25",
-          "actor": "demo5",
-          "created_at": "2026-01-25T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Select tool: Trivy vs Grype",
-          "actor": "demo5",
-          "created_at": "2026-01-25T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Configure job to scan Docker images on merge to main",
-          "actor": "demo5",
-          "created_at": "2026-01-25T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Wire alerts to #security Slack channel",
-          "actor": "demo5",
-          "created_at": "2026-01-25T17:40:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Document suppression process for false positives",
-          "actor": "demo5",
-          "created_at": "2026-01-25T18:00:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "S3 presigned URL expiry too short — file upload failures on slow connections",
-      "description": "Large file uploads failing on slow mobile connections because presigned URLs expired (15-min TTL) before upload completed. Extended TTL to 2 hours. Resolved.",
-      "priority": "high",
-      "column": "Verified",
-      "swimlane": "Object Storage (S3)",
-      "due_date": "2026-02-23",
-      "weight": 4,
-      "labels": [
-        "Incident"
-      ],
-      "checklist": [
-        {
-          "text": "Confirmed: 15-min expiry insufficient for large file uploads on mobile",
-          "is_checked": true
-        },
-        {
-          "text": "Fix: presigned URL expiry extended to 2 hours",
-          "is_checked": true
-        },
-        {
-          "text": "Tested with 50 MB file on throttled connection",
-          "is_checked": true
-        },
-        {
-          "text": "Production deployed — no further upload failures",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "15-minute presigned URL was fine for desktop but mobile users on 3G took longer to upload. Extended to 2 hours.",
-          "author": "demo1"
-        },
-        {
-          "body": "Zero upload timeout failures since the fix. 7-day monitoring complete.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-10T12:00:00+00:00",
+          "to_swimlane": "Kubernetes Cluster",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo4"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Testing",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Deployed",
-          "to_column": "Verified",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-28T13:00:00+00:00"
+          "to_value": "Jordan Patel",
+          "actor": "demo4",
+          "created_at": "2026-03-09T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Incident",
-          "actor": "demo2",
-          "created_at": "2025-12-28T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo2",
-          "created_at": "2025-12-28T18:00:00+00:00"
+          "to_value": "P2 - Medium, Change",
+          "actor": "demo4",
+          "created_at": "2026-03-11T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-02-23",
-          "actor": "demo2",
-          "created_at": "2025-12-28T20:00:00+00:00"
+          "to_value": "2026-05-14",
+          "actor": "demo3",
+          "created_at": "2026-03-12T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Confirmed: 15-min expiry insufficient for large file uploads on mobile",
+          "to_value": "Audit deprecated APIs in current Helm charts",
           "actor": "demo2",
-          "created_at": "2025-12-28T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Confirmed: 15-min expiry insufficient for large file uploads on mobile",
-          "actor": "demo3",
-          "created_at": "2025-12-28T21:20:00+00:00"
+          "created_at": "2026-03-15T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Fix: presigned URL expiry extended to 2 hours",
-          "actor": "demo2",
-          "created_at": "2025-12-28T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Fix: presigned URL expiry extended to 2 hours",
-          "actor": "demo3",
-          "created_at": "2025-12-28T21:55:00+00:00"
+          "to_value": "Test 1.29 upgrade in staging cluster",
+          "actor": "demo4",
+          "created_at": "2026-03-16T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Tested with 50 MB file on throttled connection",
+          "to_value": "Test 1.30 upgrade in staging cluster",
           "actor": "demo2",
-          "created_at": "2025-12-28T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Tested with 50 MB file on throttled connection",
-          "actor": "demo3",
-          "created_at": "2025-12-28T22:30:00+00:00"
+          "created_at": "2026-03-17T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Production deployed — no further upload failures",
-          "actor": "demo2",
-          "created_at": "2025-12-28T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Production deployed — no further upload failures",
-          "actor": "demo3",
-          "created_at": "2025-12-28T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "15-minute presigned URL was fine for desktop but mobile users on 3G took longer to upload. Extended to 2 hours.",
-          "actor": "demo1",
-          "created_at": "2025-12-28T23:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Zero upload timeout failures since the fix. 7-day monitoring complete.",
-          "actor": "demo2",
-          "created_at": "2025-12-29T05:20:00+00:00"
+          "to_value": "Schedule 1.29 production change window",
+          "actor": "demo4",
+          "created_at": "2026-03-18T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Lifecycle policy — expire temporary upload staging prefix",
-      "description": "S3 tmp/ prefix was accumulating failed partial uploads indefinitely. Added 24-hour lifecycle expiry rule. Cost reduction ~$40/month.",
-      "priority": "medium",
-      "column": "Deployed",
-      "swimlane": "Object Storage (S3)",
-      "due_date": "2026-03-09",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Temporary upload prefix identified: uploads/tmp/*",
-          "is_checked": true
-        },
-        {
-          "text": "Lifecycle rule: delete after 24 hours",
-          "is_checked": true
-        },
-        {
-          "text": "Applied and tested",
-          "is_checked": true
-        },
-        {
-          "text": "Cost reduction: ~$40/month",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "tmp/ prefix was accumulating failed partial uploads indefinitely. 24-hour expiry lifecycle rule added. Saves ~$40/month.",
-          "author": "demo3"
-        }
-      ],
+      "title": "Node group OOM kill during Monday traffic spike",
+      "description": "2026-03-17 08:45 UTC: 2 backend pods OOM-killed during Monday traffic spike.\n\nRoot cause: default memory limit (512Mi) too low for current board query patterns. Increase to 1Gi and add vertical pod autoscaler.",
+      "priority": "urgent",
       "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "In Progress",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Testing",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Testing",
-          "to_column": "Change Window",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2025-12-31T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo4",
-          "created_at": "2025-12-31T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-09",
-          "actor": "demo4",
-          "created_at": "2025-12-31T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Temporary upload prefix identified: uploads/tmp/*",
-          "actor": "demo4",
-          "created_at": "2025-12-31T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Temporary upload prefix identified: uploads/tmp/*",
-          "actor": "demo5",
-          "created_at": "2025-12-31T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Lifecycle rule: delete after 24 hours",
-          "actor": "demo4",
-          "created_at": "2025-12-31T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Lifecycle rule: delete after 24 hours",
-          "actor": "demo5",
-          "created_at": "2025-12-31T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Applied and tested",
-          "actor": "demo4",
-          "created_at": "2025-12-31T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Applied and tested",
-          "actor": "demo5",
-          "created_at": "2025-12-31T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Cost reduction: ~$40/month",
-          "actor": "demo4",
-          "created_at": "2025-12-31T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Cost reduction: ~$40/month",
-          "actor": "demo5",
-          "created_at": "2025-12-31T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "tmp/ prefix was accumulating failed partial uploads indefinitely. 24-hour expiry lifecycle rule added. Saves ~$40/month.",
-          "actor": "demo3",
-          "created_at": "2025-12-31T21:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Enable S3 Object Lock for backup buckets (WORM compliance)",
-      "description": "Enable S3 Object Lock (WORM) on the backup bucket to satisfy 7-year retention compliance requirement for billing records. Requires bucket recreation and backup migration.",
-      "priority": "medium",
-      "column": "In Progress",
-      "swimlane": "Object Storage (S3)",
-      "due_date": "2026-03-23",
+      "column": "Deployed",
+      "swimlane": "Kubernetes Cluster",
+      "due_date": null,
       "weight": 5,
       "labels": [
-        "Security",
-        "Change"
+        "Change",
+        "P0 - Critical"
       ],
       "checklist": [
         {
-          "text": "Legal confirmed: 7-year retention required for billing records",
+          "text": "Increase memory limits to 1Gi in deployment manifest",
           "is_checked": true
         },
         {
-          "text": "Backup bucket policy reviewed",
+          "text": "Deploy updated manifest",
           "is_checked": true
         },
         {
-          "text": "Enable Object Lock in compliance mode",
-          "is_checked": false
+          "text": "Install VPA and configure for backend deployment",
+          "is_checked": true
         },
         {
-          "text": "Test that delete attempts are correctly blocked",
+          "text": "Verify no OOM kills in next Monday spike",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Object Lock requires the bucket to be created fresh — can't enable it on an existing bucket. Creating a new bucket and migrating backups.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-27T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Security, Change",
-          "actor": "demo1",
-          "created_at": "2025-12-27T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo1",
-          "created_at": "2025-12-27T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Legal confirmed: 7-year retention required for billing records",
-          "actor": "demo1",
-          "created_at": "2025-12-27T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Legal confirmed: 7-year retention required for billing records",
-          "actor": "demo2",
-          "created_at": "2025-12-27T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Backup bucket policy reviewed",
-          "actor": "demo1",
-          "created_at": "2025-12-27T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Backup bucket policy reviewed",
-          "actor": "demo2",
-          "created_at": "2025-12-27T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Enable Object Lock in compliance mode",
-          "actor": "demo1",
-          "created_at": "2025-12-27T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Test that delete attempts are correctly blocked",
-          "actor": "demo1",
-          "created_at": "2025-12-27T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Object Lock requires the bucket to be created fresh — can't enable it on an existing bucket. Creating a new bucket and m",
-          "actor": "demo4",
-          "created_at": "2025-12-27T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "S3 cross-region replication lag monitoring",
-      "description": "Cross-region replication from us-east-1 to eu-west-1 has no lag monitoring. Need CloudWatch metrics and an alert if replication falls more than 30 minutes behind.",
-      "priority": "medium",
-      "column": "Triaged",
-      "swimlane": "Object Storage (S3)",
-      "due_date": "2026-03-30",
-      "weight": 3,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Define replication lag SLO (target: < 15 min)",
-          "is_checked": false
-        },
-        {
-          "text": "Set up CloudWatch replication metrics dashboard",
-          "is_checked": false
-        },
-        {
-          "text": "Alert on lag > 30 min",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "Object Storage (S3)",
-          "to_swimlane": "Object Storage (S3)",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-03T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo3",
-          "created_at": "2026-02-03T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-30",
-          "actor": "demo3",
-          "created_at": "2026-02-03T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Define replication lag SLO (target: < 15 min)",
-          "actor": "demo3",
-          "created_at": "2026-02-03T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Set up CloudWatch replication metrics dashboard",
-          "actor": "demo3",
-          "created_at": "2026-02-03T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Alert on lag > 30 min",
-          "actor": "demo3",
-          "created_at": "2026-02-03T19:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "OOMKilled worker pods — analytics aggregation job memory leak",
-      "description": "Worker pods OOMKilled due to unbounded in-process cache growth between Celery tasks. Fixed by clearing cache in post-task signal. Memory limit also increased to 1.5 GB.",
-      "priority": "high",
-      "column": "Verified",
-      "swimlane": "Kubernetes Cluster",
-      "due_date": "2026-03-05",
-      "weight": 6,
-      "labels": [
-        "Incident"
-      ],
-      "checklist": [
-        {
-          "text": "Root cause: Python object cache in worker not cleared between tasks",
-          "is_checked": true
-        },
-        {
-          "text": "Fix: call cache.clear() in Celery post-task signal",
-          "is_checked": true
-        },
-        {
-          "text": "Memory stable for 72h",
-          "is_checked": true
-        },
-        {
-          "text": "Memory limit increased as a safety buffer (1 GB → 1.5 GB)",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Python's in-process cache was growing unbounded between Celery tasks. Post-task signal to call cache.clear() fixed it.",
+          "body": "Memory limits updated and VPA configured. Monitoring next Monday.",
           "author": "demo1"
-        },
-        {
-          "body": "Worker pods stable for 72h. Peak memory usage is now 890 MB (was hitting 1 GB OOM). Incident closed.",
-          "author": "demo3"
         }
       ],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Reported",
           "from_swimlane": null,
           "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2025-12-27T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Reported",
           "to_column": "Triaged",
           "from_swimlane": "Kubernetes Cluster",
           "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_at": "2026-01-13T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Triaged",
           "to_column": "Assigned",
           "from_swimlane": "Kubernetes Cluster",
           "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Assigned",
           "to_column": "In Progress",
           "from_swimlane": "Kubernetes Cluster",
           "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-21T12:00:00+00:00",
+          "moved_at": "2026-02-04T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
@@ -2803,600 +1779,103 @@
           "to_column": "Testing",
           "from_swimlane": "Kubernetes Cluster",
           "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Testing",
           "to_column": "Change Window",
           "from_swimlane": "Kubernetes Cluster",
           "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Change Window",
           "to_column": "Deployed",
           "from_swimlane": "Kubernetes Cluster",
           "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-03-03T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Deployed",
-          "to_column": "Verified",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-03-06T12:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo2"
         }
       ],
       "activities": [
         {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Morgan Wu",
+          "actor": "demo3",
+          "created_at": "2025-12-28T00:00:00+00:00"
+        },
+        {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "Incident",
-          "actor": "demo5",
-          "created_at": "2026-02-07T13:00:00+00:00"
+          "to_value": "P0 - Critical, Change",
+          "actor": "demo1",
+          "created_at": "2025-12-29T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
+          "from_value": "high",
+          "to_value": "urgent",
           "actor": "demo5",
-          "created_at": "2026-02-07T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-05",
-          "actor": "demo5",
-          "created_at": "2026-02-07T18:00:00+00:00"
+          "created_at": "2026-01-01T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Root cause: Python object cache in worker not cleared between tasks",
-          "actor": "demo5",
-          "created_at": "2026-02-07T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Root cause: Python object cache in worker not cleared between tasks",
+          "to_value": "Increase memory limits to 1Gi in deployment manifest",
           "actor": "demo1",
-          "created_at": "2026-02-07T19:20:00+00:00"
+          "created_at": "2026-01-03T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Fix: call cache.clear() in Celery post-task signal",
+          "to_value": "Deploy updated manifest",
           "actor": "demo5",
-          "created_at": "2026-02-07T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Fix: call cache.clear() in Celery post-task signal",
-          "actor": "demo1",
-          "created_at": "2026-02-07T19:55:00+00:00"
+          "created_at": "2026-01-04T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Memory stable for 72h",
-          "actor": "demo5",
-          "created_at": "2026-02-07T20:10:00+00:00"
+          "to_value": "Install VPA and configure for backend deployment",
+          "actor": "demo3",
+          "created_at": "2026-01-05T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Memory stable for 72h",
-          "actor": "demo1",
-          "created_at": "2026-02-07T20:30:00+00:00"
+          "to_value": "Increase memory limits to 1Gi in deployment manifest",
+          "actor": "demo5",
+          "created_at": "2026-01-06T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Memory limit increased as a safety buffer (1 GB → 1.5 GB)",
-          "actor": "demo5",
-          "created_at": "2026-02-07T20:45:00+00:00"
+          "to_value": "Verify no OOM kills in next Monday spike",
+          "actor": "demo1",
+          "created_at": "2026-01-06T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Memory limit increased as a safety buffer (1 GB → 1.5 GB)",
-          "actor": "demo1",
-          "created_at": "2026-02-07T21:05:00+00:00"
+          "to_value": "Deploy updated manifest",
+          "actor": "demo5",
+          "created_at": "2026-01-07T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Python's in-process cache was growing unbounded between Celery tasks. Post-task signal to call cache.clear() fixed it.",
+          "to_value": "",
           "actor": "demo1",
-          "created_at": "2026-02-07T21:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Worker pods stable for 72h. Peak memory usage is now 890 MB (was hitting 1 GB OOM). Incident closed.",
-          "actor": "demo3",
-          "created_at": "2026-02-08T03:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "EKS 1.28 → 1.29 cluster upgrade",
-      "description": "EKS cluster upgrade from 1.28 to 1.29. Zero API deprecation breaking changes. Rolling node group upgrade with no pod disruption. Completed in 38 minutes.",
-      "priority": "high",
-      "column": "Deployed",
-      "swimlane": "Kubernetes Cluster",
-      "due_date": "2026-03-12",
-      "weight": 7,
-      "labels": [
-        "Change"
-      ],
-      "checklist": [
-        {
-          "text": "AWS upgrade checklist completed",
-          "is_checked": true
-        },
-        {
-          "text": "API deprecations reviewed — 0 breaking changes",
-          "is_checked": true
-        },
-        {
-          "text": "Node group upgrade: rolling, no pod disruption",
-          "is_checked": true
-        },
-        {
-          "text": "Cluster upgraded in 38 minutes",
-          "is_checked": true
-        },
-        {
-          "text": "All system pods healthy",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "EKS 1.29 upgrade completed without any pod disruption. All 3 node groups rolled successfully. Took 38 min.",
-          "author": "demo2"
-        },
-        {
-          "body": "Monitoring 24h post-upgrade. All green. Autoscaler and CoreDNS both running the latest compatible versions.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "In Progress",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "In Progress",
-          "to_column": "Change Window",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Change Window",
-          "to_column": "Deployed",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-10T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Change",
-          "actor": "demo2",
-          "created_at": "2025-12-10T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo2",
-          "created_at": "2025-12-10T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-12",
-          "actor": "demo2",
-          "created_at": "2025-12-10T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "AWS upgrade checklist completed",
-          "actor": "demo2",
-          "created_at": "2025-12-10T21:00:00+00:00"
+          "created_at": "2026-01-07T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "AWS upgrade checklist completed",
-          "actor": "demo3",
-          "created_at": "2025-12-10T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "API deprecations reviewed — 0 breaking changes",
-          "actor": "demo2",
-          "created_at": "2025-12-10T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "API deprecations reviewed — 0 breaking changes",
-          "actor": "demo3",
-          "created_at": "2025-12-10T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Node group upgrade: rolling, no pod disruption",
-          "actor": "demo2",
-          "created_at": "2025-12-10T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Node group upgrade: rolling, no pod disruption",
-          "actor": "demo3",
-          "created_at": "2025-12-10T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Cluster upgraded in 38 minutes",
-          "actor": "demo2",
-          "created_at": "2025-12-10T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Cluster upgraded in 38 minutes",
-          "actor": "demo3",
-          "created_at": "2025-12-10T23:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "All system pods healthy",
-          "actor": "demo2",
-          "created_at": "2025-12-10T23:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "All system pods healthy",
-          "actor": "demo3",
-          "created_at": "2025-12-10T23:40:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "EKS 1.29 upgrade completed without any pod disruption. All 3 node groups rolled successfully. Took 38 min.",
-          "actor": "demo2",
-          "created_at": "2025-12-10T23:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Monitoring 24h post-upgrade. All green. Autoscaler and CoreDNS both running the latest compatible versions.",
+          "to_value": "Install VPA and configure for backend deployment",
           "actor": "demo4",
-          "created_at": "2025-12-11T09:55:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Pod topology spread constraints — better AZ distribution",
-      "description": "API pods are disproportionately placed in us-east-1a (70%) due to node group preferences. Adding TopologySpreadConstraints to enforce even distribution across AZs.",
-      "priority": "medium",
-      "column": "Testing",
-      "swimlane": "Kubernetes Cluster",
-      "due_date": "2026-03-21",
-      "weight": 4,
-      "labels": [
-        "Improve"
-      ],
-      "checklist": [
-        {
-          "text": "Analyzed pod distribution: 70% of API pods in us-east-1a",
-          "is_checked": true
-        },
-        {
-          "text": "TopologySpreadConstraints config written",
-          "is_checked": true
-        },
-        {
-          "text": "Apply to API and worker deployments on staging",
-          "is_checked": false
-        },
-        {
-          "text": "Verify even spread before promoting",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "70% of API pods were in us-east-1a due to node group placement groups. TopologySpreadConstraints will enforce maxSkew=1 across zones.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Assigned",
-          "to_column": "Testing",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-02-08T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Improve",
-          "actor": "demo4",
-          "created_at": "2026-02-08T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-21",
-          "actor": "demo4",
-          "created_at": "2026-02-08T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Analyzed pod distribution: 70% of API pods in us-east-1a",
-          "actor": "demo4",
-          "created_at": "2026-02-08T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Analyzed pod distribution: 70% of API pods in us-east-1a",
-          "actor": "demo5",
-          "created_at": "2026-02-08T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "TopologySpreadConstraints config written",
-          "actor": "demo4",
-          "created_at": "2026-02-08T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "TopologySpreadConstraints config written",
-          "actor": "demo5",
-          "created_at": "2026-02-08T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Apply to API and worker deployments on staging",
-          "actor": "demo4",
-          "created_at": "2026-02-08T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Verify even spread before promoting",
-          "actor": "demo4",
-          "created_at": "2026-02-08T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "70% of API pods were in us-east-1a due to node group placement groups. TopologySpreadConstraints will enforce maxSkew=1 ",
-          "actor": "demo1",
-          "created_at": "2026-02-08T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Cluster autoscaler tuning — reduce scale-down aggression",
-      "description": "Cluster autoscaler is scaling down too aggressively after traffic spikes, causing pod rescheduling latency. Increasing scale-down delay and unneeded-time thresholds.",
-      "priority": "medium",
-      "column": "Assigned",
-      "swimlane": "Kubernetes Cluster",
-      "due_date": "2026-03-24",
-      "weight": 4,
-      "labels": [
-        "Capacity"
-      ],
-      "checklist": [
-        {
-          "text": "Analyzed scale-down events over 14 days",
-          "is_checked": true
-        },
-        {
-          "text": "New config: scale-down-delay-after-add=5m, scale-down-unneeded-time=10m",
-          "is_checked": true
-        },
-        {
-          "text": "Apply to cluster autoscaler deployment",
-          "is_checked": false
-        },
-        {
-          "text": "Monitor for over/under-scaling",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Reported",
-          "from_swimlane": null,
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Reported",
-          "to_column": "Triaged",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Triaged",
-          "to_column": "Assigned",
-          "from_swimlane": "Kubernetes Cluster",
-          "to_swimlane": "Kubernetes Cluster",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-27T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Capacity",
-          "actor": "demo1",
-          "created_at": "2026-01-27T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-24",
-          "actor": "demo1",
-          "created_at": "2026-01-27T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Analyzed scale-down events over 14 days",
-          "actor": "demo1",
-          "created_at": "2026-01-27T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Analyzed scale-down events over 14 days",
-          "actor": "demo2",
-          "created_at": "2026-01-27T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "New config: scale-down-delay-after-add=5m, scale-down-unneeded-time=10m",
-          "actor": "demo1",
-          "created_at": "2026-01-27T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "New config: scale-down-delay-after-add=5m, scale-down-unneeded-time=10m",
-          "actor": "demo2",
-          "created_at": "2026-01-27T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Apply to cluster autoscaler deployment",
-          "actor": "demo1",
-          "created_at": "2026-01-27T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Monitor for over/under-scaling",
-          "actor": "demo1",
-          "created_at": "2026-01-27T20:30:00+00:00"
+          "created_at": "2026-01-08T00:00:00+00:00"
         }
       ]
     }

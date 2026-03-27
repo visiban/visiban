@@ -1,21 +1,12 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Define MVP feature set and success metrics,Retro,Mobile App Relaunch,high,2026-02-23,5,Milestone,demo2,4,4,2,Define the minimum viable feature set for the mobile app relaunch and the succes
-UX research synthesis — navigation patterns,Retro,Mobile App Relaunch,high,2026-03-05,4,Milestone,demo4,4,4,1,Synthesize findings from 6 user interviews into actionable navigation design dec
-Beta release to 500 internal testers,Milestone Review,Mobile App Relaunch,high,2026-03-20,6,Milestone,demo1,4,2,1,Internal beta release to 500 employees and trusted users. Gate criteria: crash r
-App store submission and release notes,Execution,Mobile App Relaunch,medium,2026-04-02,3,Milestone,demo3,4,0,0,"Prepare and submit app store listings including screenshots, release notes, and "
-Schema mapping: Redshift → Snowflake,Retro,Data Platform Migration,high,2026-02-13,6,Milestone,,4,4,2,Full schema mapping from Redshift to Snowflake for all 142 tables. 11 type incom
-ELT pipeline cutover — dbt models,Execution,Data Platform Migration,high,2026-03-23,7,Dependency,demo2,4,2,1,Port all 67 dbt models from Redshift SQL dialect to Snowflake. Models must produ
-Historical data validation — row counts and checksums,Milestone Review,Data Platform Migration,medium,2026-03-27,5,Milestone,demo4,4,2,1,Validate migrated data quality by comparing row counts and checksums between Red
-Decommission Redshift cluster,Planning,Data Platform Migration,medium,2026-04-19,3,Dependency,demo1,4,0,0,Decommission the Redshift cluster after a 30-day quiet period post-migration. Fi
-Access control evidence collection,Execution,Security Compliance Audit,high,2026-03-22,5,Milestone,demo3,4,2,2,"Collect and package access control evidence for SOC 2 auditor: IAM role exports,"
-Penetration test — external perimeter,Milestone Review,Security Compliance Audit,high,2026-03-25,6,Milestone,,4,3,1,External penetration test of the 4 public API endpoints and admin portal. Perfor
-Incident response plan — tabletop exercise,Retro,Security Compliance Audit,medium,2026-03-10,4,Milestone,demo2,4,4,1,Tabletop exercise to validate the incident response plan with two scenarios: ran
-Vendor risk assessments — top 10 vendors,Kickoff,Security Compliance Audit,medium,2026-04-04,3,Dependency,demo4,4,0,0,SOC 2 requires evidence of vendor risk management. Assess top 10 vendors by data
-Invoice download and history UI,Execution,Customer Portal v2,high,2026-03-24,5,Milestone,demo1,4,2,1,Invoice download feature for the customer portal. Customers can view and downloa
-Usage dashboard — seats and API calls,Milestone Review,Customer Portal v2,medium,2026-03-29,4,Milestone,demo3,4,3,1,Usage dashboard showing seat utilization and API call volume over time. Built wi
-Support ticket submission flow,Kickoff,Customer Portal v2,medium,2026-04-09,3,Dependency,,4,0,0,"Self-service support ticket submission in the portal, wired to Zendesk. Customer"
-SSO deep-link for portal (SAML assertions),Planning,Customer Portal v2,medium,2026-04-24,4,Dependency,demo2,4,0,0,Enterprise customers need SSO deep-link support so employees land directly in th
-Deletion request intake API,Retro,GDPR Deletion Pipeline,high,2026-02-28,5,Milestone,demo4,4,4,2,"API endpoint to receive right-to-erasure requests, verify the requester's identi"
-Cross-service deletion orchestrator,Execution,GDPR Deletion Pipeline,high,2026-03-21,7,Milestone,demo1,4,2,1,"Orchestrator service fans deletion requests out to 6 downstream services (auth, "
-Deletion audit report — per-request evidence,Milestone Review,GDPR Deletion Pipeline,medium,2026-03-27,4,Milestone,demo3,4,2,1,Generate a per-request audit report showing exactly which data was deleted from 
-Suppression list for marketing after deletion,Planning,GDPR Deletion Pipeline,medium,2026-04-14,3,Dependency,,4,0,0,"After a deletion request completes, the user's email must be added to the market"
+App Store Submission,Planning,Mobile App Relaunch,medium,2026-04-19,3,,demo5,4,0,0,Submit updated app to Apple App Store and Google Play.  Apple review typically 3
+API v3 Integration,Execution,Mobile App Relaunch,urgent,2026-03-25,5,Blocked,demo1,4,2,1,Migrate the mobile app from REST API v2 to the new v3 GraphQL API.  Breaking cha
+UX Research & Design,Milestone Review,Mobile App Relaunch,high,2026-03-10,4,On Track,demo2,4,3,1,"User research, wireframing, and final design system for the relaunched app.  ## "
+Production Cutover,Planning,Data Platform Migration,urgent,2026-04-26,5,,demo4,3,0,0,Zero-downtime cutover from Redshift to Snowflake.  Plan: dual-write phase comple
+Dual-Write Validation Phase,Kickoff,Data Platform Migration,high,2026-04-05,5,,demo3,3,0,0,Run Redshift and Snowflake in parallel for 2 weeks. Compare row counts and check
+Schema Mapping & Data Audit,Milestone Review,Data Platform Migration,high,2026-03-22,4,On Track,demo3,4,2,1,Audit all 340 tables in Redshift and map each to Snowflake schema.  Identify tab
+SOC 2 Type II Evidence Collection,Execution,Security Compliance Audit,high,2026-03-25,4,On Track,demo4,4,2,1,Collect all evidence for the SOC 2 Type II audit.  Evidence categories: access c
+External Penetration Test,Wrap-up,Security Compliance Audit,medium,2026-03-20,3,,demo4,4,3,1,"Annual pen test scoped to public web app, API, WebSocket layer, and auth flows."
+Frontend Development,Planning,Customer Portal v2,medium,2026-04-29,4,,demo2,2,0,0,"Build the React frontend: dashboard, board list, user management, billing, suppo"
+Requirements & Stakeholder Sign-off,Milestone Review,Customer Portal v2,high,2026-03-18,3,On Track,demo1,3,2,1,"Capture all requirements from account management, support, and enterprise custom"
+Deletion Request API,Retro,GDPR Deletion Pipeline,high,,5,On Track,demo3,5,5,1,API endpoint to process GDPR erasure requests.  Must cascade across all user-own
