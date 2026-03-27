@@ -1159,8 +1159,24 @@ class BoardViewSet(viewsets.ModelViewSet):
         # Stall threshold is a board-level setting, independent of the period selector.
         # The period controls the dwell-time analysis window; staleness is how long a
         # card must sit unmoved before it is considered stuck — these are separate concepts.
-        # Any stalled_days query param is silently ignored; the board setting is authoritative.
-        effective_stalled_days = board.staleness_threshold_days
+        # The stalled_days query param overrides the board setting for this request when
+        # explicitly provided; omit it to use board.staleness_threshold_days.
+        if "stalled_days" in request.query_params:
+            try:
+                stalled_days_param = int(request.query_params["stalled_days"])
+            except (ValueError, TypeError):
+                return Response(
+                    {"detail": "Query param 'stalled_days' must be a positive integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if stalled_days_param <= 0:
+                return Response(
+                    {"detail": "Query param 'stalled_days' must be a positive integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            effective_stalled_days = stalled_days_param
+        else:
+            effective_stalled_days = board.staleness_threshold_days
         stall_cutoff = now - datetime.timedelta(days=effective_stalled_days)
         # The period window controls which dwell-time data feeds the heatmap.
         period_cutoff = now - datetime.timedelta(days=days)
