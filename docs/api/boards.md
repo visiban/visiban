@@ -181,7 +181,7 @@ Board-level movement history for all cards on the board, sorted newest first. Re
 | `assignee_id` | integer | Filter by card assignee |
 | `moved_after` | ISO date | Include movements on or after this date (e.g. `2026-01-01`) |
 | `moved_before` | ISO date | Include movements on or before this date |
-| `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,restored` hides system events) |
+| `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,unarchived` hides system events) |
 | `offset` | integer | Pagination offset (default: `0`) |
 
 When neither `moved_after` nor `moved_before` is specified, results default to the last 30 days.
@@ -234,7 +234,7 @@ Each result object fields:
 | `from_swimlane_uid`, `to_swimlane_uid` | string | Denormalized swimlane UIDs |
 | `moved_by` | object | User who performed the move (`display_name` only) |
 | `moved_at` | string | ISO 8601 timestamp |
-| `movement_type` | string | One of `move`, `archived`, `restored` |
+| `movement_type` | string | One of `move`, `archived`, `unarchived` |
 | `notes` | string | Optional notes recorded at move time |
 
 **Errors:** `403 Forbidden` if the caller is not a board member; `404 Not Found` if the board does not exist.

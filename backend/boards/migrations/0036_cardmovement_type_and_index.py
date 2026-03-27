@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0032_column_is_done"),
+        ("boards", "0035_merge_enforce_wip_hard_share_token"),
     ]
 
     operations = [

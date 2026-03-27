@@ -74,7 +74,7 @@ BOARD_TEMPLATES: dict[str, dict] = {
             {"name": "In Build",   "color": "#F59E0B", "position": 4, "allow_card_creation": False},
             {"name": "Beta",       "color": "#EC4899", "position": 5, "allow_card_creation": False},
             {"name": "Launched",   "color": "#10B981", "position": 6, "allow_card_creation": False, "is_done": True},
-            {"name": "Monitoring", "color": "#14B8A6", "position": 7, "allow_card_creation": False},
+            {"name": "Monitoring", "color": "#14B8A6", "position": 7, "allow_card_creation": False},  # Monitoring is intentionally not is_done — cards here are under observation, not complete
         ],
         "lane_label": "Product Line",
         "lane_placeholder": "e.g. Mobile App",

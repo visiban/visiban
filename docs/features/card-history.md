@@ -14,11 +14,11 @@ A `CardMovement` record is created whenever a card changes column or swimlane. E
 - Who moved it (`moved_by`)
 - When (`moved_at`) — indexed for query performance
 - Optional notes
-- **Movement type** (`movement_type`) — one of `move` (standard drag-and-drop or API move), `archived` (card was archived), or `restored` (card was restored from archive)
+- **Movement type** (`movement_type`) — one of `move` (standard drag-and-drop or API move), `archived` (card was archived), or `unarchived` (card was unarchived from the Archived panel)
 
 Pure position reorders within the same cell do **not** create a movement record.
 
-`archived` and `restored` events appear in the individual card timeline but are excluded from the board-level History view by default.
+`archived` and `unarchived` events appear in the individual card timeline but are excluded from the board-level History view by default.
 
 The movement timeline is visible in the card detail panel under the **History** tab.
 
@@ -88,7 +88,7 @@ GET /api/boards/{id}/movements/
 | `assignee_id` | integer | Filter by card assignee |
 | `moved_after` | ISO date | Lower bound (inclusive) |
 | `moved_before` | ISO date | Upper bound (inclusive) |
-| `exclude_type` | comma-separated string | Exclude movement types — e.g. `archived,restored` |
+| `exclude_type` | comma-separated string | Exclude movement types — e.g. `archived,unarchived` |
 | `offset` | integer | Pagination offset (default `0`) |
 
-Page size is fixed at 50. When no date range is supplied, the endpoint defaults to the last 30 days. Archive and restore events are excluded by default by the History view UI (via `exclude_type=archived,restored`), but the API returns all types unless the parameter is provided.
+Page size is fixed at 50. When no date range is supplied, the endpoint defaults to the last 30 days. Archive and unarchive events are excluded by default by the History view UI (via `exclude_type=archived,unarchived`), but the API returns all types unless the parameter is provided.
