@@ -1,21 +1,13 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Accessible focus rings on all interactive elements,To Do,Frontend,medium,2026-03-30,2,Improve,,3,0,0,"Several interactive elements (dropdown items, modal close buttons) are missing v"
-Implement card search with debounce,Doing,Frontend,high,2026-03-21,3,Feature,demo2,4,2,1,Card search input needs proper debouncing to avoid spamming the API on every key
-Extract color token constants to design-system package,Backlog,Frontend,low,2026-04-29,2,Tech Debt,demo4,3,0,0,Several components still use hardcoded hex color strings instead of importing fr
-Optimistic update for card weight field,Review,Frontend,medium,2026-03-19,3,Improve,demo1,3,2,1,The weight field on card detail was the last non-optimistic editable field. Chan
-Add cursor-based pagination to card list endpoint,To Do,Backend,medium,2026-04-02,4,Improve,demo3,3,0,0,The card list endpoint uses page-number pagination which breaks under concurrent
-Rate limiting on public invite accept endpoint,Backlog,Backend,high,2026-04-09,3,Improve,,3,0,0,"The public invite accept endpoint has no rate limiting, making it a vector for s"
-Bulk card archive endpoint,Doing,Backend,medium,2026-03-23,3,Feature,demo2,4,2,1,New bulk archive endpoint: `POST /api/boards/{id}/cards/bulk-archive/` accepts a
-N+1 fix on /api/boards/ list endpoint,Done,Backend,high,2026-03-10,4,Improve,demo4,4,4,2,Board list endpoint was issuing 48 SQL queries for 20 boards due to missing sele
-Card swipe gestures for quick archive,Backlog,Mobile,low,2026-04-24,3,Feature,demo1,3,0,0,"Power users on mobile want to quickly archive a card by swiping left, similar to"
-Fix card drag on iOS 17 with new UIKit scroll fix,Doing,Mobile,high,2026-03-20,5,Bug,demo3,3,1,1,Card drag-and-drop is broken on iOS 17.4 — the card lifts but immediately drops 
-Push notification for card assignment,Review,Mobile,medium,2026-03-22,4,Feature,,4,3,1,Push notifications for card assignment events. APNs (iOS) and FCM (Android) both
-Offline mode: queue moves while disconnected,Doing,Mobile,high,2026-03-25,6,Feature,demo2,4,2,1,Mobile users on patchy networks need to queue card moves locally and sync when c
-Rotate CI/CD secrets — 90-day policy,To Do,DevOps,medium,2026-03-27,2,Improve,demo4,4,0,0,"90-day secret rotation is due. All CI/CD secrets (AWS access keys, DB credential"
-Add Prometheus metrics to API gateway,Backlog,DevOps,medium,2026-04-14,4,Feature,demo1,4,0,0,API gateway latency and error rate metrics are currently only visible in CloudWa
-Kubernetes pod autoscaling HPA tuning,Doing,DevOps,high,2026-03-20,5,Improve,demo3,4,2,1,"Kubernetes HPA is over-scaling on minor traffic spikes, increasing costs. Tuning"
-Zero-downtime deployment runbook,Done,DevOps,medium,2026-03-05,3,Improve,,4,4,1,Zero-downtime deployment runbook written and reviewed. Covers blue-green deploym
-Component audit — identify inconsistent spacing,Backlog,Design,low,2026-04-19,2,Improve,demo2,3,0,0,"Spacing across components is inconsistent — some use 6px gaps, others 8px, other"
-Redesign empty state illustrations,To Do,Design,medium,2026-04-04,3,Improve,demo4,4,0,0,Current empty states use generic text only. Replacing with lightweight illustrat
-User research: onboarding friction study,Review,Design,high,2026-03-23,4,Improve,demo1,4,3,2,Moderated usability sessions with 6 new users. Key findings: swimlane discovery 
-Dark mode color system — token audit,Done,Design,medium,2026-03-08,3,Improve,demo3,4,4,1,"Full audit of dark mode color tokens. Removed 23 redundant tokens, standardized "
+Add keyboard shortcut for card creation,Backlog,Frontend,low,2026-04-05,2,Feature,demo2,2,0,0,Power users want to create a new card with Ctrl+N (or Cmd+N on Mac). Should focu
+Redesign card detail modal layout,Doing,Frontend,medium,2026-03-22,3,"Feature,Improve",demo2,4,3,2,The card detail modal is crowded on smaller screens.  ## Proposed layout  - Move
+Fix column header overflow on long names,Review,Frontend,low,,1,Bug,demo1,3,3,1,Column names longer than 20 characters overflow the header chip.  Fix: truncate 
+Refactor CardMovement to use bulk_create,To Do,Backend,medium,2026-03-29,3,"Improve,Tech Debt",demo4,3,1,1,Each card drag currently fires one INSERT per movement. At high concurrency this
+Add cursor pagination to /api/boards/ endpoint,Review,Backend,high,2026-03-20,4,"Feature,Improve",demo3,4,3,1,The boards list endpoint currently returns all boards in one response. Users wit
+Write missing tests for board archive endpoint,Done,Backend,low,,2,Tech Debt,demo3,3,3,1,PATCH /api/boards/{id}/ with is_archived=true has no test coverage. Add tests: h
+Offline mode: queue card edits,To Do,Mobile,high,2026-04-02,5,Feature,demo1,4,1,1,"When the user edits a card with no internet connection, queue the change and syn"
+Fix drag-drop on iOS Safari,Doing,Mobile,urgent,2026-03-18,4,"Blocked,Bug",demo2,3,2,1,Card drag-drop broken on iOS Safari 17.4 — card snaps back on drop. Workaround s
+Add canary deployment to CI pipeline,To Do,DevOps,high,2026-03-27,4,"Feature,Improve",demo4,3,1,1,"Before routing 100% of traffic to a new release, route 5% to a canary instance f"
+Migrate secrets from .env files to Vault,Done,DevOps,medium,,3,Tech Debt,demo4,5,5,1,All app secrets currently live in .env files on each server. Migrate to HashiCor
+User research: onboarding friction points,Backlog,Design,low,2026-04-14,2,Improve,demo5,4,0,0,5 moderated sessions with new users (< 7 days active) to identify where they get
+Define color token spec for dark mode,Review,Design,medium,2026-03-25,3,"Feature,Improve",demo5,4,3,1,The design system has 12 semantic color tokens that need dark mode variants.  Au

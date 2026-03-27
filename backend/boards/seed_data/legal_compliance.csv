@@ -1,21 +1,12 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Apache 2.0 compatibility review — new OSS dependencies,Approved,Engineering,medium,2026-03-05,3,OSS,demo4,3,3,1,Quarterly OSS license review for 6 new packages added to the dependency tree. Al
-DPA with Snowflake — data processing agreement,Archived,Engineering,high,2026-02-18,4,"Contract,Compliance",demo1,4,4,1,Data Processing Agreement with Snowflake for the data platform migration. Snowfl
-BUSL license review — HashiCorp Terraform,Under Review,Engineering,medium,2026-03-20,4,"OSS,Compliance",demo3,4,2,1,HashiCorp's Terraform moved from MPL-2.0 to BUSL 1.1. Need legal opinion on whet
-Webhook partner API agreement — Zapier integration,Submitted,Engineering,medium,2026-03-27,3,Contract,,3,0,0,Zapier integration requires agreeing to Zapier's developer partner agreement. Le
-Stripe payment processing agreement renewal,Approved,Finance,high,2026-03-07,4,Contract,demo2,4,4,2,Stripe payment processing agreement renewal. Negotiated 0.3% rate reduction for 
-AWS Enterprise Discount Program — annual review,Under Review,Finance,high,2026-03-23,5,Contract,demo4,4,2,1,Annual AWS EDP review. AWS proposing 15% discount on 3-year commitment ($1.26M).
-Accounting software DPA — new bookkeeping vendor,Needs Clarification,Finance,medium,2026-03-19,3,"Contract,Compliance",demo1,4,2,1,New bookkeeping vendor's DPA is incomplete — subprocessor list not fully disclos
-SOC 2 bridge letter for enterprise prospect,Submitted,Finance,medium,2026-03-18,2,Compliance,demo3,3,0,0,Enterprise prospect (Apex Retail) is requesting a SOC 2 bridge letter covering t
-Independent contractor agreement — new design consultant,Approved,HR & People,medium,2026-03-10,3,Contract,,4,4,1,Contractor agreement for the new design consultant (Riley N. backfill during sea
-Remote work policy update — international contractors,Approved,HR & People,medium,2026-03-03,4,Policy,demo2,4,4,1,Remote work policy updated to cover permanent establishment risk in 6 countries.
-Equity plan amendment — RSU vesting cliff change,Needs Clarification,HR & People,high,2026-03-18,5,"Contract,Compliance",demo4,4,2,1,Proposed RSU vesting cliff change from 12 months to 6 months for employees with 
-Parental leave policy — align to UK statutory minimum,Under Review,HR & People,medium,2026-03-22,3,"Policy,Compliance",demo1,4,2,0,Current parental leave policy falls below UK Shared Parental Leave statutory min
-TechNova MSA — 500-seat enterprise agreement,Approved,Sales & Customer Contracts,high,2026-03-10,6,Contract,demo3,5,5,2,TechNova 500-seat enterprise MSA executed after 3 rounds of redlines. Liability 
-BlueSky Health BAA — HIPAA business associate agreement,Under Review,Sales & Customer Contracts,high,2026-03-21,5,"Contract,Compliance",,4,3,1,HIPAA BAA with BlueSky Health for healthcare project management use case. Two mo
-Mosaic Creative NDA — mutual non-disclosure,Archived,Sales & Customer Contracts,low,2026-02-25,2,Contract,demo2,3,3,1,Standard mutual NDA with Mosaic Creative executed prior to sharing commercial pr
-FinEdge order form amendment — add 20 seats mid-term,Needs Clarification,Sales & Customer Contracts,medium,2026-03-17,3,Contract,demo4,4,2,1,FinEdge wants to add 20 seats mid-term. Legal is waiting on Sales Ops to confirm
-Privacy policy update — AI feature disclosures,Approved,Product & Engineering Policy,high,2026-03-08,5,"Policy,Compliance",demo1,4,4,2,Privacy policy updated to disclose AI feature data processing (card summarizatio
-AI acceptable use policy — new document,Under Review,Product & Engineering Policy,high,2026-03-19,5,Policy,demo3,4,2,1,"New AI Acceptable Use Policy covering prohibited use cases, rate limits, and out"
-Cookie policy refresh — align with ePrivacy Directive,Needs Clarification,Product & Engineering Policy,medium,2026-03-20,4,"Policy,Compliance",,4,2,1,Cookie policy refresh required. Current 'continued browsing = consent' model is 
-Terms of Service v2 — API access and rate limits section,Submitted,Product & Engineering Policy,medium,2026-03-25,3,Policy,demo2,3,0,0,"ToS v2 needs a new section covering API access terms: rate limits, commercial us"
+New AWS vendor agreement — DPA review,Under Review,Engineering,high,2026-03-25,4,"GDPR,Vendor",demo4,2,1,1,AWS updated its Data Processing Addendum. Legal must review against current GDPR
+GDPR data deletion pipeline — legal sign-off,Approved,Engineering,urgent,,5,"GDPR,Policy",demo3,4,3,1,Request for legal sign-off on the automated GDPR erasure pipeline.  Pipeline cas
+Penetration test scope approval,Approved,Engineering,medium,,2,SOC 2,demo1,3,2,1,Annual pen test scope requires legal review before external firm is granted stag
+Customer MSA redline review — TechNova,Needs Clarification,Finance,urgent,2026-03-18,5,Contract,demo1,4,2,1,TechNova's legal team proposed two redlines on the MSA:  1. Liability cap: 2x AR
+Accounts payable policy update,Approved,Finance,medium,,3,Policy,demo2,4,3,1,Updated AP policy requiring dual approval for any invoice > $10k. Policy change 
+Remote work policy — legal review,Under Review,HR & People,high,2026-03-29,4,Policy,demo4,4,2,1,Updated remote work policy covering 14 countries. Legal must confirm compliance 
+Employee data retention policy,Closed,HR & People,medium,,2,"GDPR,Policy",demo3,4,4,1,"Define and document how long employee records are retained, segmented by record "
+HIPAA BAA — BlueSky Health,Needs Clarification,Sales & Customer Contracts,urgent,2026-03-20,4,Contract,demo1,4,2,1,BlueSky Health requires a HIPAA Business Associate Agreement before any trial da
+NDA request — GlobalBank Corp,Approved,Sales & Customer Contracts,high,,2,Contract,demo5,4,3,1,GlobalBank requires a mutual NDA before sharing their IT architecture diagrams f
+Apache 2.0 vs ELv2 boundary review,Under Review,Product & Engineering Policy,high,2026-03-27,3,Policy,demo4,4,1,1,Annual review of the OSS/enterprise license boundary. Confirm all files in enter
+New dependency license review — celery 5.4,Approved,Product & Engineering Policy,low,,1,Policy,demo3,3,2,1,celery 5.4 has been proposed as a dependency. BSD 3-Clause license — confirm com

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "Template: Hiring & Recruiting",
-  "description": "Track candidates from application through offer. Each swimlane is an open role; each card is a candidate.",
+  "description": "Track candidates from application through hire or rejection. Each swimlane is an open role; each card is a candidate.",
   "columns": [
     {
       "name": "Applied",
@@ -15,7 +15,7 @@
       "position": 1,
       "color": "#3B82F6",
       "wip_limit": null,
-      "allow_card_creation": true
+      "allow_card_creation": false
     },
     {
       "name": "Technical Screen",
@@ -55,7 +55,7 @@
     {
       "name": "Rejected",
       "position": 7,
-      "color": "#EF4444",
+      "color": "#9CA3AF",
       "wip_limit": null,
       "allow_card_creation": false
     }
@@ -65,36 +65,36 @@
       "name": "Senior Backend Engineer",
       "position": 0,
       "color": "#3B82F6",
-      "contact_email": "hiring-eng@example.com",
-      "notes": "5+ yrs Python/Django. Remote-friendly. Comp: $160-190k. Backfill for Jordan who leaves end of April."
+      "contact_email": "hiring@internal.example",
+      "notes": "Django + DRF. 5+ yrs. Hiring manager: Alex Rivera. Target: hire by 2026-05-01."
     },
     {
       "name": "Product Designer (Senior)",
       "position": 1,
       "color": "#EC4899",
-      "contact_email": "hiring-design@example.com",
-      "notes": "Strong systems thinking. Figma expert. Comp: $140-170k. New headcount approved Q1."
+      "contact_email": "hiring@internal.example",
+      "notes": "Figma, design systems, user research. Hiring manager: Casey Osei. Urgent fill."
     },
     {
       "name": "Customer Success Manager",
       "position": 2,
       "color": "#10B981",
-      "contact_email": "hiring-cs@example.com",
-      "notes": "3+ yrs SaaS CS. Owns onboarding + retention. Comp: $90-110k + commission. Priority hire."
+      "contact_email": "hiring@internal.example",
+      "notes": "B2B SaaS CS experience required. EMEA coverage preferred."
     },
     {
       "name": "DevOps Engineer",
       "position": 3,
-      "color": "#F59E0B",
-      "contact_email": "hiring-devops@example.com",
-      "notes": "Kubernetes, Terraform, GitLab CI. Comp: $140-165k. Start date target: Q2."
+      "color": "#14B8A6",
+      "contact_email": "hiring@internal.example",
+      "notes": "Kubernetes, Terraform, AWS. Ideally 4+ yrs. Hiring manager: Morgan Wu."
     },
     {
       "name": "Head of Marketing",
       "position": 4,
-      "color": "#8B5CF6",
-      "contact_email": "hiring-mktg@example.com",
-      "notes": "PLG experience required. B2B SaaS background. Comp: $160-190k + equity. Reports to CEO."
+      "color": "#F97316",
+      "contact_email": "hiring@internal.example",
+      "notes": "VP-level. B2B SaaS growth marketing. Reports to CEO. Confidential search."
     }
   ],
   "labels": [
@@ -115,3151 +115,49 @@
       "color": "#EF4444"
     },
     {
-      "name": "Referral",
+      "name": "Referred",
       "color": "#8B5CF6"
     }
   ],
   "cards": [
     {
-      "title": "Alex M. — 6 yrs Django, contributed to DRF",
-      "description": "Alex M. — 6 years Django/DRF, open-source contributor to DRF. Referral from Jordan. Panel interview unanimous. Hired at $178k. Start date April 14.",
-      "priority": "high",
-      "column": "Hired",
-      "swimlane": "Senior Backend Engineer",
-      "due_date": "2026-03-07",
-      "weight": 5,
-      "labels": [
-        "Strong Yes",
-        "Referral"
-      ],
-      "checklist": [
-        {
-          "text": "Resume reviewed",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen: strong Django fundamentals",
-          "is_checked": true
-        },
-        {
-          "text": "Take-home: excellent (score 9/10)",
-          "is_checked": true
-        },
-        {
-          "text": "Panel interview: team loved the systems design answer",
-          "is_checked": true
-        },
-        {
-          "text": "References: glowing from 2 refs",
-          "is_checked": true
-        },
-        {
-          "text": "Offer accepted: $178k + equity",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Alex's DRF contribution is exactly the level we need. Panel was unanimous. Offer accepted.",
-          "author": "demo1"
-        },
-        {
-          "body": "Start date confirmed: April 14. IT onboarding ticket filed.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-03-03T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-03T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Strong Yes, Referral",
-          "actor": "demo3",
-          "created_at": "2026-02-03T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2026-02-03T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-07",
-          "actor": "demo3",
-          "created_at": "2026-02-03T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Resume reviewed",
-          "actor": "demo3",
-          "created_at": "2026-02-03T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Resume reviewed",
-          "actor": "demo4",
-          "created_at": "2026-02-03T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: strong Django fundamentals",
-          "actor": "demo3",
-          "created_at": "2026-02-03T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: strong Django fundamentals",
-          "actor": "demo4",
-          "created_at": "2026-02-03T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Take-home: excellent (score 9/10)",
-          "actor": "demo3",
-          "created_at": "2026-02-03T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Take-home: excellent (score 9/10)",
-          "actor": "demo4",
-          "created_at": "2026-02-03T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel interview: team loved the systems design answer",
-          "actor": "demo3",
-          "created_at": "2026-02-03T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Panel interview: team loved the systems design answer",
-          "actor": "demo4",
-          "created_at": "2026-02-03T23:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "References: glowing from 2 refs",
-          "actor": "demo3",
-          "created_at": "2026-02-03T23:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "References: glowing from 2 refs",
-          "actor": "demo4",
-          "created_at": "2026-02-03T23:40:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Offer accepted: $178k + equity",
-          "actor": "demo3",
-          "created_at": "2026-02-03T23:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Offer accepted: $178k + equity",
-          "actor": "demo4",
-          "created_at": "2026-02-04T00:15:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Alex's DRF contribution is exactly the level we need. Panel was unanimous. Offer accepted.",
-          "actor": "demo1",
-          "created_at": "2026-02-04T00:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Start date confirmed: April 14. IT onboarding ticket filed.",
-          "actor": "demo3",
-          "created_at": "2026-02-04T09:30:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Sam K. — 4 yrs Python, Celery expert",
-      "description": "Sam K. — 4 years Python, strong Celery background. Take-home submission lacked tests and had multiple anti-patterns. Feedback provided; passed on.",
-      "priority": "medium",
-      "column": "Rejected",
-      "swimlane": "Senior Backend Engineer",
-      "due_date": "2026-02-28",
-      "weight": 3,
-      "labels": [
-        "No"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen: passed",
-          "is_checked": true
-        },
-        {
-          "text": "Take-home submitted",
-          "is_checked": true
-        },
-        {
-          "text": "Take-home: concerning patterns (no tests, mutable defaults)",
-          "is_checked": true
-        },
-        {
-          "text": "Passed on — feedback sent",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Take-home had no tests and used mutable default arguments in 3 places. Can't move forward at the senior level.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-03-05T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Hired",
-          "to_column": "Rejected",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-03-08T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "No",
-          "actor": "demo5",
-          "created_at": "2026-02-12T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-28",
-          "actor": "demo5",
-          "created_at": "2026-02-12T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: passed",
-          "actor": "demo5",
-          "created_at": "2026-02-12T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: passed",
-          "actor": "demo1",
-          "created_at": "2026-02-12T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Take-home submitted",
-          "actor": "demo5",
-          "created_at": "2026-02-12T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Take-home submitted",
-          "actor": "demo1",
-          "created_at": "2026-02-12T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Take-home: concerning patterns (no tests, mutable defaults)",
-          "actor": "demo5",
-          "created_at": "2026-02-12T18:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Take-home: concerning patterns (no tests, mutable defaults)",
-          "actor": "demo1",
-          "created_at": "2026-02-12T18:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Passed on — feedback sent",
-          "actor": "demo5",
-          "created_at": "2026-02-12T18:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Passed on — feedback sent",
-          "actor": "demo1",
-          "created_at": "2026-02-12T19:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Take-home had no tests and used mutable default arguments in 3 places. Can't move forward at the senior level.",
-          "actor": "demo2",
-          "created_at": "2026-02-12T19:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Morgan T. — Staff engineer, Django + Rust background",
-      "description": "Morgan T. — staff-level engineer with Django and Rust background. Top 10% technical screen score. Panel interview exceptional. Two references in progress.",
-      "priority": "high",
-      "column": "Reference Check",
-      "swimlane": "Senior Backend Engineer",
-      "due_date": "2026-03-18",
-      "weight": 6,
-      "labels": [
-        "Strong Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Resume screened",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen: excellent",
-          "is_checked": true
-        },
-        {
-          "text": "Technical screen: passed (top 10% score)",
-          "is_checked": true
-        },
-        {
-          "text": "Panel interview: exceptional systems design",
-          "is_checked": true
-        },
-        {
-          "text": "Reference 1 confirmed",
-          "is_checked": false
-        },
-        {
-          "text": "Reference 2 pending",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Morgan's systems design discussion was the best we've seen this cycle. Two references in progress.",
-          "author": "demo4"
-        },
-        {
-          "body": "Reference 1 returned: 'best engineer I've ever managed'. Waiting for reference 2.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Strong Yes",
-          "actor": "demo2",
-          "created_at": "2025-12-17T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo2",
-          "created_at": "2025-12-17T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-18",
-          "actor": "demo2",
-          "created_at": "2025-12-17T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Resume screened",
-          "actor": "demo2",
-          "created_at": "2025-12-17T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Resume screened",
-          "actor": "demo3",
-          "created_at": "2025-12-17T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: excellent",
-          "actor": "demo2",
-          "created_at": "2025-12-17T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: excellent",
-          "actor": "demo3",
-          "created_at": "2025-12-17T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Technical screen: passed (top 10% score)",
-          "actor": "demo2",
-          "created_at": "2025-12-17T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Technical screen: passed (top 10% score)",
-          "actor": "demo3",
-          "created_at": "2025-12-17T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel interview: exceptional systems design",
-          "actor": "demo2",
-          "created_at": "2025-12-17T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Panel interview: exceptional systems design",
-          "actor": "demo3",
-          "created_at": "2025-12-17T23:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reference 1 confirmed",
-          "actor": "demo2",
-          "created_at": "2025-12-17T23:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reference 2 pending",
-          "actor": "demo2",
-          "created_at": "2025-12-17T23:40:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Morgan's systems design discussion was the best we've seen this cycle. Two references in progress.",
-          "actor": "demo4",
-          "created_at": "2025-12-18T00:00:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Reference 1 returned: 'best engineer I've ever managed'. Waiting for reference 2.",
-          "actor": "demo1",
-          "created_at": "2025-12-18T08:00:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Jamie L. — 5 yrs Django, current Jira refugee",
-      "description": "Jamie L. — 5 years Django, currently at a company drowning in Jira complexity. Technical screen passed. Panel interview Thursday. Potential culture fit.",
-      "priority": "medium",
-      "column": "Interview",
-      "swimlane": "Senior Backend Engineer",
-      "due_date": "2026-03-20",
-      "weight": 4,
-      "labels": [
-        "Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen passed",
-          "is_checked": true
-        },
-        {
-          "text": "Technical screen passed",
-          "is_checked": true
-        },
-        {
-          "text": "Panel interview scheduled for Thursday",
-          "is_checked": false
-        },
-        {
-          "text": "Debrief and decision",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Jamie mentioned they're leaving because Jira's complexity is blocking their team. Good culture fit signal.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Senior Backend Engineer",
-          "to_swimlane": "Senior Backend Engineer",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-07T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Yes",
-          "actor": "demo4",
-          "created_at": "2026-01-07T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo4",
-          "created_at": "2026-01-07T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo4",
-          "created_at": "2026-01-07T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo5",
-          "created_at": "2026-01-07T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Technical screen passed",
-          "actor": "demo4",
-          "created_at": "2026-01-07T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Technical screen passed",
-          "actor": "demo5",
-          "created_at": "2026-01-07T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel interview scheduled for Thursday",
-          "actor": "demo4",
-          "created_at": "2026-01-07T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Debrief and decision",
-          "actor": "demo4",
-          "created_at": "2026-01-07T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Jamie mentioned they're leaving because Jira's complexity is blocking their team. Good culture fit signal.",
-          "actor": "demo2",
-          "created_at": "2026-01-07T20:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Riley N. — systems design lead at B2B SaaS",
-      "description": "Riley N. — senior product designer with B2B SaaS background, strong component library and systems thinking. Hired at $162k. Start date April 7.",
-      "priority": "high",
-      "column": "Hired",
-      "swimlane": "Product Designer (Senior)",
-      "due_date": "2026-03-10",
-      "weight": 5,
-      "labels": [
-        "Strong Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Portfolio reviewed: excellent component library",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen: articulate, good product sense",
-          "is_checked": true
-        },
-        {
-          "text": "Design exercise: rated best this cycle",
-          "is_checked": true
-        },
-        {
-          "text": "Panel: CEO loved the roadmap thinking",
-          "is_checked": true
-        },
-        {
-          "text": "Offer accepted: $162k + equity",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Riley's design exercise showed exactly the level of systems thinking we need. Hired.",
-          "author": "demo3"
-        },
-        {
-          "body": "Start date: April 7. Figma workspace access will be set up on day one.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-02-12T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Strong Yes",
-          "actor": "demo1",
-          "created_at": "2026-02-12T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-02-12T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-10",
-          "actor": "demo1",
-          "created_at": "2026-02-12T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Portfolio reviewed: excellent component library",
-          "actor": "demo1",
-          "created_at": "2026-02-12T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Portfolio reviewed: excellent component library",
-          "actor": "demo2",
-          "created_at": "2026-02-12T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: articulate, good product sense",
-          "actor": "demo1",
-          "created_at": "2026-02-12T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: articulate, good product sense",
-          "actor": "demo2",
-          "created_at": "2026-02-12T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Design exercise: rated best this cycle",
-          "actor": "demo1",
-          "created_at": "2026-02-12T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Design exercise: rated best this cycle",
-          "actor": "demo2",
-          "created_at": "2026-02-12T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel: CEO loved the roadmap thinking",
-          "actor": "demo1",
-          "created_at": "2026-02-12T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Panel: CEO loved the roadmap thinking",
-          "actor": "demo2",
-          "created_at": "2026-02-12T23:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Offer accepted: $162k + equity",
-          "actor": "demo1",
-          "created_at": "2026-02-12T23:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Offer accepted: $162k + equity",
-          "actor": "demo2",
-          "created_at": "2026-02-12T23:40:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Riley's design exercise showed exactly the level of systems thinking we need. Hired.",
-          "actor": "demo3",
-          "created_at": "2026-02-12T23:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Start date: April 7. Figma workspace access will be set up on day one.",
-          "actor": "demo1",
-          "created_at": "2026-02-13T05:55:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Drew P. — strong visual design, weak systems",
-      "description": "Drew P. — strong visual designer but the design exercise lacked systems and component thinking. Not a fit for the design system scope of this role.",
-      "priority": "medium",
-      "column": "Rejected",
-      "swimlane": "Product Designer (Senior)",
-      "due_date": "2026-02-23",
-      "weight": 3,
-      "labels": [
-        "No"
-      ],
-      "checklist": [
-        {
-          "text": "Portfolio reviewed",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen passed",
-          "is_checked": true
-        },
-        {
-          "text": "Design exercise submitted — visual quality high but lacks component thinking",
-          "is_checked": true
-        },
-        {
-          "text": "Passed on",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Drew's visual work is beautiful but the exercise missed the systems layer entirely — no component inventory, no reuse. Not the right fit for a design system role.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Hired",
-          "to_column": "Rejected",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-01T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "No",
-          "actor": "demo3",
-          "created_at": "2026-02-01T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-23",
-          "actor": "demo3",
-          "created_at": "2026-02-01T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Portfolio reviewed",
-          "actor": "demo3",
-          "created_at": "2026-02-01T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Portfolio reviewed",
-          "actor": "demo4",
-          "created_at": "2026-02-01T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo3",
-          "created_at": "2026-02-01T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo4",
-          "created_at": "2026-02-01T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Design exercise submitted — visual quality high but lacks component thinking",
-          "actor": "demo3",
-          "created_at": "2026-02-01T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Design exercise submitted — visual quality high but lacks component thinking",
-          "actor": "demo4",
-          "created_at": "2026-02-01T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Passed on",
-          "actor": "demo3",
-          "created_at": "2026-02-01T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Passed on",
-          "actor": "demo4",
-          "created_at": "2026-02-01T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Drew's visual work is beautiful but the exercise missed the systems layer entirely — no component inventory, no reuse. N",
-          "actor": "demo2",
-          "created_at": "2026-02-01T21:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Taylor O. — design systems specialist, open-source tokens contributor",
-      "description": "Taylor O. — design systems specialist, contributor to open design token standards. Built a complete token system as their exercise response. Offer extended at $168k.",
-      "priority": "high",
-      "column": "Offer Extended",
-      "swimlane": "Product Designer (Senior)",
-      "due_date": "2026-03-16",
-      "weight": 5,
-      "labels": [
-        "Strong Yes",
-        "Referral"
-      ],
-      "checklist": [
-        {
-          "text": "Portfolio reviewed",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen: excellent",
-          "is_checked": true
-        },
-        {
-          "text": "Design exercise: 10/10, built a full token system",
-          "is_checked": true
-        },
-        {
-          "text": "Panel: unanimous strong yes",
-          "is_checked": true
-        },
-        {
-          "text": "References: both excellent",
-          "is_checked": true
-        },
-        {
-          "text": "Offer sent: $168k — awaiting response",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Taylor literally built a token system as their exercise response. Offer went out this morning.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Interview",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Strong Yes, Referral",
-          "actor": "demo5",
-          "created_at": "2026-01-07T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-01-07T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-16",
-          "actor": "demo5",
-          "created_at": "2026-01-07T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Portfolio reviewed",
-          "actor": "demo5",
-          "created_at": "2026-01-07T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Portfolio reviewed",
-          "actor": "demo1",
-          "created_at": "2026-01-07T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: excellent",
-          "actor": "demo5",
-          "created_at": "2026-01-07T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: excellent",
-          "actor": "demo1",
-          "created_at": "2026-01-07T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Design exercise: 10/10, built a full token system",
-          "actor": "demo5",
-          "created_at": "2026-01-07T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Design exercise: 10/10, built a full token system",
-          "actor": "demo1",
-          "created_at": "2026-01-07T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel: unanimous strong yes",
-          "actor": "demo5",
-          "created_at": "2026-01-07T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Panel: unanimous strong yes",
-          "actor": "demo1",
-          "created_at": "2026-01-07T21:05:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "References: both excellent",
-          "actor": "demo5",
-          "created_at": "2026-01-07T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "References: both excellent",
-          "actor": "demo1",
-          "created_at": "2026-01-07T21:40:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Offer sent: $168k — awaiting response",
-          "actor": "demo5",
-          "created_at": "2026-01-07T21:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Taylor literally built a token system as their exercise response. Offer went out this morning.",
-          "actor": "demo4",
-          "created_at": "2026-01-07T22:15:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Casey B. — 4 yrs UX, no B2B SaaS experience",
-      "description": "Casey B. — 4 years UX experience primarily in consumer apps. Interesting portfolio but no B2B SaaS background. Phone screen to assess product sense and adaptability.",
+      "title": "Rachel Torres",
+      "description": "4 years Python, 2 years Django. Previous: Backend Engineer at Summit.\n\nInbound application. Passed initial resume screen.",
       "priority": "low",
-      "column": "Phone Screen",
-      "swimlane": "Product Designer (Senior)",
-      "due_date": "2026-03-27",
-      "weight": 2,
-      "labels": [
-        "Maybe"
-      ],
-      "checklist": [
-        {
-          "text": "Resume reviewed — portfolio looks promising",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen scheduled for next week",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Product Designer (Senior)",
-          "to_swimlane": "Product Designer (Senior)",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-01-12T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Maybe",
-          "actor": "demo2",
-          "created_at": "2026-01-12T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo2",
-          "created_at": "2026-01-12T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-27",
-          "actor": "demo2",
-          "created_at": "2026-01-12T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Resume reviewed — portfolio looks promising",
-          "actor": "demo2",
-          "created_at": "2026-01-12T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Resume reviewed — portfolio looks promising",
-          "actor": "demo3",
-          "created_at": "2026-01-12T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen scheduled for next week",
-          "actor": "demo2",
-          "created_at": "2026-01-12T21:35:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Jordan F. — 5 yrs CS at SaaS, churn reduction specialist",
-      "description": "Jordan F. — 5 years CS, specialist in churn reduction. Reduced churn 8% → 3% at previous company using health-score model. References in progress.",
-      "priority": "high",
-      "column": "Reference Check",
-      "swimlane": "Customer Success Manager",
-      "due_date": "2026-03-17",
-      "weight": 5,
-      "labels": [
-        "Strong Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen: excellent — immediate rapport",
-          "is_checked": true
-        },
-        {
-          "text": "CS scenario interview: strong churn playbook",
-          "is_checked": true
-        },
-        {
-          "text": "Panel: CS lead and AE both positive",
-          "is_checked": true
-        },
-        {
-          "text": "Reference 1 complete: outstanding",
-          "is_checked": false
-        },
-        {
-          "text": "Reference 2 pending",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Jordan reduced churn from 8% to 3% at previous company using a health-score model. Exactly what we need.",
-          "author": "demo1"
-        },
-        {
-          "body": "Reference 1 back: 'best CSM I've managed in 10 years.' Waiting on reference 2.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-01T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Strong Yes",
-          "actor": "demo4",
-          "created_at": "2026-01-01T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-01-01T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-17",
-          "actor": "demo4",
-          "created_at": "2026-01-01T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: excellent — immediate rapport",
-          "actor": "demo4",
-          "created_at": "2026-01-01T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: excellent — immediate rapport",
-          "actor": "demo5",
-          "created_at": "2026-01-01T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "CS scenario interview: strong churn playbook",
-          "actor": "demo4",
-          "created_at": "2026-01-01T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "CS scenario interview: strong churn playbook",
-          "actor": "demo5",
-          "created_at": "2026-01-01T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel: CS lead and AE both positive",
-          "actor": "demo4",
-          "created_at": "2026-01-01T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Panel: CS lead and AE both positive",
-          "actor": "demo5",
-          "created_at": "2026-01-01T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reference 1 complete: outstanding",
-          "actor": "demo4",
-          "created_at": "2026-01-01T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reference 2 pending",
-          "actor": "demo4",
-          "created_at": "2026-01-01T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Jordan reduced churn from 8% to 3% at previous company using a health-score model. Exactly what we need.",
-          "actor": "demo1",
-          "created_at": "2026-01-01T23:25:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Reference 1 back: 'best CSM I've managed in 10 years.' Waiting on reference 2.",
-          "actor": "demo3",
-          "created_at": "2026-01-02T07:25:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Avery C. — CS at PLG startup, strong onboarding focus",
-      "description": "Avery C. — CS at a PLG startup, built onboarding from scratch. Panel interview tomorrow. Self-starter background is a strong fit for a small team.",
-      "priority": "high",
-      "column": "Interview",
-      "swimlane": "Customer Success Manager",
-      "due_date": "2026-03-19",
-      "weight": 4,
-      "labels": [
-        "Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen passed",
-          "is_checked": true
-        },
-        {
-          "text": "CS scenario interview passed",
-          "is_checked": true
-        },
-        {
-          "text": "Panel interview tomorrow — CS lead + head of product",
-          "is_checked": false
-        },
-        {
-          "text": "Debrief and decision",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Avery built the onboarding program from scratch at a 50-person PLG startup. Strong self-starter energy.",
-          "author": "demo2"
-        }
-      ],
       "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-29T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Yes",
-          "actor": "demo1",
-          "created_at": "2025-12-29T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2025-12-29T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-19",
-          "actor": "demo1",
-          "created_at": "2025-12-29T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo1",
-          "created_at": "2025-12-29T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo2",
-          "created_at": "2025-12-29T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "CS scenario interview passed",
-          "actor": "demo1",
-          "created_at": "2025-12-29T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "CS scenario interview passed",
-          "actor": "demo2",
-          "created_at": "2025-12-29T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel interview tomorrow — CS lead + head of product",
-          "actor": "demo1",
-          "created_at": "2025-12-29T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Debrief and decision",
-          "actor": "demo1",
-          "created_at": "2025-12-29T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Avery built the onboarding program from scratch at a 50-person PLG startup. Strong self-starter energy.",
-          "actor": "demo2",
-          "created_at": "2025-12-29T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Quinn W. — enterprise CS, high-touch accounts only",
-      "description": "Quinn W. — strong enterprise CS background but no experience with tech-touch or self-serve motions. Not a fit for our PLG model.",
-      "priority": "medium",
-      "column": "Rejected",
-      "swimlane": "Customer Success Manager",
-      "due_date": "2026-03-05",
-      "weight": 3,
-      "labels": [
-        "No"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen passed",
-          "is_checked": true
-        },
-        {
-          "text": "Scenario interview — struggled with tech-touch and low-touch motions",
-          "is_checked": true
-        },
-        {
-          "text": "Passed on — not a fit for PLG",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Quinn's background is purely high-touch enterprise. We need someone comfortable with the full spectrum from self-serve to enterprise.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Hired",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Hired",
-          "to_column": "Rejected",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2025-12-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "No",
-          "actor": "demo3",
-          "created_at": "2025-12-17T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-05",
-          "actor": "demo3",
-          "created_at": "2025-12-17T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo3",
-          "created_at": "2025-12-17T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo4",
-          "created_at": "2025-12-17T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Scenario interview — struggled with tech-touch and low-touch motions",
-          "actor": "demo3",
-          "created_at": "2025-12-17T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Scenario interview — struggled with tech-touch and low-touch motions",
-          "actor": "demo4",
-          "created_at": "2025-12-17T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Passed on — not a fit for PLG",
-          "actor": "demo3",
-          "created_at": "2025-12-17T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Passed on — not a fit for PLG",
-          "actor": "demo4",
-          "created_at": "2025-12-17T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Quinn's background is purely high-touch enterprise. We need someone comfortable with the full spectrum from self-serve t",
-          "actor": "demo4",
-          "created_at": "2025-12-17T20:45:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Reese H. — CS ops background, Gainsight admin",
-      "description": "Reese H. — CS operations background, Gainsight admin. Applying for the CSM role but background is more ops than client-facing. Phone screen to assess commercial instincts.",
-      "priority": "medium",
       "column": "Phone Screen",
-      "swimlane": "Customer Success Manager",
-      "due_date": "2026-03-23",
-      "weight": 3,
-      "labels": [
-        "Maybe"
-      ],
-      "checklist": [
-        {
-          "text": "Resume reviewed",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen today at 2pm",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Customer Success Manager",
-          "to_swimlane": "Customer Success Manager",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Maybe",
-          "actor": "demo5",
-          "created_at": "2026-01-03T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-23",
-          "actor": "demo5",
-          "created_at": "2026-01-03T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Resume reviewed",
-          "actor": "demo5",
-          "created_at": "2026-01-03T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Resume reviewed",
-          "actor": "demo1",
-          "created_at": "2026-01-03T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen today at 2pm",
-          "actor": "demo5",
-          "created_at": "2026-01-03T17:35:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Blake T. — Kubernetes certified, GitLab CI expert",
-      "description": "Blake T. — Kubernetes certified, GitLab CI expert. Designed multi-region HA deployment live in the interview. Outstanding references. Offer extended at $158k.",
-      "priority": "high",
-      "column": "Offer Extended",
-      "swimlane": "DevOps Engineer",
-      "due_date": "2026-03-17",
-      "weight": 5,
-      "labels": [
-        "Strong Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Technical screen: passed with top score",
-          "is_checked": true
-        },
-        {
-          "text": "Systems design: excellent — designed multi-region HA deployment",
-          "is_checked": true
-        },
-        {
-          "text": "References: both outstanding",
-          "is_checked": true
-        },
-        {
-          "text": "Offer sent: $158k — response expected by Friday",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Blake designed the multi-region HA setup on a whiteboard in real time. We've never seen anyone do that in a 45-minute interview.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-05T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Strong Yes",
-          "actor": "demo2",
-          "created_at": "2026-02-05T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo2",
-          "created_at": "2026-02-05T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-17",
-          "actor": "demo2",
-          "created_at": "2026-02-05T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Technical screen: passed with top score",
-          "actor": "demo2",
-          "created_at": "2026-02-05T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Technical screen: passed with top score",
-          "actor": "demo3",
-          "created_at": "2026-02-05T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Systems design: excellent — designed multi-region HA deployment",
-          "actor": "demo2",
-          "created_at": "2026-02-05T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Systems design: excellent — designed multi-region HA deployment",
-          "actor": "demo3",
-          "created_at": "2026-02-05T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "References: both outstanding",
-          "actor": "demo2",
-          "created_at": "2026-02-05T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "References: both outstanding",
-          "actor": "demo3",
-          "created_at": "2026-02-05T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Offer sent: $158k — response expected by Friday",
-          "actor": "demo2",
-          "created_at": "2026-02-05T22:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Blake designed the multi-region HA setup on a whiteboard in real time. We've never seen anyone do that in a 45-minute in",
-          "actor": "demo1",
-          "created_at": "2026-02-05T23:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Parker S. — 4 yrs Terraform, SRE background",
-      "description": "Parker S. — 4 years Terraform, SRE background at high-traffic e-commerce company. Technical screen this Wednesday.",
-      "priority": "medium",
-      "column": "Technical Screen",
-      "swimlane": "DevOps Engineer",
-      "due_date": "2026-03-20",
-      "weight": 4,
-      "labels": [
-        "Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen passed",
-          "is_checked": true
-        },
-        {
-          "text": "Technical screen scheduled for Wednesday — Terraform IaC exercise + Kubernetes scenario",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Parker's SRE background at a high-traffic e-commerce platform is relevant. Terraform skills look strong on paper.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-06T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Yes",
-          "actor": "demo4",
-          "created_at": "2026-01-06T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo4",
-          "created_at": "2026-01-06T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo4",
-          "created_at": "2026-01-06T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen passed",
-          "actor": "demo5",
-          "created_at": "2026-01-06T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Technical screen scheduled for Wednesday — Terraform IaC exercise + Kubernetes scenario",
-          "actor": "demo4",
-          "created_at": "2026-01-06T19:35:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Parker's SRE background at a high-traffic e-commerce platform is relevant. Terraform skills look strong on paper.",
-          "actor": "demo3",
-          "created_at": "2026-01-06T19:55:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Rowan K. — DevOps at agency, lots of breadth, limited depth",
-      "description": "Rowan K. — agency DevOps background, broad exposure but shallow on Kubernetes specifics. Not ready for the lead DevOps role we need.",
-      "priority": "medium",
-      "column": "Rejected",
-      "swimlane": "DevOps Engineer",
-      "due_date": "2026-03-03",
-      "weight": 2,
-      "labels": [
-        "No"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen: enthusiastic but shallow Kubernetes knowledge",
-          "is_checked": true
-        },
-        {
-          "text": "Passed on — not ready for lead role",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Good energy but Kubernetes knowledge was textbook-level — couldn't explain pod disruption budgets or affinity rules.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Technical Screen",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Hired",
-          "to_column": "Rejected",
-          "from_swimlane": "DevOps Engineer",
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-03-03T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-27T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "No",
-          "actor": "demo1",
-          "created_at": "2026-01-27T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-03",
-          "actor": "demo1",
-          "created_at": "2026-01-27T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: enthusiastic but shallow Kubernetes knowledge",
-          "actor": "demo1",
-          "created_at": "2026-01-27T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: enthusiastic but shallow Kubernetes knowledge",
-          "actor": "demo2",
-          "created_at": "2026-01-27T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Passed on — not ready for lead role",
-          "actor": "demo1",
-          "created_at": "2026-01-27T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Passed on — not ready for lead role",
-          "actor": "demo2",
-          "created_at": "2026-01-27T19:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Good energy but Kubernetes knowledge was textbook-level — couldn't explain pod disruption budgets or affinity rules.",
-          "actor": "demo2",
-          "created_at": "2026-01-27T20:10:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "River M. — inbound application, AWS-heavy, learning GCP/Kubernetes",
-      "description": "River M. — strong AWS background, currently transitioning to Kubernetes/GCP. Resume received this week. May be a fit with ramp time.",
-      "priority": "low",
-      "column": "Applied",
-      "swimlane": "DevOps Engineer",
-      "due_date": "2026-04-04",
-      "weight": 2,
-      "labels": [
-        "Maybe"
-      ],
-      "checklist": [
-        {
-          "text": "Resume review pending",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "DevOps Engineer",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-09T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Maybe",
-          "actor": "demo3",
-          "created_at": "2026-01-09T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo3",
-          "created_at": "2026-01-09T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-04",
-          "actor": "demo3",
-          "created_at": "2026-01-09T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Resume review pending",
-          "actor": "demo3",
-          "created_at": "2026-01-09T21:00:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Sage D. — VP Marketing at B2B SaaS, PLG specialist",
-      "description": "Sage D. — VP Marketing at B2B SaaS, strong PLG track record. Delivered a 12-month growth plan in the strategy presentation. Full exec panel next week.",
-      "priority": "high",
-      "column": "Interview",
-      "swimlane": "Head of Marketing",
-      "due_date": "2026-03-21",
-      "weight": 6,
-      "labels": [
-        "Strong Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Portfolio reviewed — strong PLG track record",
-          "is_checked": true
-        },
-        {
-          "text": "Phone screen: strategic, data-driven",
-          "is_checked": true
-        },
-        {
-          "text": "Marketing strategy presentation done — CEO and CPO both impressed",
-          "is_checked": true
-        },
-        {
-          "text": "Panel interview next week — full exec team",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Sage's presentation covered a 12-month PLG growth plan with specific channel bets. CEO is very excited.",
-          "author": "demo4"
-        },
-        {
-          "body": "This is the strongest candidate we've seen for the Head of Marketing role in two years of searching.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Strong Yes",
-          "actor": "demo5",
-          "created_at": "2026-02-09T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-02-09T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-21",
-          "actor": "demo5",
-          "created_at": "2026-02-09T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Portfolio reviewed — strong PLG track record",
-          "actor": "demo5",
-          "created_at": "2026-02-09T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Portfolio reviewed — strong PLG track record",
-          "actor": "demo1",
-          "created_at": "2026-02-09T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: strategic, data-driven",
-          "actor": "demo5",
-          "created_at": "2026-02-09T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: strategic, data-driven",
-          "actor": "demo1",
-          "created_at": "2026-02-09T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Marketing strategy presentation done — CEO and CPO both impressed",
-          "actor": "demo5",
-          "created_at": "2026-02-09T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Marketing strategy presentation done — CEO and CPO both impressed",
-          "actor": "demo1",
-          "created_at": "2026-02-09T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel interview next week — full exec team",
-          "actor": "demo5",
-          "created_at": "2026-02-09T20:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Sage's presentation covered a 12-month PLG growth plan with specific channel bets. CEO is very excited.",
-          "actor": "demo4",
-          "created_at": "2026-02-09T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "This is the strongest candidate we've seen for the Head of Marketing role in two years of searching.",
-          "actor": "demo1",
-          "created_at": "2026-02-10T04:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Charlie H. — growth marketing lead, no leadership experience",
-      "description": "Charlie H. — growth marketing lead with strong channel execution but no strategic framing or leadership experience. Not ready for a Head of Marketing role.",
-      "priority": "medium",
-      "column": "Rejected",
-      "swimlane": "Head of Marketing",
-      "due_date": "2026-02-25",
-      "weight": 3,
-      "labels": [
-        "No"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen: strong on channels, weak on strategy",
-          "is_checked": true
-        },
-        {
-          "text": "Presentation: tactical, not strategic",
-          "is_checked": true
-        },
-        {
-          "text": "Passed on — not ready for Head-of level",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Charlie knows channels well but couldn't articulate a positioning strategy. This role needs a strategic leader, not a practitioner.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Reference Check",
-          "to_column": "Offer Extended",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Offer Extended",
-          "to_column": "Hired",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Hired",
-          "to_column": "Rejected",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-28T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "No",
-          "actor": "demo2",
-          "created_at": "2025-12-28T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-25",
-          "actor": "demo2",
-          "created_at": "2025-12-28T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: strong on channels, weak on strategy",
-          "actor": "demo2",
-          "created_at": "2025-12-28T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: strong on channels, weak on strategy",
-          "actor": "demo3",
-          "created_at": "2025-12-28T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Presentation: tactical, not strategic",
-          "actor": "demo2",
-          "created_at": "2025-12-28T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Presentation: tactical, not strategic",
-          "actor": "demo3",
-          "created_at": "2025-12-28T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Passed on — not ready for Head-of level",
-          "actor": "demo2",
-          "created_at": "2025-12-28T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Passed on — not ready for Head-of level",
-          "actor": "demo3",
-          "created_at": "2025-12-28T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Charlie knows channels well but couldn't articulate a positioning strategy. This role needs a strategic leader, not a pr",
-          "actor": "demo2",
-          "created_at": "2025-12-28T20:45:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Finley A. — CMO at startup (exited), now consulting",
-      "description": "Finley A. — former CMO, now consulting. Strong PLG and community-led growth background. Panel interview positive; some uncertainty about commitment level post-consulting.",
-      "priority": "high",
-      "column": "Reference Check",
-      "swimlane": "Head of Marketing",
-      "due_date": "2026-03-19",
-      "weight": 5,
-      "labels": [
-        "Yes"
-      ],
-      "checklist": [
-        {
-          "text": "Phone screen: excellent — deep PLG and community experience",
-          "is_checked": true
-        },
-        {
-          "text": "Strategy presentation: strong, community-led growth angle",
-          "is_checked": true
-        },
-        {
-          "text": "Panel interview: positive, some hesitancy on stage of company",
-          "is_checked": true
-        },
-        {
-          "text": "Reference 1 pending",
-          "is_checked": false
-        },
-        {
-          "text": "Reference 2 pending",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Finley's community-led growth thesis is differentiated and compelling. Only question is whether they want to be in execution mode again after consulting.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Applied",
-          "from_swimlane": null,
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Applied",
-          "to_column": "Phone Screen",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Phone Screen",
-          "to_column": "Technical Screen",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Technical Screen",
-          "to_column": "Interview",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Interview",
-          "to_column": "Reference Check",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-02-02T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Yes",
-          "actor": "demo4",
-          "created_at": "2026-02-02T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-02-02T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-19",
-          "actor": "demo4",
-          "created_at": "2026-02-02T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Phone screen: excellent — deep PLG and community experience",
-          "actor": "demo4",
-          "created_at": "2026-02-02T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Phone screen: excellent — deep PLG and community experience",
-          "actor": "demo5",
-          "created_at": "2026-02-02T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Strategy presentation: strong, community-led growth angle",
-          "actor": "demo4",
-          "created_at": "2026-02-02T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Strategy presentation: strong, community-led growth angle",
-          "actor": "demo5",
-          "created_at": "2026-02-02T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Panel interview: positive, some hesitancy on stage of company",
-          "actor": "demo4",
-          "created_at": "2026-02-02T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Panel interview: positive, some hesitancy on stage of company",
-          "actor": "demo5",
-          "created_at": "2026-02-02T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reference 1 pending",
-          "actor": "demo4",
-          "created_at": "2026-02-02T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Reference 2 pending",
-          "actor": "demo4",
-          "created_at": "2026-02-02T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Finley's community-led growth thesis is differentiated and compelling. Only question is whether they want to be in execu",
-          "actor": "demo3",
-          "created_at": "2026-02-02T23:25:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Skyler R. — product marketing background, no demand gen",
-      "description": "Skyler R. — strong product marketing background at two SaaS companies, but no demand gen or brand experience. Phone screen to assess breadth.",
-      "priority": "medium",
-      "column": "Phone Screen",
-      "swimlane": "Head of Marketing",
+      "swimlane": "Senior Backend Engineer",
       "due_date": "2026-03-25",
-      "weight": 3,
+      "weight": 2,
       "labels": [
         "Maybe"
       ],
       "checklist": [
         {
-          "text": "Resume reviewed — PMM experience at two SaaS companies",
+          "text": "Resume reviewed",
           "is_checked": true
         },
         {
-          "text": "Phone screen scheduled for Tuesday",
+          "text": "Phone screen scheduled",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo1",
       "movements": [
         {
           "from_column": null,
           "to_column": "Applied",
           "from_swimlane": null,
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo5"
         },
         {
           "from_column": "Applied",
           "to_column": "Phone Screen",
-          "from_swimlane": "Head of Marketing",
-          "to_swimlane": "Head of Marketing",
-          "moved_at": "2026-02-19T12:00:00+00:00",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo2"
         }
       ],
@@ -3267,44 +165,1605 @@
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-02-05T13:00:00+00:00"
+          "to_value": "Alex Rivera",
+          "actor": "demo5",
+          "created_at": "2026-02-25T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Maybe",
-          "actor": "demo1",
-          "created_at": "2026-02-05T15:00:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-02-26T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-25",
-          "actor": "demo1",
-          "created_at": "2026-02-05T18:00:00+00:00"
+          "actor": "demo3",
+          "created_at": "2026-02-28T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Resume reviewed — PMM experience at two SaaS companies",
+          "to_value": "Resume reviewed",
           "actor": "demo1",
-          "created_at": "2026-02-05T19:00:00+00:00"
+          "created_at": "2026-03-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen scheduled",
+          "actor": "demo3",
+          "created_at": "2026-03-02T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_checked",
           "from_value": "",
-          "to_value": "Resume reviewed — PMM experience at two SaaS companies",
-          "actor": "demo2",
-          "created_at": "2026-02-05T19:20:00+00:00"
+          "to_value": "Resume reviewed",
+          "actor": "demo1",
+          "created_at": "2026-03-03T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Marcus Jeon",
+      "description": "5 years Python. Previous: Backend Lead at DataStream.\n\nApplied via LinkedIn. Strong system design answers in phone screen.",
+      "priority": "medium",
+      "assignee": "demo3",
+      "column": "Technical Screen",
+      "swimlane": "Senior Backend Engineer",
+      "due_date": "2026-03-22",
+      "weight": 3,
+      "labels": [
+        "Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen scheduled",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen completed",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Technical screen tomorrow at 2pm. Interviewer: Jordan Patel.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Jordan Patel",
+          "actor": "demo3",
+          "created_at": "2026-02-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Yes",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo5",
+          "created_at": "2026-02-11T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Phone screen scheduled for Tuesday",
+          "to_value": "Phone screen passed",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Technical screen scheduled",
+          "actor": "demo2",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo5",
+          "created_at": "2026-02-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Technical screen completed",
+          "actor": "demo4",
+          "created_at": "2026-02-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
           "actor": "demo1",
-          "created_at": "2026-02-05T19:35:00+00:00"
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Technical screen scheduled",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Priya Sharma",
+      "description": "7 years Python/Django. Previous: Staff Engineer at FinEdge.\n\nReferred by Casey Osei. Strong GitHub presence — Django contrib.\n\n**Recruiter note:** Very communicative. Responds within hours.",
+      "priority": "high",
+      "assignee": "demo1",
+      "column": "Offer Extended",
+      "swimlane": "Senior Backend Engineer",
+      "due_date": "2026-03-18",
+      "weight": 5,
+      "labels": [
+        "Referred",
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen passed (scored 92/100)",
+          "is_checked": true
+        },
+        {
+          "text": "On-site loop completed",
+          "is_checked": true
+        },
+        {
+          "text": "References called (2/3 complete)",
+          "is_checked": true
+        },
+        {
+          "text": "Offer letter sent",
+          "is_checked": true
+        },
+        {
+          "text": "Awaiting candidate response",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Hiring loop unanimous strong yes. References glowing.",
+          "author": "demo1"
+        },
+        {
+          "body": "Offer sent 2026-03-18. Response deadline 2026-03-25.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Senior Backend Engineer",
+          "to_swimlane": "Senior Backend Engineer",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo1",
+          "created_at": "2026-01-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Referred, Strong Yes",
+          "actor": "demo4",
+          "created_at": "2026-01-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-18",
+          "actor": "demo5",
+          "created_at": "2026-01-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo4",
+          "created_at": "2026-02-03T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Technical screen passed (scored 92/100)",
+          "actor": "demo4",
+          "created_at": "2026-02-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "On-site loop completed",
+          "actor": "demo4",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "References called (2/3 complete)",
+          "actor": "demo3",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo2",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Technical screen passed (scored 92/100)",
+          "actor": "demo4",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Offer letter sent",
+          "actor": "demo2",
+          "created_at": "2026-02-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Awaiting candidate response",
+          "actor": "demo1",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "On-site loop completed",
+          "actor": "demo4",
+          "created_at": "2026-02-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "References called (2/3 complete)",
+          "actor": "demo3",
+          "created_at": "2026-02-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Offer letter sent",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Fatima Al-Hassan",
+      "description": "5 years product design. Previous: design systems lead at a B2B SaaS company.\n\nReferred by a Visiban customer. Strong design systems background.",
+      "priority": "high",
+      "assignee": "demo3",
+      "column": "Interview",
+      "swimlane": "Product Designer (Senior)",
+      "due_date": "2026-03-20",
+      "weight": 4,
+      "labels": [
+        "Referred",
+        "Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Portfolio review passed",
+          "is_checked": true
+        },
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Design challenge submitted",
+          "is_checked": true
+        },
+        {
+          "text": "Panel interview scheduled",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Design challenge score: 88/100. Strong systems thinking.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Jordan Patel",
+          "actor": "demo2",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Referred, Yes",
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo3",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo5",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Portfolio review passed",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo1",
+          "created_at": "2026-02-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design challenge submitted",
+          "actor": "demo1",
+          "created_at": "2026-02-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo2",
+          "created_at": "2026-02-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Panel interview scheduled",
+          "actor": "demo4",
+          "created_at": "2026-02-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Portfolio review passed",
+          "actor": "demo2",
+          "created_at": "2026-02-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design challenge submitted",
+          "actor": "demo2",
+          "created_at": "2026-03-03T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Anika Obi",
+      "description": "6 years UX/product design. Previous: Lead Designer at Mosaic Creative.\n\nPortfolio standout: redesigned Mosaic's client dashboard — NPS +18.",
+      "priority": "high",
+      "assignee": "demo5",
+      "column": "Hired",
+      "swimlane": "Product Designer (Senior)",
+      "due_date": null,
+      "weight": 5,
+      "labels": [
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Portfolio review passed",
+          "is_checked": true
+        },
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Design challenge submitted and scored (94/100)",
+          "is_checked": true
+        },
+        {
+          "text": "Full panel interview passed",
+          "is_checked": true
+        },
+        {
+          "text": "References clear",
+          "is_checked": true
+        },
+        {
+          "text": "Offer accepted",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Hired! Start date 2026-04-14. Exceptional candidate.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2025-12-25T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-12T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Offer Extended",
+          "to_column": "Hired",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Casey Osei",
+          "actor": "demo4",
+          "created_at": "2025-12-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Strong Yes",
+          "actor": "demo4",
+          "created_at": "2025-12-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2025-12-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Portfolio review passed",
+          "actor": "demo1",
+          "created_at": "2026-01-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo3",
+          "created_at": "2026-01-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Design challenge submitted and scored (94/100)",
+          "actor": "demo2",
+          "created_at": "2026-01-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Full panel interview passed",
+          "actor": "demo1",
+          "created_at": "2026-01-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "References clear",
+          "actor": "demo5",
+          "created_at": "2026-01-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Design challenge submitted and scored (94/100)",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Portfolio review passed",
+          "actor": "demo5",
+          "created_at": "2026-01-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo4",
+          "created_at": "2026-01-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Offer accepted",
+          "actor": "demo1",
+          "created_at": "2026-01-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Full panel interview passed",
+          "actor": "demo2",
+          "created_at": "2026-01-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "References clear",
+          "actor": "demo5",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Offer accepted",
+          "actor": "demo4",
+          "created_at": "2026-01-11T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Leo Bergman",
+      "description": "4 years UX. Previous: mid-level designer at a fintech startup.\n\nGood craft but portfolio lacks systems-level design thinking.",
+      "priority": "low",
+      "assignee": "demo5",
+      "column": "Rejected",
+      "swimlane": "Product Designer (Senior)",
+      "due_date": null,
+      "weight": 1,
+      "labels": [
+        "No"
+      ],
+      "checklist": [
+        {
+          "text": "Portfolio review — not moved forward",
+          "is_checked": true
+        },
+        {
+          "text": "Rejection email sent",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Good fundamentals but not at senior level yet. Encourage to apply again in 12 months.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2025-12-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-11T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Offer Extended",
+          "to_column": "Hired",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Hired",
+          "to_column": "Rejected",
+          "from_swimlane": "Product Designer (Senior)",
+          "to_swimlane": "Product Designer (Senior)",
+          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_by": "demo5"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Casey Osei",
+          "actor": "demo4",
+          "created_at": "2025-12-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "No",
+          "actor": "demo3",
+          "created_at": "2025-12-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Portfolio review — not moved forward",
+          "actor": "demo5",
+          "created_at": "2025-12-30T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Rejection email sent",
+          "actor": "demo5",
+          "created_at": "2025-12-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Portfolio review — not moved forward",
+          "actor": "demo1",
+          "created_at": "2026-01-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Rejection email sent",
+          "actor": "demo2",
+          "created_at": "2026-01-02T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Nour El-Amin",
+      "description": "4 years CS at a B2B SaaS company. Fluent Arabic, French, English.\n\nEMEA-based. Strong renewals track record (98% retention).",
+      "priority": "high",
+      "assignee": "demo1",
+      "column": "Reference Check",
+      "swimlane": "Customer Success Manager",
+      "due_date": "2026-03-23",
+      "weight": 4,
+      "labels": [
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Case study interview passed",
+          "is_checked": true
+        },
+        {
+          "text": "Panel interview passed",
+          "is_checked": true
+        },
+        {
+          "text": "Reference check in progress (2/3)",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Panel loved her. Reference check almost done.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-16T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo4",
+          "created_at": "2026-01-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Strong Yes",
+          "actor": "demo3",
+          "created_at": "2026-01-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-23",
+          "actor": "demo1",
+          "created_at": "2026-01-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-01-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Case study interview passed",
+          "actor": "demo5",
+          "created_at": "2026-01-30T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Panel interview passed",
+          "actor": "demo3",
+          "created_at": "2026-01-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo5",
+          "created_at": "2026-02-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reference check in progress (2/3)",
+          "actor": "demo4",
+          "created_at": "2026-02-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Case study interview passed",
+          "actor": "demo2",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Panel interview passed",
+          "actor": "demo4",
+          "created_at": "2026-02-03T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "James Okonkwo",
+      "description": "3 years CS at an enterprise software firm. UK-based.\n\nGood phone screen but case study interview was average.",
+      "priority": "low",
+      "assignee": "demo3",
+      "column": "Rejected",
+      "swimlane": "Customer Success Manager",
+      "due_date": null,
+      "weight": 1,
+      "labels": [
+        "Maybe"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Case study interview — not progressing",
+          "is_checked": true
+        },
+        {
+          "text": "Rejection sent",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Not strong enough on strategic account planning. Polite rejection sent.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2025-12-05T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2025-12-24T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-08T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Interview",
+          "to_column": "Reference Check",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-01-25T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Reference Check",
+          "to_column": "Offer Extended",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Offer Extended",
+          "to_column": "Hired",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Hired",
+          "to_column": "Rejected",
+          "from_swimlane": "Customer Success Manager",
+          "to_swimlane": "Customer Success Manager",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Jordan Patel",
+          "actor": "demo2",
+          "created_at": "2025-12-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Maybe",
+          "actor": "demo4",
+          "created_at": "2025-12-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo5",
+          "created_at": "2025-12-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Case study interview — not progressing",
+          "actor": "demo2",
+          "created_at": "2025-12-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo4",
+          "created_at": "2025-12-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Rejection sent",
+          "actor": "demo4",
+          "created_at": "2025-12-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2025-12-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Case study interview — not progressing",
+          "actor": "demo4",
+          "created_at": "2025-12-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Rejection sent",
+          "actor": "demo2",
+          "created_at": "2025-12-13T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Sara Lundqvist",
+      "description": "3 years DevOps. Previous: cloud infra engineer.\n\nGood fundamentals but limited Kubernetes experience.",
+      "priority": "low",
+      "assignee": "demo4",
+      "column": "Applied",
+      "swimlane": "DevOps Engineer",
+      "due_date": "2026-03-30",
+      "weight": 1,
+      "labels": [
+        "Maybe"
+      ],
+      "checklist": [
+        {
+          "text": "Resume reviewed — moving to phone screen",
+          "is_checked": true
+        },
+        {
+          "text": "Phone screen scheduled",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Morgan Wu",
+          "actor": "demo5",
+          "created_at": "2026-03-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Maybe",
+          "actor": "demo1",
+          "created_at": "2026-03-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-30",
+          "actor": "demo1",
+          "created_at": "2026-03-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Resume reviewed — moving to phone screen",
+          "actor": "demo4",
+          "created_at": "2026-03-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen scheduled",
+          "actor": "demo2",
+          "created_at": "2026-03-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Resume reviewed — moving to phone screen",
+          "actor": "demo5",
+          "created_at": "2026-03-16T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Kenji Nakamura",
+      "description": "5 years DevOps/SRE. Previous: SRE at a high-traffic API company.\n\nKubernetes CKA certified. Strong incident management background.",
+      "priority": "high",
+      "assignee": "demo4",
+      "column": "Technical Screen",
+      "swimlane": "DevOps Engineer",
+      "due_date": "2026-03-21",
+      "weight": 4,
+      "labels": [
+        "Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Phone screen passed",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen: K8s + Terraform — scheduled",
+          "is_checked": true
+        },
+        {
+          "text": "Technical screen completed",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Technical screen tomorrow. Strong phone screen.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "DevOps Engineer",
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "DevOps Engineer",
+          "to_swimlane": "DevOps Engineer",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Morgan Wu",
+          "actor": "demo1",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Yes",
+          "actor": "demo5",
+          "created_at": "2026-02-07T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-21",
+          "actor": "demo3",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo4",
+          "created_at": "2026-02-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo5",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Technical screen: K8s + Terraform — scheduled",
+          "actor": "demo5",
+          "created_at": "2026-02-16T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Technical screen completed",
+          "actor": "demo2",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Technical screen: K8s + Terraform — scheduled",
+          "actor": "demo1",
+          "created_at": "2026-02-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Phone screen passed",
+          "actor": "demo5",
+          "created_at": "2026-02-19T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Diana Ferreira",
+      "description": "VP Marketing at a Series B SaaS company for 3 years. Grew pipeline 4x. Content + demand gen background.\n\nIntroduced via executive search firm. Confidential — do not reference internally.",
+      "priority": "urgent",
+      "assignee": "demo1",
+      "column": "Interview",
+      "swimlane": "Head of Marketing",
+      "due_date": "2026-03-22",
+      "weight": 5,
+      "labels": [
+        "Strong Yes"
+      ],
+      "checklist": [
+        {
+          "text": "Intro call with CEO",
+          "is_checked": true
+        },
+        {
+          "text": "Exec panel (CEO + CTO + VP CS)",
+          "is_checked": true
+        },
+        {
+          "text": "Presentation: 90-day marketing plan",
+          "is_checked": true
+        },
+        {
+          "text": "Reference check (confidential)",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Exec panel strong consensus. References underway (confidential).",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Applied",
+          "from_swimlane": null,
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Applied",
+          "to_column": "Phone Screen",
+          "from_swimlane": "Head of Marketing",
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Phone Screen",
+          "to_column": "Technical Screen",
+          "from_swimlane": "Head of Marketing",
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Technical Screen",
+          "to_column": "Interview",
+          "from_swimlane": "Head of Marketing",
+          "to_swimlane": "Head of Marketing",
+          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo3",
+          "created_at": "2026-02-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Strong Yes",
+          "actor": "demo1",
+          "created_at": "2026-02-11T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo1",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo3",
+          "created_at": "2026-02-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Intro call with CEO",
+          "actor": "demo4",
+          "created_at": "2026-02-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Exec panel (CEO + CTO + VP CS)",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Intro call with CEO",
+          "actor": "demo3",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Presentation: 90-day marketing plan",
+          "actor": "demo2",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Reference check (confidential)",
+          "actor": "demo2",
+          "created_at": "2026-02-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Presentation: 90-day marketing plan",
+          "actor": "demo4",
+          "created_at": "2026-02-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Exec panel (CEO + CTO + VP CS)",
+          "actor": "demo3",
+          "created_at": "2026-02-25T00:00:00+00:00"
         }
       ]
     }

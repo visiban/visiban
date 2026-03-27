@@ -15,7 +15,7 @@
       "position": 1,
       "color": "#3B82F6",
       "wip_limit": null,
-      "allow_card_creation": true
+      "allow_card_creation": false
     },
     {
       "name": "Discovery",
@@ -100,1879 +100,56 @@
   "labels": [
     {
       "name": "Enterprise",
-      "color": "#3B82F6"
+      "color": "#6366F1"
     },
     {
       "name": "SMB",
-      "color": "#10B981"
+      "color": "#14B8A6"
     },
     {
       "name": "Strategic",
-      "color": "#8B5CF6"
+      "color": "#F59E0B"
     },
     {
       "name": "Renewal",
-      "color": "#F97316"
-    },
-    {
-      "name": "Upsell",
-      "color": "#F59E0B"
+      "color": "#10B981"
     }
   ],
   "cards": [
     {
-      "title": "Initial Outreach — Enterprise Platform",
-      "description": "First contact with a Series C SaaS company's procurement team. VP Engineering expressed interest after outgrowing their current tool. 500-seat target.",
-      "priority": "medium",
-      "column": "Prospect",
-      "swimlane": "North America",
-      "due_date": "2026-04-05",
-      "weight": 3,
-      "labels": [
-        "Enterprise"
-      ],
-      "checklist": [
-        {
-          "text": "Research account on LinkedIn",
-          "is_checked": false
-        },
-        {
-          "text": "Find champion contact",
-          "is_checked": false
-        },
-        {
-          "text": "Send intro email",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "North America",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-30T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise",
-          "actor": "demo3",
-          "created_at": "2026-01-30T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-05",
-          "actor": "demo3",
-          "created_at": "2026-01-30T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Research account on LinkedIn",
-          "actor": "demo3",
-          "created_at": "2026-01-30T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Find champion contact",
-          "actor": "demo3",
-          "created_at": "2026-01-30T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Send intro email",
-          "actor": "demo3",
-          "created_at": "2026-01-30T19:40:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Platform Migration — 500 Seats",
-      "description": "Full platform migration for a Series C SaaS account with 3 Jira instances to consolidate. Discovery call revealed strong swimlane requirement for customer tracking.",
-      "priority": "high",
-      "column": "Discovery",
-      "swimlane": "North America",
-      "due_date": "2026-03-29",
-      "weight": 6,
-      "labels": [
-        "Enterprise",
-        "Strategic"
-      ],
-      "checklist": [
-        {
-          "text": "Map current Jira workflow",
-          "is_checked": true
-        },
-        {
-          "text": "Identify pain points",
-          "is_checked": true
-        },
-        {
-          "text": "Define migration scope",
-          "is_checked": false
-        },
-        {
-          "text": "Schedule technical review",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Pain is clear: 500 users on Jira Cloud, $180k/year. They want swimlane-based boards.",
-          "author": "demo2"
-        },
-        {
-          "body": "Champion confirmed: VP Engineering. Budget owner is CFO — need CFO intro.",
-          "author": "demo1"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise, Strategic",
-          "actor": "demo5",
-          "created_at": "2026-02-10T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-02-10T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-29",
-          "actor": "demo5",
-          "created_at": "2026-02-10T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Map current Jira workflow",
-          "actor": "demo5",
-          "created_at": "2026-02-10T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Map current Jira workflow",
-          "actor": "demo1",
-          "created_at": "2026-02-10T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Identify pain points",
-          "actor": "demo5",
-          "created_at": "2026-02-10T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Identify pain points",
-          "actor": "demo1",
-          "created_at": "2026-02-10T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Define migration scope",
-          "actor": "demo5",
-          "created_at": "2026-02-10T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Schedule technical review",
-          "actor": "demo5",
-          "created_at": "2026-02-10T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Pain is clear: 500 users on Jira Cloud, $180k/year. They want swimlane-based boards.",
-          "actor": "demo2",
-          "created_at": "2026-02-10T20:50:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Champion confirmed: VP Engineering. Budget owner is CFO — need CFO intro.",
-          "actor": "demo1",
-          "created_at": "2026-02-10T23:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Analytics Add-on Proposal",
-      "description": "Add-on proposal for Analytics module on top of the base platform deal. Combined deal value significantly higher than base license alone.",
-      "priority": "high",
-      "column": "Proposal Sent",
-      "swimlane": "North America",
-      "due_date": "2026-03-22",
-      "weight": 4,
-      "labels": [
-        "Enterprise",
-        "Upsell"
-      ],
-      "checklist": [
-        {
-          "text": "Draft SOW",
-          "is_checked": true
-        },
-        {
-          "text": "Pricing approved by CS",
-          "is_checked": true
-        },
-        {
-          "text": "Send to procurement",
-          "is_checked": false
-        },
-        {
-          "text": "Follow up after 3 days",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Proposal sent Friday. Procurement said they'll respond within 5 business days.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Proposal Sent",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-02T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise, Upsell",
-          "actor": "demo2",
-          "created_at": "2026-02-02T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo2",
-          "created_at": "2026-02-02T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-22",
-          "actor": "demo2",
-          "created_at": "2026-02-02T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft SOW",
-          "actor": "demo2",
-          "created_at": "2026-02-02T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Draft SOW",
-          "actor": "demo3",
-          "created_at": "2026-02-02T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Pricing approved by CS",
-          "actor": "demo2",
-          "created_at": "2026-02-02T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Pricing approved by CS",
-          "actor": "demo3",
-          "created_at": "2026-02-02T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Send to procurement",
-          "actor": "demo2",
-          "created_at": "2026-02-02T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Follow up after 3 days",
-          "actor": "demo2",
-          "created_at": "2026-02-02T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Proposal sent Friday. Procurement said they'll respond within 5 business days.",
-          "actor": "demo3",
-          "created_at": "2026-02-02T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "500-Seat Enterprise Deal — Closed Won",
-      "description": "500-seat enterprise deal closed after 60-day sales cycle. Includes platform + analytics module. 2-year commit.",
-      "priority": "high",
-      "column": "Closed Won",
-      "swimlane": "North America",
-      "due_date": "2026-03-10",
-      "weight": 8,
-      "labels": [
-        "Enterprise",
-        "Strategic"
-      ],
-      "checklist": [
-        {
-          "text": "Procurement approved",
-          "is_checked": true
-        },
-        {
-          "text": "Legal signed MSA",
-          "is_checked": true
-        },
-        {
-          "text": "Onboarding scheduled",
-          "is_checked": true
-        },
-        {
-          "text": "CS handoff completed",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "MSA signed. 500 seats, 2-year term. CS onboarding starts Monday.",
-          "author": "demo1"
-        },
-        {
-          "body": "Biggest win this quarter. Will feature as a Q2 launch case study.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Proposal Sent",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Proposal Sent",
-          "to_column": "Negotiation",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Negotiation",
-          "to_column": "Closed Won",
-          "from_swimlane": "North America",
-          "to_swimlane": "North America",
-          "moved_at": "2026-03-03T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-02-10T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise, Strategic",
-          "actor": "demo4",
-          "created_at": "2026-02-10T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-02-10T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-10",
-          "actor": "demo4",
-          "created_at": "2026-02-10T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Procurement approved",
-          "actor": "demo4",
-          "created_at": "2026-02-10T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Procurement approved",
-          "actor": "demo5",
-          "created_at": "2026-02-10T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Legal signed MSA",
-          "actor": "demo4",
-          "created_at": "2026-02-10T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Legal signed MSA",
-          "actor": "demo5",
-          "created_at": "2026-02-10T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Onboarding scheduled",
-          "actor": "demo4",
-          "created_at": "2026-02-10T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Onboarding scheduled",
-          "actor": "demo5",
-          "created_at": "2026-02-10T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "CS handoff completed",
-          "actor": "demo4",
-          "created_at": "2026-02-10T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "CS handoff completed",
-          "actor": "demo5",
-          "created_at": "2026-02-10T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "MSA signed. 500 seats, 2-year term. CS onboarding starts Monday.",
-          "actor": "demo1",
-          "created_at": "2026-02-10T23:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Biggest win this quarter. Will feature as a Q2 launch case study.",
-          "actor": "demo4",
-          "created_at": "2026-02-11T07:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Ops Board Pilot — 50 Stores",
-      "description": "200-location retail chain flagged as qualified after inbound inquiry. Ops team wants to track store maintenance tasks on a kanban board. Piloting with 50 stores.",
-      "priority": "medium",
-      "column": "Qualified",
-      "swimlane": "APAC",
-      "due_date": "2026-04-12",
-      "weight": 3,
-      "labels": [
-        "SMB"
-      ],
-      "checklist": [
-        {
-          "text": "ICP confirmed",
-          "is_checked": true
-        },
-        {
-          "text": "Budget holder identified",
-          "is_checked": true
-        },
-        {
-          "text": "Schedule discovery call",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-09T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SMB",
-          "actor": "demo1",
-          "created_at": "2026-01-09T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-12",
-          "actor": "demo1",
-          "created_at": "2026-01-09T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "ICP confirmed",
-          "actor": "demo1",
-          "created_at": "2026-01-09T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "ICP confirmed",
-          "actor": "demo2",
-          "created_at": "2026-01-09T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Budget holder identified",
-          "actor": "demo1",
-          "created_at": "2026-01-09T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Budget holder identified",
-          "actor": "demo2",
-          "created_at": "2026-01-09T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Schedule discovery call",
-          "actor": "demo1",
-          "created_at": "2026-01-09T20:10:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Operations Board Demo — CTO",
-      "description": "Live demo for CTO and ops director showing the retail-specific board template. Focus on swimlane-per-store structure and mobile card creation for field workers.",
-      "priority": "high",
-      "column": "Demo",
-      "swimlane": "APAC",
-      "due_date": "2026-03-25",
-      "weight": 5,
-      "labels": [
-        "SMB",
-        "Strategic"
-      ],
-      "checklist": [
-        {
-          "text": "Prepared demo board with retail template",
-          "is_checked": true
-        },
-        {
-          "text": "CTO confirmed attendance",
-          "is_checked": true
-        },
-        {
-          "text": "Capture follow-up questions",
-          "is_checked": false
-        },
-        {
-          "text": "Send recording",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Demo went well. CTO loved the swimlane-per-store concept. Wants a 2-week trial.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Qualified",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-02-02T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SMB, Strategic",
-          "actor": "demo3",
-          "created_at": "2026-02-02T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2026-02-02T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-25",
-          "actor": "demo3",
-          "created_at": "2026-02-02T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Prepared demo board with retail template",
-          "actor": "demo3",
-          "created_at": "2026-02-02T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Prepared demo board with retail template",
-          "actor": "demo4",
-          "created_at": "2026-02-02T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "CTO confirmed attendance",
-          "actor": "demo3",
-          "created_at": "2026-02-02T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "CTO confirmed attendance",
-          "actor": "demo4",
-          "created_at": "2026-02-02T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Capture follow-up questions",
-          "actor": "demo3",
-          "created_at": "2026-02-02T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Send recording",
-          "actor": "demo3",
-          "created_at": "2026-02-02T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Demo went well. CTO loved the swimlane-per-store concept. Wants a 2-week trial.",
-          "actor": "demo2",
-          "created_at": "2026-02-02T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Contract Review — Budget Objection",
-      "description": "Deal stalled on seasonal budget freeze. Now active again with CFO involved. Negotiating annual vs multi-year terms. Legal review in progress.",
-      "priority": "urgent",
-      "column": "Negotiation",
-      "swimlane": "APAC",
-      "due_date": "2026-03-18",
-      "weight": 6,
-      "labels": [
-        "SMB"
-      ],
-      "checklist": [
-        {
-          "text": "Sent revised pricing",
-          "is_checked": true
-        },
-        {
-          "text": "Awaiting legal review",
-          "is_checked": false
-        },
-        {
-          "text": "Follow up with CTO",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Budget freeze lifted March 15. Back in active negotiation — CTO wants 10% discount for 2-year commit.",
-          "author": "demo3"
-        },
-        {
-          "body": "Legal flagged data residency clause. Need to confirm APAC data processing requirements.",
-          "author": "demo5"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Proposal Sent",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Proposal Sent",
-          "to_column": "Negotiation",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SMB",
-          "actor": "demo5",
-          "created_at": "2026-01-07T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "urgent",
-          "actor": "demo5",
-          "created_at": "2026-01-07T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-18",
-          "actor": "demo5",
-          "created_at": "2026-01-07T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Sent revised pricing",
-          "actor": "demo5",
-          "created_at": "2026-01-07T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Sent revised pricing",
-          "actor": "demo1",
-          "created_at": "2026-01-07T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Awaiting legal review",
-          "actor": "demo5",
-          "created_at": "2026-01-07T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Follow up with CTO",
-          "actor": "demo5",
-          "created_at": "2026-01-07T19:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Budget freeze lifted March 15. Back in active negotiation — CTO wants 10% discount for 2-year commit.",
-          "actor": "demo3",
-          "created_at": "2026-01-07T20:15:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Legal flagged data residency clause. Need to confirm APAC data processing requirements.",
-          "actor": "demo5",
-          "created_at": "2026-01-07T23:15:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Retail Pilot — Lost to Competitor",
-      "description": "Pilot converted to full evaluation but lost to a lower-cost competitor. Champion attrition contributed. Scheduled 6-month re-engage.",
-      "priority": "medium",
-      "column": "Closed Lost",
-      "swimlane": "APAC",
-      "due_date": "2026-02-28",
-      "weight": 3,
-      "labels": [
-        "SMB"
-      ],
-      "checklist": [
-        {
-          "text": "Post-mortem completed",
-          "is_checked": true
-        },
-        {
-          "text": "Added to lost-deal analysis",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Lost on price. Competitor offered 40% lower for year 1. Need to revisit SMB pricing model.",
-          "author": "demo1"
-        },
-        {
-          "body": "Champion left company. New IT manager not familiar with the pain.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Proposal Sent",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Proposal Sent",
-          "to_column": "Demo",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Proposal Sent",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Proposal Sent",
-          "to_column": "Negotiation",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Negotiation",
-          "to_column": "Closed Won",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Closed Won",
-          "to_column": "Closed Lost",
-          "from_swimlane": "APAC",
-          "to_swimlane": "APAC",
-          "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-01T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SMB",
-          "actor": "demo2",
-          "created_at": "2026-02-01T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-28",
-          "actor": "demo2",
-          "created_at": "2026-02-01T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Post-mortem completed",
-          "actor": "demo2",
-          "created_at": "2026-02-01T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Post-mortem completed",
-          "actor": "demo3",
-          "created_at": "2026-02-01T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Added to lost-deal analysis",
-          "actor": "demo2",
-          "created_at": "2026-02-01T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Added to lost-deal analysis",
-          "actor": "demo3",
-          "created_at": "2026-02-01T19:55:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Lost on price. Competitor offered 40% lower for year 1. Need to revisit SMB pricing model.",
-          "actor": "demo1",
-          "created_at": "2026-02-01T20:10:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Champion left company. New IT manager not familiar with the pain.",
-          "actor": "demo4",
-          "created_at": "2026-02-02T05:10:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Compliance Workflow License — 80 Seats",
-      "description": "Fintech prospect focused on compliance workflows. SOC 2 requirement is non-negotiable. VP Product is a strong champion and has been using Visiban personally.",
-      "priority": "high",
-      "column": "Qualified",
-      "swimlane": "EMEA",
-      "due_date": "2026-04-09",
-      "weight": 4,
-      "labels": [
-        "Enterprise",
-        "Strategic"
-      ],
-      "checklist": [
-        {
-          "text": "GDPR/SOC2 requirements confirmed",
-          "is_checked": true
-        },
-        {
-          "text": "Champion is VP Product",
-          "is_checked": true
-        },
-        {
-          "text": "Invite to webinar",
-          "is_checked": false
-        }
-      ],
-      "comments": [],
-      "assignee": "demo4",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-10T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise, Strategic",
-          "actor": "demo4",
-          "created_at": "2026-01-10T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-01-10T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-09",
-          "actor": "demo4",
-          "created_at": "2026-01-10T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "GDPR/SOC2 requirements confirmed",
-          "actor": "demo4",
-          "created_at": "2026-01-10T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "GDPR/SOC2 requirements confirmed",
-          "actor": "demo5",
-          "created_at": "2026-01-10T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Champion is VP Product",
-          "actor": "demo4",
-          "created_at": "2026-01-10T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Champion is VP Product",
-          "actor": "demo5",
-          "created_at": "2026-01-10T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Invite to webinar",
-          "actor": "demo4",
-          "created_at": "2026-01-10T22:10:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Engineering Team Discovery Call",
-      "description": "Deep-dive discovery with VP Product and two senior engineers. Compliance audit trail is top priority — CardMovement history is a key differentiator over competitors.",
-      "priority": "high",
-      "column": "Discovery",
-      "swimlane": "EMEA",
-      "due_date": "2026-04-02",
-      "weight": 5,
-      "labels": [
-        "Enterprise"
-      ],
-      "checklist": [
-        {
-          "text": "Mapped current Trello usage",
-          "is_checked": true
-        },
-        {
-          "text": "Identified audit trail requirement",
-          "is_checked": true
-        },
-        {
-          "text": "Draft custom template",
-          "is_checked": false
-        },
-        {
-          "text": "Share security whitepaper",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Key insight: they need a full audit log of card movements for compliance. Our History tab is a differentiator.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Prospect",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-02-06T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise",
-          "actor": "demo1",
-          "created_at": "2026-02-06T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo1",
-          "created_at": "2026-02-06T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-02",
-          "actor": "demo1",
-          "created_at": "2026-02-06T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Mapped current Trello usage",
-          "actor": "demo1",
-          "created_at": "2026-02-06T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Mapped current Trello usage",
-          "actor": "demo2",
-          "created_at": "2026-02-06T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Identified audit trail requirement",
-          "actor": "demo1",
-          "created_at": "2026-02-06T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Identified audit trail requirement",
-          "actor": "demo2",
-          "created_at": "2026-02-06T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Draft custom template",
-          "actor": "demo1",
-          "created_at": "2026-02-06T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Share security whitepaper",
-          "actor": "demo1",
-          "created_at": "2026-02-06T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Key insight: they need a full audit log of card movements for compliance. Our History tab is a differentiator.",
-          "actor": "demo2",
-          "created_at": "2026-02-06T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Compliance Platform Proposal — 80 Seats",
-      "description": "Full commercial proposal including DPA, GDPR data processing addendum, and SOC 2 compliance documentation. VP Product championing internally.",
-      "priority": "urgent",
-      "column": "Proposal Sent",
-      "swimlane": "EMEA",
-      "due_date": "2026-03-20",
-      "weight": 6,
-      "labels": [
-        "Enterprise",
-        "Strategic"
-      ],
-      "checklist": [
-        {
-          "text": "Proposal drafted",
-          "is_checked": true
-        },
-        {
-          "text": "Legal reviewed GDPR addendum",
-          "is_checked": true
-        },
-        {
-          "text": "Sent to VP Product",
-          "is_checked": true
-        },
-        {
-          "text": "Awaiting sign-off",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Proposal includes DPA and GDPR addendum. VP Product very positive — escalating to CTO.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Proposal Sent",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo3",
-          "actor": "demo3",
-          "created_at": "2026-01-17T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise, Strategic",
-          "actor": "demo3",
-          "created_at": "2026-01-17T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "urgent",
-          "actor": "demo3",
-          "created_at": "2026-01-17T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-20",
-          "actor": "demo3",
-          "created_at": "2026-01-17T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Proposal drafted",
-          "actor": "demo3",
-          "created_at": "2026-01-17T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Proposal drafted",
-          "actor": "demo4",
-          "created_at": "2026-01-17T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Legal reviewed GDPR addendum",
-          "actor": "demo3",
-          "created_at": "2026-01-17T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Legal reviewed GDPR addendum",
-          "actor": "demo4",
-          "created_at": "2026-01-17T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Sent to VP Product",
-          "actor": "demo3",
-          "created_at": "2026-01-17T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Sent to VP Product",
-          "actor": "demo4",
-          "created_at": "2026-01-17T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Awaiting sign-off",
-          "actor": "demo3",
-          "created_at": "2026-01-17T22:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Proposal includes DPA and GDPR addendum. VP Product very positive — escalating to CTO.",
-          "actor": "demo3",
-          "created_at": "2026-01-17T23:05:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "80-Seat Fintech Deal — Closed Won",
-      "description": "80-seat deal closed with GDPR DPA and SOC 2 compliance documentation. Strong fintech reference account for the EMEA region.",
-      "priority": "high",
-      "column": "Closed Won",
-      "swimlane": "EMEA",
-      "due_date": "2026-03-05",
-      "weight": 7,
-      "labels": [
-        "Enterprise"
-      ],
-      "checklist": [
-        {
-          "text": "Contract signed",
-          "is_checked": true
-        },
-        {
-          "text": "Data processing addendum executed",
-          "is_checked": true
-        },
-        {
-          "text": "Onboarding session booked",
-          "is_checked": true
-        },
-        {
-          "text": "CS assigned",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Closed! 80 seats, 1-year term with renewal option. DPA signed. CS starting onboarding next week.",
-          "author": "demo1"
-        },
-        {
-          "body": "Great reference account for the EMEA fintech vertical. Happy to be a case study.",
-          "author": "demo4"
-        }
-      ],
-      "assignee": null,
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Proposal Sent",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Proposal Sent",
-          "to_column": "Negotiation",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Negotiation",
-          "to_column": "Closed Won",
-          "from_swimlane": "EMEA",
-          "to_swimlane": "EMEA",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise",
-          "actor": "demo5",
-          "created_at": "2026-01-11T13:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo5",
-          "created_at": "2026-01-11T16:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-05",
-          "actor": "demo5",
-          "created_at": "2026-01-11T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Contract signed",
-          "actor": "demo5",
-          "created_at": "2026-01-11T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Contract signed",
-          "actor": "demo1",
-          "created_at": "2026-01-11T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Data processing addendum executed",
-          "actor": "demo5",
-          "created_at": "2026-01-11T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Data processing addendum executed",
-          "actor": "demo1",
-          "created_at": "2026-01-11T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Onboarding session booked",
-          "actor": "demo5",
-          "created_at": "2026-01-11T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Onboarding session booked",
-          "actor": "demo1",
-          "created_at": "2026-01-11T20:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "CS assigned",
-          "actor": "demo5",
-          "created_at": "2026-01-11T20:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "CS assigned",
-          "actor": "demo1",
-          "created_at": "2026-01-11T21:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Closed! 80 seats, 1-year term with renewal option. DPA signed. CS starting onboarding next week.",
-          "actor": "demo1",
-          "created_at": "2026-01-11T21:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Great reference account for the EMEA fintech vertical. Happy to be a case study.",
-          "actor": "demo4",
-          "created_at": "2026-01-12T06:20:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Healthcare Platform — Initial Outreach",
-      "description": "Inbound lead from a regional healthcare provider exploring project tracking for clinical ops. Local data compliance equivalent to HIPAA will be required.",
+      "title": "Analytics Add-on Upsell",
+      "description": "TechNova data team interested in the analytics module. Current deal is base license only.\n\nEstimated uplift: +$12k ARR.",
       "priority": "low",
-      "column": "Prospect",
-      "swimlane": "LATAM",
-      "due_date": "2026-04-19",
+      "assignee": "demo1",
+      "column": "Qualified",
+      "swimlane": "North America",
+      "due_date": "2026-04-14",
       "weight": 2,
       "labels": [
         "Enterprise"
       ],
       "checklist": [
         {
-          "text": "Confirm local data compliance requirements",
-          "is_checked": false
-        },
-        {
-          "text": "Research healthcare use case",
-          "is_checked": false
-        },
-        {
-          "text": "Send intro deck",
+          "text": "Identify analytics champion in data team",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": "demo2",
       "movements": [
         {
           "from_column": null,
           "to_column": "Prospect",
           "from_swimlane": null,
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-02-07T12:00:00+00:00",
+          "to_swimlane": "North America",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "North America",
+          "to_swimlane": "North America",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo2"
         }
       ],
@@ -1980,61 +157,148 @@
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2026-02-07T13:00:00+00:00"
+          "to_value": "Alex Rivera",
+          "actor": "demo5",
+          "created_at": "2026-02-21T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Enterprise",
-          "actor": "demo2",
-          "created_at": "2026-02-07T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo2",
-          "created_at": "2026-02-07T18:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-23T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-04-19",
-          "actor": "demo2",
-          "created_at": "2026-02-07T20:00:00+00:00"
+          "to_value": "2026-04-14",
+          "actor": "demo5",
+          "created_at": "2026-02-24T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Confirm local data compliance requirements",
+          "to_value": "Identify analytics champion in data team",
           "actor": "demo2",
-          "created_at": "2026-02-07T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Research healthcare use case",
-          "actor": "demo2",
-          "created_at": "2026-02-07T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Send intro deck",
-          "actor": "demo2",
-          "created_at": "2026-02-07T21:40:00+00:00"
+          "created_at": "2026-02-27T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Patient Care Workflow Demo — VP Operations",
-      "description": "Demo for VP Operations showing a healthcare-specific workflow template. Data compliance agreement is a prerequisite for moving forward — legal team engaged.",
+      "title": "Engineering Hub Expansion — 200 Seats",
+      "description": "Expansion deal targeting the infrastructure and platform teams not included in the original pilot.\n\nUpsell conversation triggered by strong pilot NPS (62).",
+      "priority": "medium",
+      "assignee": "demo2",
+      "column": "Discovery",
+      "swimlane": "North America",
+      "due_date": "2026-04-05",
+      "weight": 4,
+      "labels": [
+        "Enterprise",
+        "Renewal"
+      ],
+      "checklist": [
+        {
+          "text": "Map out teams not yet on platform",
+          "is_checked": true
+        },
+        {
+          "text": "Book discovery call with infra lead",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Pilot NPS is 62. Good timing to bring up expansion.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "North America",
+          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "North America",
+          "to_swimlane": "North America",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "North America",
+          "to_swimlane": "North America",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo4",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise, Renewal",
+          "actor": "demo3",
+          "created_at": "2026-02-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-05",
+          "actor": "demo5",
+          "created_at": "2026-02-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Map out teams not yet on platform",
+          "actor": "demo5",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Book discovery call with infra lead",
+          "actor": "demo4",
+          "created_at": "2026-02-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Map out teams not yet on platform",
+          "actor": "demo5",
+          "created_at": "2026-02-26T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Platform Migration — 500 Seats",
+      "description": "Opportunity to displace Jira across all engineering teams. Champion is the VP Engineering. Budget approved for Q2.\n\n## Situation\n\n- 12 engineering teams, ~500 users\n- Current pain: Jira too rigid for cross-team swimlane workflows\n- Decision by 2026-04-30",
       "priority": "high",
-      "column": "Demo",
-      "swimlane": "LATAM",
-      "due_date": "2026-03-27",
+      "assignee": "demo1",
+      "column": "Proposal Sent",
+      "swimlane": "North America",
+      "due_date": "2026-03-29",
       "weight": 5,
       "labels": [
         "Enterprise",
@@ -2042,511 +306,157 @@
       ],
       "checklist": [
         {
-          "text": "Prepared healthcare board template",
+          "text": "Send custom proposal deck",
           "is_checked": true
         },
         {
-          "text": "Compliance review completed by legal",
+          "text": "Confirm security questionnaire complete",
           "is_checked": true
         },
         {
-          "text": "Capture clinical workflow requirements",
-          "is_checked": false
-        },
-        {
-          "text": "Schedule follow-up",
+          "text": "Schedule executive sign-off call",
           "is_checked": false
         }
       ],
       "comments": [
         {
-          "body": "Demo completed. VP Ops was impressed by the swimlane-per-department structure. Compliance agreement required before next steps.",
+          "body": "VP Engineering confirmed budget. Legal review starts Monday.",
+          "author": "demo1"
+        },
+        {
+          "body": "They want swimlane-level WIP limits — confirm this is on the roadmap.",
           "author": "demo2"
         }
       ],
-      "assignee": "demo4",
       "movements": [
         {
           "from_column": null,
           "to_column": "Prospect",
           "from_swimlane": null,
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Discovery",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-30T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise, Strategic",
-          "actor": "demo4",
-          "created_at": "2026-01-30T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "high",
-          "actor": "demo4",
-          "created_at": "2026-01-30T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-27",
-          "actor": "demo4",
-          "created_at": "2026-01-30T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Prepared healthcare board template",
-          "actor": "demo4",
-          "created_at": "2026-01-30T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Prepared healthcare board template",
-          "actor": "demo5",
-          "created_at": "2026-01-30T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Compliance review completed by legal",
-          "actor": "demo4",
-          "created_at": "2026-01-30T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Compliance review completed by legal",
-          "actor": "demo5",
-          "created_at": "2026-01-30T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Capture clinical workflow requirements",
-          "actor": "demo4",
-          "created_at": "2026-01-30T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Schedule follow-up",
-          "actor": "demo4",
-          "created_at": "2026-01-30T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Demo completed. VP Ops was impressed by the swimlane-per-department structure. Compliance agreement required before next",
-          "actor": "demo2",
-          "created_at": "2026-01-30T22:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Data Processing Agreement Negotiation",
-      "description": "Data processing agreement in final legal review on both sides. VP Operations is the deal sponsor and is actively pushing their legal team to close. Deal value: 200 seats.",
-      "priority": "urgent",
-      "column": "Negotiation",
-      "swimlane": "LATAM",
-      "due_date": "2026-03-21",
-      "weight": 7,
-      "labels": [
-        "Enterprise",
-        "Strategic"
-      ],
-      "checklist": [
-        {
-          "text": "Legal drafted data processing agreement",
-          "is_checked": true
-        },
-        {
-          "text": "Sent to account legal team",
-          "is_checked": true
-        },
-        {
-          "text": "Awaiting redlines",
-          "is_checked": false
-        },
-        {
-          "text": "Final sign-off",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Their legal team has 3 redlines. None are blockers — we can accept all of them.",
-          "author": "demo3"
-        },
-        {
-          "body": "VP Ops is pushing their legal to expedite. Deal is ready to close pending agreement.",
-          "author": "demo5"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "LATAM",
-          "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "to_swimlane": "North America",
+          "moved_at": "2026-01-28T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "from_swimlane": "North America",
+          "to_swimlane": "North America",
+          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Qualified",
           "to_column": "Discovery",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "from_swimlane": "North America",
+          "to_swimlane": "North America",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo4"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "from_swimlane": "North America",
+          "to_swimlane": "North America",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Proposal Sent",
-          "to_column": "Negotiation",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "from_swimlane": "North America",
+          "to_swimlane": "North America",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2025-12-27T13:00:00+00:00"
+          "to_value": "Alex Rivera",
+          "actor": "demo4",
+          "created_at": "2026-01-29T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "Enterprise, Strategic",
-          "actor": "demo1",
-          "created_at": "2025-12-27T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "urgent",
-          "actor": "demo1",
-          "created_at": "2025-12-27T18:00:00+00:00"
+          "actor": "demo2",
+          "created_at": "2026-01-31T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
-          "to_value": "2026-03-21",
-          "actor": "demo1",
-          "created_at": "2025-12-27T20:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Legal drafted data processing agreement",
-          "actor": "demo1",
-          "created_at": "2025-12-27T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Legal drafted data processing agreement",
-          "actor": "demo2",
-          "created_at": "2025-12-27T21:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Sent to account legal team",
-          "actor": "demo1",
-          "created_at": "2025-12-27T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Sent to account legal team",
-          "actor": "demo2",
-          "created_at": "2025-12-27T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Awaiting redlines",
-          "actor": "demo1",
-          "created_at": "2025-12-27T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Final sign-off",
-          "actor": "demo1",
-          "created_at": "2025-12-27T22:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Their legal team has 3 redlines. None are blockers — we can accept all of them.",
-          "actor": "demo3",
-          "created_at": "2025-12-27T22:50:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "VP Ops is pushing their legal to expedite. Deal is ready to close pending agreement.",
+          "to_value": "2026-03-29",
           "actor": "demo5",
-          "created_at": "2025-12-28T08:50:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "200-Seat Healthcare Deal — Closed Won",
-      "description": "200-seat 3-year deal closed with full compliance documentation and enterprise MSA. First major healthcare vertical win in the region.",
-      "priority": "high",
-      "column": "Closed Won",
-      "swimlane": "LATAM",
-      "due_date": "2026-03-12",
-      "weight": 8,
-      "labels": [
-        "Enterprise",
-        "Strategic"
-      ],
-      "checklist": [
-        {
-          "text": "Data processing agreement signed",
-          "is_checked": true
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
-          "text": "MSA executed",
-          "is_checked": true
-        },
-        {
-          "text": "Onboarding kickoff scheduled",
-          "is_checked": true
-        },
-        {
-          "text": "CS team notified",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Agreement signed — that was the last blocker. 200-seat deal, 3-year term, closed!",
-          "author": "demo1"
-        },
-        {
-          "body": "First major healthcare enterprise win in LATAM. Adding to the regional case study pipeline.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo3",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Negotiation",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Negotiation",
-          "to_column": "Closed Won",
-          "from_swimlane": "LATAM",
-          "to_swimlane": "LATAM",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
+          "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "demo3",
+          "to_value": "Send custom proposal deck",
           "actor": "demo3",
-          "created_at": "2026-01-01T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "Enterprise, Strategic",
-          "actor": "demo3",
-          "created_at": "2026-01-01T15:00:00+00:00"
+          "created_at": "2026-02-07T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
-          "actor": "demo3",
-          "created_at": "2026-01-01T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-12",
-          "actor": "demo3",
-          "created_at": "2026-01-01T20:00:00+00:00"
+          "actor": "demo4",
+          "created_at": "2026-02-07T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Data processing agreement signed",
-          "actor": "demo3",
-          "created_at": "2026-01-01T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Data processing agreement signed",
+          "to_value": "Confirm security questionnaire complete",
           "actor": "demo4",
-          "created_at": "2026-01-01T21:20:00+00:00"
+          "created_at": "2026-02-08T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "MSA executed",
-          "actor": "demo3",
-          "created_at": "2026-01-01T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "MSA executed",
-          "actor": "demo4",
-          "created_at": "2026-01-01T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Onboarding kickoff scheduled",
-          "actor": "demo3",
-          "created_at": "2026-01-01T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Onboarding kickoff scheduled",
-          "actor": "demo4",
-          "created_at": "2026-01-01T22:30:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "CS team notified",
-          "actor": "demo3",
-          "created_at": "2026-01-01T22:45:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "CS team notified",
-          "actor": "demo4",
-          "created_at": "2026-01-01T23:05:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Agreement signed — that was the last blocker. 200-seat deal, 3-year term, closed!",
-          "actor": "demo1",
-          "created_at": "2026-01-01T23:20:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "First major healthcare enterprise win in LATAM. Adding to the regional case study pipeline.",
+          "to_value": "Schedule executive sign-off call",
           "actor": "demo2",
-          "created_at": "2026-01-02T09:20:00+00:00"
+          "created_at": "2026-02-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send custom proposal deck",
+          "actor": "demo4",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Confirm security questionnaire complete",
+          "actor": "demo2",
+          "created_at": "2026-02-12T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Creative Agency Sprint Boards — 30 Seats",
-      "description": "Small creative agency looking for a lightweight kanban for campaign sprint tracking. Decision cycles are short — Ops Director can approve on the spot.",
+      "title": "Seasonal Campaign Tracker Pilot",
+      "description": "Pilot for the marketing team tracking seasonal campaign tasks. 10 seats, 60 days. Success criteria: all Q3 campaigns tracked in Visiban.",
       "priority": "medium",
+      "assignee": "demo1",
       "column": "Qualified",
-      "swimlane": "ANZ",
+      "swimlane": "APAC",
       "due_date": "2026-04-04",
       "weight": 3,
       "labels": [
@@ -2554,157 +464,30 @@
       ],
       "checklist": [
         {
-          "text": "Decision maker identified (Ops Director)",
+          "text": "Qualify with marketing lead",
           "is_checked": true
         },
         {
-          "text": "30-seat count confirmed",
-          "is_checked": true
-        },
-        {
-          "text": "Schedule demo this week",
+          "text": "Provision 10 trial seats",
           "is_checked": false
         }
       ],
       "comments": [],
-      "assignee": null,
       "movements": [
         {
           "from_column": null,
           "to_column": "Prospect",
           "from_swimlane": null,
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-01-15T12:00:00+00:00",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-18T00:00:00+00:00",
           "moved_by": "demo1"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SMB",
-          "actor": "demo5",
-          "created_at": "2026-01-06T13:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-04-04",
-          "actor": "demo5",
-          "created_at": "2026-01-06T16:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Decision maker identified (Ops Director)",
-          "actor": "demo5",
-          "created_at": "2026-01-06T17:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Decision maker identified (Ops Director)",
-          "actor": "demo1",
-          "created_at": "2026-01-06T17:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "30-seat count confirmed",
-          "actor": "demo5",
-          "created_at": "2026-01-06T17:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "30-seat count confirmed",
-          "actor": "demo1",
-          "created_at": "2026-01-06T17:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Schedule demo this week",
-          "actor": "demo5",
-          "created_at": "2026-01-06T18:10:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Agency Workflow Demo — Ops Director",
-      "description": "30-minute demo focused on the content production board template. Ops Director has authority to approve. Follow-up sent within 2 hours.",
-      "priority": "high",
-      "column": "Demo",
-      "swimlane": "ANZ",
-      "due_date": "2026-03-23",
-      "weight": 4,
-      "labels": [
-        "SMB"
-      ],
-      "checklist": [
-        {
-          "text": "Demo prepared with content production template",
-          "is_checked": true
-        },
-        {
-          "text": "Ops Director confirmed",
-          "is_checked": true
-        },
-        {
-          "text": "Capture content calendar requirements",
-          "is_checked": false
-        },
-        {
-          "text": "Send follow-up same day",
-          "is_checked": false
-        }
-      ],
-      "comments": [
-        {
-          "body": "Great energy in the demo. They loved the content production template. Follow-up sent same afternoon.",
-          "author": "demo2"
-        }
-      ],
-      "assignee": "demo2",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "ANZ",
-          "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo2"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-01-26T12:00:00+00:00",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo5"
         }
       ],
@@ -2712,133 +495,1150 @@
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo2",
-          "actor": "demo2",
-          "created_at": "2025-12-28T13:00:00+00:00"
+          "to_value": "Alex Rivera",
+          "actor": "demo1",
+          "created_at": "2026-02-19T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
           "to_value": "SMB",
+          "actor": "demo1",
+          "created_at": "2026-02-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-04",
+          "actor": "demo3",
+          "created_at": "2026-02-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Qualify with marketing lead",
           "actor": "demo2",
-          "created_at": "2025-12-28T15:00:00+00:00"
+          "created_at": "2026-02-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provision 10 trial seats",
+          "actor": "demo3",
+          "created_at": "2026-02-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Qualify with marketing lead",
+          "actor": "demo4",
+          "created_at": "2026-03-01T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Operations Board Rollout — 200 Locations",
+      "description": "Each retail location tracks their own ops tasks on a shared board. Swimlane-per-region model.\n\nDemo focused on the mobile card creation flow and daily standup view.",
+      "priority": "high",
+      "assignee": "demo2",
+      "column": "Demo",
+      "swimlane": "APAC",
+      "due_date": "2026-03-25",
+      "weight": 4,
+      "labels": [
+        "SMB",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Prepare retail-specific demo board",
+          "is_checked": true
+        },
+        {
+          "text": "Run live demo with CTO",
+          "is_checked": true
+        },
+        {
+          "text": "Send follow-up with pricing options",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Demo landed well. CTO liked the per-region swimlane view.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo2",
+          "created_at": "2026-02-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SMB, Strategic",
+          "actor": "demo2",
+          "created_at": "2026-02-04T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-25",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Prepare retail-specific demo board",
+          "actor": "demo3",
+          "created_at": "2026-02-12T00:00:00+00:00"
         },
         {
           "event_type": "priority_change",
           "from_value": "medium",
           "to_value": "high",
+          "actor": "demo3",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run live demo with CTO",
           "actor": "demo2",
-          "created_at": "2025-12-28T18:00:00+00:00"
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send follow-up with pricing options",
+          "actor": "demo1",
+          "created_at": "2026-02-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Run live demo with CTO",
+          "actor": "demo4",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Prepare retail-specific demo board",
+          "actor": "demo1",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Full Org Rollout — 300 Seats",
+      "description": "Following successful pilot, Apex wants to roll out to all ops, marketing, and logistics teams.\n\nNegotiating a 3-year enterprise agreement.",
+      "priority": "urgent",
+      "assignee": "demo1",
+      "column": "Negotiation",
+      "swimlane": "APAC",
+      "due_date": "2026-03-20",
+      "weight": 5,
+      "labels": [
+        "Renewal",
+        "SMB",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Draft 3-year MSA",
+          "is_checked": true
+        },
+        {
+          "text": "Get legal sign-off on SLA clause",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm seat count with Apex procurement",
+          "is_checked": false
+        },
+        {
+          "text": "Execute agreement",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "CTO pushing hard to close before Q2 budget cycle closes.",
+          "author": "demo1"
+        },
+        {
+          "body": "Legal flagged the liability cap — escalated to VP Sales.",
+          "author": "demo2"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "APAC",
+          "moved_at": "2026-01-09T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Proposal Sent",
+          "to_column": "Negotiation",
+          "from_swimlane": "APAC",
+          "to_swimlane": "APAC",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo4"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo2",
+          "created_at": "2026-01-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SMB, Strategic, Renewal",
+          "actor": "demo3",
+          "created_at": "2026-01-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-20",
+          "actor": "demo5",
+          "created_at": "2026-01-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Draft 3-year MSA",
+          "actor": "demo2",
+          "created_at": "2026-01-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Get legal sign-off on SLA clause",
+          "actor": "demo5",
+          "created_at": "2026-01-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo1",
+          "created_at": "2026-01-19T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Draft 3-year MSA",
+          "actor": "demo2",
+          "created_at": "2026-01-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Confirm seat count with Apex procurement",
+          "actor": "demo2",
+          "created_at": "2026-01-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Get legal sign-off on SLA clause",
+          "actor": "demo1",
+          "created_at": "2026-01-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Execute agreement",
+          "actor": "demo3",
+          "created_at": "2026-01-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo2",
+          "created_at": "2026-01-25T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Compliance Workflow License — 80 Seats",
+      "description": "FinEdge tracks regulatory submissions and internal audit cycles. Primary use case: legal/compliance boards per regulation.\n\nCompeting against Notion and a custom Airtable setup.",
+      "priority": "high",
+      "assignee": "demo3",
+      "column": "Discovery",
+      "swimlane": "EMEA",
+      "due_date": "2026-03-27",
+      "weight": 4,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Send SOC 2 Type II report",
+          "is_checked": true
+        },
+        {
+          "text": "Complete GDPR data processing addendum",
+          "is_checked": false
+        },
+        {
+          "text": "Book technical deep-dive with their engineering team",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "VP Product confirmed Notion is a weak competitor here — they need structure.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Jordan Patel",
+          "actor": "demo1",
+          "created_at": "2026-02-20T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo4",
+          "created_at": "2026-02-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-27",
+          "actor": "demo4",
+          "created_at": "2026-02-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send SOC 2 Type II report",
+          "actor": "demo5",
+          "created_at": "2026-02-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "medium",
+          "to_value": "high",
+          "actor": "demo1",
+          "created_at": "2026-02-28T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Complete GDPR data processing addendum",
+          "actor": "demo4",
+          "created_at": "2026-03-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Book technical deep-dive with their engineering team",
+          "actor": "demo2",
+          "created_at": "2026-03-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send SOC 2 Type II report",
+          "actor": "demo3",
+          "created_at": "2026-03-03T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-03-03T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Engineering Team Add-on — 40 Seats",
+      "description": "After closing the compliance deal, the engineering team wants to adopt Visiban for sprint planning.\n\nUpsell opportunity: +40 seats at standard rate.",
+      "priority": "medium",
+      "assignee": "demo2",
+      "column": "Proposal Sent",
+      "swimlane": "EMEA",
+      "due_date": "2026-03-23",
+      "weight": 3,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Send add-on order form",
+          "is_checked": true
+        },
+        {
+          "text": "Confirm provisioning date",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "Engineering lead wants to start before the compliance rollout completes.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo1"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo4",
+          "created_at": "2026-01-21T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo5",
+          "created_at": "2026-01-23T00:00:00+00:00"
         },
         {
           "event_type": "due_date_change",
           "from_value": "",
           "to_value": "2026-03-23",
           "actor": "demo2",
-          "created_at": "2025-12-28T20:00:00+00:00"
+          "created_at": "2026-01-25T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Demo prepared with content production template",
+          "to_value": "Send add-on order form",
           "actor": "demo2",
-          "created_at": "2025-12-28T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Demo prepared with content production template",
-          "actor": "demo3",
-          "created_at": "2025-12-28T21:20:00+00:00"
+          "created_at": "2026-01-27T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Ops Director confirmed",
+          "to_value": "Confirm provisioning date",
           "actor": "demo2",
-          "created_at": "2025-12-28T21:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Ops Director confirmed",
-          "actor": "demo3",
-          "created_at": "2025-12-28T21:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Capture content calendar requirements",
-          "actor": "demo2",
-          "created_at": "2025-12-28T22:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Send follow-up same day",
-          "actor": "demo2",
-          "created_at": "2025-12-28T22:30:00+00:00"
+          "created_at": "2026-01-28T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Great energy in the demo. They loved the content production template. Follow-up sent same afternoon.",
-          "actor": "demo2",
-          "created_at": "2025-12-28T22:50:00+00:00"
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-29T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send add-on order form",
+          "actor": "demo4",
+          "created_at": "2026-01-30T00:00:00+00:00"
         }
       ]
     },
     {
-      "title": "Campaign Sprint Boards — Closed Won",
-      "description": "30-seat SMB deal closed 8 days after initial contact. Content production template was the key differentiator. Short, clean deal cycle.",
-      "priority": "medium",
-      "column": "Closed Won",
-      "swimlane": "ANZ",
-      "due_date": "2026-03-07",
-      "weight": 4,
+      "title": "Risk Dashboard Integration — Lost",
+      "description": "FinEdge wanted native integration with their risk management platform. We could not commit to a timeline.\n\nDeal lost to a competitor with out-of-the-box integration.",
+      "priority": "low",
+      "assignee": "demo3",
+      "column": "Closed Lost",
+      "swimlane": "EMEA",
+      "due_date": null,
+      "weight": 1,
       "labels": [
-        "SMB"
+        "Enterprise"
       ],
       "checklist": [
         {
-          "text": "Contract signed (same day)",
+          "text": "Log loss reason in CRM",
           "is_checked": true
         },
         {
-          "text": "Seats activated",
-          "is_checked": true
-        },
-        {
-          "text": "Onboarding completed",
+          "text": "Flag integration gap to product team",
           "is_checked": true
         }
       ],
       "comments": [
         {
-          "body": "Closed same day as demo. Fastest deal cycle this quarter — 8 days from first contact to close.",
+          "body": "Loss reason: missing native risk tool integration. Adding to product backlog.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "EMEA",
+          "moved_at": "2025-12-21T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-01-11T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-01-29T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Proposal Sent",
+          "to_column": "Negotiation",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Negotiation",
+          "to_column": "Closed Won",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Closed Won",
+          "to_column": "Closed Lost",
+          "from_swimlane": "EMEA",
+          "to_swimlane": "EMEA",
+          "moved_at": "2026-03-13T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Jordan Patel",
+          "actor": "demo5",
+          "created_at": "2025-12-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo4",
+          "created_at": "2025-12-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Log loss reason in CRM",
+          "actor": "demo1",
+          "created_at": "2025-12-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Flag integration gap to product team",
+          "actor": "demo1",
+          "created_at": "2025-12-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Log loss reason in CRM",
+          "actor": "demo5",
+          "created_at": "2025-12-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2025-12-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Flag integration gap to product team",
+          "actor": "demo5",
+          "created_at": "2025-12-31T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Clinical Project Tracking — Initial Outreach",
+      "description": "Inbound inquiry from IT Director. Interested in tracking clinical IT projects across 5 hospitals.\n\nHIPAA BAA will be required before any data sharing.",
+      "priority": "medium",
+      "assignee": "demo1",
+      "column": "Prospect",
+      "swimlane": "LATAM",
+      "due_date": "2026-04-09",
+      "weight": 2,
+      "labels": [
+        "Enterprise"
+      ],
+      "checklist": [
+        {
+          "text": "Respond to inbound inquiry",
+          "is_checked": true
+        },
+        {
+          "text": "Send HIPAA BAA for review",
+          "is_checked": false
+        }
+      ],
+      "comments": [],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_by": "demo3"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo5",
+          "created_at": "2026-02-27T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise",
+          "actor": "demo2",
+          "created_at": "2026-03-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-09",
+          "actor": "demo4",
+          "created_at": "2026-03-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Respond to inbound inquiry",
+          "actor": "demo2",
+          "created_at": "2026-03-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send HIPAA BAA for review",
+          "actor": "demo2",
+          "created_at": "2026-03-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Respond to inbound inquiry",
+          "actor": "demo5",
+          "created_at": "2026-03-10T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "IT Operations Board — 50 Seats",
+      "description": "Opportunity with the IT ops team tracking infrastructure changes. Separate from the clinical project deal.\n\nChampion: IT Director. Decision maker: CIO.",
+      "priority": "medium",
+      "assignee": "demo1",
+      "column": "Qualified",
+      "swimlane": "LATAM",
+      "due_date": "2026-04-02",
+      "weight": 3,
+      "labels": [
+        "Enterprise",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Qualify with IT Director",
+          "is_checked": true
+        },
+        {
+          "text": "Request intro to CIO",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "IT Director is strong champion. CIO meeting requested for next week.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_by": "demo4"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "LATAM",
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Alex Rivera",
+          "actor": "demo3",
+          "created_at": "2026-03-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise, Strategic",
+          "actor": "demo2",
+          "created_at": "2026-03-03T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-04-02",
+          "actor": "demo3",
+          "created_at": "2026-03-05T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Qualify with IT Director",
+          "actor": "demo5",
+          "created_at": "2026-03-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Request intro to CIO",
+          "actor": "demo5",
+          "created_at": "2026-03-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-03-10T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Qualify with IT Director",
+          "actor": "demo5",
+          "created_at": "2026-03-13T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Enterprise Renewal — 200 Seats",
+      "description": "Annual renewal coming up for existing 200-seat enterprise contract. Opportunity to upsell analytics module (+$18k ARR).\n\nRenewal date: 2026-05-01.",
+      "priority": "urgent",
+      "assignee": "demo5",
+      "column": "Negotiation",
+      "swimlane": "LATAM",
+      "due_date": "2026-03-10",
+      "weight": 5,
+      "labels": [
+        "Enterprise",
+        "Renewal",
+        "Strategic"
+      ],
+      "checklist": [
+        {
+          "text": "Send renewal quote with analytics upsell",
+          "is_checked": true
+        },
+        {
+          "text": "Schedule QBR with CIO",
+          "is_checked": true
+        },
+        {
+          "text": "Get signed renewal order form",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "QBR went well. CIO open to analytics module — needs board approval.",
           "author": "demo1"
         },
         {
-          "body": "Great SMB reference. They're already telling other agencies about us.",
-          "author": "demo4"
+          "body": "OVERDUE — renewal date is in 5 days. Escalated to VP Sales.",
+          "author": "demo2"
         }
       ],
-      "assignee": "demo4",
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-01-14T00:00:00+00:00",
+          "moved_by": "demo5"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "LATAM",
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "LATAM",
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Discovery",
+          "to_column": "Demo",
+          "from_swimlane": "LATAM",
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_by": "demo2"
+        },
+        {
+          "from_column": "Demo",
+          "to_column": "Proposal Sent",
+          "from_swimlane": "LATAM",
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_by": "demo3"
+        },
+        {
+          "from_column": "Proposal Sent",
+          "to_column": "Negotiation",
+          "from_swimlane": "LATAM",
+          "to_swimlane": "LATAM",
+          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Casey Osei",
+          "actor": "demo4",
+          "created_at": "2026-01-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "Enterprise, Strategic, Renewal",
+          "actor": "demo1",
+          "created_at": "2026-01-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-10",
+          "actor": "demo2",
+          "created_at": "2026-01-18T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send renewal quote with analytics upsell",
+          "actor": "demo4",
+          "created_at": "2026-01-22T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Schedule QBR with CIO",
+          "actor": "demo4",
+          "created_at": "2026-01-23T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Get signed renewal order form",
+          "actor": "demo4",
+          "created_at": "2026-01-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "priority_change",
+          "from_value": "high",
+          "to_value": "urgent",
+          "actor": "demo4",
+          "created_at": "2026-01-24T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-01-25T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send renewal quote with analytics upsell",
+          "actor": "demo2",
+          "created_at": "2026-01-26T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Schedule QBR with CIO",
+          "actor": "demo4",
+          "created_at": "2026-01-28T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Content Calendar Boards — 30 Seats",
+      "description": "Mosaic tracks every client content campaign on shared boards. Use case: one swimlane per client, columns = content stages.\n\nEvaluating Trello, Asana, and Visiban.",
+      "priority": "medium",
+      "assignee": "demo2",
+      "column": "Discovery",
+      "swimlane": "ANZ",
+      "due_date": "2026-03-22",
+      "weight": 3,
+      "labels": [
+        "SMB"
+      ],
+      "checklist": [
+        {
+          "text": "Send content agency template",
+          "is_checked": true
+        },
+        {
+          "text": "Run 30-min discovery call",
+          "is_checked": true
+        },
+        {
+          "text": "Provide trial access",
+          "is_checked": false
+        }
+      ],
+      "comments": [
+        {
+          "body": "They love the swimlane-per-client model. Trello can not do this cleanly.",
+          "author": "demo1"
+        }
+      ],
       "movements": [
         {
           "from_column": null,
           "to_column": "Prospect",
           "from_swimlane": null,
           "to_swimlane": "ANZ",
-          "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Prospect",
           "to_column": "Qualified",
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
-          "moved_at": "2026-02-06T12:00:00+00:00",
+          "moved_at": "2026-02-22T00:00:00+00:00",
           "moved_by": "demo5"
         },
         {
@@ -2846,272 +1646,230 @@
           "to_column": "Discovery",
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
-          "moved_at": "2026-02-08T12:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_by": "demo2"
+        }
+      ],
+      "activities": [
+        {
+          "event_type": "assignee_change",
+          "from_value": "",
+          "to_value": "Sam Chen",
+          "actor": "demo5",
+          "created_at": "2026-02-06T00:00:00+00:00"
+        },
+        {
+          "event_type": "label_change",
+          "from_value": "",
+          "to_value": "SMB",
+          "actor": "demo5",
+          "created_at": "2026-02-08T00:00:00+00:00"
+        },
+        {
+          "event_type": "due_date_change",
+          "from_value": "",
+          "to_value": "2026-03-22",
+          "actor": "demo3",
+          "created_at": "2026-02-09T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Send content agency template",
+          "actor": "demo1",
+          "created_at": "2026-02-12T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Run 30-min discovery call",
+          "actor": "demo2",
+          "created_at": "2026-02-13T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_added",
+          "from_value": "",
+          "to_value": "Provide trial access",
+          "actor": "demo3",
+          "created_at": "2026-02-14T00:00:00+00:00"
+        },
+        {
+          "event_type": "comment_added",
+          "from_value": "",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2026-02-15T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send content agency template",
+          "actor": "demo1",
+          "created_at": "2026-02-17T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Run 30-min discovery call",
+          "actor": "demo3",
+          "created_at": "2026-02-18T00:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "title": "Campaign Sprint Boards — Closed Won",
+      "description": "Mosaic signed for 30 seats on a monthly plan. Primary use: campaign sprint boards per client.\n\nUpsell opportunity at 90-day check-in: annual plan + 10 extra seats.",
+      "priority": "low",
+      "assignee": "demo5",
+      "column": "Closed Won",
+      "swimlane": "ANZ",
+      "due_date": null,
+      "weight": 2,
+      "labels": [
+        "Renewal",
+        "SMB"
+      ],
+      "checklist": [
+        {
+          "text": "Provision 30 seats",
+          "is_checked": true
+        },
+        {
+          "text": "Send onboarding guide",
+          "is_checked": true
+        },
+        {
+          "text": "Set 90-day upsell reminder",
+          "is_checked": true
+        }
+      ],
+      "comments": [
+        {
+          "body": "Closed in 4 days from first contact. Fastest close this quarter.",
+          "author": "demo1"
+        }
+      ],
+      "movements": [
+        {
+          "from_column": null,
+          "to_column": "Prospect",
+          "from_swimlane": null,
+          "to_swimlane": "ANZ",
+          "moved_at": "2025-12-24T00:00:00+00:00",
           "moved_by": "demo1"
+        },
+        {
+          "from_column": "Prospect",
+          "to_column": "Qualified",
+          "from_swimlane": "ANZ",
+          "to_swimlane": "ANZ",
+          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_by": "demo1"
+        },
+        {
+          "from_column": "Qualified",
+          "to_column": "Discovery",
+          "from_swimlane": "ANZ",
+          "to_swimlane": "ANZ",
+          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_by": "demo2"
         },
         {
           "from_column": "Discovery",
           "to_column": "Demo",
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
-          "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_by": "demo3"
         },
         {
           "from_column": "Demo",
           "to_column": "Proposal Sent",
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
-          "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_by": "demo1"
         },
         {
           "from_column": "Proposal Sent",
           "to_column": "Negotiation",
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Negotiation",
-          "to_column": "Closed Won",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
-        }
-      ],
-      "activities": [
-        {
-          "event_type": "assignee_change",
-          "from_value": "",
-          "to_value": "demo4",
-          "actor": "demo4",
-          "created_at": "2026-01-30T13:00:00+00:00"
-        },
-        {
-          "event_type": "label_change",
-          "from_value": "",
-          "to_value": "SMB",
-          "actor": "demo4",
-          "created_at": "2026-01-30T15:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-03-07",
-          "actor": "demo4",
-          "created_at": "2026-01-30T18:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Contract signed (same day)",
-          "actor": "demo4",
-          "created_at": "2026-01-30T19:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Contract signed (same day)",
-          "actor": "demo5",
-          "created_at": "2026-01-30T19:20:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Seats activated",
-          "actor": "demo4",
-          "created_at": "2026-01-30T19:35:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Seats activated",
-          "actor": "demo5",
-          "created_at": "2026-01-30T19:55:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_added",
-          "from_value": "",
-          "to_value": "Onboarding completed",
-          "actor": "demo4",
-          "created_at": "2026-01-30T20:10:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Onboarding completed",
-          "actor": "demo5",
-          "created_at": "2026-01-30T20:30:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Closed same day as demo. Fastest deal cycle this quarter — 8 days from first contact to close.",
-          "actor": "demo1",
-          "created_at": "2026-01-30T20:45:00+00:00"
-        },
-        {
-          "event_type": "comment_added",
-          "from_value": "",
-          "to_value": "Great SMB reference. They're already telling other agencies about us.",
-          "actor": "demo4",
-          "created_at": "2026-01-30T23:45:00+00:00"
-        }
-      ]
-    },
-    {
-      "title": "Video Production Add-on — Lost",
-      "description": "Upsell attempt for video production workflow add-on. Lost to a Notion template built internally. Base deal retained. Re-engage at renewal.",
-      "priority": "low",
-      "column": "Closed Lost",
-      "swimlane": "ANZ",
-      "due_date": "2026-02-23",
-      "weight": 2,
-      "labels": [
-        "SMB",
-        "Upsell"
-      ],
-      "checklist": [
-        {
-          "text": "Sent add-on proposal",
-          "is_checked": true
-        },
-        {
-          "text": "Post-mortem completed",
-          "is_checked": true
-        }
-      ],
-      "comments": [
-        {
-          "body": "Lost the add-on upsell — they built a custom Notion template instead. Revisit in 6 months.",
-          "author": "demo3"
-        }
-      ],
-      "assignee": "demo1",
-      "movements": [
-        {
-          "from_column": null,
-          "to_column": "Prospect",
-          "from_swimlane": null,
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Prospect",
-          "to_column": "Qualified",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
-        },
-        {
-          "from_column": "Qualified",
-          "to_column": "Discovery",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-02-09T12:00:00+00:00",
+          "moved_at": "2026-02-28T00:00:00+00:00",
           "moved_by": "demo3"
         },
         {
-          "from_column": "Discovery",
-          "to_column": "Demo",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo4"
-        },
-        {
-          "from_column": "Demo",
-          "to_column": "Negotiation",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
-        },
-        {
           "from_column": "Negotiation",
           "to_column": "Closed Won",
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
-          "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
-        },
-        {
-          "from_column": "Closed Won",
-          "to_column": "Closed Lost",
-          "from_swimlane": "ANZ",
-          "to_swimlane": "ANZ",
-          "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_by": "demo3"
         }
       ],
       "activities": [
         {
           "event_type": "assignee_change",
           "from_value": "",
-          "to_value": "demo1",
-          "actor": "demo1",
-          "created_at": "2026-01-28T13:00:00+00:00"
+          "to_value": "Casey Osei",
+          "actor": "demo4",
+          "created_at": "2025-12-25T00:00:00+00:00"
         },
         {
           "event_type": "label_change",
           "from_value": "",
-          "to_value": "SMB, Upsell",
-          "actor": "demo1",
-          "created_at": "2026-01-28T15:00:00+00:00"
-        },
-        {
-          "event_type": "priority_change",
-          "from_value": "medium",
-          "to_value": "low",
-          "actor": "demo1",
-          "created_at": "2026-01-28T18:00:00+00:00"
-        },
-        {
-          "event_type": "due_date_change",
-          "from_value": "",
-          "to_value": "2026-02-23",
-          "actor": "demo1",
-          "created_at": "2026-01-28T20:00:00+00:00"
+          "to_value": "SMB, Renewal",
+          "actor": "demo3",
+          "created_at": "2025-12-27T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Sent add-on proposal",
-          "actor": "demo1",
-          "created_at": "2026-01-28T21:00:00+00:00"
-        },
-        {
-          "event_type": "checklist_item_checked",
-          "from_value": "",
-          "to_value": "Sent add-on proposal",
+          "to_value": "Provision 30 seats",
           "actor": "demo2",
-          "created_at": "2026-01-28T21:20:00+00:00"
+          "created_at": "2025-12-28T00:00:00+00:00"
         },
         {
           "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Post-mortem completed",
+          "to_value": "Send onboarding guide",
           "actor": "demo1",
-          "created_at": "2026-01-28T21:35:00+00:00"
+          "created_at": "2025-12-29T00:00:00+00:00"
         },
         {
-          "event_type": "checklist_item_checked",
+          "event_type": "checklist_item_added",
           "from_value": "",
-          "to_value": "Post-mortem completed",
-          "actor": "demo2",
-          "created_at": "2026-01-28T21:55:00+00:00"
+          "to_value": "Set 90-day upsell reminder",
+          "actor": "demo4",
+          "created_at": "2025-12-30T00:00:00+00:00"
         },
         {
           "event_type": "comment_added",
           "from_value": "",
-          "to_value": "Lost the add-on upsell — they built a custom Notion template instead. Revisit in 6 months.",
+          "to_value": "",
+          "actor": "demo1",
+          "created_at": "2025-12-31T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Set 90-day upsell reminder",
           "actor": "demo3",
-          "created_at": "2026-01-28T22:10:00+00:00"
+          "created_at": "2026-01-01T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Provision 30 seats",
+          "actor": "demo5",
+          "created_at": "2026-01-02T00:00:00+00:00"
+        },
+        {
+          "event_type": "checklist_item_checked",
+          "from_value": "",
+          "to_value": "Send onboarding guide",
+          "actor": "demo5",
+          "created_at": "2026-01-02T00:00:00+00:00"
         }
       ]
     }
