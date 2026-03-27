@@ -2,6 +2,13 @@
 
 Switch between board views using the toggle in the toolbar: **Board**, **Summary**, **Analytics**.
 
+!!! warning "Done columns must be marked before analytics data is accurate"
+    The dwell-time heatmap excludes columns that are marked as done. If your "Done" or "Released" column is not marked, closed work continues to accumulate dwell cycles and distorts the heatmap.
+
+    To mark a column as done: **Board → Column header overflow menu → Edit → "Mark as done column" checkbox**.
+
+    The Summary view's velocity counts also rely on this flag — only movements into marked-done columns are counted as completed work. See [Board Setup](../getting-started/board-setup.md) for a step-by-step walkthrough.
+
 ## Summary view
 
 Shows a table of all swimlanes with:

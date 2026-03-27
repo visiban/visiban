@@ -48,6 +48,7 @@ nav:
     - Installation: getting-started/installation.md
     - First Boot: getting-started/first-boot.md
     - OAuth Setup: getting-started/oauth.md
+    - Board Setup: getting-started/board-setup.md
   - Features:
     - features/index.md
     - Board & Cards: features/board.md
