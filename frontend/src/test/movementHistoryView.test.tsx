@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import MovementHistoryView from '../components/Board/MovementHistoryView'
 import type { BoardFull, CardMovement } from '../types'
 
@@ -72,7 +73,11 @@ function makeMovement(overrides: Partial<CardMovement> = {}): CardMovement {
 }
 
 function renderView() {
-  return render(<MovementHistoryView board={fakeBoard} />)
+  return render(
+    <MemoryRouter initialEntries={['/boards/1?view=history']}>
+      <MovementHistoryView board={fakeBoard} />
+    </MemoryRouter>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -104,12 +109,12 @@ describe('MovementHistoryView — with data', () => {
   it('renders card title and movement columns', async () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Fix login bug')).toBeInTheDocument())
-    expect(screen.getByText('Done')).toBeInTheDocument()
+    expect(screen.getAllByText('Done').length).toBeGreaterThan(0)
   })
 
-  it('shows pagination "Showing 1–1 of 1"', async () => {
+  it('shows count line with total count', async () => {
     renderView()
-    await waitFor(() => expect(screen.getByText('Showing 1–1 of 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('1 events found')).toBeInTheDocument())
   })
 
   it('Prev button is disabled on first page', async () => {
@@ -296,7 +301,7 @@ describe('MovementHistoryView — pagination', () => {
 
   it('shows correct item range and total', async () => {
     renderView()
-    await waitFor(() => expect(screen.getByText('Showing 1–50 of 110')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('110 events found')).toBeInTheDocument())
   })
 
   it('Next button is enabled when more pages exist', async () => {

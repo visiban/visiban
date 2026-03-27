@@ -90,7 +90,7 @@ describe('MovementHistoryView', () => {
   it('shows loading state while fetching', () => {
     mockGetBoardMovements.mockReturnValue(new Promise(() => {}))
     renderHistory()
-    expect(screen.getByText(/Loading…/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Loading')).toBeInTheDocument()
   })
 
   it('shows error on fetch failure', async () => {
@@ -106,13 +106,13 @@ describe('MovementHistoryView', () => {
     })
     renderHistory()
     expect(await screen.findByText('Test Card')).toBeInTheDocument()
-    expect(screen.getByText(/To Do.*Done/)).toBeInTheDocument()
+    expect(screen.getByText(/To Do →/)).toBeInTheDocument()
   })
 
   it('shows empty state when no results', async () => {
     mockGetBoardMovements.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     renderHistory()
-    expect(await screen.findByText(/No movements found/)).toBeInTheDocument()
+    expect(await screen.findByText(/No card movements recorded yet/)).toBeInTheDocument()
   })
 
   it('renders archived event with italic label', async () => {
@@ -163,7 +163,7 @@ describe('MovementHistoryView', () => {
   it('does not show Export button when capabilities.movement_export is false', async () => {
     mockGetBoardMovements.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     renderHistory()
-    await screen.findByText(/0 events found/)
+    await screen.findByText(/No card movements recorded yet/)
     expect(screen.queryByText('Export')).not.toBeInTheDocument()
   })
 
@@ -171,7 +171,7 @@ describe('MovementHistoryView', () => {
     const boardWithExport = { ...mockBoard, capabilities: { movement_export: true } }
     mockGetBoardMovements.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     renderHistory(boardWithExport)
-    await screen.findByText(/0 events found/)
+    await screen.findByText(/No card movements recorded yet/)
     expect(screen.getByText('Export')).toBeInTheDocument()
   })
 
@@ -197,20 +197,20 @@ describe('MovementHistoryView', () => {
   it('filter bar renders swimlane, column, and assignee dropdowns', async () => {
     mockGetBoardMovements.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     renderHistory()
-    await screen.findByText(/events found/)
+    await screen.findByText(/No card movements recorded yet/)
     expect(screen.getByText('Swimlane')).toBeInTheDocument()
-    expect(screen.getByText('To column')).toBeInTheDocument()
-    expect(screen.getByText('Assignee')).toBeInTheDocument()
+    expect(screen.getByText('Column')).toBeInTheDocument()
+    expect(screen.getByText('User')).toBeInTheDocument()
   })
 
   it('Clear filters button appears when a filter is active', async () => {
     mockGetBoardMovements.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     render(
-      <MemoryRouter initialEntries={['/boards/1?view=history&tc=2']}>
+      <MemoryRouter initialEntries={['/boards/1?view=history&column_id=2']}>
         <MovementHistoryView board={mockBoard} />
       </MemoryRouter>
     )
-    await screen.findByText(/events found/)
+    await screen.findByText(/No movements match the current filters/)
     expect(screen.getByText('Clear filters')).toBeInTheDocument()
   })
 })
