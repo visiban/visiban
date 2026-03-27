@@ -75,6 +75,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Analytics heatmap dwell-time calculations now exclude columns marked as done (`is_done=True`) — a card's clock stops when it enters a done column, and cards sitting in done columns are no longer flagged as stalled
 - Race-condition test for single-use invite tokens now explicitly closes thread-local database connections after each worker thread exits, preventing `destroy_test_db` from failing with "database is being accessed by other users" on PostgreSQL CI runners
 - Rich text editor color picker now correctly activates the toolbar "A" indicator when White is selected — previously White was excluded from the active-color check by an overly narrow condition
+- Analytics heatmap `is_outlier` cell coloring now correctly uses the board's configured staleness threshold in all cases — a backend test was added to confirm the board threshold is used even when the `stalled_days` query param overrides the stalled-card list
 
 ---
 
