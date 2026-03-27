@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteSettings, AdminUser, AdminInviteLink, CreatedAdminInviteLink, OwnedBoardSummary, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
+import type { User, SiteSettings, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/auth/user/").then((r) => r.data);

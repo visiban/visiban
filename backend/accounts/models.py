@@ -1,6 +1,5 @@
 import hashlib
 import secrets
-from datetime import timedelta
 
 from django.contrib.auth.models import AbstractUser
 from django.core.cache import cache
