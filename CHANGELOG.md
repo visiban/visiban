@@ -28,6 +28,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card face now shows a relative "last moved" label (e.g. "moved yesterday", "moved 3 days ago") for cards not moved within the last 24 hours; cards moved within 24 hours continue to show the existing blue dot indicator on hover; the label can be hidden per-board via Board Settings → Card fields → Last moved (#338)
 - Hard WIP enforcement mode: board setting that blocks all card moves into over-limit columns for all roles with no admin bypass (#341)
 - The "Move to" button in the card detail breadcrumb row now shows a first-encounter dot indicator for users who have not yet clicked it, improving discoverability; the dot is dismissed on first click and the dismissed state persists across sessions via `localStorage` (#339)
+- Analytics API response now includes a `done_columns` list of column names that are excluded from dwell-time calculations, so callers can surface which columns are omitted
+- A footer note below the analytics heatmap now shows how many done columns are not included in the heatmap, making the exclusion visible to the user at a glance
 
 ### Changed
 - Clicking the crosshair (focus) button on an already-focused swimlane now toggles focus mode off; Escape key and the banner "Exit focus" button remain as alternative exit paths; the button now carries `aria-pressed` for screen reader accessibility (#363)
@@ -64,6 +66,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Analytics stalled-card detection now always uses the board-configured staleness threshold (`staleness_threshold_days`) regardless of which period is selected, rather than defaulting to 7 days from the query param (#327)
 - Analytics heatmap now renders data correctly for 7d, 30d, and 90d period views — period-cutoff math fixed so cards that entered a column before the selected window no longer show zero dwell time
 - Analytics stall detection now defaults to the board's configured staleness threshold instead of the period window length; `stalled_days` query param still accepted as an explicit override
+- Analytics heatmap layout is now pinned so the heatmap is always visible at the top; the stalled cards list below it scrolls independently instead of sharing a single scroll container
+- Analytics heatmap dwell-time calculations now exclude columns marked as done (`is_done=True`) — a card's clock stops when it enters a done column, and cards sitting in done columns are no longer flagged as stalled
 
 ---
 

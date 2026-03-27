@@ -1114,12 +1114,18 @@ class BoardViewSet(viewsets.ModelViewSet):
         period_cutoff = now - datetime.timedelta(days=days)
 
         columns = list(board.columns.order_by("position"))
+        # Partition columns into active (dwell tracked) and done (terminal — clock stops
+        # on entry). col_id_to_name and col_name_set are built from ALL columns so the
+        # denormalized-name fallback for deleted/recreated columns continues to work.
+        done_col_ids = {c.id for c in columns if c.is_done}
+        done_col_names = {c.name for c in columns if c.is_done}
+        active_columns = [c for c in columns if not c.is_done]
         col_id_to_name = {c.id: c.name for c in columns}
         # Set of current column names for the denormalized-name fallback below.
         col_name_set = {c.name for c in columns}
 
         swimlane_results = []
-        all_col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
+        all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
 
         # Load all cards and their movements in two queries (cards + prefetch),
         # then group by swimlane to avoid O(swimlanes) extra card+movement queries.
@@ -1132,7 +1138,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         for swimlane in board.swimlanes.order_by("position"):
             cards = cards_by_swimlane.get(swimlane.id, [])
-            col_dwells: dict[str, list[float]] = {c.name: [] for c in columns}
+            col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
             stalled_cards = []
             deal_velocity_days = []
 
@@ -1150,6 +1156,11 @@ class BoardViewSet(viewsets.ModelViewSet):
                     if not col_name and mv.to_column_name in col_name_set:
                         col_name = mv.to_column_name
                     if not col_name:
+                        continue
+                    # Done columns are terminal — dwell is not tracked here. The card's
+                    # clock stops at entry into a done column; counting time spent there
+                    # would inflate the heatmap with post-completion idle time.
+                    if mv.to_column_id in done_col_ids or col_name in done_col_names:
                         continue
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
@@ -1171,9 +1182,16 @@ class BoardViewSet(viewsets.ModelViewSet):
                     deal_velocity_days.append(
                         (movements[-1].moved_at - movements[0].moved_at).total_seconds() / 86400
                     )
-                # Archived cards are excluded from stalled detection — they are no
-                # longer in-flight, so flagging them as stalled would be misleading.
-                if card.archived_at is None and movements[-1].moved_at < stall_cutoff:
+                # Cards in done columns are excluded from stalled detection — they have
+                # completed the workflow. Note: done_col_ids reflects current is_done
+                # state, so a column later re-flagged as done retroactively excludes
+                # its cards from stalled detection.
+                last_mv = movements[-1]
+                last_col_is_done = (
+                    last_mv.to_column_id in done_col_ids
+                    or last_mv.to_column_name in done_col_names
+                )
+                if card.archived_at is None and not last_col_is_done and last_mv.moved_at < stall_cutoff:
                     stalled_cards.append({
                         "id": card.id,
                         "title": card.title,
@@ -1185,7 +1203,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                     round(sum(col_dwells[col.name]) / len(col_dwells[col.name]), 1)
                     if col_dwells[col.name] else None
                 )
-                for col in columns
+                for col in active_columns
             }
             swimlane_results.append({
                 "id": swimlane.id,
@@ -1204,7 +1222,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                 round(statistics.median(all_col_dwells[col.name]), 1)
                 if all_col_dwells[col.name] else None
             )
-            for col in columns
+            for col in active_columns
         }
         # Redefine is_outlier using the absolute staleness threshold for backward compat.
         # The 2× median heuristic is replaced by: avg >= board.staleness_threshold_days.
@@ -1214,12 +1232,13 @@ class BoardViewSet(viewsets.ModelViewSet):
                     sw["avg_days_per_column"][col.name] is not None
                     and sw["avg_days_per_column"][col.name] >= board.staleness_threshold_days
                 )
-                for col in columns
+                for col in active_columns
             }
 
         return Response({
             "days": days,
             "columns": [c.name for c in columns],
+            "done_columns": [c.name for c in columns if c.is_done],
             "board_medians": board_medians,  # kept for backward compat
             "swimlanes": swimlane_results,
             "stalled_threshold_days": effective_stalled_days,

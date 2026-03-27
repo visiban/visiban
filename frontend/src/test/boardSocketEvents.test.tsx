@@ -66,7 +66,7 @@ vi.mock('../components/Board/ColumnHeader', () => ({
   default: ({ column }: { column: { name: string } }) => <div>{column.name}</div>,
 }))
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane }: { swimlane: { name: string } }) => <div>{swimlane.name}</div>,
+  default: ({ swimlane, onExitFocus }: { swimlane: { name: string }; onExitFocus?: () => void }) => <div>{swimlane.name}</div>,
 }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
 vi.mock('../components/Card/CardDetail', () => ({ default: () => <div /> }))

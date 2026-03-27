@@ -339,6 +339,153 @@ describe('AnalyticsView', () => {
     expect(cell.className).toMatch(/green/)
   })
 
+  it('shows stalled count label when stalled cards are present', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 5 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [
+            { id: 1, title: 'Card One', days_since_move: 10 },
+            { id: 2, title: 'Card Two', days_since_move: 12 },
+          ],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByText('2 cards stalled')).toBeInTheDocument()
+  })
+
+  it('shows singular count label for exactly one stalled card', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 5 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [{ id: 1, title: 'Solo Card', days_since_move: 9 }],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByText('1 card stalled')).toBeInTheDocument()
+  })
+
+  it('does not render stalled section when no stalled cards', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 5 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await screen.findByText('Customer A')
+    expect(screen.queryByText(/stalled/i)).not.toBeInTheDocument()
+  })
+
+  it('hides done columns from heatmap when done_columns is populated', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do', 'Done'],
+      done_columns: ['Done'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 5 },
+          is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    await screen.findByText('To Do')
+    expect(screen.queryByRole('columnheader', { name: 'Done' })).not.toBeInTheDocument()
+  })
+
+  it('shows done columns footer note when done_columns is non-empty', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do', 'Done'],
+      done_columns: ['Done'],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    expect(await screen.findByText('1 done column not shown')).toBeInTheDocument()
+  })
+
+  it('shows plural footer note for multiple done columns', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do', 'Won', 'Lost'],
+      done_columns: ['Won', 'Lost'],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    expect(await screen.findByText('2 done columns not shown')).toBeInTheDocument()
+  })
+
+  it('shows no footer note when done_columns is empty', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do', 'Done'],
+      done_columns: [],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    await screen.findByText('Period:')
+    expect(screen.queryByText(/done column/i)).not.toBeInTheDocument()
+  })
+
+  it('shows no footer note when done_columns is absent (backward compat)', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do', 'Done'],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    await screen.findByText('Period:')
+    expect(screen.queryByText(/done column/i)).not.toBeInTheDocument()
+  })
+
   it('shows capped value with ≥ prefix when avg equals period length', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,

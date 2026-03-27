@@ -142,14 +142,15 @@ Time-in-stage heatmap derived from `CardMovement` records.
 {
   "days": 30,
   "columns": ["Backlog", "In Progress", "Done"],
-  "board_medians": { "Backlog": 2.0, "In Progress": 5.5, "Done": 1.0 },
+  "done_columns": ["Done"],
+  "board_medians": { "Backlog": 2.0, "In Progress": 5.5 },
   "stalled_threshold_days": 7,
   "swimlanes": [
     {
       "id": 1,
       "name": "Acme Corp",
-      "avg_days_per_column": { "Backlog": 1.5, "In Progress": 8.0, "Done": null },
-      "is_outlier": { "Backlog": false, "In Progress": true, "Done": false },
+      "avg_days_per_column": { "Backlog": 1.5, "In Progress": 8.0 },
+      "is_outlier": { "Backlog": false, "In Progress": true },
       "deal_velocity_days": 12.3,
       "stalled_cards": [
         { "id": 42, "title": "Fix login bug", "days_since_move": 14 }
@@ -159,7 +160,19 @@ Time-in-stage heatmap derived from `CardMovement` records.
 }
 ```
 
-A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average exceeds 2× the board-wide median for that column. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `days` | integer | The window used for the query, mirrored from the `days` query parameter. |
+| `columns` | list[str] | All column names on the board in position order, including done columns. Preserved for backward compatibility — consumers that need only active columns should subtract `done_columns`. |
+| `done_columns` | list[str] | Column names where `is_done=True`. These columns are excluded from the dwell-time heatmap. The `avg_days_per_column`, `is_outlier`, and `board_medians` dicts contain keys only for active (non-done) columns. |
+| `board_medians` | object | Median dwell time in days per active column, keyed by column name. Done columns are omitted. |
+| `stalled_threshold_days` | integer | Dwell-time threshold used for stalled-card detection, mirrored from the `stalled_days` query parameter. |
+| `swimlanes[].avg_days_per_column` | object | Average dwell time in days for each active column for this swimlane. Done columns are omitted. A `null` value means the swimlane has no movement data for that column in the requested window. |
+| `swimlanes[].is_outlier` | object | Whether the swimlane's average for each active column exceeds 2× the board-wide median. Done columns are omitted. |
+
+A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average exceeds 2× the board-wide median for that column. Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
 
 CSV export (`Export CSV` button) is available to `admin` and `site_admin` roles only.
 
