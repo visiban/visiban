@@ -1150,10 +1150,16 @@ class BoardViewSet(viewsets.ModelViewSet):
                     continue
                 for i, mv in enumerate(movements):
                     col_name = col_id_to_name.get(mv.to_column_id)
-                    # Fall back to the denormalized name field so dwell times
-                    # are not lost if a column was deleted and recreated (causing
-                    # the FK to point to a now-missing ID while the name survives).
-                    if not col_name and mv.to_column_name in col_name_set:
+                    # Fall back to the denormalized name field when the FK no longer
+                    # resolves — this happens when a column was deleted and recreated
+                    # with a new PK while the name stayed the same.
+                    # Guard: only trigger when to_column_id is genuinely absent from
+                    # this board's column set (not just a None FK). If two active
+                    # columns share the same name the fallback is ambiguous and will
+                    # attribute dwell to whichever name appears in col_name_set; this
+                    # is a known limitation accepted because duplicate column names on
+                    # a single board are rare in practice.
+                    if mv.to_column_id not in col_id_to_name and mv.to_column_name in col_name_set:
                         col_name = mv.to_column_name
                     if not col_name:
                         continue
@@ -1224,8 +1230,11 @@ class BoardViewSet(viewsets.ModelViewSet):
             )
             for col in active_columns
         }
-        # Redefine is_outlier using the absolute staleness threshold for backward compat.
-        # The 2× median heuristic is replaced by: avg >= board.staleness_threshold_days.
+        # is_outlier intentionally uses board.staleness_threshold_days (not effective_stalled_days)
+        # so that heatmap cell coloring is always anchored to the board's configured threshold,
+        # regardless of any stalled_days query-param override. The override affects only the
+        # stalled_cards list — it is an ad-hoc investigation tool, not a permanent display mode.
+        # Callers that pass stalled_days should not expect the heatmap colors to shift.
         for sw in swimlane_results:
             sw["is_outlier"] = {
                 col.name: (

@@ -366,6 +366,29 @@ class AnalyticsDwellTimeTests(TestCase):
         self.assertEqual(len(sw["stalled_cards"]), 1)
         self.assertEqual(data["stalled_threshold_days"], 5)
 
+    def test_is_outlier_uses_board_staleness_threshold_not_stalled_days_param(self):
+        """is_outlier cell coloring must always use board.staleness_threshold_days,
+        not the stalled_days query param.  A caller using stalled_days=5 for
+        investigation should not see the heatmap colors shift — only
+        stalled_cards changes."""
+        self.board.staleness_threshold_days = 20
+        self.board.save(update_fields=["staleness_threshold_days"])
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        # Last moved 10 days ago — outlier under 5-day threshold but NOT under 20-day board setting.
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
+
+        # stalled_days=5 override — stalled_cards should flag the card but is_outlier should not.
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30&stalled_days=5")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        self.assertEqual(len(sw["stalled_cards"]), 1, "stalled_days param should flag the card")
+        self.assertFalse(
+            sw["is_outlier"].get(self.col.name, False),
+            "is_outlier must use board threshold (20d), not stalled_days param (5d)",
+        )
+
     def test_dwell_falls_back_to_column_name_when_fk_broken(self):
         """If a column is deleted and recreated (new PK, same name), movements
         that reference the old FK still contribute dwell time via the
