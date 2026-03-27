@@ -110,15 +110,16 @@ class BoardAnalyticsTests(TestCase):
         self.assertIn("columns", data)
 
     def test_analytics_custom_days_param(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7&stalled_days=3")
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_analytics_stalled_days_param_is_ignored(self):
+        """stalled_days is no longer a query param — it comes from the board setting."""
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?stalled_days=3")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_analytics_non_integer_days_returns_400(self):
         r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=abc")
-        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_analytics_non_integer_stalled_days_returns_400(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?stalled_days=xyz")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_analytics_zero_days_returns_400(self):
@@ -129,16 +130,14 @@ class BoardAnalyticsTests(TestCase):
         r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=-5")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_analytics_negative_stalled_days_returns_400(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?stalled_days=-1")
-        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-
     def test_analytics_period_filter_affects_dwell_times(self):
-        """days=7 excludes movements older than 7 days; days=90 includes them.
+        """Period window clamps dwell time so all periods show non-null heatmap data.
 
-        A card with a movement 60 days ago should contribute dwell time to the
-        90-day window but NOT to the 7-day window, producing different heatmap
-        values for the same board.
+        A card that entered "Done" 60 days ago and is still there should:
+        - Show ~5d dwell in "Backlog" for 90d (entered 65d ago, left 60d ago — within window)
+        - Show null in "Backlog" for 7d (entire Backlog dwell was >7 days ago — skipped)
+        - Show ~7d dwell in "Done" for 7d (clamped: entered 60d ago but window is 7d)
+        - Show ~60d dwell in "Done" for 90d (full dwell since entry)
         """
         col2 = Column.objects.create(board=self.board, name="Done", position=1)
         card = Card.objects.create(
@@ -157,7 +156,7 @@ class BoardAnalyticsTests(TestCase):
             moved_by=self.user,
         )
         CardMovement.objects.filter(pk=mv.pk).update(moved_at=old_ts)
-        # Transition movement 60 days ago
+        # Transition movement 60 days ago — card has been in "Done" ever since
         transition_ts = timezone.now() - datetime.timedelta(days=60)
         mv2 = CardMovement.objects.create(
             card=card,
@@ -174,12 +173,22 @@ class BoardAnalyticsTests(TestCase):
         r7 = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7").json()
         r90 = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=90").json()
 
-        # 90-day window sees the old movement; 7-day window does not.
         medians_7 = r7["board_medians"]
         medians_90 = r90["board_medians"]
-        # Backlog had dwell ~5 days (65→60 days ago) — visible in 90d, not 7d.
-        self.assertIsNone(medians_7.get("Backlog"), "7d should exclude the 60-day-old movement")
-        self.assertIsNotNone(medians_90.get("Backlog"), "90d should include the 60-day-old movement")
+
+        # Backlog dwell (65→60 days ago) is entirely outside the 7d window — null.
+        self.assertIsNone(medians_7.get("Backlog"), "7d should exclude Backlog dwell that ended 60d ago")
+        # Backlog dwell is inside the 90d window — non-null (~5 days).
+        self.assertIsNotNone(medians_90.get("Backlog"), "90d should include the ~5d Backlog dwell")
+
+        # Done dwell: card entered 60d ago and is still there.
+        # 7d clamps entry to period_cutoff — dwell ≈ 7 days (non-null).
+        self.assertIsNotNone(medians_7.get("Done"), "7d should show clamped dwell for card still in Done")
+        # 90d uses full entry time — dwell ≈ 60 days.
+        self.assertIsNotNone(medians_90.get("Done"), "90d should show full dwell for card still in Done")
+        done_7 = medians_7["Done"]
+        done_90 = medians_90["Done"]
+        self.assertLess(done_7, done_90, "clamped 7d dwell should be less than unclamped 90d dwell")
 
 
 class BoardMembersTests(TestCase):

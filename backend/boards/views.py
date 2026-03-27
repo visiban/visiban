@@ -1126,35 +1126,57 @@ class BoardViewSet(viewsets.ModelViewSet):
         """Time-in-stage heatmap with outlier detection and stalled cards.
 
         Query params:
-          - ``days`` (int, default 30): window for velocity calculations.
-          - ``stalled_days`` (int, default 7): a card is "stalled" if its last
-            movement was more than this many days ago.
+          - ``days`` (int, default 30): window for dwell-time and velocity calculations.
+          - ``stalled_days`` (int, optional): overrides ``board.staleness_threshold_days``
+            for this request when explicitly provided; omit to use the board setting.
 
         Dwell time is measured as the number of days a card spent in each column:
         the gap between consecutive movement timestamps (or "now" for the current
-        position). Per-swimlane averages are compared against board-wide medians;
-        a swimlane/column cell is flagged as an outlier when its average exceeds
-        2× the board median for that column.
+        position). Period-cutoff math uses ``effective_entry = max(mv.moved_at,
+        period_cutoff)`` so cards that entered a column before the selected window
+        correctly contribute only the in-window portion of their dwell time rather
+        than showing zero.
+
+        ``is_outlier`` is ``True`` when a swimlane/column cell's average dwell time
+        meets or exceeds ``staleness_threshold_days`` (previously used a 2× board
+        median heuristic — changed to an absolute threshold in this fix).
+        ``board_medians`` is retained in the response for backward compatibility.
         """
         board, _ = get_board_for_user(pk, request.user)
         try:
             days = int(request.query_params.get("days", 30))
-            stalled_days = int(request.query_params.get("stalled_days", 7))
         except (ValueError, TypeError):
             return Response(
-                {"detail": "Query params 'days' and 'stalled_days' must be positive integers."},
+                {"detail": "Query param 'days' must be a positive integer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if days <= 0 or stalled_days <= 0:
+        if days <= 0:
             return Response(
-                {"detail": "Query params 'days' and 'stalled_days' must be positive integers."},
+                {"detail": "Query param 'days' must be a positive integer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         now = timezone.now()
-        # Default stall threshold to the board's configured value so it is
-        # independent of the chosen heatmap period. The query param can still
-        # override it for ad-hoc queries.
-        effective_stalled_days = stalled_days if "stalled_days" in request.query_params else board.staleness_threshold_days
+        # Stall threshold is a board-level setting, independent of the period selector.
+        # The period controls the dwell-time analysis window; staleness is how long a
+        # card must sit unmoved before it is considered stuck — these are separate concepts.
+        # The stalled_days query param overrides the board setting for this request when
+        # explicitly provided; omit it to use board.staleness_threshold_days.
+        if "stalled_days" in request.query_params:
+            try:
+                stalled_days_param = int(request.query_params["stalled_days"])
+            except (ValueError, TypeError):
+                return Response(
+                    {"detail": "Query param 'stalled_days' must be a positive integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if stalled_days_param <= 0:
+                return Response(
+                    {"detail": "Query param 'stalled_days' must be a positive integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            effective_stalled_days = stalled_days_param
+        else:
+            effective_stalled_days = board.staleness_threshold_days
         stall_cutoff = now - datetime.timedelta(days=effective_stalled_days)
         # The period window controls which dwell-time data feeds the heatmap.
         period_cutoff = now - datetime.timedelta(days=days)
@@ -1200,15 +1222,15 @@ class BoardViewSet(viewsets.ModelViewSet):
                     # For archived cards use archived_at as the terminal timestamp so
                     # dwell time covers only the active period, not time since archiving.
                     exit_ = movements[i + 1].moved_at if i + 1 < len(movements) else (card.archived_at or now)
-                    # Skip cards that were fully in-and-out before the window started.
+                    # Skip movements that ended entirely before the analysis window.
                     if exit_ <= period_cutoff:
                         continue
-                    # Cap entry at period_cutoff so cards that entered before the
-                    # window still contribute their in-window dwell time. Without
-                    # this, a card sitting in a column for 45 days shows as empty
-                    # on the 30d heatmap even though 30 of those days are in scope.
-                    entry = max(mv.moved_at, period_cutoff)
-                    dwell_days = (exit_ - entry).total_seconds() / 86400
+                    # Clamp the entry to the period cutoff so cards that entered a column
+                    # before the window still contribute their in-window dwell time.
+                    # Without this, a card sitting in "In Progress" for 60 days would show
+                    # no data in the 7d or 30d views — even though it is actively dwelling.
+                    effective_entry = max(mv.moved_at, period_cutoff)
+                    dwell_days = (exit_ - effective_entry).total_seconds() / 86400
                     col_dwells[col_name].append(dwell_days)
                     all_col_dwells[col_name].append(dwell_days)
                 # Velocity: only count cards whose last movement fell within the window,
