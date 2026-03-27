@@ -33,7 +33,6 @@ from .models import (
     Notification, SavedFilter,
 )
 from .permissions import get_board_role, SITE_ADMIN
-from .hooks import MOVEMENT_EXPORT_BACKENDS
 from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     BoardTemplateSerializer,
@@ -951,12 +950,17 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):
-        """Per-swimlane card counts, stage distribution, and velocity.
+        """Per-swimlane card counts, stage distribution, velocity, and cycle-time metrics.
 
-        Uses three aggregate queries regardless of board size instead of the
+        Uses aggregate queries regardless of board size instead of the
         previous S×(C+4) loop (one filter per swimlane×column cell).
+
+        New in #342: active_cards, done_30d, and avg_cycle_days are computed
+        with SQL aggregates keyed on swimlane, using Column.is_done to identify
+        completion columns. avg_cycle_days measures the time from a card's first
+        movement to its first entry into a done column.
         """
-        from django.db.models import Count
+        from django.db.models import Count, Min
         board, _ = get_board_for_user(pk, request.user)
         now = timezone.now()
         cutoff_7d = now - datetime.timedelta(days=7)
@@ -981,7 +985,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         if done_column_ids:
             vel_qs = (
                 CardMovement.objects
-                .filter(card__board=board, card__archived_at__isnull=True, to_column_id__in=done_column_ids)
+                .filter(card__board=board, card__archived_at__isnull=True, to_column_id__in=done_column_ids, movement_type=CardMovement.MovementType.MOVE)
                 .values("card__swimlane_id")
                 .annotate(
                     vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),
@@ -1047,79 +1051,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                 "avg_cycle_days": avg_cycle_by_swimlane.get(swimlane.id),
             })
 
-        return Response({"swimlanes": result})
-
-    @action(detail=True, methods=["get"])
-    def movements(self, request, pk=None):
-        """Return a paginated, filterable movement history for the entire board.
-
-        Query params:
-          - ``swimlane_id`` (int): filter to a specific swimlane.
-          - ``column_id`` (int): filter to movements that landed in a column.
-          - ``user_id`` (int): filter by the user who triggered the move.
-          - ``since`` (ISO 8601 date, e.g. "2026-01-01"): movements on or after this date.
-          - ``until`` (ISO 8601 date): movements on or before this date.
-          - ``page`` (int, default 1): page number.
-          - ``page_size`` (int, default 50, max 200): items per page.
-        """
-        from django.core.paginator import Paginator, InvalidPage
-
-        board, _ = get_board_for_user(pk, request.user)
-        qs = (
-            CardMovement.objects
-            .filter(card__board=board)
-            .select_related(
-                "card", "from_column", "to_column",
-                "from_swimlane", "to_swimlane", "moved_by",
-            )
-            .order_by("-moved_at")
-        )
-
-        swimlane_id = request.query_params.get("swimlane_id")
-        if swimlane_id:
-            qs = qs.filter(Q(from_swimlane_id=swimlane_id) | Q(to_swimlane_id=swimlane_id))
-
-        column_id = request.query_params.get("column_id")
-        if column_id:
-            qs = qs.filter(to_column_id=column_id)
-
-        user_id = request.query_params.get("user_id")
-        if user_id:
-            qs = qs.filter(moved_by_id=user_id)
-
-        since = request.query_params.get("since")
-        if since:
-            qs = qs.filter(moved_at__date__gte=since)
-
-        until = request.query_params.get("until")
-        if until:
-            qs = qs.filter(moved_at__date__lte=until)
-
-        # Enterprise export hook: if a backend is registered and ?export=1 is
-        # set, delegate the full (unpaginated) queryset to the first backend.
-        # OSS renders no export UI when MOVEMENT_EXPORT_BACKENDS is empty.
-        if request.query_params.get("export") == "1" and MOVEMENT_EXPORT_BACKENDS:
-            return MOVEMENT_EXPORT_BACKENDS[0](board, qs, request)
-
-        try:
-            page_size = min(int(request.query_params.get("page_size", 50)), 200)
-            page_num = int(request.query_params.get("page", 1))
-        except (ValueError, TypeError):
-            page_size, page_num = 50, 1
-
-        paginator = Paginator(qs, page_size)
-        try:
-            page = paginator.page(page_num)
-        except InvalidPage:
-            page = paginator.page(1)
-
-        serializer = CardMovementSerializer(
-            page.object_list, many=True, context={"request": request}
-        )
-        return Response({
-            "count": paginator.count,
-            "results": serializer.data,
-        })
+        return Response({"swimlanes": result, "extension_panels": []})
 
     @action(detail=True, methods=["get"])
     def analytics(self, request, pk=None):
@@ -1440,6 +1372,88 @@ class BoardViewSet(viewsets.ModelViewSet):
         response = HttpResponse(buf.getvalue(), content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.csv"'
         return response
+
+    @action(detail=True, methods=["get"], url_path="movements")
+    def movements(self, request, pk=None):
+        """Board-level movement history with filtering and offset pagination.
+
+        Returns CardMovement records for the board, newest first, with card
+        title and uid denormalized for display. All board members (including
+        viewers) may read movement history.
+
+        Query params:
+          - ``swimlane_id`` (int): filter by the card's current swimlane.
+          - ``to_column_id`` (int): filter by destination column.
+          - ``assignee_id`` (int): filter by card assignee.
+          - ``moved_after`` (ISO date): include movements on or after this date.
+          - ``moved_before`` (ISO date): include movements on or before this date.
+          - ``exclude_type`` (comma-separated): movement_type values to exclude
+            (e.g. ``archived,unarchived`` hides system events).
+          - ``offset`` (int, default 0): pagination offset.
+
+        Defaults to the last 30 days when no date params are provided.
+        Page size is fixed at 50.
+        """
+        board, _ = get_board_for_user(pk, request.user)
+        now = timezone.now()
+        PAGE_SIZE = 50
+
+        qs = (
+            CardMovement.objects
+            .filter(card__board=board)
+            .select_related("card", "moved_by", "from_column", "to_column", "from_swimlane", "to_swimlane")
+            .order_by("-moved_at")
+        )
+
+        # Date range — default to last 30 days when neither param is supplied.
+        moved_after = request.query_params.get("moved_after")
+        moved_before = request.query_params.get("moved_before")
+        if not moved_after and not moved_before:
+            qs = qs.filter(moved_at__gte=now - datetime.timedelta(days=30))
+        else:
+            if moved_after:
+                try:
+                    qs = qs.filter(moved_at__date__gte=moved_after)
+                except (ValueError, TypeError):
+                    return Response({"detail": "moved_after must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
+            if moved_before:
+                try:
+                    qs = qs.filter(moved_at__date__lte=moved_before)
+                except (ValueError, TypeError):
+                    return Response({"detail": "moved_before must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
+
+        swimlane_id = request.query_params.get("swimlane_id")
+        if swimlane_id:
+            qs = qs.filter(card__swimlane_id=swimlane_id)
+
+        to_column_id = request.query_params.get("to_column_id")
+        if to_column_id:
+            qs = qs.filter(to_column_id=to_column_id)
+
+        assignee_id = request.query_params.get("assignee_id")
+        if assignee_id:
+            qs = qs.filter(card__assignee_id=assignee_id)
+
+        exclude_type = request.query_params.get("exclude_type")
+        if exclude_type:
+            exclude_types = [t.strip() for t in exclude_type.split(",") if t.strip()]
+            qs = qs.exclude(movement_type__in=exclude_types)
+
+        try:
+            offset = int(request.query_params.get("offset", 0))
+        except (ValueError, TypeError):
+            offset = 0
+
+        total = qs.count()
+        page = qs[offset: offset + PAGE_SIZE]
+
+        serializer = CardMovementSerializer(page, many=True, context={"request": request})
+        return Response({
+            "count": total,
+            "offset": offset,
+            "page_size": PAGE_SIZE,
+            "results": serializer.data,
+        })
 
     @action(detail=True, methods=["post"])
     def members(self, request, pk=None):
@@ -1821,6 +1835,27 @@ class CardViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 card.archived_at = timezone.now()
                 card.save(update_fields=["archived_at"])
+                # Record an archive event in movement history so the audit trail
+                # is complete and cycle-time calculations can use archived_at as
+                # the terminal timestamp. from/to columns are both the current
+                # column (position hasn't changed — just the archive state).
+                CardMovement.objects.create(
+                    card=card,
+                    from_column=card.column,
+                    from_column_name=card.column.name if card.column else "",
+                    from_column_uid=card.column.uid if card.column else "",
+                    to_column=card.column,
+                    to_column_name=card.column.name if card.column else "",
+                    to_column_uid=card.column.uid if card.column else "",
+                    from_swimlane=card.swimlane,
+                    from_swimlane_name=card.swimlane.name if card.swimlane else "",
+                    from_swimlane_uid=card.swimlane.uid if card.swimlane else "",
+                    to_swimlane=card.swimlane,
+                    to_swimlane_name=card.swimlane.name if card.swimlane else "",
+                    to_swimlane_uid=card.swimlane.uid if card.swimlane else "",
+                    moved_by=request.user,
+                    movement_type=CardMovement.MovementType.ARCHIVED,
+                )
             transaction.on_commit(lambda: broadcast_board_event(board_id, "card.archived", {"card_id": card_id}))
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
@@ -1860,6 +1895,27 @@ class CardViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 card.archived_at = None
                 card.save(update_fields=["archived_at"])
+                # Record a restore event so the audit trail captures when a card
+                # re-entered the active board. This is a companion to the ARCHIVED
+                # movement and uses the same from/to pattern (card stays in its
+                # column; only archived_at changes).
+                CardMovement.objects.create(
+                    card=card,
+                    from_column=card.column,
+                    from_column_name=card.column.name if card.column else "",
+                    from_column_uid=card.column.uid if card.column else "",
+                    to_column=card.column,
+                    to_column_name=card.column.name if card.column else "",
+                    to_column_uid=card.column.uid if card.column else "",
+                    from_swimlane=card.swimlane,
+                    from_swimlane_name=card.swimlane.name if card.swimlane else "",
+                    from_swimlane_uid=card.swimlane.uid if card.swimlane else "",
+                    to_swimlane=card.swimlane,
+                    to_swimlane_name=card.swimlane.name if card.swimlane else "",
+                    to_swimlane_uid=card.swimlane.uid if card.swimlane else "",
+                    moved_by=request.user,
+                    movement_type=CardMovement.MovementType.UNARCHIVED,
+                )
             transaction.on_commit(lambda: broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),

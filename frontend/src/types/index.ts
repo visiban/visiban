@@ -176,6 +176,31 @@ export interface CardMovement {
   moved_by: User | null;
   moved_at: string;
   notes: string;
+  movement_type: "move" | "archived" | "unarchived";
+}
+
+/** Board-level movement record returned by GET /api/boards/{id}/movements/ */
+export interface BoardMovement {
+  id: number;
+  card_id: number;
+  card_title: string;
+  card_uid: string;
+  from_column: number | null;
+  from_column_name: string;
+  from_column_uid: string;
+  to_column: number | null;
+  to_column_name: string;
+  to_column_uid: string;
+  from_swimlane: number | null;
+  from_swimlane_name: string;
+  from_swimlane_uid: string;
+  to_swimlane: number | null;
+  to_swimlane_name: string;
+  to_swimlane_uid: string;
+  moved_by: User | null;
+  moved_at: string;
+  notes: string;
+  movement_type: "move" | "archived" | "unarchived";
 }
 
 export type CardActivityEventType =
@@ -254,6 +279,7 @@ export interface BoardFull {
   created_at: string;
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
+  capabilities?: { movement_export?: boolean };
   share_token?: string | null;
 }
 

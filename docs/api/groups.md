@@ -16,7 +16,7 @@ Create a group. Any authenticated user may create a top-level group. Creating a 
 | Field | Required | Notes |
 |---|---|---|
 | `name` | Yes | Display name |
-| `description` | No | Optional free-text summary (added in 1.0.0-rc.9) |
+| `description` | No | Optional free-text summary |
 | `parent` | No | Parent group ID; omit for a top-level group |
 
 ### `GET /api/groups/{id}/`
@@ -26,8 +26,8 @@ Get group details.
 
 | Field | Type | Description |
 |---|---|---|
-| `description` | string | Optional free-text summary of the group. Empty string if not set. Added in 1.0.0-rc.9. |
-| `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty array for top-level groups. Added in 1.0.0-rc.9. |
+| `description` | string | Optional free-text summary of the group. Empty string if not set. |
+| `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty array for top-level groups. |
 
 ### `PUT /api/groups/{id}/`
 Update group name, description, or parent. Requires group admin.

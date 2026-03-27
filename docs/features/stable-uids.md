@@ -1,7 +1,5 @@
 # Stable UIDs
 
-> **Added in 1.0.0-rc.5**
-
 Every board object — boards, columns, swimlanes, labels, and cards — carries a stable, globally unique identifier called a **UID**.
 
 ## What is a UID?

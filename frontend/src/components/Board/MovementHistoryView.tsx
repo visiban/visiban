@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getBoardMovements } from "../../api/boards";
-import type { BoardFull, CardMovement } from "../../types";
+import type { BoardFull, BoardMovement } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 
@@ -25,12 +26,12 @@ const EMPTY_FILTERS: HistoryFilters = {
 };
 
 function filtersToParams(f: HistoryFilters, page: number): Record<string, string> {
-  const p: Record<string, string> = { page: String(page) };
+  const p: Record<string, string> = { offset: String((page - 1) * PAGE_SIZE) };
   if (f.swimlaneId !== null) p.swimlane_id = String(f.swimlaneId);
-  if (f.columnId !== null) p.column_id = String(f.columnId);
-  if (f.userId !== null) p.user_id = String(f.userId);
-  if (f.since) p.since = f.since;
-  if (f.until) p.until = f.until;
+  if (f.columnId !== null) p.to_column_id = String(f.columnId);
+  if (f.userId !== null) p.assignee_id = String(f.userId);
+  if (f.since) p.moved_after = f.since;
+  if (f.until) p.moved_before = f.until;
   return p;
 }
 
@@ -49,9 +50,9 @@ function hasFilters(f: HistoryFilters): boolean {
 // ---------------------------------------------------------------------------
 
 interface SlideInPanelProps {
-  movement: CardMovement;
+  movement: BoardMovement;
   /** All movements for the same card visible on the current page — for context. */
-  relatedMovements: CardMovement[];
+  relatedMovements: BoardMovement[];
   onClose: () => void;
 }
 
@@ -171,12 +172,16 @@ const PAGE_SIZE = 50;
  *   Escape              — close slide-in panel
  */
 export default function MovementHistoryView({ board }: Props) {
-  const [filters, setFilters] = useState<HistoryFilters>(EMPTY_FILTERS);
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<HistoryFilters>(() => {
+    const columnId = searchParams.get('column_id');
+    return { ...EMPTY_FILTERS, columnId: columnId ? Number(columnId) : null };
+  });
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<{ results: CardMovement[]; count: number } | null>(null);
+  const [data, setData] = useState<{ results: BoardMovement[]; count: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [selectedMovement, setSelectedMovement] = useState<CardMovement | null>(null);
+  const [selectedMovement, setSelectedMovement] = useState<BoardMovement | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1;
@@ -247,8 +252,6 @@ export default function MovementHistoryView({ board }: Props) {
     ? (data?.results ?? []).filter((m) => m.card_uid === selectedMovement.card_uid)
     : [];
 
-  const startItem = data ? (page - 1) * PAGE_SIZE + 1 : 0;
-  const endItem = data ? Math.min(page * PAGE_SIZE, data.count) : 0;
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden" data-testid="movement-history-view">
@@ -301,6 +304,11 @@ export default function MovementHistoryView({ board }: Props) {
               className="text-xs text-slate-500 hover:text-slate-300 underline shrink-0 transition"
             >
               Clear filters
+            </button>
+          )}
+          {board.capabilities?.movement_export && (
+            <button className="ml-auto px-3 py-1 text-xs rounded bg-slate-800 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              Export
             </button>
           )}
         </div>
@@ -374,12 +382,20 @@ export default function MovementHistoryView({ board }: Props) {
                           {m.card_title}
                         </td>
                         <td className="px-4 py-2 text-xs text-slate-400 align-top">
-                          {m.from_column_name && (
-                            <span className="text-slate-500">{m.from_column_name} → </span>
-                          )}
-                          <span className="text-slate-200">{m.to_column_name ?? "—"}</span>
-                          {m.to_swimlane_name && m.to_swimlane_name !== m.from_swimlane_name && (
-                            <span className="text-slate-500"> · {m.to_swimlane_name}</span>
+                          {m.movement_type === 'archived' ? (
+                            <span className="text-slate-400 italic">Archived</span>
+                          ) : m.movement_type === 'unarchived' ? (
+                            <span className="text-violet-400">Reactivated</span>
+                          ) : (
+                            <>
+                              {m.from_column_name && (
+                                <span className="text-slate-500">{m.from_column_name} → </span>
+                              )}
+                              <span className="text-slate-200">{m.to_column_name ?? "—"}</span>
+                              {m.to_swimlane_name && m.to_swimlane_name !== m.from_swimlane_name && (
+                                <span className="text-slate-500"> · {m.to_swimlane_name}</span>
+                              )}
+                            </>
                           )}
                         </td>
                       </tr>
@@ -392,7 +408,7 @@ export default function MovementHistoryView({ board }: Props) {
             {/* Pagination */}
             <div className="flex items-center justify-between px-4 py-2 border-t border-slate-800 shrink-0">
               <span className="text-xs text-slate-500">
-                Showing {startItem}–{endItem} of {data.count}
+                {data.count} events found
               </span>
               <div className="flex items-center gap-2">
                 <button

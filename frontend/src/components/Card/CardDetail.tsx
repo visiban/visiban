@@ -987,7 +987,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             ) : (
               <>
                 <h3 className="text-white font-semibold text-base mb-2">Archive this card?</h3>
-                <p className="text-slate-400 text-sm mb-5">It will be hidden from the board but can be restored from the Archived panel.</p>
+                <p className="text-slate-400 text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
                 <div className="flex gap-3 justify-end">
                   <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
                   <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Archive</button>

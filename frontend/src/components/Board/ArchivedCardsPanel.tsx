@@ -12,7 +12,7 @@ interface Props {
 export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
-  const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [unarchivingId, setUnarchivingId] = useState<number | null>(null);
 
   useEscapeStack(onClose, 30);
 
@@ -23,14 +23,14 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Pro
       .finally(() => setLoading(false));
   }, [board.id]);
 
-  const handleRestore = async (card: Card) => {
-    setRestoringId(card.id);
+  const handleUnarchive = async (card: Card) => {
+    setUnarchivingId(card.id);
     try {
-      const restored = await unarchiveCard(board.id, card.id);
+      const unarchived = await unarchiveCard(board.id, card.id);
       setCards((prev) => prev.filter((c) => c.id !== card.id));
-      onUnarchived(restored);
+      onUnarchived(unarchived);
     } finally {
-      setRestoringId(null);
+      setUnarchivingId(null);
     }
   };
 
@@ -83,11 +83,11 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Pro
                         : ""}
                     </span>
                     <button
-                      onClick={() => handleRestore(card)}
-                      disabled={restoringId === card.id}
+                      onClick={() => handleUnarchive(card)}
+                      disabled={unarchivingId === card.id}
                       className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50"
                     >
-                      {restoringId === card.id ? "Restoring…" : "Restore"}
+                      {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
                     </button>
                   </div>
                 </li>

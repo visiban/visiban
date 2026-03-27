@@ -83,7 +83,7 @@ describe('ArchivedCardsPanel', () => {
     render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={onUnarchived} />)
     await waitFor(() => screen.getByText('Old feature'))
 
-    await userEvent.click(screen.getByText('Restore'))
+    await userEvent.click(screen.getByText('Unarchive'))
 
     await waitFor(() => expect(onUnarchived).toHaveBeenCalledWith(restoredCard))
     expect(screen.queryByText('Old feature')).not.toBeInTheDocument()

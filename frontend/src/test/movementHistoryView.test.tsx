@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import MovementHistoryView from '../components/Board/MovementHistoryView'
 import type { BoardFull, CardMovement } from '../types'
 
@@ -67,12 +68,17 @@ function makeMovement(overrides: Partial<CardMovement> = {}): CardMovement {
     moved_by: { id: 5, username: 'alice', email: 'alice@x.com', first_name: 'Alice', last_name: '', display_name: 'Alice', avatar_url: '', is_site_admin: false, must_change_password: false },
     moved_at: '2026-03-20T10:00:00Z',
     notes: '',
+    movement_type: 'move',
     ...overrides,
   }
 }
 
 function renderView() {
-  return render(<MovementHistoryView board={fakeBoard} />)
+  return render(
+    <MemoryRouter initialEntries={['/boards/1?view=history']}>
+      <MovementHistoryView board={fakeBoard} />
+    </MemoryRouter>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -104,12 +110,12 @@ describe('MovementHistoryView — with data', () => {
   it('renders card title and movement columns', async () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Fix login bug')).toBeInTheDocument())
-    expect(screen.getByText('Done')).toBeInTheDocument()
+    expect(screen.getAllByText('Done').length).toBeGreaterThan(0)
   })
 
-  it('shows pagination "Showing 1–1 of 1"', async () => {
+  it('shows count line with total count', async () => {
     renderView()
-    await waitFor(() => expect(screen.getByText('Showing 1–1 of 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('1 events found')).toBeInTheDocument())
   })
 
   it('Prev button is disabled on first page', async () => {
@@ -157,7 +163,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ column_id: '11' })
+        expect.objectContaining({ to_column_id: '11' })
       )
     )
   })
@@ -172,7 +178,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ user_id: '5' })
+        expect.objectContaining({ assignee_id: '5' })
       )
     )
   })
@@ -186,7 +192,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ since: '2026-01-01' })
+        expect.objectContaining({ moved_after: '2026-01-01' })
       )
     )
   })
@@ -205,7 +211,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenLastCalledWith(
         fakeBoard.id,
-        expect.not.objectContaining({ column_id: '11' })
+        expect.not.objectContaining({ to_column_id: '11' })
       )
     )
   })
@@ -296,7 +302,7 @@ describe('MovementHistoryView — pagination', () => {
 
   it('shows correct item range and total', async () => {
     renderView()
-    await waitFor(() => expect(screen.getByText('Showing 1–50 of 110')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('110 events found')).toBeInTheDocument())
   })
 
   it('Next button is enabled when more pages exist', async () => {
@@ -313,7 +319,7 @@ describe('MovementHistoryView — pagination', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ page: '2' })
+        expect.objectContaining({ offset: '50' })
       )
     )
   })
