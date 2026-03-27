@@ -4,7 +4,11 @@ from .views import (
     PersonalAccessTokenDeleteView, PersonalAccessTokenListCreateView,
     SiteConfigView, UserSearchView,
 )
-from .admin_views import AdminSettingsView, AdminUsersView, AdminUserDetailView
+from .admin_views import (
+    AdminSettingsView, AdminUsersView, AdminUserDetailView,
+    AdminInviteLinkListCreateView, AdminInviteLinkRevokeView,
+    AdminUserDeactivateView,
+)
 
 urlpatterns = [
     path("auth/providers/", AuthProvidersView.as_view()),
@@ -18,4 +22,7 @@ urlpatterns = [
     path("admin/settings/", AdminSettingsView.as_view()),
     path("admin/users/", AdminUsersView.as_view()),
     path("admin/users/<int:pk>/", AdminUserDetailView.as_view()),
+    path("admin/users/<int:pk>/deactivate/", AdminUserDeactivateView.as_view()),
+    path("admin/invite-links/", AdminInviteLinkListCreateView.as_view()),
+    path("admin/invite-links/<int:pk>/", AdminInviteLinkRevokeView.as_view()),
 ]

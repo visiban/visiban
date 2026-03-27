@@ -650,29 +650,29 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
 
   if (view === "summary") {
     return (
-      <>
+      <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
         <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
-      </>
+      </div>
     );
   }
 
   if (view === "history") {
     return (
-      <>
+      <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
         <MovementHistoryView board={board} />
-      </>
+      </div>
     );
   }
 
   if (view === "analytics") {
     return (
-      <>
+      <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
@@ -700,7 +700,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
             closeEditorOnEnter={closeEditorOnEnter}
           />
         )}
-      </>
+      </div>
     );
   }
 

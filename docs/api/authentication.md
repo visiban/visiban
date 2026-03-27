@@ -372,6 +372,80 @@ Site admins can change the registration mode in **Admin → Site Settings**. See
 
 ---
 
+## Registration
+
+### `POST /api/auth/registration/`
+
+Register a new user account. Behavior depends on the instance's current `registration_mode` (see `GET /api/auth/site-config/` above).
+
+**Permission:** None — public endpoint.
+
+#### Open mode
+
+When `registration_mode` is `"open"`, no invite token is required.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Must be unique on the instance. A username is auto-derived from the email address. |
+| `password1` | string | Yes | The desired password (minimum 12 characters). |
+| `password2` | string | Yes | Password confirmation — must match `password1`. |
+
+```json
+{
+  "email": "newuser@example.com",
+  "password1": "securepassword123",
+  "password2": "securepassword123"
+}
+```
+
+**Response** `201 Created`
+
+```json
+{ "key": "9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b" }
+```
+
+The returned `key` is an API token that can be used immediately in the `Authorization: Token <key>` header.
+
+#### Invite-only mode
+
+When `registration_mode` is `"invite_only"`, an additional `invite_token` field is required. Invite tokens are created by site admins via `POST /api/admin/invite-links/` and distributed out-of-band.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Must be unique on the instance. |
+| `password1` | string | Yes | Minimum 12 characters. |
+| `password2` | string | Yes | Must match `password1`. |
+| `invite_token` | string | Yes | The raw token value from the invite link. |
+
+```json
+{
+  "email": "newuser@example.com",
+  "password1": "securepassword123",
+  "password2": "securepassword123",
+  "invite_token": "kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"
+}
+```
+
+**Response** `201 Created` — same shape as open mode: `{ "key": "<token>" }`.
+
+**Errors**
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | `invite_token` is missing when the instance is in `invite_only` mode |
+| `400 Bad Request` | `invite_token` does not match any known link |
+| `400 Bad Request` | The invite link has expired |
+| `400 Bad Request` | The invite link has been revoked |
+| `400 Bad Request` | The invite link has already been used (single-use links) |
+| `400 Bad Request` | Email already registered, passwords do not match, or password too short |
+| `403 Forbidden` | Registration is `"closed"` — no new accounts can be created |
+
+---
+
 ## Common errors
 
 | Status | Cause | Fix |

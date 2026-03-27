@@ -1,12 +1,17 @@
 import hashlib
 import secrets
+from datetime import timedelta
 
 from django.contrib.auth.models import AbstractUser
 from django.core.cache import cache
 from django.db import models
+from django.utils import timezone
 
 PAT_PREFIX = "vbn_"
 PAT_MAX_PER_USER = 10
+
+INVITE_LINK_PREFIX = "vbnl_"
+MAX_ACTIVE_INVITE_LINKS = 50  # Soft cap per instance — prevents token flood from a compromised admin
 
 # Shared by models.py and adapter.py — defined here to avoid circular imports.
 REGISTRATION_MODE_CACHE_KEY = "site_setting_registration_mode"
@@ -14,6 +19,15 @@ REGISTRATION_MODE_CACHE_TTL = 60  # seconds
 
 UPLOADS_ENABLED_CACHE_KEY = "site_setting_uploads_enabled"
 UPLOADS_ENABLED_CACHE_TTL = 60  # seconds
+
+
+def get_registration_mode() -> str:
+    """Return registration_mode, using a short-lived cache to avoid a DB hit on every request."""
+    mode = cache.get(REGISTRATION_MODE_CACHE_KEY)
+    if mode is None:
+        mode = SiteSetting.get().registration_mode
+        cache.set(REGISTRATION_MODE_CACHE_KEY, mode, REGISTRATION_MODE_CACHE_TTL)
+    return mode
 
 
 def invalidate_registration_mode_cache():
@@ -164,3 +178,74 @@ class PersonalAccessToken(models.Model):
             expires_at=expires_at,
         )
         return instance, raw
+
+
+class InviteLink(models.Model):
+    """Site-wide registration invite link.
+
+    The raw token is generated once and never stored — only a SHA-256 hash is
+    persisted. The raw value is returned exactly once at creation.
+
+    Invariants:
+    - At most MAX_ACTIVE_INVITE_LINKS (50) non-expired, non-revoked, non-used
+      links may be active at once (enforced at the view layer).
+    - single_use links are consumed atomically via select_for_update() at
+      registration time to prevent race-condition double-use.
+    - All pending links created by a user are automatically revoked when that
+      user is deactivated (enforced in AdminUserDeactivateView).
+    """
+
+    VALID_TTL_DAYS = (1, 7, 30)  # Choices offered in the UI; None = never expires.
+
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    # First 8 chars of the raw token ("vbnl_XXX") — safe for display.
+    prefix = models.CharField(max_length=8)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_invite_links",
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
+    single_use = models.BooleanField(default=False)
+    used_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "invite_links"
+        ordering = ["-created_at"]
+
+    @classmethod
+    def generate(cls, created_by, expires_at=None, single_use=False):
+        """Create a new link, persist the hash, return (instance, raw_token).
+
+        The raw_token is the only time the plain-text value is available — the
+        caller must return it to the user exactly once and never again.
+        """
+        raw = INVITE_LINK_PREFIX + secrets.token_hex(20)  # "vbnl_" + 40 hex chars
+        token_hash = hashlib.sha256(raw.encode()).hexdigest()
+        prefix = raw[:8]
+        instance = cls.objects.create(
+            created_by=created_by,
+            token_hash=token_hash,
+            prefix=prefix,
+            expires_at=expires_at,
+            single_use=single_use,
+        )
+        return instance, raw
+
+    @property
+    def status(self):
+        """Return human-readable status: pending / used / expired / revoked."""
+        if self.revoked_at:
+            return "revoked"
+        if self.used_at:
+            return "used"
+        if self.expires_at and self.expires_at < timezone.now():
+            return "expired"
+        return "pending"
+
+    @property
+    def is_valid(self):
+        return self.status == "pending"

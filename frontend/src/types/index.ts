@@ -324,6 +324,12 @@ export interface SiteSettings {
   uploads_enabled: boolean;
 }
 
+export interface OwnedBoardSummary {
+  id: number;
+  uid: string;
+  name: string;
+}
+
 export interface AdminUser {
   id: number;
   username: string;
@@ -337,6 +343,23 @@ export interface AdminUser {
   can_access_all_content: boolean;
   must_change_password: boolean;
   date_joined: string;
+  owned_boards: OwnedBoardSummary[];
+}
+
+export interface AdminInviteLink {
+  id: number;
+  prefix: string;
+  expires_at: string | null;
+  single_use: boolean;
+  used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  status: "pending" | "used" | "expired" | "revoked";
+  created_by_username: string | null;
+}
+
+export interface CreatedAdminInviteLink extends AdminInviteLink {
+  raw_token: string;
 }
 
 export interface GroupInviteLink {

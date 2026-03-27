@@ -3,17 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import {
   createAdminUser,
+  deactivateAdminUser,
+  getAdminInviteLinks,
   getAdminSettings,
   getAdminUsers,
+  createAdminInviteLink,
   patchAdminSettings,
   patchAdminUser,
+  revokeAdminInviteLink,
 } from "../api/auth";
 import Avatar from "../components/Common/Avatar";
 import Navbar from "../components/Layout/Navbar";
-import type { AdminUser, RegistrationMode, SiteSettings } from "../types";
+import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 
-type Tab = "settings" | "users";
+type Tab = "settings" | "users" | "invite_links";
 
 interface Props {
   user: User;
@@ -213,6 +217,384 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Invite links tab
+// ---------------------------------------------------------------------------
+
+const TTL_OPTIONS: { label: string; value: number | null }[] = [
+  { label: "1 day", value: 1 },
+  { label: "7 days", value: 7 },
+  { label: "30 days", value: 30 },
+  { label: "Never", value: null },
+];
+
+const STATUS_STYLES: Record<AdminInviteLink["status"], string> = {
+  pending: "bg-green-500/20 text-green-400",
+  used: "bg-slate-500/20 text-slate-400",
+  expired: "bg-red-500/20 text-red-400",
+  revoked: "bg-slate-500/20 text-slate-500",
+};
+
+function formatExpiry(link: AdminInviteLink): string {
+  if (!link.expires_at) return "Never";
+  return new Date(link.expires_at).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+}
+
+function InviteLinksTab() {
+  const [links, setLinks] = useState<AdminInviteLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [form, setForm] = useState<{ expires_in_days: number | null; single_use: boolean }>({
+    expires_in_days: 7,
+    single_use: false,
+  });
+  const [newLink, setNewLink] = useState<CreatedAdminInviteLink | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [revokeConfirm, setRevokeConfirm] = useState<number | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current); };
+  }, []);
+
+  useEffect(() => {
+    getAdminInviteLinks()
+      .then(setLinks)
+      .catch(() => setError("Failed to load invite links."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    setCreateError(null);
+    setNewLink(null);
+    try {
+      const created = await createAdminInviteLink(form);
+      setNewLink(created);
+      setLinks((prev) => [created, ...prev]);
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: unknown } }).response?.data;
+      if (data && typeof data === "object") {
+        const msgs = Object.values(data as Record<string, string[]>).flat().join(" ");
+        setCreateError(msgs || "Failed to create invite link.");
+      } else {
+        setCreateError("Failed to create invite link.");
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (!newLink) return;
+    navigator.clipboard.writeText(newLink.raw_token).then(() => {
+      setCopied(true);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleRevoke = async (id: number) => {
+    try {
+      const updated = await revokeAdminInviteLink(id);
+      setLinks((prev) => prev.map((l) => (l.id === id ? updated : l)));
+    } catch {
+      setError("Failed to revoke invite link.");
+    } finally {
+      setRevokeConfirm(null);
+    }
+  };
+
+  if (loading) return <div className="text-slate-400 text-sm">Loading…</div>;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <h2 className="text-white text-lg font-semibold">Invite Links</h2>
+
+      {/* Create form */}
+      <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-sm">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-400 uppercase tracking-wide">Expires after</label>
+          <select
+            value={form.expires_in_days ?? ""}
+            onChange={(e) => setForm((f) => ({ ...f, expires_in_days: e.target.value === "" ? null : Number(e.target.value) }))}
+            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {TTL_OPTIONS.map((o) => (
+              <option key={String(o.value)} value={o.value ?? ""}>{o.label}</option>
+            ))}
+          </select>
+          {form.expires_in_days === null && (
+            <p className="text-xs text-amber-400">Never-expiring links are a security risk — use with caution.</p>
+          )}
+        </div>
+
+        <label className="flex items-center gap-3 cursor-pointer text-sm text-slate-300">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={form.single_use}
+            onClick={() => setForm((f) => ({ ...f, single_use: !f.single_use }))}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.single_use ? "bg-blue-600" : "bg-slate-600"}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${form.single_use ? "translate-x-4" : "translate-x-1"}`} />
+          </button>
+          Single-use
+        </label>
+
+        {createError && <p className="text-sm text-red-400">{createError}</p>}
+
+        <button
+          type="submit"
+          disabled={creating}
+          className="self-start px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {creating ? "Creating…" : "Create link"}
+        </button>
+      </form>
+
+      {/* One-time token reveal */}
+      {newLink && (
+        <div className="flex flex-col gap-2 p-3 rounded-lg border border-amber-600/50 bg-slate-900 max-w-lg transition-all duration-150">
+          <p className="text-xs text-amber-400">Copy this link now — it won't be shown again.</p>
+          <div className="flex items-center gap-2">
+            <span
+              title={newLink.raw_token}
+              className="flex-1 font-mono text-xs text-slate-200 bg-slate-800 border border-slate-700 rounded px-2 py-1.5 truncate"
+            >
+              {newLink.raw_token}
+            </span>
+            <button
+              onClick={handleCopy}
+              className="shrink-0 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <button
+              onClick={() => setNewLink(null)}
+              className="shrink-0 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {/* Link list */}
+      {links.length === 0 ? (
+        <p className="text-sm text-slate-500">No invite links yet.</p>
+      ) : (
+        <div className="flex flex-col divide-y divide-slate-700 rounded-lg border border-slate-700 overflow-hidden">
+          {links.map((link) => (
+            <div key={link.id} className="flex items-center gap-3 px-4 py-3 bg-slate-800/50 hover:bg-slate-800 transition">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs text-slate-400">{link.prefix}…</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_STYLES[link.status]}`}>
+                    {link.status}
+                  </span>
+                  {link.single_use && (
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-slate-500/20 text-slate-400">single-use</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Expires {formatExpiry(link)}
+                  {link.created_by_username && ` · created by ${link.created_by_username}`}
+                </p>
+              </div>
+              {link.status === "pending" && (
+                revokeConfirm === link.id ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleRevoke(link.id)}
+                      className="text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Confirm revoke
+                    </button>
+                    <button
+                      onClick={() => setRevokeConfirm(null)}
+                      className="text-xs text-slate-400 hover:text-white transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setRevokeConfirm(link.id)}
+                    className="shrink-0 text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Revoke
+                  </button>
+                )
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Offboarding modal
+// ---------------------------------------------------------------------------
+
+interface OffboardingModalProps {
+  user: AdminUser;
+  onDeactivated: (updated: AdminUser) => void;
+  onClose: () => void;
+}
+
+function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProps) {
+  useEscapeStack(onClose, 40);
+  // Per-board transfer map: board id → selected user id
+  const [transfers, setTransfers] = useState<Record<number, number | null>>(
+    () => Object.fromEntries(user.owned_boards.map((b) => [b.id, null]))
+  );
+  const [memberSearch, setMemberSearch] = useState<Record<number, string>>({});
+  const [memberResults, setMemberResults] = useState<Record<number, User[]>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const debounceRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  const handleMemberSearch = (boardId: number, query: string) => {
+    setMemberSearch((prev) => ({ ...prev, [boardId]: query }));
+    setTransfers((prev) => ({ ...prev, [boardId]: null }));
+    if (debounceRefs.current[boardId]) clearTimeout(debounceRefs.current[boardId]);
+    if (query.length < 2) {
+      setMemberResults((prev) => ({ ...prev, [boardId]: [] }));
+      return;
+    }
+    debounceRefs.current[boardId] = setTimeout(async () => {
+      try {
+        const { default: client } = await import("../api/client");
+        const res = await client.get<User[]>(`/api/users/?search=${encodeURIComponent(query)}&board_id=${boardId}`);
+        setMemberResults((prev) => ({ ...prev, [boardId]: res.data }));
+      } catch {
+        // silently ignore search errors
+      }
+    }, 300);
+  };
+
+  const selectTransfer = (boardId: number, member: User) => {
+    setTransfers((prev) => ({ ...prev, [boardId]: member.id }));
+    setMemberSearch((prev) => ({ ...prev, [boardId]: member.display_name || member.username }));
+    setMemberResults((prev) => ({ ...prev, [boardId]: [] }));
+  };
+
+  const allAssigned = user.owned_boards.every((b) => transfers[b.id] !== null);
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const transferList = user.owned_boards.map((b) => ({
+        board_id: b.id,
+        transfer_to: transfers[b.id] as number,
+      }));
+      const updated = await deactivateAdminUser(user.id, transferList);
+      onDeactivated(updated);
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
+      setError(data?.detail ?? "Deactivation failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="offboard-title"
+        className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-lg w-full"
+      >
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-700">
+          <h2 id="offboard-title" className="text-white text-lg font-semibold">
+            Transfer boards &amp; deactivate
+          </h2>
+          <button
+            onClick={onClose}
+            className="hover:bg-slate-700 p-1 rounded transition text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-300 mb-4">
+          <span className="font-medium text-white">{user.display_name || user.username}</span> owns the boards below.
+          Assign a new owner for each before deactivating.
+        </p>
+
+        <div className="flex flex-col divide-y divide-slate-700 mb-4 rounded-lg border border-slate-700 overflow-hidden">
+          {user.owned_boards.map((board) => (
+            <div key={board.id} className="flex flex-col gap-2 px-4 py-3 bg-slate-800/50">
+              <span className="text-sm text-slate-200 truncate" title={board.name}>{board.name}</span>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search for a member…"
+                  value={memberSearch[board.id] ?? ""}
+                  onChange={(e) => handleMemberSearch(board.id, e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500"
+                />
+                {(memberResults[board.id] ?? []).length > 0 && (
+                  <ul className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded shadow-lg max-h-40 overflow-y-auto">
+                    {memberResults[board.id].map((member) => (
+                      <li key={member.id}>
+                        <button
+                          type="button"
+                          onClick={() => selectTransfer(board.id, member)}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 transition focus:outline-none focus:bg-slate-700"
+                        >
+                          {member.display_name || member.username}
+                          <span className="text-slate-500 ml-1">@{member.username}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">Only users who are members of this board can receive ownership.</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-sm text-amber-400 mb-4">
+          This transfer cannot be undone automatically. The new owner will have full admin access to their transferred boards.
+        </p>
+
+        {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={saving || !allAssigned}
+            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {saving ? "Processing…" : "Transfer ownership and deactivate"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Settings tab
 // ---------------------------------------------------------------------------
 
@@ -393,6 +775,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [offboardingUser, setOffboardingUser] = useState<AdminUser | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -450,9 +833,23 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   };
 
   const handleDeactivate = (user: AdminUser) => {
+    if (user.owned_boards.length > 0) {
+      // User owns boards — show the offboarding modal to collect transfer targets.
+      setOffboardingUser(user);
+      return;
+    }
     confirmAndRun(
       `Deactivate ${user.display_name || user.username}? They will no longer be able to log in.`,
-      () => applyPatch(user.id, { is_active: false })
+      async () => {
+        setActionError(null);
+        try {
+          const updated = await deactivateAdminUser(user.id);
+          setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+        } catch (err: unknown) {
+          const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
+          setActionError(data?.detail ?? "Action failed. Please try again.");
+        }
+      }
     );
   };
 
@@ -695,6 +1092,17 @@ function UsersTab({ currentUser }: { currentUser: User }) {
           onCancel={() => setConfirm(null)}
         />
       )}
+
+      {offboardingUser && (
+        <OffboardingModal
+          user={offboardingUser}
+          onDeactivated={(updated) => {
+            setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+            setOffboardingUser(null);
+          }}
+          onClose={() => setOffboardingUser(null)}
+        />
+      )}
     </div>
   );
 }
@@ -706,6 +1114,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
 const TABS: { id: Tab; label: string }[] = [
   { id: "settings", label: "Settings" },
   { id: "users", label: "Users" },
+  { id: "invite_links", label: "Invite Links" },
 ];
 
 export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
@@ -760,6 +1169,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
           <div className="flex-1 min-w-0">
             {activeTab === "settings" && <SettingsTab />}
             {activeTab === "users" && <UsersTab currentUser={user} />}
+            {activeTab === "invite_links" && <InviteLinksTab />}
           </div>
         </div>
       </main>

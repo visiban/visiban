@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -109,5 +109,47 @@ describe('auth API', () => {
     mockDelete.mockResolvedValue({})
     await revokeToken(42)
     expect(mockDelete).toHaveBeenCalledWith('/api/auth/tokens/42/')
+  })
+})
+
+describe('admin invite link API', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('getAdminInviteLinks calls GET /api/admin/invite-links/', async () => {
+    mockGet.mockResolvedValue({ data: [] })
+    const result = await getAdminInviteLinks()
+    expect(mockGet).toHaveBeenCalledWith('/api/admin/invite-links/')
+    expect(result).toEqual([])
+  })
+
+  it('createAdminInviteLink calls POST /api/admin/invite-links/ with payload', async () => {
+    const created = { id: 1, prefix: 'vbnl_ab', raw_token: 'vbnl_abc123', status: 'pending', single_use: true, expires_at: null, used_at: null, revoked_at: null, created_at: '2026-03-27T00:00:00Z', created_by_username: 'admin' }
+    mockPost.mockResolvedValue({ data: created })
+    const result = await createAdminInviteLink({ expires_in_days: 7, single_use: true })
+    expect(mockPost).toHaveBeenCalledWith('/api/admin/invite-links/', { expires_in_days: 7, single_use: true })
+    expect(result).toEqual(created)
+  })
+
+  it('revokeAdminInviteLink calls DELETE /api/admin/invite-links/:id/', async () => {
+    const revoked = { id: 1, prefix: 'vbnl_ab', status: 'revoked', single_use: false, expires_at: null, used_at: null, revoked_at: '2026-03-27T00:00:00Z', created_at: '2026-03-27T00:00:00Z', created_by_username: 'admin' }
+    mockDelete.mockResolvedValue({ data: revoked })
+    const result = await revokeAdminInviteLink(1)
+    expect(mockDelete).toHaveBeenCalledWith('/api/admin/invite-links/1/')
+    expect(result).toEqual(revoked)
+  })
+
+  it('deactivateAdminUser calls POST /api/admin/users/:id/deactivate/ with transfers', async () => {
+    const user = { id: 5, username: 'bob', is_active: false }
+    mockPost.mockResolvedValue({ data: user })
+    const transfers = [{ board_id: 10, transfer_to_user_id: 3 }]
+    const result = await deactivateAdminUser(5, transfers)
+    expect(mockPost).toHaveBeenCalledWith('/api/admin/users/5/deactivate/', { transfers })
+    expect(result).toEqual(user)
+  })
+
+  it('deactivateAdminUser defaults to empty transfers array', async () => {
+    mockPost.mockResolvedValue({ data: { id: 5, is_active: false } })
+    await deactivateAdminUser(5)
+    expect(mockPost).toHaveBeenCalledWith('/api/admin/users/5/deactivate/', { transfers: [] })
   })
 })

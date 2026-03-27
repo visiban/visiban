@@ -430,6 +430,31 @@ Any component that calls `useDraggable`, `useSortable`, or registers interactive
 
 This applies to `CardItem` and any future draggable component used in unauthenticated or view-only contexts (e.g. share board page, print view).
 
+## One-time token reveal
+
+When a token or secret is shown exactly once after creation (e.g. invite links, PATs), use an inline expanded state on the newly created row — never a modal or toast:
+
+1. After creation, replace the creation form area with:
+   - `text-xs text-amber-400` notice: "Copy this link now — it won't be shown again."
+   - Monospace display field: `font-mono text-xs bg-slate-900 border border-amber-600/50 rounded px-2 py-1.5 text-slate-200 truncate` with `title` attribute for full value
+   - Copy button (primary variant)
+   - "Done" button (secondary variant) that collapses the row to prefix-only display
+2. Row collapses to prefix-only display after the user copies or clicks Done
+3. Never store the full token client-side after the reveal state is dismissed
+4. Use `transition-all duration-150` on the expanded row so it does not pop in
+
+## Admin offboarding modal
+
+When a destructive admin action has preconditions requiring data collection (e.g. board ownership transfer before user deactivation), use a dedicated modal — not `ConfirmDialog`:
+
+- Modal follows the standard spec: `bg-slate-800 border border-slate-700 rounded-lg shadow-xl`, `p-6` content, `fixed inset-0 bg-black/60 z-50` backdrop
+- Must use `useEscapeStack` for Escape key handling; focus must be trapped inside the modal
+- Board list: `flex flex-col divide-y divide-slate-700`; each row: board name (`text-sm text-slate-200 truncate` with `title`) + card count (`text-xs text-slate-500`)
+- User picker: typeahead input following `BoardSettingsModal` invite search pattern; include `text-xs text-slate-500` helper text below the input describing any scoping constraint (e.g. "Only users who are members of all boards listed above")
+- Irreversibility warning: `text-sm text-amber-400` sentence above the confirm button — not a text-input confirmation, not a red banner. Use amber (not red) because the action is reversible by re-transferring manually
+- Confirm button: danger variant (`bg-red-600 hover:bg-red-700 text-white`) with a label describing both actions (e.g. "Transfer ownership and deactivate")
+- If no eligible transfer target exists: block deactivation and show a `text-sm text-amber-400` message naming the specific board(s) with a direct action prompt (e.g. "Add another member to [board name] before deactivating this user")
+
 ## Card metadata row coexistence
 
 When two pieces of metadata in `CardItem`'s metadata row represent the same underlying datum (e.g. `last_moved_at` expressed as both a dot and a text label), define a mutual exclusion rule in the component. General principle: the hover-reveal dot covers the "very recent" case (within 24h); a persistent text label covers the "older but still relevant" case. Never render both simultaneously for the same card.
