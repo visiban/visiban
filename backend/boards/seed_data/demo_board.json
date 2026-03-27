@@ -15,7 +15,7 @@
       "position": 1,
       "color": "#3B82F6",
       "wip_limit": null,
-      "allow_card_creation": true
+      "allow_card_creation": false
     },
     {
       "name": "Doing",

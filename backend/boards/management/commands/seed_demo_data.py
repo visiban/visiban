@@ -91,10 +91,10 @@ DEMO_USERS = [
 
 COLUMNS = [
     {"name": "Backlog",  "color": "#6B7280", "allow_card_creation": True},
-    {"name": "To Do",    "color": "#3B82F6", "allow_card_creation": True},
+    {"name": "To Do",    "color": "#3B82F6", "allow_card_creation": False},
     {"name": "Doing",    "color": "#F59E0B", "allow_card_creation": False},
     {"name": "Review",   "color": "#8B5CF6", "allow_card_creation": False},
-    {"name": "Done",     "color": "#10B981", "allow_card_creation": False},
+    {"name": "Done",     "color": "#10B981", "allow_card_creation": False, "is_done": True},
 ]
 
 SWIMLANES = [
