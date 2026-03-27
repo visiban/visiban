@@ -83,6 +83,27 @@ When asked to create a release, invoke `/release`. The skill handles version str
 
 ---
 
+## Backend test conventions
+
+### Threaded tests — always close DB connections
+
+Any test that spawns threads which touch the Django ORM **must** call `connections.close_all()` inside the thread function before it returns:
+
+```python
+from django.db import connections as _conns
+
+def worker():
+    # ... ORM calls ...
+    _conns.close_all()  # release thread-local PostgreSQL connection
+
+t = threading.Thread(target=worker)
+t.start(); t.join()
+```
+
+**Why:** Django opens a per-thread database connection on first ORM access. The test runner only knows about the main thread's connection. Thread-local connections remain open after the thread exits, causing `TransactionTestCase.teardown_databases()` to fail with `"database is being accessed by other users"` when it tries to `DROP` the test database — breaking every subsequent pipeline job. This applies to any test that uses `threading.Thread`, `concurrent.futures`, or any other concurrency primitive.
+
+---
+
 ## Open core vs. enterprise boundary
 
 Visiban follows an open-core model:

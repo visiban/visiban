@@ -554,6 +554,14 @@ class InviteRegisterRaceConditionTests(TransactionTestCase):
                 "invite_token": raw,
             })
             results.append(r.status_code)
+            # Explicitly close thread-local DB connections. Each thread that
+            # touches the ORM opens its own PostgreSQL connection. Without this,
+            # those connections remain open after the thread exits and
+            # TransactionTestCase.teardown_databases() fails with
+            # "database is being accessed by other users" when it tries to
+            # DROP the test database.
+            from django.db import connections as _conns
+            _conns.close_all()
 
         t1 = threading.Thread(target=attempt, args=("race1@example.com",))
         t2 = threading.Thread(target=attempt, args=("race2@example.com",))
