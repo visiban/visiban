@@ -68,6 +68,7 @@ function makeMovement(overrides: Partial<CardMovement> = {}): CardMovement {
     moved_by: { id: 5, username: 'alice', email: 'alice@x.com', first_name: 'Alice', last_name: '', display_name: 'Alice', avatar_url: '', is_site_admin: false, must_change_password: false },
     moved_at: '2026-03-20T10:00:00Z',
     notes: '',
+    movement_type: 'move',
     ...overrides,
   }
 }
