@@ -67,6 +67,7 @@ const defaultProps = () => ({
   collapsed: false,
   onToggleCollapse: vi.fn(),
   onFocus: vi.fn(),
+  onExitFocus: vi.fn(),
   isFocused: false,
 })
 
@@ -176,23 +177,47 @@ describe('SwimlaneRow', () => {
     expect(badge.className).toContain('text-blue-400')
   })
 
-  it('renders focus icon button with tooltip', () => {
+  it('renders focus icon button with tooltip when not focused', () => {
     render(<SwimlaneRow {...defaultProps()} />)
     expect(screen.getByTitle('Focus on Customer A')).toBeInTheDocument()
   })
 
-  it('clicking focus button calls onFocus with swimlane id', async () => {
+  it('clicking focus button calls onFocus with swimlane id when not focused', async () => {
     const props = defaultProps()
     render(<SwimlaneRow {...props} />)
     await userEvent.setup().click(screen.getByTitle('Focus on Customer A'))
     expect(props.onFocus).toHaveBeenCalledWith(20)
+    expect(props.onExitFocus).not.toHaveBeenCalled()
   })
 
-  it('isFocused=true renders focus icon with blue color class', () => {
+  it('isFocused=true renders focus icon with blue color class and updated title', () => {
     const props = defaultProps()
     props.isFocused = true
     render(<SwimlaneRow {...props} />)
-    const btn = screen.getByTitle('Focus on Customer A')
+    const btn = screen.getByTitle('Exit focus')
     expect(btn.className).toContain('text-blue-400')
+  })
+
+  it('isFocused=true sets aria-pressed=true on focus button', () => {
+    const props = defaultProps()
+    props.isFocused = true
+    render(<SwimlaneRow {...props} />)
+    const btn = screen.getByTitle('Exit focus')
+    expect(btn).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('aria-pressed=false when not focused', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    const btn = screen.getByTitle('Focus on Customer A')
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('clicking focused crosshair calls onExitFocus, not onFocus', async () => {
+    const props = defaultProps()
+    props.isFocused = true
+    render(<SwimlaneRow {...props} />)
+    await userEvent.setup().click(screen.getByTitle('Exit focus'))
+    expect(props.onExitFocus).toHaveBeenCalled()
+    expect(props.onFocus).not.toHaveBeenCalled()
   })
 })

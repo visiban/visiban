@@ -548,6 +548,10 @@ describe('CardDetail', () => {
   })
 
   describe('Move to popover', () => {
+    beforeEach(() => {
+      localStorage.clear()
+    })
+
     function makeBoardWithTwoCols(): BoardFull {
       return makeBoard({
         columns: [
@@ -642,6 +646,32 @@ describe('CardDetail', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/Move blocked/)).toBeInTheDocument()
+      })
+    })
+
+    describe('first-encounter dot', () => {
+      it('shows dot when move-to-seen is absent from localStorage', () => {
+        const onMoveCard = vi.fn().mockResolvedValue(undefined)
+        render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+        // Dot is aria-hidden and has no text — find by its unique class combination
+        const wrapper = document.querySelector('.relative.shrink-0')
+        expect(wrapper?.querySelector('.bg-blue-500.rounded-full')).toBeInTheDocument()
+      })
+
+      it('dot disappears after the move button is clicked for the first time', async () => {
+        const onMoveCard = vi.fn().mockResolvedValue(undefined)
+        render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+        await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+        const wrapper = document.querySelector('.relative.shrink-0')
+        expect(wrapper?.querySelector('.bg-blue-500.rounded-full')).not.toBeInTheDocument()
+      })
+
+      it('dot is absent when move-to-seen is already true in localStorage', () => {
+        localStorage.setItem('user:prefs:move-to-seen', 'true')
+        const onMoveCard = vi.fn().mockResolvedValue(undefined)
+        render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
+        const wrapper = document.querySelector('.relative.shrink-0')
+        expect(wrapper?.querySelector('.bg-blue-500.rounded-full')).not.toBeInTheDocument()
       })
     })
   })

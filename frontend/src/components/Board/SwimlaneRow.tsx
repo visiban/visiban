@@ -28,6 +28,8 @@ interface Props {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onFocus: (id: number) => void;
+  /** Called when the user exits focus mode via the crosshair toggle. */
+  onExitFocus: () => void;
   /** True when this swimlane is currently the active focus target. */
   isFocused: boolean;
   sidebarWidth?: number;
@@ -50,7 +52,7 @@ interface Props {
   userDateFormat?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, isFocused, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -167,11 +169,12 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 ✎
               </button>
             )}
-            {/* Focus icon — collapse all other swimlanes and enter single-swimlane focus mode */}
+            {/* Focus icon — toggles single-swimlane focus mode on/off */}
             <button
-              onClick={() => onFocus(swimlane.id)}
+              onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
               className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-blue-500 rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-blue-400" : "text-slate-400 hover:text-white"}`}
-              title={`Focus on ${swimlane.name}`}
+              title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
+              aria-pressed={isFocused}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="8" cy="8" r="3" />

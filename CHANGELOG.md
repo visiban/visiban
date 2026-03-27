@@ -27,8 +27,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Card weight is now shown in the card metadata row when weight is above 1 — teams using column weight limits can scan card weights from the board view without opening the card detail panel (#266)
 - Card face now shows a relative "last moved" label (e.g. "moved yesterday", "moved 3 days ago") for cards not moved within the last 24 hours; cards moved within 24 hours continue to show the existing blue dot indicator on hover; the label can be hidden per-board via Board Settings → Card fields → Last moved (#338)
 - Hard WIP enforcement mode: board setting that blocks all card moves into over-limit columns for all roles with no admin bypass (#341)
+- The "Move to" button in the card detail breadcrumb row now shows a first-encounter dot indicator for users who have not yet clicked it, improving discoverability; the dot is dismissed on first click and the dismissed state persists across sessions via `localStorage` (#339)
 
 ### Changed
+- Clicking the crosshair (focus) button on an already-focused swimlane now toggles focus mode off; Escape key and the banner "Exit focus" button remain as alternative exit paths; the button now carries `aria-pressed` for screen reader accessibility (#363)
 - Board sub-nav tabs (Board / Summary / Analytics) are now URL-addressable — switching tabs updates the `?view=` search param with `{ replace: true }` so the browser Back button skips tab transitions and tab views can be bookmarked and shared (#332)
 - Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
 - Board Settings stale card section renamed from "Stale card threshold" to "Stale card settings" with a second input for the warning percentage.

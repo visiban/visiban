@@ -978,6 +978,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
                       collapsed={collapsedSwimlaneIds.has(swimlane.id)}
                       onToggleCollapse={() => toggleCollapsedSwimlane(swimlane.id)}
                       onFocus={enterFocus}
+                      onExitFocus={exitFocus}
                       isFocused={focusedSwimlaneId === swimlane.id}
                       hideLabels={viewPrefs.hideLabels}
                       hideDueDate={viewPrefs.hideDueDate}
