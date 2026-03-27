@@ -1126,9 +1126,11 @@ class BoardViewSet(viewsets.ModelViewSet):
         """Time-in-stage heatmap with outlier detection and stalled cards.
 
         Query params:
-          - ``days`` (int, default 30): window for velocity calculations.
-          - ``stalled_days`` (int, default 7): a card is "stalled" if its last
-            movement was more than this many days ago.
+          - ``days`` (int, default 30): window for dwell-time and velocity calculations.
+
+        The stall threshold is always taken from ``board.staleness_threshold_days``
+        (configurable per-board in Board Settings). Any ``stalled_days`` query param
+        is silently ignored — the board setting is the single source of truth.
 
         Dwell time is measured as the number of days a card spent in each column:
         the gap between consecutive movement timestamps (or "now" for the current
@@ -1150,10 +1152,11 @@ class BoardViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         now = timezone.now()
-        # Default stall threshold to the board's configured value so it is
-        # independent of the chosen heatmap period. The query param can still
-        # override it for ad-hoc queries.
-        effective_stalled_days = stalled_days if "stalled_days" in request.query_params else board.staleness_threshold_days
+        # Stall threshold is a board-level setting, independent of the period selector.
+        # The period controls the dwell-time analysis window; staleness is how long a
+        # card must sit unmoved before it is considered stuck — these are separate concepts.
+        # Any stalled_days query param is silently ignored; the board setting is authoritative.
+        effective_stalled_days = board.staleness_threshold_days
         stall_cutoff = now - datetime.timedelta(days=effective_stalled_days)
         # The period window controls which dwell-time data feeds the heatmap.
         period_cutoff = now - datetime.timedelta(days=days)
