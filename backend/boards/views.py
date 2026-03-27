@@ -16,7 +16,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
@@ -38,7 +38,7 @@ from .serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     BoardTemplateSerializer,
     ColumnSerializer, SwimlaneSerializer, SwimlaneAdminSerializer, LabelSerializer,
-    CardSerializer, CardMovementSerializer, BoardMovementSerializer, CardCommentSerializer,
+    CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     SavedFilterSerializer, PublicBoardSerializer,
     _card_queryset,
@@ -961,7 +961,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         completion columns. avg_cycle_days measures the time from a card's first
         movement to its first entry into a done column.
         """
-        from django.db.models import Avg, Count, ExpressionWrapper, F, FloatField, Min
+        from django.db.models import Avg, Count, FloatField, Min
         board, _ = get_board_for_user(pk, request.user)
         now = timezone.now()
         cutoff_7d = now - datetime.timedelta(days=7)
@@ -1520,7 +1520,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         total = qs.count()
         page = qs[offset: offset + PAGE_SIZE]
 
-        serializer = BoardMovementSerializer(page, many=True, context={"request": request})
+        serializer = CardMovementSerializer(page, many=True, context={"request": request})
         return Response({
             "count": total,
             "offset": offset,

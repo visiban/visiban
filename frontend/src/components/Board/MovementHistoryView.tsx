@@ -252,8 +252,6 @@ export default function MovementHistoryView({ board }: Props) {
     ? (data?.results ?? []).filter((m) => m.card_uid === selectedMovement.card_uid)
     : [];
 
-  const startItem = data ? (page - 1) * PAGE_SIZE + 1 : 0;
-  const endItem = data ? Math.min(page * PAGE_SIZE, data.count) : 0;
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden" data-testid="movement-history-view">
