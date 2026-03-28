@@ -15,10 +15,24 @@ import { listInviteLinks, createInviteLink } from '../api/groups'
 const mockListInviteLinks = listInviteLinks as ReturnType<typeof vi.fn>
 const mockCreateInviteLink = createInviteLink as ReturnType<typeof vi.fn>
 
-const fakeLink: GroupInviteLink = {
+/** Simulates a creation response — includes raw token for one-time reveal */
+const fakeCreatedLink: GroupInviteLink = {
   id: 1,
+  prefix: 'abc1',
   token: 'abc123',
   name: 'Test link',
+  role: 'member',
+  expires_at: null,
+  is_active: true,
+  is_expired: false,
+  created_at: '',
+}
+
+/** Simulates a list response — no raw token, only prefix */
+const fakeExistingLink: GroupInviteLink = {
+  id: 2,
+  prefix: 'xyz9',
+  name: 'Existing link',
   role: 'member',
   expires_at: null,
   is_active: true,
@@ -38,15 +52,16 @@ describe('InviteLinkPanel', () => {
     expect(await screen.findByRole('button', { name: 'New link' })).toBeInTheDocument()
   })
 
-  it('shows generated link', async () => {
-    mockCreateInviteLink.mockResolvedValue(fakeLink)
+  it('shows generated link in one-time reveal mode', async () => {
+    mockCreateInviteLink.mockResolvedValue(fakeCreatedLink)
     render(<InviteLinkPanel groupId={1} />)
 
     await userEvent.setup().click(await screen.findByRole('button', { name: 'New link' }))
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Create link' }))
     expect(await screen.findByText(/\/join\/abc123/)).toBeInTheDocument()
+    expect(await screen.findByText(/Copy this link now/)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Copy' })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'Revoke' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Done' })).toBeInTheDocument()
   })
 
   it('shows empty state when no links', async () => {
@@ -54,10 +69,10 @@ describe('InviteLinkPanel', () => {
     expect(await screen.findByText('No active invite links.')).toBeInTheDocument()
   })
 
-  it('renders existing links', async () => {
-    mockListInviteLinks.mockResolvedValue([fakeLink])
+  it('renders existing links with prefix only', async () => {
+    mockListInviteLinks.mockResolvedValue([fakeExistingLink])
     render(<InviteLinkPanel groupId={1} />)
-    expect(await screen.findByText(/\/join\/abc123/)).toBeInTheDocument()
-    expect(await screen.findByText('Test link')).toBeInTheDocument()
+    expect(await screen.findByText('xyz9…')).toBeInTheDocument()
+    expect(await screen.findByText('Existing link')).toBeInTheDocument()
   })
 })
