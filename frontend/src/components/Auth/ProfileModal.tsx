@@ -41,7 +41,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
     }
   };
 
-  const inputCls = "w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500";
+  const inputCls = "w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500";
 
   return (
     <ModalWrapper open={true} onClose={onClose} title="Your profile" maxWidth="max-w-md">

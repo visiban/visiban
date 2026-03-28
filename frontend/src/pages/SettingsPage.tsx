@@ -91,7 +91,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.display_name}
           onChange={set("display_name")}
           placeholder="How you appear on the board"
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -101,7 +101,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           <input
             value={form.first_name}
             onChange={set("first_name")}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
           />
         </label>
         <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
@@ -109,7 +109,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           <input
             value={form.last_name}
             onChange={set("last_name")}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
           />
         </label>
       </div>
@@ -120,7 +120,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.username}
           onChange={set("username")}
           required
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -131,7 +131,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.email}
           onChange={set("email")}
           required
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -260,7 +260,7 @@ function SecurityTab({ user }: { user: User }) {
             onChange={set("current_password")}
             required
             autoComplete="current-password"
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
           />
         </label>
       )}
@@ -274,7 +274,7 @@ function SecurityTab({ user }: { user: User }) {
           required
           autoComplete="new-password"
           minLength={12}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 
@@ -286,7 +286,7 @@ function SecurityTab({ user }: { user: User }) {
           onChange={set("confirm")}
           required
           autoComplete="new-password"
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
         />
       </label>
 

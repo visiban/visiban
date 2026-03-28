@@ -45,7 +45,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
             placeholder="e.g. In Progress"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -55,7 +55,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
               value={wipLimit}
               onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="e.g. 5"
-              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             />
           </div>
           <div>
@@ -64,7 +64,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
               value={weightLimit}
               onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="e.g. 20"
-              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             />
           </div>
         </div>

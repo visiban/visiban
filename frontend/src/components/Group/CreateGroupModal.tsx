@@ -88,7 +88,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
               if (e.key === "Enter") { e.preventDefault(); descriptionRef.current?.focus(); }
             }}
             placeholder="e.g. Engineering"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 transition"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 transition"
           />
         </div>
         <div>
@@ -102,7 +102,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What is this group for?"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 resize-none transition"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 resize-none transition"
           />
         </div>
         {/* Reserve fixed height so buttons don't shift when message appears/disappears. */}

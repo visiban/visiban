@@ -142,7 +142,7 @@ export default function SavedFiltersDropdown({
                 }}
                 placeholder="Filter name…"
                 maxLength={100}
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {/* Reserve vertical space for error so the panel height is stable */}
               <p className="text-xs h-4 mt-1">

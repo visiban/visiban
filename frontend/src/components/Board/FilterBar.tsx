@@ -70,7 +70,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
           value={filters.search}
           onChange={(e) => onChange({ ...filters, search: e.target.value })}
           onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
-          className="bg-slate-800 border border-slate-600 rounded px-2 py-1 pr-7 text-sm text-slate-300 placeholder-slate-500 w-36 outline-none focus:border-blue-400"
+          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 pr-7 text-sm text-slate-300 placeholder-slate-500 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
         {isSearching && (
           <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />

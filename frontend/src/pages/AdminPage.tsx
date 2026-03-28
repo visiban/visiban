@@ -322,7 +322,7 @@ function InviteLinksTab() {
           <select
             value={form.expires_in_days ?? ""}
             onChange={(e) => setForm((f) => ({ ...f, expires_in_days: e.target.value === "" ? null : Number(e.target.value) }))}
-            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {TTL_OPTIONS.map((o) => (
               <option key={String(o.value)} value={o.value ?? ""}>{o.label}</option>
@@ -544,7 +544,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
                   placeholder="Search for a member…"
                   value={memberSearch[board.id] ?? ""}
                   onChange={(e) => handleMemberSearch(board.id, e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
                 />
                 {(memberResults[board.id] ?? []).length > 0 && (
                   <ul className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded shadow-lg max-h-40 overflow-y-auto">

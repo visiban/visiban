@@ -74,7 +74,7 @@ export default function LoginPage({ onLogin }: Props) {
             placeholder={mode === "login" ? "Username or email" : "Email address"}
             value={loginField}
             onChange={(e) => setLoginField(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full bg-slate-800 border border-slate-700 text-slate-300 placeholder-slate-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <input
             type="password"
@@ -82,7 +82,7 @@ export default function LoginPage({ onLogin }: Props) {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full bg-slate-800 border border-slate-700 text-slate-300 placeholder-slate-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           {mode === "register" && (
             <input
@@ -91,7 +91,7 @@ export default function LoginPage({ onLogin }: Props) {
               placeholder="Confirm password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full bg-slate-800 border border-slate-700 text-slate-300 placeholder-slate-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           )}
           {mode === "register" && !registrationOpen && (
