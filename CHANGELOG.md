@@ -35,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - When `INVITE_ONLY` registration mode is enabled, account creation requires a valid invite token; attempts without a token are rejected at `/api/auth/registration/`
 - Deactivating a user now triggers an offboarding flow: board ownership on any boards the user owns is transferred to an eligible member before the account is deactivated; deactivation is blocked when no eligible transfer target exists on any owned board (`POST /api/admin/users/{id}/deactivate/`)
 - Admin panel includes a new "Invite Links" tab showing each token's status badge and a one-time reveal of the token value; links can be revoked inline
+- Board deletion now emits a structured `INFO` log (`board.deleted board_id=… board_name=… deleted_by=… deleted_by_username=…`) before the row is removed, providing an application-level audit trail for irreversible operations (#426)
 
 ### Changed
 - Card delete, archive/unarchive, and comment delete are now ownership-gated — members can only perform these actions on content they created; admins, site admins, and members with the moderator entitlement can act on any content; cards with a null creator (deleted users) can only be managed by admins or moderators (#362)
