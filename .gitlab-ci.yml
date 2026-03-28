@@ -660,7 +660,7 @@ frontend-license-check:
 trivy-scan:
   stage: security
   image:
-    name: aquasec/trivy:0.69.3
+    name: aquasec/trivy:latest
     entrypoint: [""]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
