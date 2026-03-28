@@ -186,6 +186,14 @@ class PATAuthenticationTests(APITestCase):
         # would be PATAuthentication raising AuthenticationFailed directly).
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
+    def test_successful_auth_updates_last_used_at(self):
+        pat, raw = PersonalAccessToken.generate(self.user, "ci")
+        self.assertIsNone(pat.last_used_at)
+        r = self.client.get("/api/auth/me/", **self._auth_header(raw))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        pat.refresh_from_db()
+        self.assertIsNotNone(pat.last_used_at)
+
 
 class PATPasswordResetRevocationTests(APITestCase):
     def setUp(self):
