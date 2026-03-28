@@ -2,9 +2,15 @@
 
 This guide covers the initial configuration steps that make analytics accurate from the start. Complete these steps after [First Boot](first-boot.md) and before inviting your team.
 
-## Creating columns
+## Create your first board
 
-Columns represent the stages in your pipeline (for example: Backlog, In Progress, Review, Done).
+When you click **+ New board**, the Create Board modal offers 11 pre-built templates (Sales Pipeline, Customer Support, Product Roadmap, and more). Each template sets up columns and a first swimlane tailored to that workflow, so you can start adding cards immediately. If none of the templates fit, choose **Blank board** for the default layout (Backlog, To Do, Doing, Done).
+
+Templates are applied once at creation time — you can freely rename, reorder, add, or remove columns afterward. For the full list of available templates, see [Board & Cards — Board creation](../features/board.md#board-creation).
+
+## Customizing columns
+
+Columns represent the stages in your pipeline (for example: Backlog, In Progress, Review, Done). If you used a template, you may already have the right columns in place — skip ahead to [Marking the Done column](#marking-the-done-column) if so.
 
 To add a column, hover over the vertical separator between any two columns on the board — a blue **+** handle appears at the center. Click it to insert a new column to the right of that separator.
 

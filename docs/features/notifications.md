@@ -1,6 +1,6 @@
 # Notifications
 
-Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment, due date warning, card moved, and comment added. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
+Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, and comment added. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
 
 ## Notification bell
 
@@ -33,15 +33,16 @@ When a card is assigned to a user by someone else, that user receives a notifica
 
 ## @mention notifications
 
-Typing `@username` in a card comment notifies the mentioned user:
+Typing `@username` in a card comment **or description** notifies the mentioned user:
 
 > "{author} mentioned you in "{card title}""
 
-- Type `@` in the comment box to open an inline autocomplete dropdown filtered by username and display name
+- Type `@` in the comment box or description field to open an inline autocomplete dropdown filtered by username and display name
 - Keyboard navigation: ↑↓ to move through suggestions, Enter or Tab to select, Escape to dismiss
-- Mentions are rendered as **bold blue** text in saved comments
-- The comment author is never notified for their own mention
+- Mentions are rendered as **bold blue** text in saved comments and descriptions
+- The author is never notified for their own mention
 - Only users who are members of the board (directly, via group inheritance, or site admins) can be mentioned
+- **Description re-save guard** — Visiban tracks which users have already been notified for mentions on a given card's description. If you edit and re-save a description that still contains an existing `@username`, that user is not notified again. Only newly added mentions trigger a notification.
 
 ## Due date notifications
 
@@ -84,6 +85,13 @@ Schedule this as a daily cron job or Kubernetes CronJob in production:
 0 8 * * * cd /app && python manage.py notify_stale_cards
 ```
 
+## Notification data model
+
+Each notification stores structured metadata alongside the human-readable `verb` string:
+
+- **`actor`** — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.
+- **`action_type`** — a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`. Useful for filtering or grouping notifications programmatically.
+
 ## Notification API
 
 | Endpoint | Description |
@@ -91,3 +99,21 @@ Schedule this as a daily cron job or Kubernetes CronJob in production:
 | `GET /api/notifications/` | List unread notifications for the current user (max 50) |
 | `GET /api/notifications/unread-count/` | Returns `{ "count": N }` |
 | `POST /api/notifications/mark-read/` | Mark notifications as read — body: `{ "ids": [1, 2] }` or `{ "all": true }` to mark all |
+
+The `GET /api/notifications/` response returns an array of objects with the following shape:
+
+```json
+{
+  "id": 42,
+  "verb": "You were assigned to \"Deploy v2.3\"",
+  "card_id": 7,
+  "card_title": "Deploy v2.3",
+  "board_id": 1,
+  "board_name": "Engineering",
+  "read": false,
+  "created_at": "2026-03-27T14:00:00Z"
+}
+```
+
+!!! note
+    The `action_type` and `actor` fields are stored on the model but are not currently included in the API response. They are available for direct database queries and will be added to the API in a future release.
