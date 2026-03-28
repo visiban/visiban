@@ -514,3 +514,91 @@ class CardListQueryCountTests(TestCase):
             12,
             f"Expected ≤ 12 queries for a 10-card board, got {len(ctx.captured_queries)}",
         )
+
+
+class CardBoardScopingTests(TestCase):
+    """Verify that label_ids and assignee_id are scoped to the current board.
+
+    Without board-scoped querysets, a malicious client could assign labels from
+    another board or assign a non-member user — both are cross-board IDOR
+    vulnerabilities (#416).
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.board, self.col, _, self.swim = _make_board(self.owner)
+        self.card = _make_card(self.board, self.col, self.swim, self.owner)
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+        # Second board with its own label — should be unreachable from board 1
+        self.other_owner = User.objects.create_user(username="other", password="pass")
+        self.other_board, self.other_col, _, self.other_swim = _make_board(self.other_owner)
+
+    @patch(PATCH_BROADCAST)
+    def test_create_card_with_cross_board_label_rejected(self, _):
+        foreign_label = Label.objects.create(board=self.other_board, name="Foreign", color="#000")
+        r = self.client.post(
+            f"/api/boards/{self.board.id}/cards/",
+            {"title": "X", "column": self.col.id, "swimlane": self.swim.id, "label_ids": [foreign_label.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_cross_board_label_rejected(self, _):
+        foreign_label = Label.objects.create(board=self.other_board, name="Foreign", color="#000")
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"label_ids": [foreign_label.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_same_board_label_accepted(self, _):
+        local_label = Label.objects.create(board=self.board, name="Local", color="#0F0")
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"label_ids": [local_label.id]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    @patch(PATCH_BROADCAST)
+    def test_assign_non_member_user_rejected(self, _):
+        outsider = User.objects.create_user(username="outsider", password="pass")
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"assignee_id": outsider.id},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
+    def test_assign_board_member_accepted(self, _):
+        member = User.objects.create_user(username="member", password="pass")
+        BoardMembership.objects.create(board=self.board, user=member, role=BoardMembership.Role.MEMBER)
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"assignee_id": member.id},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    @patch(PATCH_BROADCAST)
+    def test_create_card_with_non_member_assignee_rejected(self, _):
+        outsider = User.objects.create_user(username="outsider2", password="pass")
+        r = self.client.post(
+            f"/api/boards/{self.board.id}/cards/",
+            {"title": "X", "column": self.col.id, "swimlane": self.swim.id, "assignee_id": outsider.id},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
+    def test_unassign_card_accepted(self, _):
+        """Setting assignee_id to null should always succeed — it clears the assignee."""
+        r = self.client.patch(
+            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            {"assignee_id": None},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)

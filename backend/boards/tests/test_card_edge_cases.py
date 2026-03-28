@@ -116,19 +116,18 @@ class NonMemberAssigneeTests(TestCase):
 
     @patch(PATCH_BROADCAST)
     def test_assign_card_to_non_member(self, _):
-        """Assigning to a non-member: document current behavior.
+        """Assigning to a non-member is rejected.
 
-        The serializer accepts any valid User PK via assignee_id without
-        checking board membership, so this currently succeeds (200 OK).
+        The serializer scopes assignee_id to board members, so assigning
+        a non-member returns 400 Bad Request.
         """
         r = self.client.patch(
             f"/api/boards/{self.board.id}/cards/{self.card.id}/",
             {"assignee_id": self.non_member.id},
         )
-        # Current behavior: the API accepts any valid user ID
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.card.refresh_from_db()
-        self.assertEqual(self.card.assignee_id, self.non_member.id)
+        self.assertIsNone(self.card.assignee_id)
 
 
 # ---------------------------------------------------------------------------
