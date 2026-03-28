@@ -440,18 +440,20 @@ class JoinGroupViewTests(TestCase):
         self.owner = User.objects.create_user(username="owner", password="pass")
         self.joiner = User.objects.create_user(username="joiner", password="pass")
         self.group = _make_group(self.owner)
-        self.link = GroupInviteLink.objects.create(group=self.group, created_by=self.owner)
+        self.link, self.raw_token = GroupInviteLink.generate(
+            group=self.group, created_by=self.owner
+        )
         self.client = APIClient()
 
     def test_get_join_info_unauthenticated(self):
-        r = self.client.get(f"/api/groups/join/{self.link.token}/")
+        r = self.client.get(f"/api/groups/join/{self.raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["group_id"], self.group.id)
         self.assertEqual(r.json()["group_name"], self.group.name)
 
     def test_post_join_adds_membership(self):
         self.client.force_authenticate(self.joiner)
-        r = self.client.post(f"/api/groups/join/{self.link.token}/")
+        r = self.client.post(f"/api/groups/join/{self.raw_token}/")
         self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
         self.assertTrue(
             GroupMembership.objects.filter(group=self.group, user=self.joiner).exists()
@@ -459,8 +461,8 @@ class JoinGroupViewTests(TestCase):
 
     def test_post_join_idempotent(self):
         self.client.force_authenticate(self.joiner)
-        self.client.post(f"/api/groups/join/{self.link.token}/")
-        r2 = self.client.post(f"/api/groups/join/{self.link.token}/")
+        self.client.post(f"/api/groups/join/{self.raw_token}/")
+        r2 = self.client.post(f"/api/groups/join/{self.raw_token}/")
         self.assertEqual(r2.status_code, status.HTTP_200_OK)
 
     def test_invalid_token_returns_404(self):
@@ -471,8 +473,16 @@ class JoinGroupViewTests(TestCase):
     def test_inactive_link_returns_404(self):
         self.link.is_active = False
         self.link.save()
-        r = self.client.get(f"/api/groups/join/{self.link.token}/")
+        r = self.client.get(f"/api/groups/join/{self.raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_token_is_hashed_in_database(self):
+        """The raw token is not stored — only its SHA-256 hash."""
+        self.link.refresh_from_db()
+        self.assertIsNotNone(self.link.token_hash)
+        self.assertEqual(len(self.link.token_hash), 64)
+        # The raw token must not appear in the hash field
+        self.assertNotEqual(self.link.token_hash, self.raw_token)
 
 
 class SubgroupMemberInheritanceTests(TestCase):

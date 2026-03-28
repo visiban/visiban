@@ -521,20 +521,20 @@ class JoinGroupLoggingTests(TestCase):
     def _make_invite(self, group_owner):
         from groups.models import Group, GroupInviteLink
         group = Group.objects.create(name="LogGroup", owner=group_owner)
-        link = GroupInviteLink.objects.create(
-            group=group, created_by=group_owner, role="member", is_active=True
+        link, raw_token = GroupInviteLink.generate(
+            group=group, created_by=group_owner, role="member",
         )
-        return link
+        return link, raw_token
 
     def test_post_success_is_logged(self):
         owner = User.objects.create_user(username="logowner", password="pass")
         joiner = User.objects.create_user(username="logjoiner", password="pass")
-        link = self._make_invite(owner)
+        link, raw_token = self._make_invite(owner)
 
         client = APIClient()
         client.force_authenticate(joiner)
         with self.assertLogs("groups.views", level="INFO") as cm:
-            r = client.post(f"/api/groups/join/{link.token}/")
+            r = client.post(f"/api/groups/join/{raw_token}/")
         self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
         self.assertTrue(any("outcome=success" in line for line in cm.output))
 
@@ -546,15 +546,15 @@ class JoinGroupLoggingTests(TestCase):
         owner = User.objects.create_user(username="logowner2", password="pass")
         group = Group.objects.create(name="ExpGroup", owner=owner)
         past = timezone.now() - datetime.timedelta(days=1)
-        link = GroupInviteLink.objects.create(
+        link, raw_token = GroupInviteLink.generate(
             group=group, created_by=owner, role="member",
-            is_active=True, expires_at=past,
+            expires_at=past,
         )
 
         joiner = User.objects.create_user(username="logjoiner2", password="pass")
         client = APIClient()
         client.force_authenticate(joiner)
         with self.assertLogs("groups.views", level="INFO") as cm:
-            r = client.post(f"/api/groups/join/{link.token}/")
+            r = client.post(f"/api/groups/join/{raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_410_GONE)
         self.assertTrue(any("outcome=failure" in line for line in cm.output))

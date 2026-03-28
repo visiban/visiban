@@ -42,6 +42,9 @@ export default function InviteLinkPanel({ groupId }: Props) {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
+  // Track which link was just created and has its raw token available
+  const [revealId, setRevealId] = useState<number | null>(null);
+
   // New link form state
   const [showForm, setShowForm] = useState(false);
   const [formName, setFormName] = useState("");
@@ -66,16 +69,28 @@ export default function InviteLinkPanel({ groupId }: Props) {
   }, [fetchLinks]);
 
   const handleCopy = (link: GroupInviteLink) => {
-    const url = `${window.location.origin}/join/${link.token}`;
-    navigator.clipboard.writeText(url);
+    // For just-created links with raw token, copy the full join URL
+    if (link.token) {
+      const url = `${window.location.origin}/join/${link.token}`;
+      navigator.clipboard.writeText(url);
+    }
     setCopiedId(link.id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDismissReveal = (linkId: number) => {
+    // Clear the raw token from client-side state
+    setLinks((prev) =>
+      prev.map((l) => (l.id === linkId ? { ...l, token: undefined } : l))
+    );
+    setRevealId(null);
   };
 
   const handleRevoke = async (linkId: number) => {
     setConfirmRevokeId(null);
     await revokeInviteLink(groupId, linkId);
     setLinks((prev) => prev.filter((l) => l.id !== linkId));
+    if (revealId === linkId) setRevealId(null);
   };
 
   const handleCreate = async () => {
@@ -88,6 +103,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
         expiry_days: formExpiry,
       });
       setLinks((prev) => [...prev, newLink]);
+      setRevealId(newLink.id);
       setShowForm(false);
       setFormName("");
       setFormRole("member");
@@ -123,60 +139,86 @@ export default function InviteLinkPanel({ groupId }: Props) {
         <p className="text-xs text-slate-500">No active invite links.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {links.map((link) => (
-            <li
-              key={link.id}
-              className={`flex flex-col gap-1.5 p-3 rounded-lg border ${
-                link.is_expired
-                  ? "border-red-800 bg-slate-900/50 opacity-70"
-                  : "border-slate-700 bg-slate-900"
-              }`}
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-medium text-slate-200 truncate flex-1">
-                  {link.name || "Default"}
-                </span>
-                <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}
-                >
-                  {ROLE_LABELS[link.role] ?? link.role}
-                </span>
-                <span
-                  className={`text-[10px] ${link.is_expired ? "text-red-400 font-semibold" : "text-slate-500"}`}
-                >
-                  {formatExpiry(link)}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <div
-                  className="flex-1 text-[11px] bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-400 truncate"
-                  title={`${window.location.origin}/join/${link.token}`}
-                >
-                  {`${window.location.origin}/join/${link.token}`}
+          {links.map((link) => {
+            const isRevealing = revealId === link.id && link.token;
+            return (
+              <li
+                key={link.id}
+                className={`flex flex-col gap-1.5 p-3 rounded-lg border transition-all duration-150 ${
+                  isRevealing
+                    ? "border-amber-600/50 bg-slate-900"
+                    : link.is_expired
+                      ? "border-red-800 bg-slate-900/50 opacity-70"
+                      : "border-slate-700 bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-slate-200 truncate flex-1">
+                    {link.name || "Default"}
+                  </span>
+                  <span
+                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}
+                  >
+                    {ROLE_LABELS[link.role] ?? link.role}
+                  </span>
+                  <span
+                    className={`text-[10px] ${link.is_expired ? "text-red-400 font-semibold" : "text-slate-500"}`}
+                  >
+                    {formatExpiry(link)}
+                  </span>
                 </div>
-                <button
-                  onClick={() => handleCopy(link)}
-                  disabled={link.is_expired}
-                  className="text-[11px] bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-40 transition whitespace-nowrap"
-                >
-                  {copiedId === link.id ? "Copied!" : "Copy"}
-                </button>
-                {confirmRevokeId === link.id ? (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-red-400 hover:text-red-300 transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Revoke</button>
-                    <button onClick={() => setConfirmRevokeId(null)} className="text-[11px] text-slate-500 hover:text-slate-300 transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">Cancel</button>
+
+                {isRevealing ? (
+                  /* One-time token reveal */
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-amber-400">
+                      Copy this link now — it won't be shown again.
+                    </p>
+                    <div
+                      className="font-mono text-xs bg-slate-900 border border-amber-600/50 rounded px-2 py-1.5 text-slate-200 truncate"
+                      title={`${window.location.origin}/join/${link.token}`}
+                    >
+                      {`${window.location.origin}/join/${link.token}`}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleCopy(link)}
+                        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
+                      >
+                        {copiedId === link.id ? "Copied!" : "Copy"}
+                      </button>
+                      <button
+                        onClick={() => handleDismissReveal(link.id)}
+                        className="text-xs text-slate-400 hover:text-slate-300 px-3 py-1.5 transition"
+                      >
+                        Done
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setConfirmRevokeId(link.id)}
-                    className="text-[11px] text-red-400 hover:text-red-300 transition whitespace-nowrap"
-                  >
-                    Revoke
-                  </button>
+                  /* Normal display — prefix only */
+                  <div className="flex gap-2">
+                    <div className="flex-1 text-[11px] bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-400 truncate font-mono">
+                      {link.prefix}…
+                    </div>
+                    {confirmRevokeId === link.id ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-red-400 hover:text-red-300 transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Revoke</button>
+                        <button onClick={() => setConfirmRevokeId(null)} className="text-[11px] text-slate-500 hover:text-slate-300 transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmRevokeId(link.id)}
+                        className="text-[11px] text-red-400 hover:text-red-300 transition whitespace-nowrap"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 

@@ -1,4 +1,6 @@
+import hashlib
 import logging
+import secrets
 import uuid
 from django.db import models
 from django.db.models import Q
@@ -162,6 +164,8 @@ class GroupMembership(models.Model):
 class GroupInviteLink(models.Model):
     """A shareable invite link that grants the recipient a specified role in a group on use."""
 
+    GROUP_INVITE_PREFIX = "vbng_"
+
     class Role(models.TextChoices):
         ADMIN = "admin"
         MEMBER = "member"
@@ -169,7 +173,11 @@ class GroupInviteLink(models.Model):
         VIEWER = "viewer"
 
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="invite_links")
+    # Deprecated: kept for one release cycle for backward compatibility.
+    # New tokens use token_hash + prefix instead.
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True, null=True)
+    prefix = models.CharField(max_length=8, blank=True, default="")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )
@@ -187,6 +195,32 @@ class GroupInviteLink(models.Model):
     @property
     def is_expired(self):
         return self.expires_at is not None and self.expires_at < timezone.now()
+
+    @classmethod
+    def generate(cls, group, created_by, name="", role=None, expires_at=None):
+        """Create a new invite link with a hashed token. Returns (instance, raw_token)."""
+        raw = cls.GROUP_INVITE_PREFIX + secrets.token_hex(20)
+        hashed = hashlib.sha256(raw.encode()).hexdigest()
+        instance = cls.objects.create(
+            group=group,
+            created_by=created_by,
+            token_hash=hashed,
+            prefix=raw[:8],
+            name=name,
+            role=role or cls.Role.MEMBER,
+            expires_at=expires_at,
+            is_active=True,
+        )
+        return instance, raw
+
+    @classmethod
+    def lookup_by_token(cls, raw_token):
+        """Look up an active invite link by its raw token. Returns instance or None."""
+        hashed = hashlib.sha256(raw_token.encode()).hexdigest()
+        try:
+            return cls.objects.get(token_hash=hashed, is_active=True)
+        except cls.DoesNotExist:
+            return None
 
 
 class GroupFavorite(models.Model):
