@@ -1110,6 +1110,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           board={board}
           onClose={() => setShowArchived(false)}
           onUnarchived={(card) => { onCardUnarchived(card); }}
+          currentUser={currentUser}
         />
       )}
 

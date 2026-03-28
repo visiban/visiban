@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import type { BoardFull, Card } from "../../types";
+import type { BoardFull, Card, User } from "../../types";
 import { getArchivedCards, unarchiveCard } from "../../api/cards";
 
 interface Props {
   board: BoardFull;
   onClose: () => void;
   onUnarchived: (card: Card) => void;
+  currentUser?: User | null;
 }
 
-export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Props) {
+export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [unarchivingId, setUnarchivingId] = useState<number | null>(null);
@@ -33,6 +34,16 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Pro
       setUnarchivingId(null);
     }
   };
+
+  const role = board.current_user_role;
+  const isModerator = board.members.some(
+    (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
+  );
+  const canModifyOthersContent =
+    role === "admin" || role === "site_admin" || isModerator;
+  const canUnarchive = (card: Card) =>
+    (role === "site_admin" || role === "admin" || role === "member") &&
+    ((currentUser != null && card.created_by === currentUser.id) || canModifyOthersContent);
 
   const columnName = (colId: number) => board.columns.find((c) => c.id === colId)?.name ?? "—";
   const swimlaneName = (slId: number) => board.swimlanes.find((s) => s.id === slId)?.name ?? "—";
@@ -82,13 +93,15 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived }: Pro
                         ? `Archived ${new Date(card.archived_at).toLocaleDateString()}`
                         : ""}
                     </span>
-                    <button
-                      onClick={() => handleUnarchive(card)}
-                      disabled={unarchivingId === card.id}
-                      className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50"
-                    >
-                      {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
-                    </button>
+                    {canUnarchive(card) && (
+                      <button
+                        onClick={() => handleUnarchive(card)}
+                        disabled={unarchivingId === card.id}
+                        className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50"
+                      >
+                        {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}

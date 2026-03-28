@@ -321,7 +321,7 @@ class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):
 
     def test_archive_creates_archived_movement(self):
         """Archiving a card must create a CardMovement with movement_type=archived."""
-        c = self._client_for(self.member)
+        c = self._client_for(self.admin)
         resp = c.post(self._archive_url())
         self.assertEqual(resp.status_code, 200)
 
@@ -332,7 +332,7 @@ class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):
         self.assertIsNotNone(movement)
         self.assertEqual(movement.from_column, self.col_todo)
         self.assertEqual(movement.to_column, self.col_todo)
-        self.assertEqual(movement.moved_by, self.member)
+        self.assertEqual(movement.moved_by, self.admin)
 
     def test_archive_idempotent_no_duplicate_movement(self):
         """Archiving an already-archived card must not create another movement."""
@@ -342,7 +342,7 @@ class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):
             card=self.card, movement_type=CardMovement.MovementType.ARCHIVED
         ).count()
 
-        c = self._client_for(self.member)
+        c = self._client_for(self.admin)
         c.post(self._archive_url())
 
         final_count = CardMovement.objects.filter(
@@ -355,7 +355,7 @@ class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):
         self.card.archived_at = timezone.now()
         self.card.save(update_fields=["archived_at"])
 
-        c = self._client_for(self.member)
+        c = self._client_for(self.admin)
         resp = c.post(self._unarchive_url())
         self.assertEqual(resp.status_code, 200)
 
@@ -366,7 +366,7 @@ class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):
         self.assertIsNotNone(movement)
         self.assertEqual(movement.from_column, self.col_todo)
         self.assertEqual(movement.to_column, self.col_todo)
-        self.assertEqual(movement.moved_by, self.member)
+        self.assertEqual(movement.moved_by, self.admin)
 
     def test_unarchive_idempotent_no_duplicate_movement(self):
         """Unarchiving an active card must not create a spurious unarchived movement."""
@@ -375,7 +375,7 @@ class TestArchiveUnarchiveMovements(AnalyticsHistorySetup):
             card=self.card, movement_type=CardMovement.MovementType.UNARCHIVED
         ).count()
 
-        c = self._client_for(self.member)
+        c = self._client_for(self.admin)
         c.post(self._unarchive_url())
 
         final_count = CardMovement.objects.filter(
