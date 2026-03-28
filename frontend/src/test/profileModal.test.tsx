@@ -56,7 +56,7 @@ describe('ProfileModal', () => {
 
   it('calls onClose on close button click', async () => {
     render(<ProfileModal user={fakeUser} onClose={onClose} onUpdated={onUpdated} />)
-    await userEvent.setup().click(screen.getByText('\u00D7'))
+    await userEvent.setup().click(screen.getByLabelText('Close'))
     expect(onClose).toHaveBeenCalledOnce()
   })
 

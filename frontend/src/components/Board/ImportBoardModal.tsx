@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useEscapeStack } from "../../hooks/useEscapeStack";
+import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
   onImport: (file: File, name?: string) => Promise<void>;
@@ -22,16 +22,11 @@ function detectFormat(file: File): "JSON" | "CSV" | "Unknown" {
 }
 
 export default function ImportBoardModal({ onImport, onCancel }: Props) {
-  useEscapeStack(onCancel, 40);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onCancel();
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
@@ -71,19 +66,16 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
   const format = file ? detectFormat(file) : null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={handleBackdrop}
+    <ModalWrapper
+      open={true}
+      onClose={onCancel}
+      title="Import Board"
+      subtitle="Upload a Visiban JSON or CSV export to create a new board. JSON preserves full card history — movements, activity log, and assignees."
+      maxWidth="max-w-md"
+      noPadding
+      labelId="import-board-title"
+      headerBorder
     >
-      <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md flex flex-col" role="dialog" aria-labelledby="import-board-title">
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-800">
-          <h2 id="import-board-title" className="text-white text-lg font-semibold">Import Board</h2>
-          <p className="text-slate-400 text-sm mt-0.5">
-            Upload a Visiban JSON or CSV export to create a new board. JSON preserves full card history — movements, activity log, and assignees.
-          </p>
-        </div>
-
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
           {/* Size limit notice */}
@@ -149,7 +141,7 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
             className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
@@ -159,12 +151,11 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
           <button
             onClick={handleSubmit}
             disabled={!file || submitting}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {submitting ? "Importing..." : "Import"}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 }

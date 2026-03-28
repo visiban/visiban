@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { listGroups } from "../../api/groups";
 import { moveBoardToGroup } from "../../api/boards";
 import { buildGroupTree } from "../Group/GroupTree";
 import type { Board, Group } from "../../types";
+import ModalWrapper from "../shared/ModalWrapper";
 
 interface TreeNode {
   group: Group;
@@ -26,8 +26,6 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
     listGroups().then(setGroups).finally(() => setLoading(false));
   }, []);
 
-  useEscapeStack(onClose, 40);
-
   const handleMove = async () => {
     if (selected === board.group) { onClose(); return; }
     setSaving(true);
@@ -44,58 +42,55 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
   const hasChanged = selected !== board.group;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-semibold text-white mb-1">Move board</h2>
-        <p className="text-sm text-slate-400 mb-4">
-          Moving <span className="font-medium text-slate-200">"{board.name}"</span> to:
-        </p>
+    <ModalWrapper open={true} onClose={onClose} title="Move board" maxWidth="max-w-sm">
+      <p className="text-sm text-slate-400 mb-4">
+        Moving <span className="font-medium text-slate-200">"{board.name}"</span> to:
+      </p>
 
-        {loading ? (
-          <p className="text-sm text-slate-500 py-4 text-center">Loading groups…</p>
-        ) : (
-          <div className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
-            <PickerRow
-              label="Personal (no group)"
-              icon="🏠"
-              selected={selected === null}
-              onSelect={() => setSelected(null)}
+      {loading ? (
+        <p className="text-sm text-slate-500 py-4 text-center">Loading groups…</p>
+      ) : (
+        <div className="flex flex-col max-h-72 overflow-y-auto -mx-2 px-2">
+          <PickerRow
+            label="Personal (no group)"
+            icon={"\u{1F3E0}"}
+            selected={selected === null}
+            onSelect={() => setSelected(null)}
+          />
+
+          {roots.length > 0 && <div className="my-1 h-px bg-slate-700" />}
+
+          {roots.map((node) => (
+            <GroupPickerNode
+              key={node.group.id}
+              node={node}
+              selected={selected}
+              onSelect={setSelected}
             />
+          ))}
 
-            {roots.length > 0 && <div className="my-1 h-px bg-slate-700" />}
-
-            {roots.map((node) => (
-              <GroupPickerNode
-                key={node.group.id}
-                node={node}
-                selected={selected}
-                onSelect={setSelected}
-              />
-            ))}
-
-            {groups.length === 0 && (
-              <p className="text-sm text-slate-500 px-3 py-2">No groups available.</p>
-            )}
-          </div>
-        )}
-
-        <div className="flex justify-end gap-2 mt-5">
-          <button
-            onClick={onClose}
-            className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleMove}
-            disabled={!hasChanged || saving}
-            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-40 transition"
-          >
-            {saving ? "Moving…" : "Move"}
-          </button>
+          {groups.length === 0 && (
+            <p className="text-sm text-slate-500 px-3 py-2">No groups available.</p>
+          )}
         </div>
+      )}
+
+      <div className="flex justify-end gap-2 mt-5">
+        <button
+          onClick={onClose}
+          className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleMove}
+          disabled={!hasChanged || saving}
+          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {saving ? "Moving…" : "Move"}
+        </button>
       </div>
-    </div>
+    </ModalWrapper>
   );
 }
 
@@ -124,7 +119,7 @@ function GroupPickerNode({
 
         <PickerRow
           label={node.group.name}
-          icon="👥"
+          icon={"\u{1F465}"}
           selected={selected === node.group.id}
           onSelect={() => onSelect(node.group.id)}
         />

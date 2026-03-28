@@ -99,7 +99,7 @@ describe('BoardSettingsModal — modal basics', () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={onClose} />)
-    await user.click(screen.getByRole('button', { name: '×' }))
+    await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledOnce()
   })
 
