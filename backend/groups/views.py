@@ -6,6 +6,8 @@ from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from visiban.permissions import MustNotHavePendingPasswordChange
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
@@ -71,7 +73,6 @@ def _require_group_member(user, group):
 class GroupViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for groups, scoped to groups the requesting user is a member of."""
 
-    permission_classes = [IsAuthenticated]
     serializer_class = GroupSerializer
 
     def get_serializer_class(self):
@@ -504,7 +505,7 @@ class JoinGroupView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAuthenticated()]
+        return [IsAuthenticated(), MustNotHavePendingPasswordChange()]
 
     def get(self, request, token):
         # Truncate token in log to avoid leaking the full value into log files

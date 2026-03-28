@@ -11,8 +11,9 @@ class MustNotHavePendingPasswordChange(BasePermission):
     entirely by calling any API endpoint directly.
 
     Views that must remain accessible despite the flag (i.e. ChangePasswordView)
-    should declare their own explicit permission_classes = [IsAuthenticated] to
-    opt out of this class. All other views inherit it via DEFAULT_PERMISSION_CLASSES.
+    opt out by declaring permission_classes = [IsAuthenticated] without this class.
+    All other views inherit it via DEFAULT_PERMISSION_CLASSES and must not override
+    permission_classes with [IsAuthenticated] alone — doing so silently drops this gate.
     """
 
     message = "You must change your password before continuing."

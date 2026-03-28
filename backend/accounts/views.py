@@ -34,7 +34,6 @@ class UserSearchRateThrottle(UserRateThrottle):
 class UserSearchView(APIView):
     """Search users by display name, email, or username; requires at least 2 characters."""
 
-    permission_classes = [IsAuthenticated]
     throttle_classes = [UserSearchRateThrottle]
 
     def get(self, request):
@@ -82,7 +81,6 @@ class AuthProvidersView(APIView):
 class CurrentUserView(APIView):
     """Retrieve or update the currently authenticated user's profile."""
 
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
@@ -161,7 +159,6 @@ class PersonalAccessTokenListCreateView(APIView):
     automatically when the user changes their password.
     """
 
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         tokens = request.user.personal_access_tokens.all()
@@ -210,7 +207,6 @@ class PersonalAccessTokenDeleteView(APIView):
     user's token returns 404, not 403, to avoid confirming token existence.
     """
 
-    permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
         try:
