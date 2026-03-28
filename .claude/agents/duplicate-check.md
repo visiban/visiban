@@ -1,5 +1,6 @@
 ---
 name: duplicate-check
+model: sonnet
 description: Use proactively before creating a new GitLab issue. Scans open and recently closed issues for duplicates, partial overlaps, and conflicting requirements. Recommends whether to open, reference, or close as duplicate.
 tools: Bash, Read
 ---

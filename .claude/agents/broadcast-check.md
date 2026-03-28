@@ -1,5 +1,6 @@
 ---
 name: broadcast-check
+model: sonnet
 description: Use proactively when adding or modifying any write operation (create, update, delete, move) on board-scoped resources. Verifies broadcast_board_event() is correctly wired for every mutation, deferred with transaction.on_commit(), and that the frontend socket handler exists for the event type.
 tools: Read, Grep, Glob
 ---

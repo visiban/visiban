@@ -1,5 +1,6 @@
 ---
 name: docs
+model: sonnet
 description: Use proactively when writing or updating any user-facing documentation in docs/features/, docs/getting-started/, docs/architecture/, or docs/administration/. Handles version callouts, enterprise callouts, nav updates, and build verification.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---

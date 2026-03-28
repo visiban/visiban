@@ -1,7 +1,7 @@
 ---
 name: security-review
 description: Use proactively when adding or modifying any view, serializer, authentication logic, file upload handler, invite flow, or user-controlled input path. Checks OWASP Top 10, IDOR, serializer field exposure, and WebSocket broadcast safety. Also triggered automatically via post-edit hook on views.py and serializers.py.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Agent
 ---
 
 # Security Review
@@ -12,92 +12,75 @@ You are acting as an application security engineer reviewing code for vulnerabil
 
 Given the files, endpoint, or feature in the current diff or argument provided:
 
-### 1. Identify the attack surface
+### Phase 1 — Parallel scanning (delegate to Sonnet agents)
 
-State clearly:
-- Which HTTP methods and URL patterns are exposed
-- What user roles can reach each endpoint (unauthenticated, viewer, member, admin, site admin)
-- What data is read or mutated
-- Whether the change touches auth, permissions, serializers, file handling, or WebSocket events
+Launch **3 sub-agents in parallel** (all with `model: "sonnet"`). Wait for all to complete before proceeding to Phase 2.
 
-### 2. OWASP Top 10 — check each category
+#### Agent 1: Auth and permissions scan
+> Examine every view, viewset, and URL pattern touched by this change. For each endpoint, report:
+> - HTTP methods exposed
+> - `permission_classes` declared (or missing)
+> - Whether `get_board_role()` is called and what minimum role is enforced
+> - Whether object lookups use `board=board` scoping (IDOR prevention)
+> - Whether nested resources (comments, attachments, checklist items) are scoped to their parent
+> - Whether unauthenticated access is possible
+> - Whether invite tokens are single-use or revocable
+>
+> Return: a table of endpoints with their auth/permission state and any gaps found.
 
-Work through these in order. Skip categories that clearly do not apply, but state why.
+#### Agent 2: Input handling and injection scan
+> Examine all serializers, model methods, and data processing code touched by this change. Check for:
+> - Raw SQL, `extra()`, `RawSQL()`, `.raw()` calls
+> - `subprocess` calls (especially `shell=True`)
+> - `eval()`, `exec()`, `__import__()` usage
+> - File upload handling — type validation, size limits, Content-Type and Content-Disposition on serve
+> - User input flowing into log statements (password, token, email, PII leakage)
+> - `dangerouslySetInnerHTML` in frontend code
+> - API calls using raw `fetch()` instead of the Axios instance
+> - Serializer fields that expose internal model names via `source=` or leak write-only data
+>
+> Return: a list of findings with file paths, line numbers, and the specific concern.
 
-#### A01 — Broken Access Control
-- Does every view that fetches a board-scoped object call `get_board_role()` and enforce the correct minimum role?
-- Is `get_object_or_404(Model, pk=pk, board=board)` used (never bare `get_object_or_404(Model, pk=pk)`) to prevent cross-board IDOR?
-- Can a member of Board A access or mutate data belonging to Board B by manipulating a URL parameter, query param, or request body field?
-- Does the card move endpoint verify that the target column and swimlane both belong to the same board as the card?
-- Are nested resources (comments, attachments, checklist items) scoped to their parent card, which is in turn scoped to the board?
+#### Agent 3: Secrets, config, and design scan
+> Check the broader security posture of the change:
+> - Token/key generation: uses `secrets` module, not `random`
+> - `DEBUG = True` reachability in production paths
+> - CORS configuration (not `*` in production)
+> - Rate limiting on auth-related endpoints (login, password reset, invite acceptance)
+> - Unbounded work triggers (large imports, bulk operations without limits)
+> - TOCTOU windows (permission check outside transaction)
+> - WebSocket broadcast safety: `transaction.on_commit()` deferral, no non-member data leakage
+> - SSRF: any endpoint accepting a URL from user input and fetching it server-side
+>
+> Return: a list of findings with file paths, line numbers, and the specific concern.
 
-#### A02 — Cryptographic Failures
-- Are passwords handled only through Django's auth layer (never compared in plaintext, never logged)?
-- Are tokens, invite codes, or session keys generated with `secrets` (never `random`)?
-- Is any sensitive field (password, token, email, PII) written to a log statement?
+### Phase 2 — Evaluation (you do this — do NOT delegate)
 
-#### A03 — Injection
-- Is all database access via the ORM? Flag any raw SQL, `extra()`, `RawSQL()`, or `.raw()` call.
-- Are all `subprocess` calls in list-form (never `shell=True` without a documented justification comment)?
-- Is user input passed to `eval()`, `exec()`, or `__import__()`?
+Using the findings from all three agents, evaluate against the full OWASP Top 10 and Visiban-specific checks. Produce a summary with three sections:
 
-#### A04 — Insecure Design
-- Does the endpoint have a rate limit or throttle class if it is authentication-related (login, password reset, invite acceptance)?
-- Can a user trigger unbounded work (e.g. import a CSV with 100,000 rows, bulk-move unlimited cards)?
-- Is there a time-of-check/time-of-use (TOCTOU) window — e.g. a permission check outside a transaction that could be invalidated before the mutation completes?
+#### OWASP Top 10 evaluation
 
-#### A05 — Security Misconfiguration
-- Is `DEBUG = True` ever reachable in production paths?
-- Is `ALLOWED_HOSTS` validated in the view or only in settings?
-- Are CORS headers scoped correctly (not `*` in production)?
-- Are new Django settings that accept user-controlled values validated against an allowlist?
+Work through each category. For categories with no findings from the scans, state "No issues found" and briefly note why the category doesn't apply or is adequately handled. For categories with findings, assess severity.
 
-#### A06 — Vulnerable and Outdated Components
-- Is a new dependency being added? Verify it is not in the dependency agent's blocked list (GPL, known CVEs).
-- *(The CI handles systematic CVE scanning — flag only if you spot something specific here.)*
+- A01 — Broken Access Control
+- A02 — Cryptographic Failures
+- A03 — Injection
+- A04 — Insecure Design
+- A05 — Security Misconfiguration
+- A06 — Vulnerable and Outdated Components
+- A07 — Identification and Authentication Failures
+- A08 — Software and Data Integrity Failures
+- A09 — Security Logging and Monitoring Failures
+- A10 — Server-Side Request Forgery (SSRF)
 
-#### A07 — Identification and Authentication Failures
-- Does the endpoint correctly reject unauthenticated requests (not relying only on UI gating)?
-- Are invite tokens single-use or revocable? Can a leaked invite token be replayed indefinitely?
-- Does the force-password-change flow prevent the user from accessing any other endpoint until the password is changed?
+#### Visiban-specific checks
 
-#### A08 — Software and Data Integrity Failures
-- Are file uploads (attachments) validated for type and size before being stored?
-- Is uploaded file content served back with the correct `Content-Type` and `Content-Disposition: attachment` to prevent stored XSS via browser MIME sniffing?
-- Are WebSocket events validated on receipt (not just on send)?
+- **Board membership propagation** — `get_board_role()` vs direct `BoardMembership.objects.get()`
+- **Serializer field exposure** — write-only fields, `source=` leaks, viewer-visible internal data
+- **WebSocket / broadcast events** — non-member data exposure, `transaction.on_commit()` deferral
+- **Frontend** — `dangerouslySetInnerHTML`, raw `fetch()`, content sanitization
 
-#### A09 — Security Logging and Monitoring Failures
-- Are authentication failures, permission denials, and sensitive mutations (board deletion, role change, member removal) logged at an appropriate level?
-- Does the log statement avoid including the sensitive field values themselves (passwords, tokens)?
-
-#### A10 — Server-Side Request Forgery (SSRF)
-- Does any endpoint accept a URL from user input and fetch it server-side (webhooks, integrations, avatar URLs)?
-- If so, is the URL validated against an allowlist of schemes and hosts before the request is made?
-
-### 3. Visiban-specific checks
-
-Beyond the OWASP list, check these patterns that are specific to this codebase:
-
-**Board membership propagation**
-- Is `get_board_role()` called rather than a direct `BoardMembership.objects.get()` lookup? The helper handles group-level role inheritance; direct lookups silently miss group admins.
-
-**Serializer field exposure**
-- Does a new or modified serializer expose fields that should not be readable by viewers (e.g. internal notes, other users' private data)?
-- Are write-only fields (passwords, tokens) marked `write_only=True`?
-- Are `source=` fields on a serializer leaking internal model field names to the API?
-
-**WebSocket / broadcast events**
-- Does a new `broadcast_board_event()` call include data that a non-member of the board should not see?
-- Is the broadcast deferred with `transaction.on_commit()` so it only fires after the DB transaction commits?
-
-**Frontend**
-- Is `dangerouslySetInnerHTML` used anywhere? If so, is the content sanitized server-side and the reason documented inline?
-- Does user-supplied content rendered in the DOM pass through `react-markdown` + `rehypeRaw` (the established safe pattern) rather than being inserted directly?
-- Are new API calls using the Axios instance with the CSRF token header, not raw `fetch()`?
-
-### 4. Output
-
-Produce a summary with three sections:
+#### Output
 
 **✅ No findings** — list the categories checked with no issues.
 

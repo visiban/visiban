@@ -1,5 +1,6 @@
 ---
 name: enterprise-check
+model: sonnet
 description: Use proactively when the OSS vs enterprise classification of a planned feature is unclear. Evaluates whether a feature belongs in the open-source core or the enterprise repo, identifies required OSS extension points, and flags grey areas with explicit boundary definitions.
 tools: Read, Grep, Glob
 ---

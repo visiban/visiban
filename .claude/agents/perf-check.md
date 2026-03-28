@@ -1,5 +1,6 @@
 ---
 name: perf-check
+model: sonnet
 description: Use proactively when adding or modifying any viewset, serializer, or database query. Identifies N+1 patterns, missing select_related/prefetch_related, and missing transaction boundaries before merge.
 tools: Read, Grep, Glob, Bash
 ---

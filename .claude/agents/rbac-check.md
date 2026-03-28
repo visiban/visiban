@@ -1,5 +1,6 @@
 ---
 name: rbac-check
+model: sonnet
 description: Use proactively when adding or modifying any API endpoint, view, viewset, or permission class. Verifies authentication gates, board membership checks, and minimum role enforcement per HTTP action. A missing permission check is a security vulnerability. Also triggered automatically via post-edit hook on views.py.
 tools: Read, Grep, Glob
 ---
