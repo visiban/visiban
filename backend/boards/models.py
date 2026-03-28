@@ -329,6 +329,12 @@ class CardMovement(models.Model):
     class Meta:
         db_table = "card_movements"
         ordering = ["-moved_at"]
+        indexes = [
+            # Speeds up per-card movement history queries (card detail timeline,
+            # analytics dwell-time calculations) by covering the card FK and the
+            # default descending moved_at ordering in a single B-tree scan.
+            models.Index(fields=["card", "-moved_at"], name="movement_card_moved_idx"),
+        ]
 
 
 class CardComment(models.Model):
@@ -460,6 +466,12 @@ class Notification(models.Model):
     class Meta:
         db_table = "notifications"
         ordering = ["-created_at"]
+        indexes = [
+            # Covers the default notification list query: unread notifications
+            # for a recipient, ordered by most recent first. Avoids a sequential
+            # scan on the notifications table for the badge count and inbox list.
+            models.Index(fields=["recipient", "read", "-created_at"], name="notif_recipient_unread_idx"),
+        ]
 
 
 class SavedFilter(models.Model):
