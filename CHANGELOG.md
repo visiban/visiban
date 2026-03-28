@@ -94,6 +94,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Rich text editor color picker now correctly activates the toolbar "A" indicator when White is selected — previously White was excluded from the active-color check by an overly narrow condition
 - Analytics heatmap `is_outlier` cell coloring now correctly uses the board's configured staleness threshold in all cases — a backend test was added to confirm the board threshold is used even when the `stalled_days` query param overrides the stalled-card list
 - `MustNotHavePendingPasswordChange` permission was silently dropped by every viewset that declared explicit `permission_classes = [IsAuthenticated]`, allowing users with a forced password-change flag to access the full API — views now inherit `DEFAULT_PERMISSION_CLASSES` instead of overriding them; `ChangePasswordView` is the only endpoint that intentionally omits the gate (#414)
+- `BoardViewSet.perform_create` now wraps board, membership, column, and swimlane creation in `transaction.atomic()` — previously a failure during swimlane creation left orphaned board and column records in the database (#419)
 
 ### Security
 - `delete_attachment` now enforces the same ownership gate as `delete_comment` — members can only delete their own attachments unless they have the moderator entitlement; previously any member-role user could delete attachments uploaded by other members (#378)
