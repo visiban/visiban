@@ -284,7 +284,7 @@ export default function MovementHistoryView({ board }: Props) {
               type="date"
               value={filters.since}
               onChange={(e) => applyFilters({ ...filters, since: e.target.value })}
-              className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 outline-none focus:border-blue-400 w-36"
+              className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-36"
               aria-label="Since date"
             />
           </div>
@@ -294,7 +294,7 @@ export default function MovementHistoryView({ board }: Props) {
               type="date"
               value={filters.until}
               onChange={(e) => applyFilters({ ...filters, until: e.target.value })}
-              className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-300 outline-none focus:border-blue-400 w-36"
+              className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-36"
               aria-label="Until date"
             />
           </div>

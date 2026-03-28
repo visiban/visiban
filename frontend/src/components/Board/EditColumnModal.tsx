@@ -51,7 +51,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
           />
         </div>
 
@@ -62,7 +62,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               value={wipLimit}
               onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="None"
-              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             />
           </div>
           <div>
@@ -71,7 +71,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               value={weightLimit}
               onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="None"
-              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             />
           </div>
         </div>

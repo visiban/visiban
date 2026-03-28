@@ -60,7 +60,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
             type="password"
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             required
             autoFocus
           />
@@ -71,7 +71,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
             type="password"
             value={next}
             onChange={(e) => setNext(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             required
           />
         </div>
@@ -81,7 +81,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
             required
           />
         </div>

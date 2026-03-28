@@ -128,7 +128,7 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="Leave blank to use name from file"
-              className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white rounded-xl px-4 py-2.5 outline-none text-sm placeholder-slate-500 transition"
+              className="w-full bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 rounded px-3 py-1.5 text-sm placeholder-slate-500 transition"
             />
           </div>
 

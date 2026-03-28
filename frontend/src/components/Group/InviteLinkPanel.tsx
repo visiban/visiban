@@ -240,7 +240,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
               onChange={(e) => setFormName(e.target.value)}
               placeholder="e.g. Engineering onboarding"
               maxLength={100}
-              className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-200 outline-none placeholder:text-slate-600"
+              className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-500"
             />
           </div>
 

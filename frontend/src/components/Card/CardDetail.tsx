@@ -737,7 +737,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     onChange={(e) => setNewItemText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
                     placeholder="Add item (Enter)…"
-                    className="flex-1 text-sm bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400 text-slate-200 placeholder-slate-600"
+                    className="flex-1 text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 placeholder-slate-500"
                   />
                   <button
                     onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
@@ -760,7 +760,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleBulkAdd(); if (e.key === "Escape") setShowBulkAdd(false); }}
                         placeholder={"Buy milk\nCall client\nReview PR"}
                         rows={6}
-                        className="w-full text-sm bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none text-slate-200 placeholder-slate-600"
+                        className="w-full text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-slate-300 placeholder-slate-500"
                       />
                       <div className="flex justify-end gap-2">
                         <button onClick={() => setShowBulkAdd(false)} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
@@ -910,7 +910,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       members={board.members}
                       placeholder="Add a comment… (Enter to submit, @ to mention)"
                       rows={2}
-                      className="w-full text-sm bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 outline-none focus:border-blue-400 resize-none text-slate-200 placeholder-slate-600"
+                      className="w-full text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-slate-300 placeholder-slate-500"
                     />
                     <div className="flex justify-end">
                       <button

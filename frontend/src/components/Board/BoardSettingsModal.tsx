@@ -379,7 +379,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
                         onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setDropdownAnchor(null); setInviteQuery(""); } }}
                         placeholder="Search by name or email…"
-                        className="w-full bg-slate-900 border border-slate-600 text-slate-200 text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-400 placeholder-slate-500"
+                        className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
                       />
                       {suggestions.length > 0 && dropdownAnchor && (
                         <div
@@ -716,7 +716,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         value={deleteInput}
                         onChange={(e) => setDeleteInput(e.target.value)}
                         placeholder={board.name}
-                        className="w-full bg-slate-700 text-white text-sm rounded-lg px-3 py-2 border border-slate-600 focus:outline-none focus:border-red-500"
+                        className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
                       />
                       <button
                         disabled={deleteInput !== board.name}

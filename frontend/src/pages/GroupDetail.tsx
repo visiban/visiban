@@ -843,7 +843,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     onChange={(e) => setNewLabelName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleAddGroupLabel(); }}
                     placeholder="Label name…"
-                    className="flex-1 bg-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                    className="flex-1 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
                   />
                   <button
                     onClick={handleAddGroupLabel}
@@ -957,7 +957,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   value={transferConfirmation}
                   onChange={(e) => setTransferConfirmation(e.target.value)}
                   placeholder={group.name}
-                  className="w-full bg-slate-800 text-slate-200 text-sm rounded-lg px-3 py-2 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                  className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
                 />
               </div>
 
