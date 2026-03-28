@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import User
+from accounts.models import SiteSetting, User
 from boards.models import (
     Board, BoardMembership, Card, CardActivity, CardMovement,
     Column, Swimlane, Label,
@@ -149,6 +149,10 @@ class CardAttachmentTests(TestCase):
         self.card = _make_card(self.board, self.col, self.swim, self.user)
         self.client = APIClient()
         self.client.force_authenticate(self.user)
+        # Enable uploads — default is False; without this the upload endpoint returns 403
+        s = SiteSetting.get()
+        s.uploads_enabled = True
+        s.save(update_fields=["uploads_enabled"])
 
     def test_list_attachments_empty(self):
         r = self.client.get(
