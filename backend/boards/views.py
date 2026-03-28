@@ -199,16 +199,34 @@ def _can_modify_others_content(board, role, user):
 
     Admins, site admins, and board owners always can. Members with the
     is_moderator flag can. Regular members and collaborators cannot.
+
+    Uses the cached membership from get_board_role() when available to
+    avoid a redundant database query.
     """
     if role in (BoardMembership.Role.ADMIN, SITE_ADMIN):
         return True
     if board.owner_id == user.id:
         return True
+    membership = getattr(board, "_cached_membership", None)
+    if membership is not None:
+        return membership.is_moderator
     try:
         membership = BoardMembership.objects.get(board=board, user=user)
         return membership.is_moderator
     except BoardMembership.DoesNotExist:
         return False
+
+
+def _refetched_card_data(card, request, board):
+    """Re-fetch a card through the prefetch pipeline and serialize it.
+
+    Mutation endpoints modify a card instance that lacks the prefetch
+    annotations CardSerializer needs (labels, attachments, checklist_items,
+    movements). This helper issues a single query with all prefetches so
+    the serializer can resolve related fields without N+1 queries.
+    """
+    refetched = _card_queryset(Card.objects.filter(pk=card.pk)).get()
+    return CardSerializer(refetched, context={"request": request, "board": board}).data
 
 
 # ---------------------------------------------------------------------------
@@ -1872,7 +1890,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 moved_by=self.request.user,
                 notes="Card created",
             )
-        card_data = CardSerializer(card, context={"request": self.request, "board": board}).data
+        card_data = _refetched_card_data(card, self.request, board)
         transaction.on_commit(lambda: broadcast_board_event(board.id, "card.created", card_data))
         if card.description:
             # Notify any @mentioned board members in the initial description.
@@ -2348,7 +2366,7 @@ class CardViewSet(viewsets.ModelViewSet):
             card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
             from_value="", to_value="", actor=request.user,
         )
-        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        card_data = _refetched_card_data(card, request, board)
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         # Parse @username mentions and notify each mentioned board member.
@@ -2394,7 +2412,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
         comment.delete()
-        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        card_data = _refetched_card_data(card, request, board)
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -2457,7 +2475,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 uploaded_by=request.user,
             )
             card.refresh_from_db()
-            card_data = CardSerializer(card, context={"request": request, "board": board}).data
+            card_data = _refetched_card_data(card, request, board)
             board_id = board.id
             transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         serializer = CardAttachmentSerializer(attachment, context={"request": request})
@@ -2485,7 +2503,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 )
         attachment.file.delete(save=False)
         attachment.delete()
-        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        card_data = _refetched_card_data(card, request, board)
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -2511,7 +2529,7 @@ class CardViewSet(viewsets.ModelViewSet):
             card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
             from_value="", to_value=item.text, actor=request.user,
         )
-        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        card_data = _refetched_card_data(card, request, board)
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
@@ -2533,7 +2551,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 from_value=item.text, to_value="", actor=request.user,
             )
             item.delete()
-            card_data = CardSerializer(card, context={"request": request, "board": board}).data
+            card_data = _refetched_card_data(card, request, board)
             board_id = board.id
             transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -2551,7 +2569,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 card=card, event_type=checklist_event_type,
                 from_value="", to_value=item.text, actor=request.user,
             )
-        card_data = CardSerializer(card, context={"request": request, "board": board}).data
+        card_data = _refetched_card_data(card, request, board)
         board_id = board.id
         transaction.on_commit(lambda: broadcast_board_event(board_id, "card.updated", card_data))
         return Response(serializer.data)
