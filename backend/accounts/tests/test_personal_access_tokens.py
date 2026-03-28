@@ -108,6 +108,12 @@ class PATListCreateTests(APITestCase):
         # DRF correctly emits 401 (not 403) for unauthenticated requests.
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_list_requires_authentication(self):
+        """Explicit permission_classes on the view must reject unauthenticated GET (#376)."""
+        anon = APIClient()
+        r = anon.get(self.url)
+        self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
 
 class PATDeleteTests(APITestCase):
     def setUp(self):
@@ -132,6 +138,14 @@ class PATDeleteTests(APITestCase):
     def test_revoke_nonexistent_returns_404(self):
         r = self.client.delete("/api/auth/tokens/99999/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_requires_authentication(self):
+        """Explicit permission_classes on the view must reject unauthenticated DELETE (#376)."""
+        pat, _ = PersonalAccessToken.generate(self.user, "ci")
+        anon = APIClient()
+        r = anon.delete(f"/api/auth/tokens/{pat.id}/")
+        self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+        self.assertTrue(PersonalAccessToken.objects.filter(pk=pat.id).exists())
 
 
 class PATAuthenticationTests(APITestCase):

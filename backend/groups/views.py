@@ -242,7 +242,10 @@ class GroupViewSet(viewsets.ModelViewSet):
         _require_group_member(request.user, group)
 
         if request.method == "GET":
-            boards = Board.objects.filter(group=group).select_related("owner")
+            boards = Board.objects.filter(
+                group=group,
+                memberships__user=request.user,
+            ).select_related("owner")
             return Response(BoardSerializer(boards, many=True).data)
 
         # POST — create a new board inside this group

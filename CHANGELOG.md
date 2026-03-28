@@ -87,6 +87,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Security
 - `delete_attachment` now enforces the same ownership gate as `delete_comment` — members can only delete their own attachments unless they have the moderator entitlement; previously any member-role user could delete attachments uploaded by other members (#378)
+- `CurrentUserView`, `PersonalAccessTokenListCreateView`, and `PersonalAccessTokenDeleteView` now declare explicit `permission_classes = [IsAuthenticated]` instead of relying on the global default — prevents accidental exposure if default permissions are changed (#376)
+- `GroupViewSet.boards` now filters returned boards by the requesting user's board-level membership — previously any group member could see metadata for all boards in the group regardless of their per-board access (#377)
 
 ---
 
