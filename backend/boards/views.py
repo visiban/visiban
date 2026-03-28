@@ -1904,7 +1904,7 @@ class CardViewSet(viewsets.ModelViewSet):
         period it was active (entry → archive timestamp).
         """
         board, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         # Use the unfiltered manager so archiving an already-archived card is
         # a no-op rather than a 404.
@@ -1955,7 +1955,7 @@ class CardViewSet(viewsets.ModelViewSet):
         query the raw manager directly.
         """
         board, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         card = get_object_or_404(Card, pk=pk, board=board)
         # Ownership gate: members may only unarchive cards they created (#362).
