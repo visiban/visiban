@@ -373,6 +373,30 @@ describe('useBoard', () => {
     })
   })
 
+  // ─── removeColumn rollback (#413) ───────────────────────────────────────────
+
+  it('removeColumn re-fetches board on API failure', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockDeleteColumn.mockRejectedValue(new Error('Server error'))
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    // Column and its cards are optimistically removed
+    await act(async () => { await result.current.removeColumn(10) })
+
+    // On failure, load() is called to re-fetch — the mock still returns the
+    // original board, so the column and cards should be restored.
+    await waitFor(() => {
+      expect(result.current.board!.columns).toHaveLength(1)
+      expect(result.current.board!.columns[0].id).toBe(10)
+    })
+    expect(result.current.board!.cards).toHaveLength(1)
+    // getBoardFull called twice: initial load + rollback re-fetch
+    expect(mockGetBoardFull).toHaveBeenCalledTimes(2)
+  })
+
   // ─── Hard-block 409 (#341) ────────────────────────────────────────────────
 
   it('moveCard sets moveError on 409 wip_hard_blocked and rolls back', async () => {
