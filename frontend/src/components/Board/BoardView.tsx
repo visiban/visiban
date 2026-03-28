@@ -80,7 +80,7 @@ function ViewToggle({
   const btn = (label: string, val: "board" | "summary" | "history" | "analytics") => (
     <button
       onClick={() => onChange(val)}
-      className={`text-xs px-2.5 py-1 rounded transition ${
+      className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
         view === val
           ? "bg-blue-600 text-white"
           : "text-slate-400 hover:text-white hover:bg-slate-600"

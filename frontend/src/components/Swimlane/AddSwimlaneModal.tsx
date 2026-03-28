@@ -59,7 +59,7 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`w-7 h-7 rounded-full border-2 transition ${color === c ? "border-white scale-110" : "border-transparent"}`}
+                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${color === c ? "border-white scale-110" : "border-transparent"}`}
                 style={{ backgroundColor: c }}
               />
             ))}
