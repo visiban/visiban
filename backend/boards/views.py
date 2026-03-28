@@ -2,6 +2,7 @@ import csv
 import datetime
 import io
 import json
+import logging
 import statistics
 
 import django_filters
@@ -42,6 +43,8 @@ from .serializers import (
     _card_queryset,
 )
 from .templates import BOARD_TEMPLATES
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +328,10 @@ class BoardViewSet(viewsets.ModelViewSet):
         if board.owner != request.user and role != SITE_ADMIN:
             raise PermissionDenied
         board_id = board.id
+        logger.info(
+            "board.deleted board_id=%d board_name=%s deleted_by=%d deleted_by_username=%s",
+            board.id, board.name, request.user.pk, request.user.username,
+        )
         board.delete()
         transaction.on_commit(
             lambda: broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
