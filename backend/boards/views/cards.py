@@ -18,11 +18,11 @@ from accounts.models import User, get_uploads_enabled
 from .. import broadcast as _broadcast
 from ..utils import extract_mentions, _get_effective_member_ids, notify_new_mentions
 from ..models import (
-    Board, BoardMembership, Card, CardActivity, CardAttachment,
+    BoardMembership, Card, CardActivity, CardAttachment,
     CardChecklist, CardComment, CardMovement, Column, Label,
     Notification, Swimlane,
 )
-from ..permissions import get_board_role, SITE_ADMIN
+from ..permissions import SITE_ADMIN
 from ..serializers import (
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,

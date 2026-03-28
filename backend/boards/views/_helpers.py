@@ -10,13 +10,9 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Prefetch
 from rest_framework.exceptions import PermissionDenied
 
-from accounts.models import User
-from groups.models import get_accessible_group_ids
-
-from ..models import Board, BoardFavorite, BoardMembership, CardAttachment
+from ..models import Board, BoardFavorite, BoardMembership, Card
 from ..permissions import get_board_role, SITE_ADMIN
-from ..serializers import CardSerializer, _card_queryset, BoardSerializer
-from ..models import Card
+from ..serializers import CardSerializer, _card_queryset
 
 
 def get_board_for_user(board_id, user):
