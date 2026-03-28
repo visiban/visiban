@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 ### Added
+- Moderator entitlement — board admins can grant any member the "moderator" flag from Board Settings → Members, allowing them to delete and archive content created by other users without full admin access; the flag is automatically revoked when a member is demoted to collaborator or viewer (#362)
 - Boards can now be shared as a public read-only link with no login required — board admins generate or revoke a share token from Board Settings; the link serves a static board view at `/share/:token` showing the full grid (columns, swimlanes, cards) without comments, attachments, or movement history; revoking the token immediately invalidates the link (#348)
 - Board-level movement history view — new "History" tab on any board shows all card movements across the board with filters by swimlane, column, user, and date range; clicking a row opens a read-only card detail slide-in panel; paginated 50 per page (#344)
 - Swimlane focus mode — clicking the crosshair icon on any swimlane row collapses all other rows and locks the URL to `?focus=<id>`; the blue banner at the top provides a single-click exit; Escape also exits focus mode (#340)
@@ -36,6 +37,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Admin panel includes a new "Invite Links" tab showing each token's status badge and a one-time reveal of the token value; links can be revoked inline
 
 ### Changed
+- Board export (`GET /api/boards/{id}/export/`) now requires member or admin access — viewers and collaborators receive `403 Forbidden` with a descriptive error message (#362)
 - Sample board files relocated from `backend/boards/seed_data/` to a top-level `sample-boards/` directory for discoverability — all 11 templates (10 domain-specific + 1 demo board) now ship as ready-to-import JSON and CSV files at the repo root with a README documenting the import flow
 - All 10 template boards expanded from 5 swimlanes / ~12 cards to 10–11 swimlanes / 110–121 unique cards with theme-appropriate content, movement history, activities, labels, checklists, and comments; demo board expanded from ~80 to ~120 unique cards with no duplicate titles
 - Clicking the crosshair (focus) button on an already-focused swimlane now toggles focus mode off; Escape key and the banner "Exit focus" button remain as alternative exit paths; the button now carries `aria-pressed` for screen reader accessibility (#363)

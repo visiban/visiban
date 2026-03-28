@@ -1257,8 +1257,13 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):
-        """Export board data as CSV or JSON."""
-        board, _ = get_board_for_user(pk, request.user)
+        """Export board data as CSV or JSON. Requires member or admin access."""
+        board, role = get_board_for_user(pk, request.user)
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            return Response(
+                {"detail": "Board export requires member or admin access."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         export_format = request.query_params.get("format", "csv")
         today = datetime.date.today().isoformat()
         safe_name = slugify(board.name) or "board"
@@ -1495,11 +1500,36 @@ class BoardViewSet(viewsets.ModelViewSet):
         # Only site admins can add/change other site admins
         if target_user.is_site_admin and role != SITE_ADMIN:
             raise PermissionDenied("Cannot modify a site admin's board membership.")
+        raw_mod = request.data.get("is_moderator")
+        # Normalize: None means "not provided", else coerce to bool.
+        # Multipart forms send "false"/"true" as strings.
+        if raw_mod is None:
+            is_moderator = None
+        elif isinstance(raw_mod, str):
+            is_moderator = raw_mod.lower() not in ("false", "0", "")
+        else:
+            is_moderator = bool(raw_mod)
+        if is_moderator and member_role in (
+            BoardMembership.Role.COLLABORATOR,
+            BoardMembership.Role.VIEWER,
+        ):
+            return Response(
+                {"detail": "Moderator entitlement can only be granted to members or admins."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        defaults = {"role": member_role}
+        if is_moderator is not None:
+            defaults["is_moderator"] = is_moderator
         membership, created = BoardMembership.objects.get_or_create(
-            board=board, user=target_user, defaults={"role": member_role}
+            board=board, user=target_user, defaults=defaults
         )
         if not created:
             membership.role = member_role
+            if is_moderator is not None:
+                membership.is_moderator = is_moderator
+            # Clear moderator flag when demoting to collaborator/viewer
+            if member_role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
+                membership.is_moderator = False
             membership.save()
         membership_data = BoardMembershipSerializer(membership).data
         board_id = board.id

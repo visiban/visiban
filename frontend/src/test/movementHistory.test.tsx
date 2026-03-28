@@ -33,6 +33,7 @@ const mockBoard: BoardFull = {
     {
       id: 1,
       role: 'admin',
+      is_moderator: false,
       joined_at: '2024-01-01T00:00:00Z',
       user: { id: 10, username: 'admin', email: 'admin@example.com', first_name: 'Admin', last_name: 'User', avatar_url: '', display_name: 'Admin User', is_site_admin: true, must_change_password: false },
     },

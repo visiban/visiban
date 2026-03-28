@@ -112,7 +112,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     ],
     cards: [],
     labels: [{ id: 100, uid: 'lbl001', name: 'Bug', color: '#EF4444' }],
-    members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
+    members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
     staleness_threshold_days: 7,
     stale_warning_pct: 50,
     allowed_priorities: ['low', 'medium', 'high', 'urgent'],
@@ -190,7 +190,7 @@ describe('BoardView socket event routing — new event types', () => {
     const props = makeProps()
     render(<BoardView {...props} />)
     await act(async () => {})
-    const membership: BoardMembership = { id: 2, user: { ...fakeUser, id: 2, username: 'bob' }, role: 'member', joined_at: '' }
+    const membership: BoardMembership = { id: 2, user: { ...fakeUser, id: 2, username: 'bob' }, role: 'member', is_moderator: false, joined_at: '' }
     act(() => { getOnEvent.dispatch({ event: 'member.added', data: membership as unknown as Record<string, unknown> }) })
     expect(props.onMemberAdded).toHaveBeenCalledWith(expect.objectContaining({ role: 'member' }))
   })
@@ -199,7 +199,7 @@ describe('BoardView socket event routing — new event types', () => {
     const props = makeProps()
     render(<BoardView {...props} />)
     await act(async () => {})
-    const membership: BoardMembership = { id: 1, user: fakeUser, role: 'viewer', joined_at: '' }
+    const membership: BoardMembership = { id: 1, user: fakeUser, role: 'viewer', is_moderator: false, joined_at: '' }
     act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
     expect(props.onMemberUpdated).toHaveBeenCalledWith(expect.objectContaining({ role: 'viewer' }))
   })

@@ -67,6 +67,7 @@ export interface BoardMembership {
   id: number | null;
   user: User;
   role: "admin" | "member" | "collaborator" | "viewer";
+  is_moderator: boolean;
   joined_at: string;
 }
 

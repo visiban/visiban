@@ -19,7 +19,7 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | View board and cards | ✓ | ✓ | ✓ | ✓ |
 | View card movement history | ✓ | ✓ | ✓ | ✓ |
 | View archived cards | ✓ | ✓ | ✓ | ✓ |
-| Export board (CSV / JSON) | ✓ | ✓ | ✓ | ✓ |
+| Export board (CSV / JSON) | ✓ | ✓ | — | — |
 | **Cards** | | | | |
 | Create cards | ✓ | ✓ | — | — |
 | Edit cards (title, description, priority, due date, weight, labels, assignee) | ✓ | ✓ | — | — |
@@ -42,6 +42,7 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | **Membership** | | | | |
 | Invite members | ✓ | — | — | — |
 | Change member roles | ✓ | — | — | — |
+| Grant / revoke moderator | ✓ | — | — | — |
 | Remove members | ✓ | — | — | — |
 | Delete board | ✓ (owner only) | — | — | — |
 
@@ -57,6 +58,15 @@ Visiban uses four board-level roles to control what each member can do on a boar
 5. To remove a member: click the trash icon next to their name.
 
 Only board Admins (and site admins) can perform these actions.
+
+## Moderator entitlement
+
+The **moderator** entitlement lets an admin delegate content-moderation rights to a specific member without granting them full admin access. A moderator can delete and archive cards and comments created by other users — actions that a regular member can only perform on their own content.
+
+To grant moderator rights, open Board Settings → Members and check the **Moderator** checkbox next to the member's name. Only admins can toggle this setting. The moderator checkbox is only available for members and admins — collaborators and viewers cannot be designated as moderators.
+
+!!! note "Moderator is an entitlement, not a role"
+    Moderator is a boolean flag on the membership, not a fifth role. A member with moderator rights still appears as "Member" in the role dropdown. Demoting a moderator to collaborator or viewer automatically revokes the moderator flag.
 
 ## Site admin and content access
 

@@ -161,7 +161,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     ],
     cards: [],
     labels: [{ id: 100, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
-    members: [{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }],
+    members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
     staleness_threshold_days: 7,
     stale_warning_pct: 50,
     allowed_priorities: ['low', 'medium', 'high', 'critical'] as BoardFull['allowed_priorities'],
