@@ -11,10 +11,10 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(screen.getByText('Close card or dialog; go back when nothing is open')).toBeInTheDocument()
   })
 
-  it('calls onClose when the × button is clicked', () => {
+  it('calls onClose when the close button is clicked', () => {
     const onClose = vi.fn()
     render(<KeyboardShortcutsOverlay onClose={onClose} />)
-    fireEvent.click(screen.getByRole('button'))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledOnce()
   })
 
@@ -61,6 +61,6 @@ describe('KeyboardShortcutsOverlay', () => {
   it('contains a heading for screen readers', () => {
     render(<KeyboardShortcutsOverlay onClose={() => {}} />)
     const heading = screen.getByText('Keyboard shortcuts')
-    expect(heading.tagName.toLowerCase()).toBe('h3')
+    expect(heading.tagName.toLowerCase()).toBe('h2')
   })
 })

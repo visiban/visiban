@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useEscapeStack } from "../../hooks/useEscapeStack";
+import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, BoardMembership, User } from "../../types";
@@ -124,8 +124,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEscapeStack(onClose, 40);
-
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     // Strip a leading @ so users can type "@alice" and get the same results as "alice"
@@ -231,17 +229,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    <ModalWrapper
+      open={true}
+      onClose={onClose}
+      title="Board Settings"
+      maxWidth="max-w-lg"
+      noPadding
+      labelId="board-settings-title"
+      panelClassName="h-[85vh] max-h-[640px] min-h-0"
+      headerBorder
     >
-      <div role="dialog" aria-modal="true" aria-labelledby="board-settings-title" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-lg mx-4 flex flex-col h-[85vh] max-h-[640px] min-h-0">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-          <h2 id="board-settings-title" className="text-base font-semibold text-white">Board Settings</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition text-xl leading-none">×</button>
-        </div>
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 px-6 gap-1">
@@ -858,7 +855,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             Members inherited from group membership are shown here. Assigning a direct role overrides group access.
           </div>
         )}
-      </div>
-    </div>
+    </ModalWrapper>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { listBoardTemplates } from "../../api/boards";
 import type { BoardTemplate, User } from "../../types";
+import ModalWrapper from "../shared/ModalWrapper";
 
 // ---------------------------------------------------------------------------
 // Static icon map — SVG paths kept inline to avoid adding a dependency.
@@ -100,7 +100,6 @@ interface Props {
 // ---------------------------------------------------------------------------
 
 export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
-  useEscapeStack(onCancel, 40);
   const [name, setName] = useState("");
   const [templates, setTemplates] = useState<BoardTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -154,11 +153,6 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
     // locus-of-control expectation.
   };
 
-  // Close on backdrop click.
-  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onCancel();
-  };
-
   const handleSubmit = async () => {
     if (!name.trim() || submitting) return;
     setSubmitting(true);
@@ -172,29 +166,16 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
   const userHasNoDefault = !user?.default_board_id;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-      onClick={handleBackdrop}
+    <ModalWrapper
+      open={true}
+      onClose={onCancel}
+      title="New Board"
+      subtitle="Name your board, pick a template, then optionally add a swimlane."
+      maxWidth="max-w-2xl"
+      noPadding
+      panelClassName="max-h-[90vh]"
+      headerBorder
     >
-      <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-800 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-white text-lg font-semibold">New Board</h2>
-            <p className="text-slate-400 text-sm mt-0.5">Name your board, pick a template, then optionally add a swimlane.</p>
-          </div>
-          <button
-            onClick={onCancel}
-            className="flex-shrink-0 text-slate-400 hover:text-white hover:bg-slate-700 rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Close"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-
         {/* Body — scrollable */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
 
@@ -381,7 +362,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
             className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition"
@@ -391,13 +372,12 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || submitting}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded-xl transition"
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {submitting ? "Creating…" : "Create Board"}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 }
 
