@@ -49,6 +49,7 @@ nav:
     - First Boot: getting-started/first-boot.md
     - OAuth Setup: getting-started/oauth.md
     - Board Setup: getting-started/board-setup.md
+    - Sample Boards: getting-started/sample-boards.md
   - Features:
     - features/index.md
     - Board & Cards: features/board.md

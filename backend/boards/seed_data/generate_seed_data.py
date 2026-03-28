@@ -62,7 +62,7 @@ def _varied_path(target_idx: int) -> list[int]:
     """
     Build a list of column indices that leads from 0 to target_idx with
     realistic variation:
-      60 % straight sequential (0 → 1 → 2 → … → target)
+      60 % straight sequential (0 -> 1 -> 2 -> ... -> target)
       25 % skip one intermediate stage  (if target >= 3)
       15 % backtrack once then continue (if target >= 2)
     """
@@ -84,7 +84,7 @@ def _varied_path(target_idx: int) -> list[int]:
 
 def _gen_movements(col_names: list[str], target_idx: int,
                    swimlane: str, card_seed: int) -> list[dict]:
-    """Full movement chain from null → col[0] → … → col[target_idx]."""
+    """Full movement chain from null -> col[0] -> ... -> col[target_idx]."""
     total_days_back = _ri(30, 95)
     create_dt = ANCHOR - timedelta(days=total_days_back)
 
@@ -182,7 +182,7 @@ def _gen_activities(card: dict, card_seed: int, movements: list[dict]) -> list[d
             acts.append({
                 "event_type": "checklist_item_checked",
                 "from_value": "", "to_value": item["text"],
-                "actor": _user(card_seed + 1), "created_at": _iso(ts),
+                "actor": actor, "created_at": _iso(ts),
             })
             ts += timedelta(minutes=15)
 
@@ -217,7 +217,7 @@ def _enrich(card: dict, col_names: list[str], card_seed: int) -> dict:
 def _build(tpl: dict) -> dict:
     """
     Build the final template dict from the cards defined in extra_cards.
-    All card content is authoritative from the template definition — the
+    All card content is authoritative from the template definition -- the
     script is idempotent and safe to run multiple times.
     """
     slug = tpl["slug"]
@@ -273,605 +273,1167 @@ def _cmt(body, author="demo1"):
     return {"body": body, "author": author}
 
 
+# ── Auto-card generation ────────────────────────────────────────────────────
+# Generic checklist items and comments by template theme, used by _auto_cards()
+# to generate realistic card metadata without repeating exact titles.
+
+_GENERIC_CHECKLIST_ITEMS = {
+    "sales": [
+        "Research account background", "Identify decision maker",
+        "Prepare tailored pitch deck", "Send intro email",
+        "Schedule discovery call", "Map procurement process",
+        "Draft pricing proposal", "Legal review of terms",
+        "Send follow-up email", "Update CRM record",
+        "Confirm budget availability", "Present ROI analysis",
+    ],
+    "support": [
+        "Reproduce issue on staging", "Check server logs",
+        "Identify root cause", "Write regression test",
+        "Deploy fix to staging", "Verify fix in production",
+        "Notify customer of resolution", "Update knowledge base",
+        "Check related tickets", "Escalate to engineering if needed",
+    ],
+    "success": [
+        "Schedule QBR call", "Review account health metrics",
+        "Prepare adoption report", "Identify expansion signals",
+        "Draft renewal proposal", "Share product roadmap updates",
+        "Coordinate with support on open tickets",
+        "Collect NPS feedback", "Update account notes",
+        "Send check-in email",
+    ],
+    "kanban": [
+        "Write unit tests", "Update documentation",
+        "Review pull request", "Run integration tests",
+        "Update API docs", "Verify on staging",
+        "Get code review approval", "Check accessibility",
+        "Update changelog", "Profile for performance",
+    ],
+    "roadmap": [
+        "Validate with user interviews", "Write design spec",
+        "Create technical RFC", "Estimate effort",
+        "Build prototype", "Run beta test",
+        "Collect feedback from beta users", "Write migration plan",
+        "Update public changelog", "Monitor post-launch metrics",
+    ],
+    "delivery": [
+        "Define acceptance criteria", "Assign DRI",
+        "Create Gantt chart", "Set up weekly status cadence",
+        "Prepare stakeholder update", "Conduct risk assessment",
+        "Run go/no-go decision meeting", "Write postmortem",
+        "Capture lessons learned", "Archive project artifacts",
+    ],
+    "content": [
+        "Research target keywords", "Draft outline",
+        "Write first draft", "Peer review",
+        "SEO optimization pass", "Add visuals and diagrams",
+        "Final proofread", "Schedule publication",
+        "Share on social channels", "Track engagement metrics",
+    ],
+    "hiring": [
+        "Review resume and portfolio", "Schedule phone screen",
+        "Send take-home exercise", "Review submission",
+        "Schedule panel interview", "Collect interviewer scorecards",
+        "Check references", "Draft offer letter",
+        "Send offer and follow up", "File onboarding paperwork",
+    ],
+    "infra": [
+        "Check monitoring dashboards", "Review alert thresholds",
+        "Run load test", "Validate backup restore",
+        "Update runbook", "Test failover procedure",
+        "Review security patches", "Apply configuration change",
+        "Verify rollback plan", "Post-change monitoring",
+    ],
+    "legal": [
+        "Review submitted documents", "Check compliance requirements",
+        "Draft response memo", "Consult external counsel",
+        "Circulate for internal review", "Incorporate feedback",
+        "Obtain final sign-off", "File in contract system",
+        "Set review reminder", "Notify requestor of outcome",
+    ],
+}
+
+_GENERIC_COMMENTS = {
+    "sales": [
+        "Pipeline meeting update: deal progressing on schedule.",
+        "Champion is engaged and pushing internally.",
+        "Procurement process slower than expected -- adjusting timeline.",
+        "Competitor mentioned in conversation -- sent comparison deck.",
+        "Budget confirmed for this quarter. Moving to next stage.",
+        "Legal review flagged one clause -- minor, will resolve this week.",
+    ],
+    "support": [
+        "Customer confirmed the repro steps. Investigating now.",
+        "Root cause identified -- fix in progress.",
+        "Deployed to staging. Waiting for customer to verify.",
+        "Customer confirmed resolution. Closing ticket.",
+        "Escalated to engineering -- this affects the core API.",
+        "Workaround shared with customer while fix is in progress.",
+    ],
+    "success": [
+        "Account health score trending up this month.",
+        "Champion mentioned interest in expanding seats.",
+        "QBR went well -- no concerns raised.",
+        "Adoption is below target. Scheduling enablement session.",
+        "Renewal conversation started. Positive signals so far.",
+        "Feature request logged and shared with product team.",
+    ],
+    "kanban": [
+        "PR submitted. Waiting for review.",
+        "Tests are passing. Ready for staging deploy.",
+        "Found an edge case during testing -- fixing now.",
+        "Refactored to reduce complexity. Much cleaner.",
+        "Blocked on upstream API change. Following up.",
+        "Merged and deployed. Monitoring for regressions.",
+    ],
+    "roadmap": [
+        "User interviews confirmed strong demand for this.",
+        "Design spec complete. Moving to implementation.",
+        "Beta feedback is overwhelmingly positive.",
+        "One edge case found in beta -- patching before GA.",
+        "Launched successfully. Monitoring adoption metrics.",
+        "Feature usage is 30% above forecast. Great reception.",
+    ],
+    "delivery": [
+        "Kickoff completed. All stakeholders aligned.",
+        "On track for the Q2 milestone deadline.",
+        "Dependency on vendor API is blocking progress.",
+        "Risk mitigated -- fallback plan activated successfully.",
+        "Deliverable accepted by sponsor. Moving to next phase.",
+        "Retro identified 3 process improvements for next project.",
+    ],
+    "content": [
+        "Outline approved by editor. Starting draft.",
+        "First draft complete -- 2,100 words. Sending for review.",
+        "SEO review done. Added 2 target keywords to headers.",
+        "Published and shared on social. Tracking engagement.",
+        "Strong performance -- 3,500 views in first 48 hours.",
+        "Repurposing as a LinkedIn carousel and email excerpt.",
+    ],
+    "hiring": [
+        "Strong resume. Moving to phone screen.",
+        "Phone screen went well -- scheduling technical round.",
+        "Take-home submission is solid. Panel interview next.",
+        "Panel was unanimous. Moving to references.",
+        "References came back positive. Preparing offer.",
+        "Offer accepted. Start date confirmed.",
+    ],
+    "infra": [
+        "Incident resolved. Root cause documented.",
+        "Change tested on staging. Scheduling production window.",
+        "Post-deploy monitoring shows no regressions.",
+        "Alert thresholds updated based on 30-day analysis.",
+        "Failover test completed successfully in 12 seconds.",
+        "Capacity planning reviewed. Scaling scheduled for Q2.",
+    ],
+    "legal": [
+        "Document received and assigned for review.",
+        "Initial review complete. Two clauses need clarification.",
+        "External counsel agrees with our interpretation.",
+        "Revised version received. Reviewing changes.",
+        "All parties have signed. Filing in contract system.",
+        "Compliance deadline met. No further action needed.",
+    ],
+}
+
+
+def _auto_cards(
+    titles: list[str],
+    columns: list[dict],
+    swimlanes: list[dict],
+    labels: list[dict],
+    theme: str,
+) -> list[dict]:
+    """
+    Generate cards from a list of unique titles, distributing them across
+    swimlanes and columns with randomized but deterministic metadata.
+
+    Args:
+        titles: Unique card titles (NEVER duplicated).
+        columns: Template column defs (list of dicts with 'name').
+        swimlanes: Template swimlane defs (list of dicts with 'name').
+        labels: Template label defs (list of dicts with 'name').
+        theme: Key into _GENERIC_CHECKLIST_ITEMS / _GENERIC_COMMENTS.
+
+    Returns:
+        List of card dicts compatible with extra_cards / _c() format.
+    """
+    col_names = [c["name"] for c in columns]
+    lane_names = [s["name"] for s in swimlanes]
+    label_names = [lb["name"] for lb in labels]
+    num_cols = len(col_names)
+
+    # Terminal columns (last 1-2) get fewer cards; middle columns get more.
+    # Build column weights: first col gets moderate weight, middle columns
+    # get the most, terminal columns get less.
+    col_weights = []
+    for i in range(num_cols):
+        if i == 0:
+            col_weights.append(1.5)
+        elif columns[i].get("is_done"):
+            col_weights.append(0.7)
+        elif i >= num_cols - 2:
+            col_weights.append(0.8)
+        else:
+            col_weights.append(2.0)
+
+    priorities = ["low", "medium", "medium", "medium", "high", "high", "urgent"]
+    chk_items = _GENERIC_CHECKLIST_ITEMS.get(theme, _GENERIC_CHECKLIST_ITEMS["kanban"])
+    cmt_pool = _GENERIC_COMMENTS.get(theme, _GENERIC_COMMENTS["kanban"])
+
+    cards = []
+    for idx, title in enumerate(titles):
+        # Round-robin swimlane assignment
+        lane = lane_names[idx % len(lane_names)]
+
+        # Weighted column selection
+        col = _rng.choices(col_names, weights=col_weights, k=1)[0]
+
+        pri = _choice(priorities)
+
+        # Due date: 70% of cards have one, offset -30 to +45 days
+        due_offset = _ri(-30, 45) if _r() < 0.7 else None
+
+        weight = _ri(1, 8)
+
+        # Labels: 1-2 random labels, ~80% of cards get at least one
+        if _r() < 0.8 and label_names:
+            n_labels = _ri(1, min(2, len(label_names)))
+            card_labels = _rng.sample(label_names, n_labels)
+        else:
+            card_labels = []
+
+        # Checklist: ~40% of cards
+        checklist = []
+        if _r() < 0.4:
+            n_items = _ri(2, 5)
+            selected_items = _rng.sample(chk_items, min(n_items, len(chk_items)))
+            for item in selected_items:
+                is_checked = _r() < 0.5
+                if is_checked:
+                    checklist.append({"text": item, "is_checked": True})
+                else:
+                    checklist.append({"text": item, "is_checked": False})
+
+        # Comments: ~60% of cards
+        comments = []
+        if _r() < 0.6:
+            n_cmts = _ri(1, 2)
+            selected_cmts = _rng.sample(cmt_pool, min(n_cmts, len(cmt_pool)))
+            for body in selected_cmts:
+                author = _choice(DEMO_USERS)
+                comments.append({"body": body, "author": author})
+
+        cards.append({
+            "title": title,
+            "description": "",
+            "priority": pri,
+            "column": col,
+            "swimlane": lane,
+            "due_date": _date(due_offset) if due_offset is not None else None,
+            "weight": weight,
+            "labels": card_labels,
+            "checklist": checklist,
+            "comments": comments,
+        })
+
+    return cards
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TEMPLATE DEFINITIONS
 # ═════════════════════════════════════════════════════════════════════════════
 
 # ── 1. Sales Pipeline ─────────────────────────────────────────────────────────
+
+_SALES_COLUMNS = [
+    {"name": "Prospect",      "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Qualified",     "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Discovery",     "position": 2, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Demo",          "position": 3, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Proposal Sent", "position": 4, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Negotiation",   "position": 5, "color": "#EF4444", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Closed Won",    "position": 6, "color": "#10B981", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+    {"name": "Closed Lost",   "position": 7, "color": "#9CA3AF", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+]
+
+_SALES_SWIMLANES = [
+    {"name": "North America",   "position": 0,  "color": "#3B82F6", "contact_email": "na-sales@example.com",       "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR."},
+    {"name": "APAC",            "position": 1,  "color": "#F59E0B", "contact_email": "apac-sales@example.com",     "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles."},
+    {"name": "EMEA",            "position": 2,  "color": "#8B5CF6", "contact_email": "emea-sales@example.com",     "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals."},
+    {"name": "LATAM",           "position": 3,  "color": "#10B981", "contact_email": "latam-sales@example.com",    "notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations."},
+    {"name": "ANZ",             "position": 4,  "color": "#EC4899", "contact_email": "anz-sales@example.com",      "notes": "SMB and creative agency accounts. Fast decision cycles -- typically days, not weeks."},
+    {"name": "UK & Ireland",    "position": 5,  "color": "#14B8A6", "contact_email": "uki-sales@example.com",      "notes": "Financial services and professional services verticals. GDPR applies. Q2 target: 420k GBP."},
+    {"name": "DACH",            "position": 6,  "color": "#6366F1", "contact_email": "dach-sales@example.com",     "notes": "Germany, Austria, Switzerland. Manufacturing and engineering firms. German-language demos available."},
+    {"name": "Nordics",         "position": 7,  "color": "#0EA5E9", "contact_email": "nordics-sales@example.com",  "notes": "Sweden, Norway, Denmark, Finland. Tech-forward accounts. Short procurement cycles."},
+    {"name": "Middle East",     "position": 8,  "color": "#F43F5E", "contact_email": "me-sales@example.com",       "notes": "UAE, Saudi Arabia, Qatar. Large enterprise and government. Data residency requirements common."},
+    {"name": "Southeast Asia",  "position": 9,  "color": "#A855F7", "contact_email": "sea-sales@example.com",      "notes": "Singapore, Indonesia, Philippines, Thailand. Mix of tech startups and traditional enterprises."},
+    {"name": "Japan & Korea",   "position": 10, "color": "#EAB308", "contact_email": "jpkr-sales@example.com",     "notes": "Large enterprise accounts. Localization required. Partner-led sales motion."},
+]
+
+_SALES_LABELS = [
+    {"name": "Enterprise", "color": "#3B82F6"},
+    {"name": "SMB",        "color": "#10B981"},
+    {"name": "Strategic",  "color": "#8B5CF6"},
+    {"name": "Renewal",    "color": "#F97316"},
+    {"name": "Upsell",     "color": "#F59E0B"},
+]
+
+_SALES_TITLES = [
+    # North America
+    "Acme Corp -- Annual Platform License",
+    "Pinnacle Health -- HIPAA Module Add-on",
+    "Brightwave Systems -- 300-Seat Migration from Jira",
+    "Forge Analytics -- Enterprise Analytics Bundle",
+    "Redwood Therapeutics -- Clinical Ops Board License",
+    "Summit Financial -- Compliance Workflow Package",
+    "Vanguard Logistics -- 150-Seat Renewal + Expansion",
+    "NovaGen Biotech -- Lab Management Board Pilot",
+    "Apex Manufacturing -- Factory Floor Kanban",
+    "Cirrus Cloud -- DevOps Pipeline Board License",
+    "Atlas Retail Group -- 200-Store Operations Deal",
+    # APAC
+    "Sakura Electronics -- 100-Seat Engineering Board",
+    "Dragon Logistics -- Cross-Border Shipping Tracker",
+    "Coral Bay Resorts -- Property Management Board",
+    "Harbour Tech -- 80-Seat SaaS Startup Deal",
+    "Phoenix Manufacturing -- QA Workflow License",
+    "Jade Capital -- Investment Pipeline Board",
+    "Tidal Wave Media -- Content Production License",
+    "Pacific Rim Insurance -- Claims Workflow Board",
+    "Golden Gate Trading -- Supply Chain Board",
+    "Orient Express Travel -- Operations Board Pilot",
+    "Bamboo Health Systems -- Patient Tracking License",
+    # EMEA
+    "Meridian Consulting -- 120-Seat Strategic Deal",
+    "EuroTech Solutions -- Engineering Workflow License",
+    "Nordic Finance Group -- SOC 2 Compliance Package",
+    "Baltic Shipping -- Logistics Board Bundle",
+    "Alpine Engineering GmbH -- Manufacturing Board",
+    "Iberian Software -- Platform Migration 200 Seats",
+    "Benelux Pharma -- Clinical Trial Board License",
+    "Danube Data -- Analytics Platform Package",
+    "Celtic Insurance -- Claims Processing Board",
+    "Aegean Hospitality -- Resort Operations License",
+    "Rhine Industrial -- Factory Kanban 150 Seats",
+    # LATAM
+    "Rio Health Network -- Hospital Operations Board",
+    "Andean Mining Corp -- Safety Compliance Board",
+    "Pampa Agritech -- Field Operations Tracker",
+    "Amazonia Logistics -- Last-Mile Delivery Board",
+    "Patagonia Energy -- Renewable Project Tracker",
+    "Caribe Tourism Group -- Property Management Board",
+    "Andes Pharmaceuticals -- Drug Development Pipeline",
+    "Plata Financial -- Banking Compliance Board",
+    "Cono Sur Retail -- 300-Store Ops Board",
+    "Mayan Software -- Engineering Team License",
+    "Quetzal Healthcare -- Clinic Management Board",
+    # ANZ
+    "Southern Cross Media -- Content Calendar License",
+    "Outback Mining -- Safety Incident Board",
+    "Harbour Digital -- 40-Seat Startup Deal",
+    "Kiwi Creative -- Campaign Sprint Board",
+    "Reef Tourism -- Guest Experience Tracker",
+    "Bushland Agriculture -- Farm Operations Board",
+    "Wallaby Fintech -- Compliance Workflow License",
+    "Tasman Engineering -- Project Delivery Board",
+    "Coral Coast Health -- Patient Journey Board",
+    "Wombat Software -- 60-Seat Engineering Deal",
+    "Blue Mountains Consulting -- Advisory Board License",
+    # UK & Ireland
+    "Thames Capital -- Investment Pipeline Board",
+    "Clyde Engineering -- Manufacturing Workflow License",
+    "Dublin Analytics -- Data Team Kanban",
+    "Avon Insurance -- Claims Processing Board",
+    "Severn Healthcare -- NHS Trust Operations Board",
+    "Mersey Digital -- Agency Campaign Tracker",
+    "Belfast Tech -- 50-Seat SaaS Startup Deal",
+    "Trent Consulting -- Professional Services Board",
+    "Cotswold Publishing -- Editorial Workflow License",
+    "Highland Logistics -- Distribution Board",
+    "Windsor Pharmaceuticals -- Drug Approval Pipeline",
+    # DACH
+    "Bayern Maschinenbau -- Factory Floor Board",
+    "Wien Consulting -- Project Delivery License",
+    "Zurich Insurance AG -- Claims Workflow Board",
+    "Rhein Software -- 100-Seat Engineering Deal",
+    "Alpen Logistics -- Cross-Border Shipping Board",
+    "Hamburg Pharma -- Clinical Trial Tracker",
+    "Dresden Automotive -- QA Pipeline Board",
+    "Salzburg Tourism -- Guest Operations License",
+    "Bern Data Systems -- Analytics Board Package",
+    "Frankfurt Finance -- Compliance Workflow Deal",
+    "Stuttgart Manufacturing -- Production Kanban",
+    # Nordics
+    "Stockholm SaaS -- 80-Seat Platform Migration",
+    "Oslo Energy -- Renewable Project Board",
+    "Helsinki Gaming -- Sprint Board License",
+    "Copenhagen Design -- Creative Workflow Board",
+    "Gothenburg Shipping -- Fleet Operations Board",
+    "Reykjavik Biotech -- Lab Management Board",
+    "Malmo Retail -- 50-Store Ops Board",
+    "Bergen Consulting -- Advisory Pipeline Board",
+    "Tampere Automotive -- QA Workflow License",
+    "Aarhus Digital -- Agency Board 30 Seats",
+    # Middle East
+    "Dubai Properties -- Real Estate Project Board",
+    "Riyadh Oil -- Operations Compliance Board",
+    "Abu Dhabi Finance -- Investment Pipeline License",
+    "Qatar Airways Cargo -- Logistics Board Deal",
+    "Doha Healthcare -- Hospital Operations Board",
+    "Jeddah Retail -- 200-Store Operations License",
+    "Muscat Engineering -- Infrastructure Project Board",
+    "Bahrain Fintech -- Compliance Workflow License",
+    "Kuwait Petroleum -- Safety Tracking Board",
+    "Sharjah Education -- Academic Operations Board",
+    # Southeast Asia
+    "Singapore Fintech -- 60-Seat Compliance Board",
+    "Jakarta Logistics -- Last-Mile Delivery Board",
+    "Manila BPO -- Operations Kanban 200 Seats",
+    "Bangkok Retail -- Store Operations Board",
+    "Ho Chi Minh Tech -- Engineering Board License",
+    "Kuala Lumpur Media -- Content Production Board",
+    "Cebu Software -- 40-Seat Startup Deal",
+    "Bali Tourism -- Resort Management Board",
+    "Hanoi Manufacturing -- Factory Kanban Board",
+    "Phnom Penh NGO -- Program Operations Board",
+    # Japan & Korea
+    "Tokyo Electronics -- 500-Seat Enterprise Deal",
+    "Seoul Gaming -- Sprint Board License",
+    "Osaka Manufacturing -- Quality Board Package",
+    "Busan Shipping -- Fleet Operations Board",
+    "Kyoto Pharmaceuticals -- Drug Pipeline Board",
+    "Incheon Logistics -- Airport Operations License",
+    "Nagoya Automotive -- Production Kanban 300 Seats",
+    "Daegu Retail -- Store Operations Board",
+    "Fukuoka Software -- Engineering Board 80 Seats",
+    "Jeju Tourism -- Guest Experience Board",
+]
+
 SALES_PIPELINE = {
     "slug": "sales_pipeline",
     "name": "Template: Sales Pipeline",
     "description": "Track open deals from first contact through close. Each swimlane is a sales region; each card is a deal or opportunity.",
-    "columns": [
-        {"name": "Prospect",      "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Qualified",     "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Discovery",     "position": 2, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Demo",          "position": 3, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Proposal Sent", "position": 4, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Negotiation",   "position": 5, "color": "#EF4444", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Closed Won",    "position": 6, "color": "#10B981", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Closed Lost",   "position": 7, "color": "#9CA3AF", "wip_limit": None, "allow_card_creation": False},
-    ],
-    "swimlanes": [
-        {"name": "North America", "position": 0, "color": "#3B82F6", "contact_email": "na-sales@example.com",   "notes": "Primary market. Enterprise and Mid-Market focus. Q2 pipeline target: $2.4M ARR."},
-        {"name": "APAC",          "position": 1, "color": "#F59E0B", "contact_email": "apac-sales@example.com", "notes": "Partner-led motion in several subregions. Retail and ops-heavy accounts. Longer procurement cycles."},
-        {"name": "EMEA",          "position": 2, "color": "#8B5CF6", "contact_email": "emea-sales@example.com", "notes": "Fintech and compliance-heavy accounts dominant. GDPR and DPA required on most enterprise deals."},
-        {"name": "LATAM",         "position": 3, "color": "#10B981", "contact_email": "latam-sales@example.com","notes": "Healthcare and government verticals. Longer sales cycles. HIPAA-equivalent local data regulations."},
-        {"name": "ANZ",           "position": 4, "color": "#EC4899", "contact_email": "anz-sales@example.com",  "notes": "SMB and creative agency accounts. Fast decision cycles — typically days, not weeks."},
-    ],
-    "labels": [
-        {"name": "Enterprise", "color": "#3B82F6"},
-        {"name": "SMB",        "color": "#10B981"},
-        {"name": "Strategic",  "color": "#8B5CF6"},
-        {"name": "Renewal",    "color": "#F97316"},
-        {"name": "Upsell",     "color": "#F59E0B"},
-    ],
-    "extra_cards": [
-        # North America (Enterprise SaaS: Prospect → Discovery → Proposal Sent → Closed Won)
-        _c("Initial Outreach — Enterprise Platform", "Prospect", "North America", "medium", 21, 3, ["Enterprise"],
-           _chk("Research account on LinkedIn", "Find champion contact", "Send intro email"),
-           desc="First contact with a Series C SaaS company's procurement team. VP Engineering expressed interest after outgrowing their current tool. 500-seat target."),
-        _c("Platform Migration — 500 Seats", "Discovery", "North America", "high", 14, 6, ["Enterprise", "Strategic"],
-           _chk("+Map current Jira workflow", "+Identify pain points", "Define migration scope", "Schedule technical review"),
-           [_cmt("Pain is clear: 500 users on Jira Cloud, $180k/year. They want swimlane-based boards.", "demo2"),
-            _cmt("Champion confirmed: VP Engineering. Budget owner is CFO — need CFO intro.", "demo1")],
-           desc="Full platform migration for a Series C SaaS account with 3 Jira instances to consolidate. Discovery call revealed strong swimlane requirement for customer tracking."),
-        _c("Analytics Add-on Proposal", "Proposal Sent", "North America", "high", 7, 4, ["Enterprise", "Upsell"],
-           _chk("+Draft SOW", "+Pricing approved by CS", "Send to procurement", "Follow up after 3 days"),
-           [_cmt("Proposal sent Friday. Procurement said they'll respond within 5 business days.", "demo3")],
-           desc="Add-on proposal for Analytics module on top of the base platform deal. Combined deal value significantly higher than base license alone."),
-        _c("500-Seat Enterprise Deal — Closed Won", "Closed Won", "North America", "high", -5, 8, ["Enterprise", "Strategic"],
-           _chk("+Procurement approved", "+Legal signed MSA", "+Onboarding scheduled", "+CS handoff completed"),
-           [_cmt("MSA signed. 500 seats, 2-year term. CS onboarding starts Monday.", "demo1"),
-            _cmt("Biggest win this quarter. Will feature as a Q2 launch case study.", "demo4")],
-           desc="500-seat enterprise deal closed after 60-day sales cycle. Includes platform + analytics module. 2-year commit."),
-
-        # APAC (Retail chain: Qualified → Demo → Negotiation → Closed Lost)
-        _c("Ops Board Pilot — 50 Stores", "Qualified", "APAC", "medium", 28, 3, ["SMB"],
-           _chk("+ICP confirmed", "+Budget holder identified", "Schedule discovery call"),
-           desc="200-location retail chain flagged as qualified after inbound inquiry. Ops team wants to track store maintenance tasks on a kanban board. Piloting with 50 stores."),
-        _c("Operations Board Demo — CTO", "Demo", "APAC", "high", 10, 5, ["SMB", "Strategic"],
-           _chk("+Prepared demo board with retail template", "+CTO confirmed attendance", "Capture follow-up questions", "Send recording"),
-           [_cmt("Demo went well. CTO loved the swimlane-per-store concept. Wants a 2-week trial.", "demo2")],
-           desc="Live demo for CTO and ops director showing the retail-specific board template. Focus on swimlane-per-store structure and mobile card creation for field workers."),
-        _c("Contract Review — Budget Objection", "Negotiation", "APAC", "urgent", 3, 6, ["SMB"],
-           _chk("+Sent revised pricing", "Awaiting legal review", "Follow up with CTO"),
-           [_cmt("Budget freeze lifted March 15. Back in active negotiation — CTO wants 10% discount for 2-year commit.", "demo3"),
-            _cmt("Legal flagged data residency clause. Need to confirm APAC data processing requirements.", "demo5")],
-           desc="Deal stalled on seasonal budget freeze. Now active again with CFO involved. Negotiating annual vs multi-year terms. Legal review in progress."),
-        _c("Retail Pilot — Lost to Competitor", "Closed Lost", "APAC", "medium", -15, 3, ["SMB"],
-           _chk("+Post-mortem completed", "+Added to lost-deal analysis"),
-           [_cmt("Lost on price. Competitor offered 40% lower for year 1. Need to revisit SMB pricing model.", "demo1"),
-            _cmt("Champion left company. New IT manager not familiar with the pain.", "demo4")],
-           desc="Pilot converted to full evaluation but lost to a lower-cost competitor. Champion attrition contributed. Scheduled 6-month re-engage."),
-
-        # EMEA (Fintech/compliance: Qualified → Discovery → Proposal Sent → Closed Won)
-        _c("Compliance Workflow License — 80 Seats", "Qualified", "EMEA", "high", 25, 4, ["Enterprise", "Strategic"],
-           _chk("+GDPR/SOC2 requirements confirmed", "+Champion is VP Product", "Invite to webinar"),
-           desc="Fintech prospect focused on compliance workflows. SOC 2 requirement is non-negotiable. VP Product is a strong champion and has been using Visiban personally."),
-        _c("Engineering Team Discovery Call", "Discovery", "EMEA", "high", 18, 5, ["Enterprise"],
-           _chk("+Mapped current Trello usage", "+Identified audit trail requirement", "Draft custom template", "Share security whitepaper"),
-           [_cmt("Key insight: they need a full audit log of card movements for compliance. Our History tab is a differentiator.", "demo2")],
-           desc="Deep-dive discovery with VP Product and two senior engineers. Compliance audit trail is top priority — CardMovement history is a key differentiator over competitors."),
-        _c("Compliance Platform Proposal — 80 Seats", "Proposal Sent", "EMEA", "urgent", 5, 6, ["Enterprise", "Strategic"],
-           _chk("+Proposal drafted", "+Legal reviewed GDPR addendum", "+Sent to VP Product", "Awaiting sign-off"),
-           [_cmt("Proposal includes DPA and GDPR addendum. VP Product very positive — escalating to CTO.", "demo3")],
-           desc="Full commercial proposal including DPA, GDPR data processing addendum, and SOC 2 compliance documentation. VP Product championing internally."),
-        _c("80-Seat Fintech Deal — Closed Won", "Closed Won", "EMEA", "high", -10, 7, ["Enterprise"],
-           _chk("+Contract signed", "+Data processing addendum executed", "+Onboarding session booked", "+CS assigned"),
-           [_cmt("Closed! 80 seats, 1-year term with renewal option. DPA signed. CS starting onboarding next week.", "demo1"),
-            _cmt("Great reference account for the EMEA fintech vertical. Happy to be a case study.", "demo4")],
-           desc="80-seat deal closed with GDPR DPA and SOC 2 compliance documentation. Strong fintech reference account for the EMEA region."),
-
-        # LATAM (Healthcare: Prospect → Demo → Negotiation → Closed Won)
-        _c("Healthcare Platform — Initial Outreach", "Prospect", "LATAM", "low", 35, 2, ["Enterprise"],
-           _chk("Confirm local data compliance requirements", "Research healthcare use case", "Send intro deck"),
-           desc="Inbound lead from a regional healthcare provider exploring project tracking for clinical ops. Local data compliance equivalent to HIPAA will be required."),
-        _c("Patient Care Workflow Demo — VP Operations", "Demo", "LATAM", "high", 12, 5, ["Enterprise", "Strategic"],
-           _chk("+Prepared healthcare board template", "+Compliance review completed by legal", "Capture clinical workflow requirements", "Schedule follow-up"),
-           [_cmt("Demo completed. VP Ops was impressed by the swimlane-per-department structure. Compliance agreement required before next steps.", "demo2")],
-           desc="Demo for VP Operations showing a healthcare-specific workflow template. Data compliance agreement is a prerequisite for moving forward — legal team engaged."),
-        _c("Data Processing Agreement Negotiation", "Negotiation", "LATAM", "urgent", 6, 7, ["Enterprise", "Strategic"],
-           _chk("+Legal drafted data processing agreement", "+Sent to account legal team", "Awaiting redlines", "Final sign-off"),
-           [_cmt("Their legal team has 3 redlines. None are blockers — we can accept all of them.", "demo3"),
-            _cmt("VP Ops is pushing their legal to expedite. Deal is ready to close pending agreement.", "demo5")],
-           desc="Data processing agreement in final legal review on both sides. VP Operations is the deal sponsor and is actively pushing their legal team to close. Deal value: 200 seats."),
-        _c("200-Seat Healthcare Deal — Closed Won", "Closed Won", "LATAM", "high", -3, 8, ["Enterprise", "Strategic"],
-           _chk("+Data processing agreement signed", "+MSA executed", "+Onboarding kickoff scheduled", "+CS team notified"),
-           [_cmt("Agreement signed — that was the last blocker. 200-seat deal, 3-year term, closed!", "demo1"),
-            _cmt("First major healthcare enterprise win in LATAM. Adding to the regional case study pipeline.", "demo2")],
-           desc="200-seat 3-year deal closed with full compliance documentation and enterprise MSA. First major healthcare vertical win in the region."),
-
-        # ANZ (Creative agency/SMB: Qualified → Demo → Closed Won + Closed Lost upsell)
-        _c("Creative Agency Sprint Boards — 30 Seats", "Qualified", "ANZ", "medium", 20, 3, ["SMB"],
-           _chk("+Decision maker identified (Ops Director)", "+30-seat count confirmed", "Schedule demo this week"),
-           desc="Small creative agency looking for a lightweight kanban for campaign sprint tracking. Decision cycles are short — Ops Director can approve on the spot."),
-        _c("Agency Workflow Demo — Ops Director", "Demo", "ANZ", "high", 8, 4, ["SMB"],
-           _chk("+Demo prepared with content production template", "+Ops Director confirmed", "Capture content calendar requirements", "Send follow-up same day"),
-           [_cmt("Great energy in the demo. They loved the content production template. Follow-up sent same afternoon.", "demo2")],
-           desc="30-minute demo focused on the content production board template. Ops Director has authority to approve. Follow-up sent within 2 hours."),
-        _c("Campaign Sprint Boards — Closed Won", "Closed Won", "ANZ", "medium", -8, 4, ["SMB"],
-           _chk("+Contract signed (same day)", "+Seats activated", "+Onboarding completed"),
-           [_cmt("Closed same day as demo. Fastest deal cycle this quarter — 8 days from first contact to close.", "demo1"),
-            _cmt("Great SMB reference. They're already telling other agencies about us.", "demo4")],
-           desc="30-seat SMB deal closed 8 days after initial contact. Content production template was the key differentiator. Short, clean deal cycle."),
-        _c("Video Production Add-on — Lost", "Closed Lost", "ANZ", "low", -20, 2, ["SMB", "Upsell"],
-           _chk("+Sent add-on proposal", "+Post-mortem completed"),
-           [_cmt("Lost the add-on upsell — they built a custom Notion template instead. Revisit in 6 months.", "demo3")],
-           desc="Upsell attempt for video production workflow add-on. Lost to a Notion template built internally. Base deal retained. Re-engage at renewal."),
-    ],
+    "columns": _SALES_COLUMNS,
+    "swimlanes": _SALES_SWIMLANES,
+    "labels": _SALES_LABELS,
+    "extra_cards": _auto_cards(_SALES_TITLES, _SALES_COLUMNS, _SALES_SWIMLANES, _SALES_LABELS, "sales"),
 }
 
 
 # ── 2. Customer Support ───────────────────────────────────────────────────────
+
+_SUPPORT_COLUMNS = [
+    {"name": "New",               "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Triaged",           "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Investigating",     "position": 2, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Awaiting Customer", "position": 3, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Escalated",         "position": 4, "color": "#EF4444", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Resolved",          "position": 5, "color": "#10B981", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+    {"name": "Closed",            "position": 6, "color": "#9CA3AF", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+]
+
+_SUPPORT_SWIMLANES = [
+    {"name": "TechNova Inc",          "position": 0,  "color": "#3B82F6", "contact_email": "support@technova.example",        "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1."},
+    {"name": "Apex Retail Group",     "position": 1,  "color": "#F59E0B", "contact_email": "support@apexretail.example",      "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager."},
+    {"name": "FinEdge Ltd",           "position": 2,  "color": "#8B5CF6", "contact_email": "support@finedge.example",         "notes": "Compliance-sensitive. All support comms may be audited. Use formal language."},
+    {"name": "BlueSky Health",        "position": 3,  "color": "#10B981", "contact_email": "support@blueskyhealth.example",   "notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal."},
+    {"name": "Mosaic Creative",       "position": 4,  "color": "#EC4899", "contact_email": "support@mosaiccreative.example",  "notes": "SMB tier. Self-serve. Generally quick to resolve -- low SLA pressure."},
+    {"name": "Global Freight Co",     "position": 5,  "color": "#14B8A6", "contact_email": "support@globalfreight.example",   "notes": "Enterprise tier. 300 seats. Logistics-heavy workflows. SLA: 4-hour response."},
+    {"name": "Pinnacle Finance",      "position": 6,  "color": "#6366F1", "contact_email": "support@pinnaclefin.example",     "notes": "Financial services. SOC 2 environment. Audit trail exports are critical."},
+    {"name": "Redwood Agency",        "position": 7,  "color": "#0EA5E9", "contact_email": "support@redwoodagency.example",   "notes": "SMB creative agency. 25 seats. Fast response expected but no formal SLA."},
+    {"name": "Atlas Logistics BV",    "position": 8,  "color": "#F43F5E", "contact_email": "support@atlaslogistics.example",  "notes": "EMEA mid-market. 200 seats. GDPR-sensitive. Dutch business hours only."},
+    {"name": "Vertex Media",          "position": 9,  "color": "#A855F7", "contact_email": "support@vertexmedia.example",     "notes": "Growing account. 75 seats approaching 150. High feature request volume."},
+    {"name": "Ironside Manufacturing","position": 10, "color": "#EAB308", "contact_email": "support@ironsidemfg.example",     "notes": "Manufacturing. Shop floor workers with limited tech literacy. Extra patience needed."},
+]
+
+_SUPPORT_LABELS = [
+    {"name": "Bug",             "color": "#EF4444"},
+    {"name": "Feature Request", "color": "#3B82F6"},
+    {"name": "Billing",         "color": "#F59E0B"},
+    {"name": "Security",        "color": "#8B5CF6"},
+    {"name": "Performance",     "color": "#10B981"},
+]
+
+_SUPPORT_TITLES = [
+    # TechNova Inc
+    "TKT-1041: Board load hangs after 300+ cards",
+    "TKT-1028: Webhook not firing on card archive",
+    "TKT-1015: SSO login loop on Safari 17.4",
+    "TKT-1009: Export CSV missing swimlane column",
+    "TKT-1052: Board duplication fails silently for boards with 50+ cards",
+    "TKT-1058: Card weight not included in webhook payload",
+    "TKT-1063: Due date reminder email sent twice",
+    "TKT-1067: Board settings modal blank on Firefox 124",
+    "TKT-1071: Card description markdown preview not rendering tables",
+    "TKT-1074: Swimlane reorder drag handle unresponsive on touch devices",
+    # Apex Retail Group
+    "TKT-2033: Cards not syncing across browser tabs",
+    "TKT-2027: Swimlane collapse state not persisting",
+    "TKT-2019: Request -- bulk card move between swimlanes",
+    "TKT-2011: Board permissions not applying to new members",
+    "TKT-2041: Card filter by label returns stale results",
+    "TKT-2046: Mobile web board view cuts off last swimlane",
+    "TKT-2049: CSV import maps columns incorrectly on retry",
+    "TKT-2053: Email notification for card comment mentions wrong board name",
+    "TKT-2058: Request -- custom card fields for store number",
+    "TKT-2062: Board archive button missing for admin users on mobile",
+    # FinEdge Ltd
+    "TKT-3044: Audit log export missing movement events",
+    "TKT-3038: 2FA enforcement not applying to SSO users",
+    "TKT-3025: API rate limit headers missing from responses",
+    "TKT-3014: Webhook HMAC signature docs incorrect",
+    "TKT-3051: Board export includes archived cards despite filter",
+    "TKT-3056: Activity feed not loading for boards with 1000+ activities",
+    "TKT-3061: API token scope too broad for read-only integrations",
+    "TKT-3065: Card movement audit trail missing timezone info",
+    "TKT-3069: Request -- scheduled board export to SFTP",
+    "TKT-3073: Column WIP limit enforcement off by one",
+    # BlueSky Health
+    "TKT-4029: Card attachments not uploading for HIPAA users",
+    "TKT-4021: Board export failing for HIPAA tenant",
+    "TKT-4018: Email notification delays in HIPAA tenant",
+    "TKT-4005: Board member cannot see swimlane after invite",
+    "TKT-4035: Card comment @mention autocomplete not filtering HIPAA users",
+    "TKT-4039: Board template creation fails with 500 for HIPAA tenant",
+    "TKT-4043: Request -- PHI redaction on board export",
+    "TKT-4047: Checklist completion percentage rounds incorrectly",
+    "TKT-4051: Card due date reminder goes to wrong timezone",
+    "TKT-4055: Request -- HIPAA audit log retention policy setting",
+    # Mosaic Creative
+    "TKT-5018: Colors not saving on card labels",
+    "TKT-5014: Request -- keyboard shortcut to archive card",
+    "TKT-5009: Import CSV failing on special characters",
+    "TKT-5003: Due date filter returning no results",
+    "TKT-5023: Card drag ghost image too small on 4K displays",
+    "TKT-5027: Board background color resets after page reload",
+    "TKT-5031: Request -- card cover images from attachments",
+    "TKT-5035: Swimlane color picker doesn't show current color",
+    "TKT-5039: Request -- recurring card due dates",
+    "TKT-5043: Board member list not sorted alphabetically",
+    # Global Freight Co
+    "TKT-6001: Board load timeout on boards with 15+ swimlanes",
+    "TKT-6005: Card movement history truncated at 100 entries",
+    "TKT-6009: Webhook delivery retries not respecting exponential backoff",
+    "TKT-6013: Request -- swimlane-level WIP limits",
+    "TKT-6017: CSV export encoding issue with non-Latin characters in card titles",
+    "TKT-6021: Board member role change not reflected until re-login",
+    "TKT-6025: Card search does not match checklist item text",
+    "TKT-6029: Request -- API endpoint for bulk card creation",
+    "TKT-6033: Board duplication loses label colors",
+    "TKT-6037: Notification email subject line truncated at 80 characters",
+    # Pinnacle Finance
+    "TKT-7001: Compliance export PDF formatting broken on A3 paper size",
+    "TKT-7005: SSO session timeout too aggressive for long review sessions",
+    "TKT-7009: Card comment edit history not available via API",
+    "TKT-7013: Request -- board-level audit log filtering by date range",
+    "TKT-7017: Webhook payload missing card weight field",
+    "TKT-7021: Board settings save button disabled after label delete",
+    "TKT-7025: Request -- mandatory card fields per column",
+    "TKT-7029: Activity export CSV date format inconsistent with ISO 8601",
+    "TKT-7033: Card description character limit not documented in API docs",
+    "TKT-7037: Request -- two-person approval for card movement to final column",
+    # Redwood Agency
+    "TKT-8001: Board sharing link expiry not configurable",
+    "TKT-8005: Card due date not showing in board calendar view",
+    "TKT-8009: Swimlane notes field truncated in board settings modal",
+    "TKT-8013: Request -- card time tracking integration",
+    "TKT-8017: Label delete confirmation dialog missing",
+    "TKT-8021: Board export JSON schema undocumented",
+    "TKT-8025: Card comment notification arrives 10 minutes late",
+    "TKT-8029: Request -- board templates marketplace",
+    "TKT-8033: Mobile web: card detail modal does not scroll on iOS",
+    "TKT-8037: Request -- Slack notification for card due date",
+    # Atlas Logistics BV
+    "TKT-9001: Board load slow during EU business hours peak",
+    "TKT-9005: GDPR data export missing card comment attachments",
+    "TKT-9009: Swimlane position reset after board duplicate",
+    "TKT-9013: Request -- multi-language card title support validation",
+    "TKT-9017: Card movement via API not triggering webhook",
+    "TKT-9021: Board member invite email landing in spam (DKIM issue)",
+    "TKT-9025: Column color not visible in high-contrast mode",
+    "TKT-9029: Request -- board access audit report for GDPR compliance",
+    "TKT-9033: CSV import timeout on files over 5 MB",
+    "TKT-9037: Card checklist reorder not persisting",
+    # Vertex Media
+    "TKT-10001: Board activity feed missing card label change events",
+    "TKT-10005: Request -- card dependencies and blocking visualization",
+    "TKT-10009: Swimlane contact email field validation too strict",
+    "TKT-10013: Card search results do not highlight match text",
+    "TKT-10017: Board settings changes not synced via WebSocket",
+    "TKT-10021: Request -- board-level custom fields",
+    "TKT-10025: Notification preferences reset after password change",
+    "TKT-10029: Card weight field accepts negative values via API",
+    "TKT-10033: Request -- card aging visualization by column dwell time",
+    "TKT-10037: Board calendar view does not respect swimlane filter",
+    # Ironside Manufacturing
+    "TKT-11001: Card title font too small on shop floor tablets",
+    "TKT-11005: Board does not work offline on factory floor WiFi dead zones",
+    "TKT-11009: Request -- barcode scan to open card on mobile",
+    "TKT-11013: Column header wraps incorrectly on narrow tablet screens",
+    "TKT-11017: Card due date notification not sent for unassigned cards",
+    "TKT-11021: Board invitation QR code too small to scan",
+    "TKT-11025: Request -- simplified card view for non-technical users",
+    "TKT-11029: Swimlane collapse all button not working",
+    "TKT-11033: Card attachment upload fails on files with spaces in name",
+    "TKT-11037: Request -- read-only board view for TV dashboards",
+]
+
 CUSTOMER_SUPPORT = {
     "slug": "customer_support",
     "name": "Template: Customer Support",
     "description": "Track support tickets from first report through resolution. Each swimlane is a customer account; each card is an open ticket.",
-    "columns": [
-        {"name": "New",               "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Triaged",           "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Investigating",     "position": 2, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Awaiting Customer", "position": 3, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Escalated",         "position": 4, "color": "#EF4444", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Resolved",          "position": 5, "color": "#10B981", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Closed",            "position": 6, "color": "#9CA3AF", "wip_limit": None, "allow_card_creation": False},
-    ],
-    "swimlanes": [
-        {"name": "TechNova Inc",      "position": 0, "color": "#3B82F6", "contact_email": "support@technova.example",    "notes": "Enterprise tier. SLA: 4-hour response, 24-hour resolution for P1."},
-        {"name": "Apex Retail Group", "position": 1, "color": "#F59E0B", "contact_email": "support@apexretail.example",  "notes": "Mid-market. SLA: 8-hour response. Contact: IT Manager."},
-        {"name": "FinEdge Ltd",       "position": 2, "color": "#8B5CF6", "contact_email": "support@finedge.example",    "notes": "Compliance-sensitive. All support comms may be audited. Use formal language."},
-        {"name": "BlueSky Health",    "position": 3, "color": "#10B981", "contact_email": "support@blueskyhealth.example","notes": "HIPAA environment. Do not share PHI in support threads. Escalate data questions to legal."},
-        {"name": "Mosaic Creative",   "position": 4, "color": "#EC4899", "contact_email": "support@mosaiccreative.example","notes": "SMB tier. Self-serve. Generally quick to resolve — low SLA pressure."},
-    ],
-    "labels": [
-        {"name": "Bug",             "color": "#EF4444"},
-        {"name": "Feature Request", "color": "#3B82F6"},
-        {"name": "Billing",         "color": "#F59E0B"},
-        {"name": "Security",        "color": "#8B5CF6"},
-        {"name": "Performance",     "color": "#10B981"},
-    ],
-    "extra_cards": [
-        # TechNova
-        _c("TKT-1041: Board load hangs after 300+ cards", "New", "TechNova Inc", "urgent", 1, 5, ["Performance"],
-           _chk("Reproduce with >300 cards", "Check query plan for full/ endpoint", "Profile API response time"),
-           desc="Enterprise board with 340 cards takes 18s to load. Browser DevTools shows the /full/ endpoint is returning a 2.8MB JSON payload. Reported by VP Engineering directly."),
-        _c("TKT-1028: Webhook not firing on card archive", "Investigating", "TechNova Inc", "high", 3, 4, ["Bug"],
-           _chk("+Reproduced in staging", "+Identified missing signal in archive view", "Write fix + regression test", "Deploy to staging"),
-           [_cmt("Root cause found: archive endpoint calls card.save() but doesn't emit the post_save signal. Fix is small.", "demo2")],
-           desc="Outbound webhook for `card.archived` event never fires. Customer confirmed their Zapier automation is broken. Isolated to the archive endpoint — signal not emitted."),
-        _c("TKT-1015: SSO login loop on Safari 17.4", "Resolved", "TechNova Inc", "high", -2, 5, ["Bug"],
-           _chk("+Reproduced on Safari 17.4", "+Root cause: SameSite cookie issue", "+Fix deployed to production", "+Customer confirmed resolved"),
-           [_cmt("Safari 17.4 changed SameSite=Lax handling. Fixed by setting SameSite=None; Secure on session cookie.", "demo1"),
-            _cmt("Customer confirmed fix working. All 500 users back on Safari.", "demo4")],
-           desc="500 TechNova users on Safari 17.4 unable to complete SSO login — infinite redirect loop. Root cause: SameSite cookie attribute incompatible with Safari 17.4 strict mode."),
-        _c("TKT-1009: Export CSV missing swimlane column", "Closed", "TechNova Inc", "medium", -12, 3, ["Bug"],
-           _chk("+Bug confirmed", "+Fix merged", "+Deployment verified", "+Customer notified"),
-           [_cmt("CSV export was omitting the swimlane field for boards with >10 swimlanes. Fixed. Closed.", "demo3")],
-           desc="CSV export for boards with more than 10 swimlanes was omitting the swimlane_name column. Fixed in v1.2.1. Customer confirmed resolved."),
-
-        # Apex Retail
-        _c("TKT-2033: Cards not syncing across browser tabs", "Triaged", "Apex Retail Group", "medium", 5, 3, ["Bug"],
-           _chk("+Reproduced in Chrome", "Check WebSocket broadcast logic", "Verify card.updated event payload"),
-           desc="IT Manager reports that opening the same board in two browser tabs shows different card states after a drag-drop. WebSocket event not reaching second tab."),
-        _c("TKT-2027: Swimlane collapse state not persisting", "Awaiting Customer", "Apex Retail Group", "low", 8, 2, ["Bug"],
-           _chk("+Confirmed is localStorage-based", "+Asked customer for repro steps", "Waiting for screen recording"),
-           [_cmt("Asked customer to confirm which browser and whether they clear localStorage. Awaiting response.", "demo2")],
-           desc="Customer reports that collapsed swimlanes revert to expanded on page reload. localStorage key `swimlane-collapsed` should persist. Awaiting confirmation of browser version."),
-        _c("TKT-2019: Request — bulk card move between swimlanes", "Resolved", "Apex Retail Group", "medium", -5, 4, ["Feature Request"],
-           _chk("+Confirmed as feature request", "+Linked to roadmap item #FR-088", "+Customer informed of timeline"),
-           [_cmt("Not a bug — bulk move is on the roadmap for Q3. Customer accepted the timeline.", "demo1")],
-           desc="Customer wants to select multiple cards and move them to a different swimlane in one action. This is a feature request, not a bug. Linked to roadmap item FR-088."),
-        _c("TKT-2011: Board permissions not applying to new members", "Closed", "Apex Retail Group", "high", -18, 5, ["Bug"],
-           _chk("+Reproduced", "+Root cause: role cache not invalidated on invite accept", "+Fix deployed", "+Closed"),
-           [_cmt("Cache invalidation bug. Board role was cached for 15 min — new members had stale 'viewer' role for up to 15 min after accepting invite. Fixed.", "demo3"),
-            _cmt("Customer confirmed resolved. No further issues reported.", "demo5")],
-           desc="New board members added via invite link had viewer-only access for up to 15 minutes after accepting, even when invited as members. Root cause: role cache invalidation bug."),
-
-        # FinEdge
-        _c("TKT-3044: Audit log export missing movement events", "Triaged", "FinEdge Ltd", "urgent", 2, 6, ["Bug", "Security"],
-           _chk("+Confirmed gap in activity export", "Check CardMovement vs CardActivity join", "Legal informed of issue"),
-           [_cmt("CardMovement events (History tab) are not appearing in the compliance export. This is critical for FinEdge's audit requirements.", "demo2")],
-           desc="FinEdge compliance export is missing CardMovement records — only CardActivity events appear. This breaks their SOC 2 audit trail. High-priority fix required."),
-        _c("TKT-3038: 2FA enforcement not applying to SSO users", "Escalated", "FinEdge Ltd", "urgent", 1, 7, ["Security"],
-           _chk("+Reproduced", "+Escalated to security team", "Draft fix for SSO bypass", "Security review required"),
-           [_cmt("SSO users can bypass 2FA enforcement because the allauth SSO pipeline doesn't trigger the 2FA check middleware. Escalated to security.", "demo1"),
-            _cmt("Fix drafted. Requires security review before deployment. Scheduling review for tomorrow.", "demo3")],
-           desc="Board admin's 2FA enforcement setting is not applied to users who log in via SSO. SSO pipeline bypasses the 2FA middleware. Security-critical fix in progress."),
-        _c("TKT-3025: API rate limit headers missing from responses", "Resolved", "FinEdge Ltd", "medium", -4, 3, ["Bug"],
-           _chk("+Confirmed: X-RateLimit-* headers not set", "+Fix deployed", "+Verified in production"),
-           [_cmt("throttle_classes was set but the response header middleware wasn't adding headers. One-line fix.", "demo2")],
-           desc="X-RateLimit-Limit and X-RateLimit-Remaining headers missing from API responses. Required by FinEdge's API gateway for rate-limit-aware routing. Fixed."),
-        _c("TKT-3014: Webhook HMAC signature docs incorrect", "Closed", "FinEdge Ltd", "low", -22, 2, ["Bug"],
-           _chk("+Docs error confirmed", "+Docs updated", "+Customer notified"),
-           [_cmt("Docs showed SHA-256 but implementation uses HMAC-SHA256 with the secret as key. Fixed docs. No code change needed.", "demo4")],
-           desc="Documentation for webhook HMAC signature verification had an error — showed SHA-256 hash but correct implementation is HMAC-SHA256. Docs updated."),
-
-        # BlueSky Health
-        _c("TKT-4029: Card attachments not uploading for HIPAA users", "New", "BlueSky Health", "urgent", 1, 6, ["Bug", "Security"],
-           _chk("Confirm HIPAA S3 bucket policy", "Check IAM role on upload path", "Do not access attachment content"),
-           desc="BlueSky users in the HIPAA-segregated tenant are getting 403 on all attachment uploads. HIPAA-specific S3 bucket may have restrictive IAM policy. Do not access any uploaded content."),
-        _c("TKT-4021: Board export failing for HIPAA tenant", "Escalated", "BlueSky Health", "high", 3, 5, ["Bug"],
-           _chk("+Reproduced in HIPAA tenant", "+Escalated to infra team", "Check S3 export permissions", "Do not share export content"),
-           [_cmt("HIPAA tenant export path requires explicit KMS key. Not set on export lambda. Escalated to infra.", "demo2"),
-            _cmt("Do not open exported files — may contain PHI. Route via legal if content access needed.", "demo5")],
-           desc="CSV and JSON board exports fail with 500 for BlueSky's HIPAA tenant. Likely KMS key permission issue on the export S3 path. PHI sensitivity — do not open exported content."),
-        _c("TKT-4018: Resolved — Email notification delays in HIPAA tenant", "Resolved", "BlueSky Health", "medium", -6, 3, ["Bug", "Performance"],
-           _chk("+Root cause: SES sandbox limit in HIPAA region", "+Moved to production SES", "+Notifications confirmed working"),
-           [_cmt("HIPAA region SES was in sandbox mode (200 emails/day limit). Moved to production SES. Delays resolved.", "demo1")],
-           desc="Email notifications delayed by 2-4 hours for BlueSky users. Root cause: SES sandbox limit in the HIPAA-compliant AWS region. Production SES now active."),
-        _c("TKT-4005: Closed — Board member cannot see swimlane", "Closed", "BlueSky Health", "high", -30, 4, ["Bug"],
-           _chk("+Root cause: role cache race condition", "+Fix deployed", "+All affected users confirmed restored", "+Post-mortem filed"),
-           [_cmt("Newly invited board members saw empty swimlane list for up to 30s after joining. Race condition in role cache population. Fixed.", "demo3"),
-            _cmt("Closed. 12 users were affected. All confirmed normal access now.", "demo4")],
-           desc="Board members added to BlueSky boards could not see swimlanes for up to 30 seconds after accepting invite. Role cache race condition. Fixed and verified."),
-
-        # Mosaic Creative
-        _c("TKT-5018: Colors not saving on card labels", "New", "Mosaic Creative", "medium", 4, 2, ["Bug"],
-           _chk("Reproduce on Chrome and Safari", "Check label update API response", "Verify localStorage cache"),
-           desc="Customer reports that when they change a label color in board settings, cards already using that label don't update to the new color until page refresh. Expected: live update."),
-        _c("TKT-5014: Request — keyboard shortcut to archive card", "Triaged", "Mosaic Creative", "low", 12, 2, ["Feature Request"],
-           _chk("+Logged as feature request FR-091", "+Shared current keyboard shortcut guide", "Estimate implementation effort"),
-           [_cmt("Currently no shortcut for archive. Logged FR-091. Low priority — will review for next keyboard shortcut batch.", "demo1")],
-           desc="Customer wants a keyboard shortcut (e.g. Shift+A) to archive a card from the board view without opening the card detail modal."),
-        _c("TKT-5009: Resolved — Import CSV failing on special characters", "Resolved", "Mosaic Creative", "medium", -8, 3, ["Bug"],
-           _chk("+Reproduced with UTF-8 em-dash in title", "+Fix: explicit UTF-8-sig encoding on CSV parse", "+Deployed", "+Verified"),
-           [_cmt("CSV import was using default encoding — failed on non-ASCII characters. Fixed with explicit UTF-8-sig detection. Closed.", "demo2")],
-           desc="CSV import failed for any file containing non-ASCII characters (em-dashes, smart quotes, accented chars). Fixed by adding explicit UTF-8-sig encoding detection."),
-        _c("TKT-5003: Closed — Due date filter returning no results", "Closed", "Mosaic Creative", "low", -25, 2, ["Bug"],
-           _chk("+Root cause: timezone offset in date comparison", "+Fix deployed", "+Customer confirmed"),
-           [_cmt("Due date filter compared UTC date with user's local YYYY-MM-DD string. Off-by-one around midnight. Fixed.", "demo3")],
-           desc="Due date filter was returning zero results for same-day queries in timezones west of UTC. Fixed timezone-aware date comparison."),
-    ],
+    "columns": _SUPPORT_COLUMNS,
+    "swimlanes": _SUPPORT_SWIMLANES,
+    "labels": _SUPPORT_LABELS,
+    "extra_cards": _auto_cards(_SUPPORT_TITLES, _SUPPORT_COLUMNS, _SUPPORT_SWIMLANES, _SUPPORT_LABELS, "support"),
 }
 
 
 # ── 3. Customer Success ───────────────────────────────────────────────────────
+
+_SUCCESS_COLUMNS = [
+    {"name": "Onboarding",  "position": 0, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Adoption",    "position": 1, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Healthy",     "position": 2, "color": "#10B981", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Expansion",   "position": 3, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Renewal",     "position": 4, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Churned",     "position": 5, "color": "#EF4444", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+]
+
+_SUCCESS_SWIMLANES = [
+    {"name": "Americas",            "position": 0,  "color": "#3B82F6", "contact_email": "csm-americas@visiban.example",  "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera."},
+    {"name": "EMEA",                "position": 1,  "color": "#8B5CF6", "contact_email": "csm-emea@visiban.example",      "notes": "Europe, Middle East, Africa. CSM: Jordan Patel."},
+    {"name": "APAC",                "position": 2,  "color": "#10B981", "contact_email": "csm-apac@visiban.example",      "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu."},
+    {"name": "Enterprise Accounts", "position": 3,  "color": "#F59E0B", "contact_email": "enterprise-cs@visiban.example", "notes": "200+ seat strategic accounts managed directly by VP CS."},
+    {"name": "Mid-Market",          "position": 4,  "color": "#EF4444", "contact_email": "midmarket-cs@visiban.example",  "notes": "20-200 seat accounts. CSM coverage pooled."},
+    {"name": "Strategic Partners",  "position": 5,  "color": "#14B8A6", "contact_email": "partners-cs@visiban.example",   "notes": "Channel and technology partners. Joint success plans. CSM: Riley Kim."},
+    {"name": "Government & Edu",    "position": 6,  "color": "#6366F1", "contact_email": "gov-cs@visiban.example",        "notes": "Public sector accounts. Longer procurement, stricter compliance. CSM: Sam Torres."},
+    {"name": "Healthcare",          "position": 7,  "color": "#0EA5E9", "contact_email": "health-cs@visiban.example",     "notes": "HIPAA-compliant accounts. PHI handling required. CSM: Casey Park."},
+    {"name": "Financial Services",  "position": 8,  "color": "#F43F5E", "contact_email": "fin-cs@visiban.example",        "notes": "SOC 2 and regulatory compliance required. CSM: Drew Martinez."},
+    {"name": "Startup & SMB",       "position": 9,  "color": "#A855F7", "contact_email": "smb-cs@visiban.example",        "notes": "Sub-20-seat accounts. Tech-touch CSM model. Automated health scoring."},
+    {"name": "Agency & Creative",   "position": 10, "color": "#EAB308", "contact_email": "agency-cs@visiban.example",     "notes": "Creative agencies and studios. High board count, low seat count. CSM: Avery Chen."},
+]
+
+_SUCCESS_LABELS = [
+    {"name": "At Risk",               "color": "#EF4444"},
+    {"name": "Champion",              "color": "#10B981"},
+    {"name": "Expansion Opportunity", "color": "#F59E0B"},
+    {"name": "Renewal Due",           "color": "#F97316"},
+    {"name": "QBR Needed",            "color": "#8B5CF6"},
+]
+
+_SUCCESS_TITLES = [
+    # Americas
+    "Bright Solutions Inc -- Kickoff onboarding 150 seats",
+    "RocketOps LLC -- Adoption review at 30 days",
+    "Cirrus Analytics -- Healthy: 80% DAU, champion VP Product",
+    "Vertex Media -- Expansion proposal 80 to 150 seats",
+    "GreenLeaf Energy -- QBR preparation Q2",
+    "Maple Creek Software -- Onboarding technical training",
+    "Ironclad Legal -- Renewal negotiation 2-year deal",
+    "Cascade Consulting -- At-risk: 22% DAU at day 60",
+    "Frontier Retail -- Expansion to 5 new store regions",
+    "Silver Ridge Analytics -- Healthy: NPS 9, reference candidate",
+    "Horizon Aerospace -- Onboarding ITAR-compliant environment",
+    "Lakewood Media Group -- Adoption enablement session",
+    # EMEA
+    "Polaris Engineering GmbH -- Onboarding SSO and DPA",
+    "Meridian Consulting UK -- At-risk: 35% DAU at day 60",
+    "Solaris Digital -- Healthy: self-service, 85% utilization",
+    "Atlas Logistics BV -- Renewal + 30-seat expansion",
+    "Nordic Ventures -- QBR with board of directors",
+    "Rhine Pharma AG -- Adoption across clinical teams",
+    "Celtic Insurance Group -- Renewal due end of quarter",
+    "Aegean Maritime -- Onboarding 200-seat fleet ops",
+    "Danube Fintech -- Expansion from 40 to 100 seats",
+    "Alpine Retail GmbH -- Healthy: champion is VP Operations",
+    "Baltic Shipping Corp -- Adoption: logistics teams lagging",
+    "Iberian Software SL -- Churned: migrated to competitor",
+    # APAC
+    "Nexus Software -- Onboarding 50-seat Singapore firm",
+    "Harbor Tech -- Adoption review: advanced features underused",
+    "Pacific Ventures -- Healthy: NPS 9, Head of Product champion",
+    "Koala Systems -- Churned: price sensitivity, low adoption",
+    "Sakura Robotics -- Expansion from 60 to 120 seats",
+    "Coral Bay Hotels -- Onboarding property management boards",
+    "Dragon Fintech -- QBR preparation quarterly review",
+    "Jade Capital Partners -- Healthy: 90% utilization",
+    "Orient Express Travel -- Adoption: ops team training needed",
+    "Bamboo Health Systems -- Renewal 1-year extension",
+    "Phoenix Manufacturing -- At-risk: champion departed",
+    "Tidal Wave Media -- Expansion: content team growing",
+    # Enterprise Accounts
+    "TechNova Inc -- Healthy: 500 seats, CTO sponsor",
+    "BlueSky Health -- Adoption across clinical teams",
+    "Global Freight Co -- Expansion 300 to 500 seats",
+    "Pinnacle Finance -- Renewal 3-year deal with locked pricing",
+    "Acme Corp -- QBR Q2 executive review",
+    "Summit Financial -- Onboarding compliance workflow",
+    "Brightwave Systems -- Healthy: 95% seat utilization",
+    "Redwood Therapeutics -- Expansion into lab division",
+    "Forge Analytics -- At-risk: stakeholder turnover",
+    "NovaGen Biotech -- Renewal discussion started",
+    "Vanguard Logistics -- Adoption: warehouse teams onboarding",
+    "Apex Manufacturing -- Healthy: factory floor adoption strong",
+    # Mid-Market
+    "Redwood Agency -- Onboarding 25-seat creative agency",
+    "Ironside Manufacturing -- Adoption: no champion identified",
+    "Skyline Retail -- Healthy: 60% DAU, Ops Manager champion",
+    "Fusion Labs -- Churned: consolidated to Notion",
+    "Prism Design Studio -- Onboarding: 30-seat design team",
+    "Cobalt Engineering -- Expansion from 50 to 80 seats",
+    "Ember Analytics -- Renewal: annual contract due",
+    "Driftwood Hospitality -- Adoption: restaurant teams training",
+    "Granite Construction -- At-risk: low engagement after onboarding",
+    "Velvet Media -- Healthy: strong board activity metrics",
+    "Sapphire Tech -- QBR: discuss product roadmap alignment",
+    "Copper Hill Logistics -- Expansion: 3 new warehouses",
+    # Strategic Partners
+    "Zenith Consulting Partners -- Joint success plan review",
+    "Orbit Technology Alliance -- Partner enablement training",
+    "Catalyst Integration Partners -- Co-sell pipeline review",
+    "Nexus Reseller Network -- QBR partner performance metrics",
+    "Prism SI Partners -- Onboarding partner technical team",
+    "Keystone Channel Partners -- Renewal: 2-year agreement",
+    "Beacon Advisory Group -- Expansion into new vertical",
+    "Compass Technology Partners -- At-risk: low co-sell activity",
+    "Pinnacle Resellers -- Healthy: 12 joint deals closed",
+    "Summit Integration Co -- Adoption: partner portal underused",
+    "Lighthouse Consulting -- Joint roadmap alignment session",
+    "Meridian MSP Partners -- Partner certification program launch",
+    # Government & Edu
+    "State DOT Highway Division -- Onboarding project boards",
+    "Metro School District -- Adoption: curriculum planning boards",
+    "Federal Research Lab -- Renewal: FedRAMP compliance review",
+    "County Public Health -- Expansion: 3 additional departments",
+    "University of Westfield -- Healthy: IT and admissions boards",
+    "City Transit Authority -- At-risk: procurement delays",
+    "National Parks Service -- Onboarding: maintenance tracking",
+    "State Education Board -- QBR: academic year planning review",
+    "Military Base Operations -- Adoption: security clearance bottleneck",
+    "Public Library System -- Healthy: cataloging workflow active",
+    "Community College Network -- Expansion: 12 new campuses",
+    "Municipal Water Authority -- Renewal: annual contract due",
+    # Healthcare
+    "Sunrise Medical Center -- Onboarding patient flow boards",
+    "Coastal Clinic Network -- Adoption: nurse scheduling boards",
+    "Valley Health System -- Healthy: 88% utilization, HIPAA compliant",
+    "Metro Hospital Group -- Expansion: add 3 new facilities",
+    "Lakeside Urgent Care -- Renewal: 2-year deal discussion",
+    "Mountain View Rehab -- At-risk: HIPAA audit finding open",
+    "Bayshore Pediatrics -- Onboarding: intake workflow boards",
+    "Prairie Home Health -- Adoption: field nurse team training",
+    "Riverdale Oncology -- QBR: treatment pathway board review",
+    "Harbor Dental Group -- Healthy: appointment scheduling active",
+    "Westside Cardiology -- Expansion: research division onboarding",
+    "Northshore Elder Care -- Churned: switched to EMR-integrated tool",
+    # Financial Services
+    "Continental Bank -- Onboarding: compliance workflow boards",
+    "Pacific Credit Union -- Adoption: loan processing boards",
+    "Apex Wealth Management -- Healthy: portfolio review boards active",
+    "Northern Trust Services -- Expansion: add private banking division",
+    "Coastal Insurance Group -- Renewal: SOC 2 audit passed",
+    "Metro Mortgage Lending -- At-risk: key stakeholder departed",
+    "Summit Investment Partners -- QBR: regulatory change impact review",
+    "Valley Savings Bank -- Adoption: branch operations lagging",
+    "Harborview Financial -- Healthy: 92% utilization, strong champion",
+    "Redwood Capital Group -- Expansion: M&A integration boards",
+    "Evergreen Insurance -- Renewal: multi-year proposal sent",
+    "Crestview Advisors -- Churned: acquired by larger firm",
+    # Startup & SMB
+    "ByteForge -- Onboarding: 8-seat engineering team",
+    "PixelCraft Studios -- Adoption: sprint board underused",
+    "CloudNine SaaS -- Healthy: 95% DAU, founder is champion",
+    "GigaStack -- Expansion from 10 to 20 seats",
+    "NanoTech Labs -- Churned: team dissolved after pivot",
+    "QuickShip Logistics -- Onboarding: 15-seat ops team",
+    "DataSpark Analytics -- Healthy: power user in every department",
+    "MicroBrew Software -- Adoption: only founder is active",
+    "RapidForm Inc -- QBR: discuss upgrade to mid-market tier",
+    "TinyCloud Hosting -- Renewal: annual plan due",
+    "SwiftCode Dev -- At-risk: switched to free tier competitor",
+    "BrightNode AI -- Expansion: ML team wants dedicated boards",
+    # Agency & Creative
+    "Wildfire Creative -- Onboarding: campaign sprint boards",
+    "Neon Studios -- Adoption: design team training session",
+    "Ember & Oak Design -- Healthy: 15 active boards, strong usage",
+    "Prism Motion Graphics -- Expansion: add video production team",
+    "Cobalt Content Agency -- Renewal: 1-year extension discussion",
+    "Driftwood Branding -- At-risk: CEO questioning ROI",
+    "Sapphire Social Media -- Onboarding: content calendar boards",
+    "Granite Publishing -- Adoption: editorial workflow underused",
+    "Velvet Photography -- Healthy: client project boards active",
+    "Copper Ink Creative -- QBR: discuss board template needs",
+    "Sterling Advertising -- Expansion: 2 new client teams",
+    "Jade Marketing Group -- Churned: consolidated to project management suite",
+]
+
 CUSTOMER_SUCCESS = {
     "slug": "customer_success",
     "name": "Template: Customer Success",
     "description": "Track account health from onboarding through expansion and renewal. Each swimlane represents a customer segment.",
-    "columns": [
-        {"name": "Onboarding",  "position": 0, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Adoption",    "position": 1, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Healthy",     "position": 2, "color": "#10B981", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Expansion",   "position": 3, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Renewal",     "position": 4, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Churned",     "position": 5, "color": "#EF4444", "wip_limit": None, "allow_card_creation": False},
-    ],
-    "swimlanes": [
-        {"name": "Americas",           "position": 0, "color": "#3B82F6", "contact_email": "csm-americas@visiban.example",  "notes": "US + Canada + LATAM accounts. CSM: Alex Rivera."},
-        {"name": "EMEA",               "position": 1, "color": "#8B5CF6", "contact_email": "csm-emea@visiban.example",      "notes": "Europe, Middle East, Africa. CSM: Jordan Patel."},
-        {"name": "APAC",               "position": 2, "color": "#10B981", "contact_email": "csm-apac@visiban.example",      "notes": "Australia, Japan, SE Asia. CSM: Morgan Wu."},
-        {"name": "Enterprise Accounts","position": 3, "color": "#F59E0B", "contact_email": "enterprise-cs@visiban.example", "notes": "200+ seat strategic accounts managed directly by VP CS."},
-        {"name": "Mid-Market",         "position": 4, "color": "#EF4444", "contact_email": "midmarket-cs@visiban.example",  "notes": "20-200 seat accounts. CSM coverage pooled."},
-    ],
-    "labels": [
-        {"name": "At Risk",               "color": "#EF4444"},
-        {"name": "Champion",              "color": "#10B981"},
-        {"name": "Expansion Opportunity", "color": "#F59E0B"},
-        {"name": "Renewal Due",           "color": "#F97316"},
-        {"name": "QBR Needed",            "color": "#8B5CF6"},
-    ],
-    "extra_cards": [
-        # Americas
-        _c("Bright Solutions Inc — Onboarding", "Onboarding", "Americas", "high", 14, 4, ["Champion"],
-           _chk("+Kickoff call completed", "+Admin users set up", "Board templates configured", "Training session scheduled"),
-           [_cmt("Kickoff went great. Primary admin is Taylor Chen — very technical, will be self-sufficient quickly.", "demo1")],
-           desc="New 150-seat account in onboarding phase. Strong champion in Taylor Chen (Head of Engineering). Technical team is eager to self-configure."),
-        _c("RocketOps LLC — Adoption", "Adoption", "Americas", "medium", 21, 3, ["QBR Needed"],
-           _chk("+Initial boards created", "+Team training completed", "Review board utilization metrics", "Schedule QBR"),
-           desc="60-seat account in adoption. Board creation is good (12 boards) but only 30% of seats have been active in the last 30 days. QBR scheduled to review adoption blockers."),
-        _c("Cirrus Analytics — Healthy", "Healthy", "Americas", "medium", None, 3, ["Champion"],
-           _chk("+Onboarding completed", "+DAU/MAU above 70%", "+Champion identified: VP Product"),
-           desc="80-seat account in healthy state. VP Product (Jordan Lee) is an active champion and has recommended Visiban to two other companies in their portfolio."),
-        _c("Vertex Media — Expansion", "Expansion", "Americas", "high", 10, 5, ["Expansion Opportunity"],
-           _chk("+Current usage at 95% seat capacity", "+Expansion proposal drafted", "Present to CFO", "Update commercial terms"),
-           [_cmt("They've grown from 40 to 75 active users. Seat expansion from 80 to 150 is the right next step.", "demo2")],
-           desc="80-seat account is nearly at full capacity with 75 active users. Expansion to 150 seats in discussion. CFO meeting scheduled."),
-
-        # EMEA
-        _c("Polaris Engineering GmbH — Onboarding", "Onboarding", "EMEA", "medium", 18, 3, ["Champion"],
-           _chk("+GDPR DPA signed", "+SSO configured", "Admin training completed", "First boards live"),
-           desc="New 120-seat German engineering firm. GDPR DPA signed. SSO configured via Azure AD. First boards going live this week."),
-        _c("Meridian Consulting UK — Adoption", "Adoption", "EMEA", "high", 7, 4, ["At Risk", "QBR Needed"],
-           _chk("+Training session completed", "Investigate low adoption (35% DAU)", "Identify internal champion", "QBR within 2 weeks"),
-           [_cmt("Adoption is low — only 35% of seats active. Likely an internal champion problem. Need to identify a power user.", "demo3")],
-           desc="100-seat UK consulting firm. 60 days post-onboarding and adoption is at 35% DAU. Risk of churn if we don't identify an internal champion quickly."),
-        _c("Solaris Digital — Healthy", "Healthy", "EMEA", "low", None, 2, [],
-           _chk("+Fully onboarded", "+85% seat utilization", "+Self-service"),
-           desc="40-seat digital agency in healthy state. Self-sufficient — no CSM intervention needed. Utilization is strong at 85%."),
-        _c("Atlas Logistics BV — Renewal", "Renewal", "EMEA", "urgent", 8, 6, ["Renewal Due", "Expansion Opportunity"],
-           _chk("+Renewal proposal sent", "+Champion confirmed continuation", "Legal review in progress", "Close before end of month"),
-           [_cmt("1-year renewal + 30-seat expansion. Champion is pushing hard internally. Legal review is the only remaining blocker.", "demo1"),
-            _cmt("Need to close this month — affects Q1 revenue target.", "demo4")],
-           desc="200-seat logistics company renewal due in 10 days. Champion wants to add 30 seats. Legal review is the only open item."),
-
-        # APAC
-        _c("Nexus Software — Onboarding", "Onboarding", "APAC", "medium", 21, 3, [],
-           _chk("+Kickoff call done", "+Admin setup complete", "Board templates configured", "Technical training scheduled"),
-           desc="50-seat Singapore software firm. Smooth onboarding — CTO is doing all admin setup personally, which is a great sign."),
-        _c("Harbor Tech — Adoption", "Adoption", "APAC", "medium", None, 3, ["QBR Needed"],
-           _chk("+Boards created", "Check feature adoption breadth", "Schedule QBR to review Analytics tab usage"),
-           desc="80-seat Sydney firm 45 days post-onboarding. Board creation strong but advanced features (Analytics, History) underutilized. QBR to drive feature depth."),
-        _c("Pacific Ventures — Healthy", "Healthy", "APAC", "low", None, 2, ["Champion"],
-           _chk("+NPS score: 9", "+Champion: Head of Product"),
-           desc="30-seat VC fund in healthy state. Head of Product is an NPS 9. Will ask for reference call next quarter."),
-        _c("Koala Systems — Churned", "Churned", "APAC", "medium", -30, 4, ["At Risk"],
-           _chk("+Exit interview completed", "+Churn reason logged: price", "+Feedback shared with product team"),
-           [_cmt("Churned to a cheaper tool. Price was the stated reason but low adoption was the real issue. Logged feedback.", "demo2"),
-            _cmt("Will re-engage in 12 months when contract with competitor expires.", "demo5")],
-           desc="40-seat Melbourne firm churned at renewal. Low adoption (25% DAU) meant low perceived value. Price sensitivity was the stated objection."),
-
-        # Enterprise Accounts
-        _c("TechNova Inc — Healthy", "Healthy", "Enterprise Accounts", "low", None, 4, ["Champion"],
-           _chk("+500 seats active", "+Executive sponsor confirmed", "+QBR completed Q1"),
-           desc="500-seat enterprise account in healthy state. Executive sponsor is CTO. QBR completed with high satisfaction scores."),
-        _c("BlueSky Health — Adoption", "Adoption", "Enterprise Accounts", "high", 14, 5, ["QBR Needed"],
-           _chk("+Onboarding completed", "Drive adoption across clinical teams", "QBR with VP Operations", "Review HIPAA feature usage"),
-           [_cmt("200 seats active but mostly in IT. Clinical teams haven't adopted yet. QBR with VP Ops next week.", "demo1")],
-           desc="200-seat healthcare enterprise 60 days post-onboarding. IT adoption is strong but clinical team adoption is lagging. QBR scheduled."),
-        _c("Global Freight Co — Expansion", "Expansion", "Enterprise Accounts", "high", 12, 6, ["Expansion Opportunity"],
-           _chk("+Current: 300 seats at 97% utilization", "+Expansion proposal: 500 seats", "VP CS presenting to CFO", "Update commercial agreement"),
-           [_cmt("Growing fast — they've added 3 new business units since signing. 500-seat expansion is justified by headcount alone.", "demo3")],
-           desc="300-seat freight company at 97% seat utilization. Headcount growth of 3 new business units makes 500-seat expansion a natural next step."),
-        _c("Pinnacle Finance — Renewal", "Renewal", "Enterprise Accounts", "urgent", 5, 7, ["Renewal Due", "Expansion Opportunity"],
-           _chk("+3-year renewal proposal sent", "+Champion confirmed", "CFO review in progress", "SOC 2 report sent to procurement"),
-           [_cmt("CFO wants a 3-year deal with locked pricing. Working with RevOps on multi-year discount model.", "demo2"),
-            _cmt("SOC 2 Type II report sent — last open legal item resolved.", "demo4")],
-           desc="400-seat financial services firm renewal. Proposing a 3-year deal. CFO is actively involved. SOC 2 compliance documentation provided."),
-
-        # Mid-Market
-        _c("Redwood Agency — Onboarding", "Onboarding", "Mid-Market", "medium", 14, 3, [],
-           _chk("+Welcome email sent", "+Admin onboarding call done", "Team invites sent", "First board created"),
-           desc="25-seat creative agency. Quick onboarding — CEO and two managers are the primary users. First board live."),
-        _c("Ironside Manufacturing — Adoption", "Adoption", "Mid-Market", "medium", 21, 3, ["At Risk"],
-           _chk("+Training done", "Identify a champion in ops team", "Check for support tickets", "Follow-up call in 1 week"),
-           [_cmt("Low login rate 30 days after onboarding. No assigned champion. Needs proactive outreach.", "demo1")],
-           desc="75-seat manufacturing company with low adoption 30 days post-onboarding. No clear champion identified yet. At-risk of churning at 90 days."),
-        _c("Skyline Retail — Healthy", "Healthy", "Mid-Market", "low", None, 2, [],
-           _chk("+60% DAU", "+Champion: Ops Manager", "+Last NPS: 8"),
-           desc="50-seat retail company in healthy state. Ops Manager is an engaged power user. Consistent 60% DAU for 3+ months."),
-        _c("Fusion Labs — Churned", "Churned", "Mid-Market", "medium", -45, 3, ["At Risk"],
-           _chk("+Exit survey completed", "+Churn reason: consolidating to Notion", "+Feedback logged"),
-           [_cmt("Consolidating their toolset to Notion. Not a price issue — they want a single tool for docs + boards. We don't have a docs offering.", "demo3")],
-           desc="35-seat startup churned mid-term. Consolidating to Notion for combined docs and boards. Product feedback logged for roadmap consideration."),
-    ],
+    "columns": _SUCCESS_COLUMNS,
+    "swimlanes": _SUCCESS_SWIMLANES,
+    "labels": _SUCCESS_LABELS,
+    "extra_cards": _auto_cards(_SUCCESS_TITLES, _SUCCESS_COLUMNS, _SUCCESS_SWIMLANES, _SUCCESS_LABELS, "success"),
 }
 
 
 # ── 4. Simple Kanban ──────────────────────────────────────────────────────────
+
+_KANBAN_COLUMNS = [
+    {"name": "Backlog", "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
+    {"name": "To Do",   "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Doing",   "position": 2, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Review",  "position": 3, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Done",    "position": 4, "color": "#10B981", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+]
+
+_KANBAN_SWIMLANES = [
+    {"name": "Frontend",      "position": 0,  "color": "#3B82F6", "contact_email": "", "notes": "React + TypeScript. Owns all UI components, pages, and the design system."},
+    {"name": "Backend",       "position": 1,  "color": "#8B5CF6", "contact_email": "", "notes": "Django + DRF. Owns API, data models, business logic, and background tasks."},
+    {"name": "Mobile",        "position": 2,  "color": "#EC4899", "contact_email": "", "notes": "React Native. iOS + Android. Syncs with main API."},
+    {"name": "DevOps",        "position": 3,  "color": "#14B8A6", "contact_email": "", "notes": "CI/CD, infrastructure, reliability, and monitoring."},
+    {"name": "Design",        "position": 4,  "color": "#F59E0B", "contact_email": "", "notes": "UX/UI design, design system, user research."},
+    {"name": "QA",            "position": 5,  "color": "#EF4444", "contact_email": "", "notes": "Manual and automated testing. Regression suites and exploratory testing."},
+    {"name": "Data",          "position": 6,  "color": "#10B981", "contact_email": "", "notes": "Data engineering and analytics. Pipelines, dashboards, and reporting."},
+    {"name": "Security",      "position": 7,  "color": "#6366F1", "contact_email": "", "notes": "Application security, penetration testing, and compliance audits."},
+    {"name": "Platform",      "position": 8,  "color": "#0EA5E9", "contact_email": "", "notes": "Shared libraries, SDKs, developer tooling, and internal APIs."},
+    {"name": "Documentation", "position": 9,  "color": "#F43F5E", "contact_email": "", "notes": "Technical writing, API docs, user guides, and onboarding materials."},
+]
+
+_KANBAN_LABELS = [
+    {"name": "Bug",       "color": "#EF4444"},
+    {"name": "Feature",   "color": "#3B82F6"},
+    {"name": "Improve",   "color": "#10B981"},
+    {"name": "Tech Debt", "color": "#9CA3AF"},
+    {"name": "Blocked",   "color": "#F97316"},
+]
+
+_KANBAN_TITLES = [
+    # Frontend
+    "Accessible focus rings on all interactive elements",
+    "Implement card search with debounce",
+    "Extract color token constants to design-system package",
+    "Optimistic update for card weight field",
+    "Responsive board layout for tablet breakpoints",
+    "Keyboard shortcut overlay modal",
+    "Virtualized card list for boards with 500+ cards",
+    "Dark mode toggle persistence across sessions",
+    "Drag preview ghost image polish for Safari",
+    "Card detail modal transition animation",
+    "Swimlane header sticky positioning on scroll",
+    "Board skeleton loader during initial fetch",
+    # Backend
+    "Add cursor-based pagination to card list endpoint",
+    "Rate limiting on public invite accept endpoint",
+    "Bulk card archive endpoint",
+    "N+1 fix on /api/boards/ list endpoint",
+    "WebSocket reconnection with exponential backoff",
+    "Card movement audit trail compression for old records",
+    "Background task for stale card due date notifications",
+    "Database index on card.position for sort performance",
+    "API versioning header support for v2 endpoints",
+    "Soft delete for archived boards with 30-day retention",
+    "Batch webhook delivery for high-frequency board events",
+    "Rate limit middleware per-user token bucket",
+    # Mobile
+    "Card swipe gestures for quick archive",
+    "Fix card drag on iOS 17 with new UIKit scroll fix",
+    "Push notification for card assignment",
+    "Offline mode: queue moves while disconnected",
+    "Biometric authentication for app unlock",
+    "Pull-to-refresh on board view",
+    "Haptic feedback on card drop",
+    "Deep link to specific card from notification",
+    "Widget for due-date cards on home screen",
+    "Camera attachment flow from card detail",
+    "Landscape mode layout for tablets",
+    "App size reduction: remove unused assets",
+    # DevOps
+    "Rotate CI/CD secrets -- 90-day policy",
+    "Add Prometheus metrics to API gateway",
+    "Kubernetes pod autoscaling HPA tuning",
+    "Zero-downtime deployment runbook",
+    "Set up staging environment auto-teardown after 7 days",
+    "Migrate CI runners to ARM64 for cost savings",
+    "Implement canary deployment pipeline stage",
+    "Database backup verification cron job",
+    "Log aggregation: ship to Loki instead of CloudWatch",
+    "Terraform state locking with DynamoDB",
+    "Container image vulnerability scanning in CI",
+    "CDN cache invalidation automation on deploy",
+    # Design
+    "Component audit -- identify inconsistent spacing",
+    "Redesign empty state illustrations",
+    "User research: onboarding friction study",
+    "Dark mode color system -- token audit",
+    "Card priority badge redesign for color-blind users",
+    "Swimlane collapse animation prototype",
+    "Board settings modal layout overhaul",
+    "Typography scale standardization across all pages",
+    "Icon set migration from Heroicons v1 to v2",
+    "Mobile navigation bottom sheet pattern",
+    "Loading state skeleton design tokens",
+    "Accessibility audit report and remediation plan",
+    # QA
+    "End-to-end test suite for card move flow",
+    "Visual regression testing with Playwright screenshots",
+    "API contract testing with Pact",
+    "Load testing board view with 1000 cards using k6",
+    "Cross-browser smoke test matrix for board drag-and-drop",
+    "Accessibility automated scan with axe-core in CI",
+    "Regression test for CSV import edge cases",
+    "Mobile device farm testing on BrowserStack",
+    "Performance benchmark: board load time p95 tracking",
+    "Chaos engineering: simulate WebSocket disconnects",
+    "Test data factory for seed board generation",
+    "Flaky test quarantine and auto-retry pipeline",
+    # Data
+    "ETL pipeline for board analytics warehouse",
+    "Real-time dashboard for card throughput metrics",
+    "User cohort analysis: retention by signup month",
+    "Board activity heatmap aggregation job",
+    "Data quality checks for movement audit trail",
+    "Anomaly detection on card cycle time outliers",
+    "Weekly email digest: board health scorecard",
+    "Migration from Redshift to ClickHouse for analytics",
+    "GDPR data deletion pipeline for churned accounts",
+    "A/B test framework for onboarding flow experiments",
+    "Custom event tracking for swimlane interactions",
+    "Data catalog documentation for analytics tables",
+    # Security
+    "Penetration test remediation: XSS in card description",
+    "CSRF token rotation policy enforcement",
+    "API key scope restriction for third-party integrations",
+    "Dependency vulnerability scan and patch cycle",
+    "Security headers audit: HSTS, CSP, X-Frame-Options",
+    "Rate limit bypass investigation on auth endpoints",
+    "Secret scanning in CI for accidentally committed tokens",
+    "OAuth token refresh flow hardening",
+    "IP allowlisting for admin panel access",
+    "Audit log tamper detection with hash chaining",
+    "RBAC permission matrix documentation and test",
+    "Incident response runbook update for data breach scenario",
+    # Platform
+    "Shared TypeScript SDK for API consumers",
+    "Internal CLI tool for seed data generation",
+    "GraphQL gateway proof of concept",
+    "Feature flag service integration with LaunchDarkly",
+    "Shared error boundary component for micro-frontends",
+    "API client retry logic with idempotency keys",
+    "Event bus abstraction for cross-service messaging",
+    "Shared date/time utility library with timezone handling",
+    "Developer onboarding script: one-command local setup",
+    "Internal package registry for shared npm modules",
+    "OpenAPI spec generation from DRF serializers",
+    "Monorepo migration feasibility study",
+    # Documentation
+    "API reference overhaul with interactive examples",
+    "Getting started guide for new self-hosted users",
+    "Webhook event catalog with payload schemas",
+    "Architecture decision records for major choices",
+    "Runbook: how to restore a deleted board",
+    "FAQ page for common support questions",
+    "Video tutorial: setting up your first board",
+    "Migration guide from Trello to Visiban",
+    "Admin configuration reference for all env vars",
+    "Changelog writing guidelines for contributors",
+    "Glossary of Visiban-specific terms",
+    "Release notes template for minor and major versions",
+]
+
 SIMPLE_KANBAN = {
     "slug": "simple_kanban",
     "name": "Template: Simple Kanban",
     "description": "General-purpose kanban for any team. Each swimlane is a team or workstream; each card is a work item.",
-    "columns": [
-        {"name": "Backlog", "position": 0, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
-        {"name": "To Do",   "position": 1, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Doing",   "position": 2, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Review",  "position": 3, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Done",    "position": 4, "color": "#10B981", "wip_limit": None, "allow_card_creation": False},
-    ],
-    "swimlanes": [
-        {"name": "Frontend", "position": 0, "color": "#3B82F6", "contact_email": "", "notes": "React + TypeScript. Owns all UI components, pages, and the design system."},
-        {"name": "Backend",  "position": 1, "color": "#8B5CF6", "contact_email": "", "notes": "Django + DRF. Owns API, data models, business logic, and background tasks."},
-        {"name": "Mobile",   "position": 2, "color": "#EC4899", "contact_email": "", "notes": "React Native. iOS + Android. Syncs with main API."},
-        {"name": "DevOps",   "position": 3, "color": "#14B8A6", "contact_email": "", "notes": "CI/CD, infrastructure, reliability, and monitoring."},
-        {"name": "Design",   "position": 4, "color": "#F59E0B", "contact_email": "", "notes": "UX/UI design, design system, user research."},
-    ],
-    "labels": [
-        {"name": "Bug",       "color": "#EF4444"},
-        {"name": "Feature",   "color": "#3B82F6"},
-        {"name": "Improve",   "color": "#10B981"},
-        {"name": "Tech Debt", "color": "#9CA3AF"},
-        {"name": "Blocked",   "color": "#F97316"},
-    ],
-    "extra_cards": [
-        # Frontend extras (existing has ~4; add 4 more)
-        _c("Accessible focus rings on all interactive elements", "To Do", "Frontend", "medium", 15, 2, ["Improve"],
-           _chk("Audit all buttons and links", "Add focus-visible ring via Tailwind", "Test with keyboard navigation"),
-           desc="Several interactive elements (dropdown items, modal close buttons) are missing visible focus rings. Fails WCAG 2.1 AA for keyboard users."),
-        _c("Implement card search with debounce", "Doing", "Frontend", "high", 6, 3, ["Feature"],
-           _chk("+Wire up search input to API", "+Debounce at 300ms", "Handle empty state", "Add loading indicator"),
-           [_cmt("API endpoint is ready. Just need to wire up the frontend debounce and empty state.", "demo2")],
-           desc="Card search input needs proper debouncing to avoid spamming the API on every keystroke. Backend endpoint is already live."),
-        _c("Extract color token constants to design-system package", "Backlog", "Frontend", "low", 45, 2, ["Tech Debt"],
-           _chk("Audit all hardcoded hex values in components", "Move to tokens.ts", "Update all import sites"),
-           desc="Several components still use hardcoded hex color strings instead of importing from the design system token file. Low priority cleanup."),
-        _c("Optimistic update for card weight field", "Review", "Frontend", "medium", 4, 3, ["Improve"],
-           _chk("+Implement optimistic update on weight change", "+Rollback on API error", "Write test"),
-           [_cmt("Weight field was the last field without optimistic update. Good to close this gap.", "demo1")],
-           desc="The weight field on card detail was the last non-optimistic editable field. Change is now reflected immediately in the UI, with rollback on API error."),
-
-        # Backend extras
-        _c("Add cursor-based pagination to card list endpoint", "To Do", "Backend", "medium", 18, 4, ["Improve"],
-           _chk("Implement cursor pagination in DRF", "Update API docs", "Add test for large result sets"),
-           desc="The card list endpoint uses page-number pagination which breaks under concurrent mutations. Cursor-based pagination is required for stable infinite scroll."),
-        _c("Rate limiting on public invite accept endpoint", "Backlog", "Backend", "high", 25, 3, ["Improve"],
-           _chk("Add throttle class to invite accept view", "Set limit: 10/min per IP", "Return 429 with Retry-After"),
-           desc="The public invite accept endpoint has no rate limiting, making it a vector for scraping valid invite tokens. Need throttle at 10 requests/min per IP."),
-        _c("Bulk card archive endpoint", "Doing", "Backend", "medium", 8, 3, ["Feature"],
-           _chk("+Design endpoint schema", "+Implement POST /cards/bulk-archive/", "Add permission check", "Write tests"),
-           [_cmt("FR-077 from customer support. Endpoint design approved. Implementing now.", "demo3")],
-           desc="New bulk archive endpoint: `POST /api/boards/{id}/cards/bulk-archive/` accepts a list of card IDs. Required by the bulk action toolbar feature."),
-        _c("N+1 fix on /api/boards/ list endpoint", "Done", "Backend", "high", -5, 4, ["Improve"],
-           _chk("+Profiled with django-debug-toolbar", "+Added select_related for owner and group", "+Reduced queries from 48 to 3", "+Performance test added"),
-           [_cmt("Was doing 48 queries for a list of 20 boards. Now 3 queries. 200ms → 12ms on staging.", "demo1"),
-            _cmt("Impressive improvement. Merging.", "demo4")],
-           desc="Board list endpoint was issuing 48 SQL queries for 20 boards due to missing select_related on owner and group FKs. Reduced to 3 queries."),
-
-        # Mobile extras
-        _c("Card swipe gestures for quick archive", "Backlog", "Mobile", "low", 40, 3, ["Feature"],
-           _chk("Design swipe gesture UX", "Implement left-swipe to archive", "Add undo toast"),
-           desc="Power users on mobile want to quickly archive a card by swiping left, similar to email apps. Undo toast required."),
-        _c("Fix card drag on iOS 17 with new UIKit scroll fix", "Doing", "Mobile", "high", 5, 5, ["Bug"],
-           _chk("+Confirmed bug on iOS 17.4", "Test React Native gesture handler v2.16", "Check dnd-kit mobile branch"),
-           [_cmt("iOS 17.4 changed how UIScrollView interacts with custom gesture recognizers. React Native Gesture Handler 2.16 has a fix.", "demo2")],
-           desc="Card drag-and-drop is broken on iOS 17.4 — the card lifts but immediately drops to its original position. Confirmed React Native Gesture Handler regression."),
-        _c("Push notification for card assignment", "Review", "Mobile", "medium", 7, 4, ["Feature"],
-           _chk("+APNs integration complete", "+FCM integration complete", "+Notification payload implemented", "End-to-end test on device"),
-           [_cmt("Both APNs and FCM are wired up. Just need a real-device E2E test before merging.", "demo3")],
-           desc="Push notifications for card assignment events. APNs (iOS) and FCM (Android) both integrated. Awaiting final E2E device test."),
-        _c("Offline mode: queue moves while disconnected", "Doing", "Mobile", "high", 10, 6, ["Feature"],
-           _chk("+Design offline queue schema", "+Persist to AsyncStorage", "Sync on reconnect with conflict detection", "Handle stale-move error"),
-           [_cmt("Storage layer done. The tricky part is handling the 409 conflict case when a card was moved by someone else while offline.", "demo1")],
-           desc="Mobile users on patchy networks need to queue card moves locally and sync when connectivity is restored. Conflict detection on sync is the main challenge."),
-
-        # DevOps extras
-        _c("Rotate CI/CD secrets — 90-day policy", "To Do", "DevOps", "medium", 12, 2, ["Improve"],
-           _chk("Audit all secrets in GitLab CI variables", "Rotate AWS keys and update CI", "Rotate DB credentials", "Update runbook"),
-           desc="90-day secret rotation is due. All CI/CD secrets (AWS access keys, DB credentials, S3 keys) need rotation per security policy."),
-        _c("Add Prometheus metrics to API gateway", "Backlog", "DevOps", "medium", 30, 4, ["Feature"],
-           _chk("Define SLI metrics (p50, p95, p99 latency)", "Add prometheus_client to Django", "Configure scrape in Prometheus", "Build Grafana dashboard"),
-           desc="API gateway latency and error rate metrics are currently only visible in CloudWatch. Need Prometheus-compatible metrics endpoint for unified observability."),
-        _c("Kubernetes pod autoscaling HPA tuning", "Doing", "DevOps", "high", 5, 5, ["Improve"],
-           _chk("+Analyze CPU/memory usage patterns over 30 days", "+Set HPA minReplicas=2, maxReplicas=10", "Load test with k6", "Deploy to production"),
-           [_cmt("Current HPA is scaling too aggressively — pods spinning up on minor traffic spikes. Tuning CPU threshold from 50% to 70%.", "demo2")],
-           desc="Kubernetes HPA is over-scaling on minor traffic spikes, increasing costs. Tuning CPU utilization threshold and smoothing window based on 30-day usage analysis."),
-        _c("Zero-downtime deployment runbook", "Done", "DevOps", "medium", -10, 3, ["Improve"],
-           _chk("+Documented blue-green deployment steps", "+Added health check verification step", "+Reviewed by backend team", "+Committed to ops runbook repo"),
-           [_cmt("Runbook covers blue-green deploy, DB migration safety, and rollback procedure. Reviewed and approved.", "demo4")],
-           desc="Zero-downtime deployment runbook written and reviewed. Covers blue-green deployment, pre-deploy DB migration check, and rollback procedure."),
-
-        # Design extras
-        _c("Component audit — identify inconsistent spacing", "Backlog", "Design", "low", 35, 2, ["Improve"],
-           _chk("Audit all components in Figma", "Document spacing violations", "Propose standard 4/8/16/24px grid"),
-           desc="Spacing across components is inconsistent — some use 6px gaps, others 8px, others 12px. Audit needed to propose a consistent 4px baseline grid."),
-        _c("Redesign empty state illustrations", "To Do", "Design", "medium", 20, 3, ["Improve"],
-           _chk("Define 5 empty state scenarios", "Sketch illustration concepts", "Get team feedback", "Export to design system"),
-           desc="Current empty states use generic text only. Replacing with lightweight illustrations will improve first-time user experience and onboarding perception."),
-        _c("User research: onboarding friction study", "Review", "Design", "high", 8, 4, ["Improve"],
-           _chk("+Recruited 8 participants", "+Ran 6 moderated sessions", "+Synthesized findings", "Present to product team"),
-           [_cmt("Key finding: 4 of 6 participants didn't discover swimlanes until prompted. Onboarding needs a swimlane-first framing.", "demo2"),
-            _cmt("Also found that the 'Add column' button is frequently missed. Need stronger visual hierarchy.", "demo1")],
-           desc="Moderated usability sessions with 6 new users. Key findings: swimlane discovery is poor, and the add-column affordance is missed. Presenting recommendations to product."),
-        _c("Dark mode color system — token audit", "Done", "Design", "medium", -7, 3, ["Improve"],
-           _chk("+Audited all 140 color tokens", "+Removed 23 duplicate tokens", "+Published updated token set", "+Dev handoff complete"),
-           [_cmt("Token count down from 140 to 117. All slate variants now consistent. Figma tokens plugin synced.", "demo3")],
-           desc="Full audit of dark mode color tokens. Removed 23 redundant tokens, standardized all slate variants, and published the updated token set to the design system."),
-    ],
+    "columns": _KANBAN_COLUMNS,
+    "swimlanes": _KANBAN_SWIMLANES,
+    "labels": _KANBAN_LABELS,
+    "extra_cards": _auto_cards(_KANBAN_TITLES, _KANBAN_COLUMNS, _KANBAN_SWIMLANES, _KANBAN_LABELS, "kanban"),
 }
 
 
 # ── 5. Product Roadmap ────────────────────────────────────────────────────────
+
+_ROADMAP_COLUMNS = [
+    {"name": "Idea",       "position": 0, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Validated",  "position": 1, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
+    {"name": "Scoped",     "position": 2, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Prioritized","position": 3, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
+    {"name": "In Build",   "position": 4, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Beta",       "position": 5, "color": "#EC4899", "wip_limit": None, "allow_card_creation": False},
+    {"name": "Launched",   "position": 6, "color": "#10B981", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+    {"name": "Monitoring", "position": 7, "color": "#14B8A6", "wip_limit": None, "allow_card_creation": False},
+]
+
+_ROADMAP_SWIMLANES = [
+    {"name": "Mobile App",            "position": 0,  "color": "#EC4899", "contact_email": "", "notes": "iOS and Android. Targets field workers and on-the-go board access."},
+    {"name": "Core Platform",         "position": 1,  "color": "#3B82F6", "contact_email": "", "notes": "Web app, API, and shared infrastructure features."},
+    {"name": "Integrations",          "position": 2,  "color": "#10B981", "contact_email": "", "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, webhooks."},
+    {"name": "Analytics",             "position": 3,  "color": "#F59E0B", "contact_email": "", "notes": "Board analytics, cycle time, throughput, and reporting features."},
+    {"name": "Compliance & Security", "position": 4,  "color": "#8B5CF6", "contact_email": "", "notes": "GDPR, SOC 2, audit logging, and security hardening features."},
+    {"name": "Collaboration",         "position": 5,  "color": "#14B8A6", "contact_email": "", "notes": "Real-time collaboration, comments, mentions, and notification features."},
+    {"name": "Import & Export",       "position": 6,  "color": "#6366F1", "contact_email": "", "notes": "Data portability: CSV, JSON, API bulk operations, and migration tools."},
+    {"name": "Automation",            "position": 7,  "color": "#0EA5E9", "contact_email": "", "notes": "Rule-based automation: auto-move, auto-assign, scheduled actions."},
+    {"name": "Admin & Settings",      "position": 8,  "color": "#F43F5E", "contact_email": "", "notes": "Board and site administration, user management, billing, and configuration."},
+    {"name": "Search & Discovery",    "position": 9,  "color": "#EAB308", "contact_email": "", "notes": "Full-text search, filtering, saved views, and cross-board discovery."},
+]
+
+_ROADMAP_LABELS = [
+    {"name": "Core",       "color": "#3B82F6"},
+    {"name": "Platform",   "color": "#8B5CF6"},
+    {"name": "UX",         "color": "#EC4899"},
+    {"name": "Compliance", "color": "#F97316"},
+    {"name": "AI / ML",    "color": "#10B981"},
+]
+
+_ROADMAP_TITLES = [
+    # Mobile App
+    "Offline-first card editing",
+    "Apple Watch complication -- card due dates",
+    "Barcode scanner for card attachment",
+    "Push notification preferences",
+    "Mobile board creation wizard",
+    "Gesture-based card priority change",
+    "Mobile-optimized analytics dashboard",
+    "Voice-to-card creation via Siri Shortcuts",
+    "Tablet split-view for board and card detail",
+    "Mobile app widget for assigned cards count",
+    "Biometric lock for sensitive boards",
+    "Camera-to-checklist OCR for handwritten lists",
+    # Core Platform
+    "AI card description generator",
+    "Card templates library",
+    "Multi-board card linking",
+    "Board activity feed",
+    "Real-time collaboration cursors",
+    "Card dependency graph visualization",
+    "Board versioning and snapshot restore",
+    "Custom card fields per board",
+    "Bulk card operations toolbar",
+    "Board cloning with selective content",
+    "Card cover images from attachments",
+    "Recurring cards on a schedule",
+    # Integrations
+    "Slack /visiban command",
+    "GitHub PR to card status sync",
+    "Zapier integration -- GA",
+    "CSV import with column mapping UI",
+    "Jira two-way sync for hybrid teams",
+    "Microsoft Teams bot for card notifications",
+    "Linear import tool for migrating teams",
+    "Webhook retry dashboard with manual replay",
+    "Google Calendar sync for card due dates",
+    "Figma embed in card description",
+    "PagerDuty integration for incident boards",
+    "Notion page link preview in card comments",
+    # Analytics
+    "Cumulative flow diagram",
+    "Cycle time histogram",
+    "Throughput report -- weekly/monthly",
+    "Analytics API -- public endpoints",
+    "Swimlane dwell time heatmap",
+    "Card aging distribution chart",
+    "WIP limit violation trend report",
+    "Team velocity comparison across boards",
+    "Bottleneck detection with AI recommendations",
+    "Custom date range selector for all analytics",
+    "Exportable analytics PDF report",
+    "Lead time vs cycle time breakdown",
+    # Compliance & Security
+    "GDPR right-to-erasure automation",
+    "SOC 2 Type II -- audit logging",
+    "Mandatory 2FA for site admins",
+    "Content Security Policy headers",
+    "Data residency region selector",
+    "Session management dashboard for admins",
+    "IP allowlisting for board access",
+    "Encrypted card attachments at rest",
+    "Compliance export with chain-of-custody metadata",
+    "Role-based API key scoping",
+    "Automated vulnerability disclosure page",
+    "Password policy enforcement for local accounts",
+    # Collaboration
+    "Real-time card editing with conflict resolution",
+    "@mention autocomplete in card comments",
+    "Thread replies on card comments",
+    "Card watchers with selective notifications",
+    "Board-level announcement banner",
+    "Emoji reactions on card comments",
+    "Shared board templates marketplace",
+    "Guest access with time-limited invites",
+    "Activity digest email -- daily summary",
+    "Inline image paste in card description",
+    "Card handoff protocol between swimlanes",
+    "Team presence indicators on board view",
+    # Import & Export
+    "Trello board importer",
+    "Asana project importer",
+    "Monday.com board importer",
+    "Board export to PDF with layout preservation",
+    "Bulk card export with movement history",
+    "API bulk create endpoint for programmatic imports",
+    "Scheduled automatic board backup to S3",
+    "Board archive export as ZIP with attachments",
+    "Cross-board card migration tool",
+    "Import validation report with error details",
+    "Export board as static HTML for sharing",
+    "Migration dry-run mode with preview",
+    # Automation
+    "Auto-move card when all checklist items checked",
+    "Auto-assign based on swimlane routing rules",
+    "Scheduled card creation for recurring tasks",
+    "SLA timer with automatic escalation column move",
+    "Auto-archive cards after 30 days in Done column",
+    "Trigger webhook on card field change",
+    "Auto-label based on card title keywords",
+    "Due date auto-set based on column entry",
+    "Card priority auto-escalation as due date approaches",
+    "Auto-notify assignee when card enters Review column",
+    "Rule builder UI for custom automation workflows",
+    "Automation audit log with undo capability",
+    # Admin & Settings
+    "Board-level permission templates",
+    "User provisioning via SCIM",
+    "Custom domain for self-hosted instances",
+    "Billing dashboard with seat usage analytics",
+    "Admin audit log with search and export",
+    "Board archival policy with auto-archive after inactivity",
+    "Global notification settings override for admins",
+    "Customizable card detail layout per board",
+    "Site-wide announcement system for maintenance windows",
+    "User deactivation with data reassignment workflow",
+    "Multi-tenant isolation for managed hosting",
+    "Admin dashboard: system health and usage overview",
+    # Search & Discovery
+    "Full-text search across all boards and cards",
+    "Saved filter views per board",
+    "Cross-board card search with unified results",
+    "Search by card movement history",
+    "Filter cards by assignee across all boards",
+    "Smart suggestions: recently viewed cards",
+    "Search within card comments and checklists",
+    "Keyboard-driven command palette for navigation",
+    "Saved search alerts with email notifications",
+    "Board directory with search and categorization",
+    "Tag-based card grouping across swimlanes",
+    "AI-powered search with natural language queries",
+]
+
 PRODUCT_ROADMAP = {
     "slug": "product_roadmap",
     "name": "Template: Product Roadmap",
     "description": "Track features from idea through launch and monitoring. Each swimlane is a product area; each card is a feature or initiative.",
-    "columns": [
-        {"name": "Idea",       "position": 0, "color": "#8B5CF6", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Validated",  "position": 1, "color": "#6B7280", "wip_limit": None, "allow_card_creation": True},
-        {"name": "Scoped",     "position": 2, "color": "#3B82F6", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Prioritized","position": 3, "color": "#F97316", "wip_limit": None, "allow_card_creation": False},
-        {"name": "In Build",   "position": 4, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Beta",       "position": 5, "color": "#EC4899", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Launched",   "position": 6, "color": "#10B981", "wip_limit": None, "allow_card_creation": False},
-        {"name": "Monitoring", "position": 7, "color": "#14B8A6", "wip_limit": None, "allow_card_creation": False},
-    ],
-    "swimlanes": [
-        {"name": "Mobile App",            "position": 0, "color": "#EC4899", "contact_email": "", "notes": "iOS and Android. Targets field workers and on-the-go board access."},
-        {"name": "Core Platform",         "position": 1, "color": "#3B82F6", "contact_email": "", "notes": "Web app, API, and shared infrastructure features."},
-        {"name": "Integrations",          "position": 2, "color": "#10B981", "contact_email": "", "notes": "Third-party integrations: Slack, GitHub, Jira, Zapier, webhooks."},
-        {"name": "Analytics",             "position": 3, "color": "#F59E0B", "contact_email": "", "notes": "Board analytics, cycle time, throughput, and reporting features."},
-        {"name": "Compliance & Security", "position": 4, "color": "#8B5CF6", "contact_email": "", "notes": "GDPR, SOC 2, audit logging, and security hardening features."},
-    ],
-    "labels": [
-        {"name": "Core",       "color": "#3B82F6"},
-        {"name": "Platform",   "color": "#8B5CF6"},
-        {"name": "UX",         "color": "#EC4899"},
-        {"name": "Compliance", "color": "#F97316"},
-        {"name": "AI / ML",    "color": "#10B981"},
-    ],
-    "extra_cards": [
-        # Mobile App
-        _c("Offline-first card editing", "Idea", "Mobile App", "high", 45, 5, ["Core"],
-           _chk("User research: how often users lose work on flaky networks", "Feasibility spike: conflict resolution strategy"),
-           desc="Cards edited while offline should be queued locally and synced on reconnect. Conflict resolution strategy needs design."),
-        _c("Apple Watch complication — card due dates", "Validated", "Mobile App", "low", 60, 2, ["UX"],
-           _chk("+Validated with 5 user interviews", "+watchOS feasibility confirmed", "Scope design for complication"),
-           desc="5 power users requested glanceable due-date reminders on Apple Watch. Technically feasible via watchOS complication. Low priority but high delight."),
-        _c("Barcode scanner for card attachment", "Scoped", "Mobile App", "medium", 30, 3, ["Core"],
-           _chk("+Scope document written", "+API upload endpoint confirmed compatible", "UX mockup for scan-to-attach flow"),
-           desc="Field workers want to scan a barcode (asset ID, serial number) and attach it to a card. Scoped to use device camera via React Native Vision Camera."),
-        _c("Push notification preferences", "Launched", "Mobile App", "medium", -10, 4, ["UX"],
-           _chk("+APNs/FCM integrated", "+Per-notification-type preferences UI built", "+Launched to all mobile users"),
-           [_cmt("Notification preferences are live. DAU increase of 8% week-over-week since launch.", "demo1")],
-           desc="Per-type push notification preferences (card assigned, mentioned, due soon). Launched with APNs and FCM support."),
-
-        # Core Platform
-        _c("AI card description generator", "Idea", "Core Platform", "medium", 50, 4, ["AI / ML"],
-           _chk("Define prompt engineering approach", "Prototype with Claude API", "Estimate cost per generation"),
-           desc="Use AI to generate a card description from a short title. Early prototype with Claude API looks promising — cost per generation is negligible."),
-        _c("Card templates library", "Scoped", "Core Platform", "high", 25, 5, ["Core", "UX"],
-           _chk("+Defined template schema", "+5 built-in templates designed", "Backend endpoint for template CRUD", "Frontend picker UI"),
-           desc="Allow users to save a card as a template (pre-filled title, description, checklist, labels) and apply it when creating new cards."),
-        _c("Multi-board card linking", "In Build", "Core Platform", "high", 14, 7, ["Core"],
-           _chk("+DB schema: CardLink model added", "+API endpoints implemented", "Frontend: link picker in card detail", "Test cross-board reference UI"),
-           [_cmt("Backend done. Frontend picker is the remaining work — targeting completion next sprint.", "demo2")],
-           desc="Allow a card to link to one or more cards on other boards. Backend schema and API are done; frontend link picker UI is in progress."),
-        _c("Board activity feed", "Monitoring", "Core Platform", "medium", -15, 4, ["Core"],
-           _chk("+Launched to all users", "+Monitoring p95 latency (<80ms)", "+No rollback events in 7 days"),
-           [_cmt("Activity feed launched 2 weeks ago. p95 latency stable at 65ms. No issues.", "demo3")],
-           desc="Real-time board activity feed showing all card changes, movements, and comments in chronological order. Launched and stable."),
-
-        # Integrations
-        _c("Slack /visiban command", "Validated", "Integrations", "medium", 35, 4, ["Platform"],
-           _chk("+10 customers interviewed", "+Slack Slash Command API reviewed", "Define command schema (/visiban add <title> <board>)"),
-           [_cmt("Strong demand from 10 surveyed customers. They want to create cards from Slack without context-switching.", "demo1")],
-           desc="Slack Slash Command `/visiban add` to create a card on a specified board from any Slack channel. Strong customer demand validated."),
-        _c("GitHub PR → card status sync", "In Build", "Integrations", "high", 10, 6, ["Platform"],
-           _chk("+Webhook receiver implemented", "+PR open → 'In Review' column mapping logic done", "Frontend: connect board to GitHub repo", "Test with real repo"),
-           [_cmt("The webhook receiver is solid. The tricky part is letting admins map GitHub PR states to board columns — building the mapping UI now.", "demo2")],
-           desc="Bidirectional sync: opening a GitHub PR linked to a card auto-moves it to the mapped column. Column mapping is configurable per board."),
-        _c("Zapier integration — GA", "Launched", "Integrations", "medium", -20, 5, ["Platform"],
-           _chk("+100 Zap templates published", "+GA launch announcement sent", "+Monitoring error rate"),
-           [_cmt("Zapier integration is live. 340 active Zaps in first week. Error rate <0.1%.", "demo4")],
-           desc="General availability of the Zapier integration with 100 published Zap templates. 340 active Zaps in the first week. Error rate well below SLA."),
-        _c("CSV import with column mapping UI", "Monitoring", "Integrations", "medium", -30, 4, ["Platform"],
-           _chk("+Column mapping UI shipped", "+Launched to all accounts", "+Monitoring import error rate"),
-           [_cmt("Import error rate down to 0.3% after the mapping UI launch. Customers report significantly easier imports.", "demo1")],
-           desc="CSV import with an interactive column-mapping step that lets users drag-and-drop CSV columns to card fields. Error rate dropped from 8% to 0.3%."),
-
-        # Analytics
-        _c("Cumulative flow diagram", "Idea", "Analytics", "medium", 50, 4, ["Platform"],
-           _chk("Validate with 3 scrum master interviews", "Research D3.js vs Recharts for CFD"),
-           desc="A cumulative flow diagram showing card counts per column over time. Popular request from engineering teams running sprints."),
-        _c("Cycle time histogram", "Prioritized", "Analytics", "high", 20, 5, ["Platform"],
-           _chk("+Validated with 8 users", "+Scoped: median and 85th percentile lines", "Backend: cycle time query", "Frontend: Recharts histogram"),
-           [_cmt("Prioritized for Q2. Users want cycle time broken down by label and swimlane. Scoping that as v1.1.", "demo2")],
-           desc="Histogram of card cycle times (first move to last move). Includes median and 85th percentile lines. Breakdowns by label and swimlane planned for v1.1."),
-        _c("Throughput report — weekly/monthly", "In Build", "Analytics", "medium", 8, 4, ["Platform"],
-           _chk("+Backend aggregate query implemented", "+Export to CSV working", "Build chart UI (bar chart)", "Add period filter"),
-           [_cmt("Query is fast even for boards with 1000+ card movements. Chart UI is next.", "demo3")],
-           desc="Weekly and monthly throughput report: cards completed per time period. Exportable as CSV. Chart UI in progress."),
-        _c("Analytics API — public endpoints", "Monitoring", "Analytics", "medium", -12, 5, ["Platform"],
-           _chk("+GET /api/boards/{id}/analytics/ launched", "+Docs published", "+Rate limiting applied"),
-           [_cmt("Analytics API live for 2 weeks. Being used by 3 enterprise customers already. No issues.", "demo4")],
-           desc="Public API endpoints for analytics data: cycle time, throughput, WIP snapshots. Rate limited at 100 req/min per board. Docs published."),
-
-        # Compliance & Security
-        _c("GDPR right-to-erasure automation", "Scoped", "Compliance & Security", "urgent", 20, 7, ["Compliance"],
-           _chk("+Legal requirements mapped to data model", "+Erasure scope defined (cards, comments, activities)", "Implement erasure task", "Test with synthetic data"),
-           desc="Automate the right-to-erasure workflow: when a user requests deletion, anonymize or delete all their PII across cards, comments, and activity records."),
-        _c("SOC 2 Type II — audit logging", "In Build", "Compliance & Security", "high", 12, 6, ["Compliance"],
-           _chk("+Audit log model designed", "+Admin, board admin, and member events captured", "Admin UI for audit log export", "Legal review of log schema"),
-           [_cmt("Log capture is complete. Building the export UI now — legal wants to review the schema before we ship.", "demo1")],
-           desc="SOC 2 Type II compliance requires immutable audit logs of admin and board-level actions. Log capture is complete; admin export UI in progress."),
-        _c("Mandatory 2FA for site admins", "Beta", "Compliance & Security", "high", 5, 4, ["Compliance"],
-           _chk("+Enforcement middleware added", "+Beta with 3 enterprise accounts", "Resolve edge case: SSO + 2FA", "GA launch"),
-           [_cmt("SSO users are excluded from enforcement for now — need to design the SSO+2FA flow first.", "demo2"),
-            _cmt("3 beta accounts all confirmed working. One edge case: recovery codes not emailed on first setup.", "demo3")],
-           desc="Site admins are required to enable 2FA. In beta with 3 enterprise accounts. SSO+2FA interaction needs design before GA."),
-        _c("Content Security Policy headers", "Monitoring", "Compliance & Security", "medium", -8, 3, ["Compliance"],
-           _chk("+CSP headers deployed in report-only mode", "+Violations monitored for 14 days", "+Tightened to enforcement mode", "+Zero violations in 7 days"),
-           [_cmt("CSP in enforcement mode for 7 days with zero violations. Closing this item.", "demo4")],
-           desc="Content Security Policy headers deployed in report-only mode, violations monitored for 2 weeks, then tightened to enforcement. Zero violations in 7 days."),
-    ],
+    "columns": _ROADMAP_COLUMNS,
+    "swimlanes": _ROADMAP_SWIMLANES,
+    "labels": _ROADMAP_LABELS,
+    "extra_cards": _auto_cards(_ROADMAP_TITLES, _ROADMAP_COLUMNS, _ROADMAP_SWIMLANES, _ROADMAP_LABELS, "roadmap"),
 }
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# PHASE 2 — loaded from generate_seed_data_part2.py
+# PHASE 2 -- loaded from generate_seed_data_part2.py
 # ═════════════════════════════════════════════════════════════════════════════
 # Templates 6-10 are defined in generate_seed_data_part2.py and imported below.
 # This split keeps each file manageable.
@@ -908,9 +1470,9 @@ def main():
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write("\n")
-        print(f"  ✓  {slug}.json  ({len(data['cards'])} cards)")
+        print(f"  \u2713  {slug}.json  ({len(data['cards'])} cards)")
 
-    print(f"\nDone — {len(ALL_TEMPLATES)} templates regenerated.")
+    print(f"\nDone -- {len(ALL_TEMPLATES)} templates regenerated.")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """
 Generate and load realistic demo data for Visiban.
 
-Creates a "Visiban Demo Board" with 5 columns, 10 swimlanes, ~80 cards,
+Creates a "Visiban Demo Board" with 5 columns, 10 swimlanes, ~120 cards,
 checklists, comments, movement history, and activity records suitable for
 product demos, sales calls, and integration testing.
 
@@ -28,7 +28,7 @@ Usage:
 
     python manage.py seed_demo_data --export
         After seeding, write canonical JSON and CSV snapshots to
-        backend/boards/seed_data/demo_board.json and demo_board.csv.
+        sample-boards/demo_board.json and sample-boards/demo_board.csv.
         Commit the result when the board structure changes so the CI
         seed-export-check job does not fail.
 
@@ -119,87 +119,138 @@ LABELS = [
 # ── Card data corpus ──────────────────────────────────────────────────────────
 
 CARD_TITLES = [
+    # Bug fixes
     "Fix login redirect loop on mobile",
+    "Fix WebSocket reconnect on token refresh",
+    "Fix drag-and-drop on touch screens",
+    "Fix stale WebSocket after board rename",
+    "Fix broken avatar URL for OAuth users",
+    "Fix CSV import skipping blank description",
+    "Fix swimlane collapse state not persisting",
+    "Fix notification bell count mismatch",
+    "Fix date picker timezone offset",
+    "Fix due-date badge color for overdue cards",
+    "Fix column separator drag on Firefox",
+    "Fix empty state not showing on fresh board",
+    "Fix checklist item delete losing position",
+    "Fix XSS via card title in notifications",
+    "Fix pagination cursors on Safari",
+    "Fix Dockerfile layer caching regression",
+    "Fix Google OAuth callback 500 on new user",
+    "Fix column WIP limit badge wrapping",
+    "Fix card z-index overlap during drag",
+    "Fix board settings not saving on blur",
+    "Fix comment timestamp showing UTC instead of local",
+    "Fix label color picker not closing on click-outside",
+    "Fix card weight not updating in swimlane rollup",
+    "Fix keyboard navigation skipping collapsed swimlanes",
+    "Fix OAuth state param not validated on callback",
+    "Fix mobile layout overflow on narrow screens",
+    "Fix dark mode contrast on disabled buttons",
+    "Fix SSE reconnect flooding server after wake",
+    "Fix archived cards still appearing in search results",
+    "Fix board member removal not revoking WebSocket access",
+    # Features
     "Add CSV export for board activity",
-    "Investigate slow card load on large boards",
     "Implement due-date reminder notifications",
     "Refactor swimlane reorder endpoint",
     "Add keyboard shortcut to create card",
-    "Fix WebSocket reconnect on token refresh",
     "Support dark mode in email notifications",
     "Write API docs for /boards/{id}/full/",
     "Add bulk archive action to card list",
-    "Fix drag-and-drop on touch screens",
-    "Increase test coverage for CardMovement",
     "Add attachment preview for PDFs",
-    "Optimise full-board query with select_related",
-    "Migrate CI from Docker-in-Docker to kaniko",
     "Add pagination to movement history endpoint",
-    "Fix column WIP limit badge wrapping",
     "Implement board-level search",
     "Add invite-only registration toggle",
     "Support @mentions in card descriptions",
-    "Fix stale WebSocket after board rename",
     "Add priority filter to FilterBar",
-    "Investigate memory leak in frontend bundle",
     "Add Prometheus metrics endpoint",
-    "Write runbook for on-call rotation",
     "Implement card weight rollup per swimlane",
-    "Fix broken avatar URL for OAuth users",
     "Add group-level board visibility setting",
     "Support emoji in card titles",
-    "Audit all endpoints for IDOR vulnerabilities",
     "Add time-in-stage heatmap to analytics",
-    "Fix CSV import skipping blank description",
-    "Improve error messages on 403 responses",
     "Add card duplication action",
-    "Remove deprecated /api/v1/ aliases",
-    "Set up staging environment seed job",
     "Add read-only viewer role enforcement",
-    "Fix swimlane collapse state not persisting",
-    "Benchmark board load with 1000+ cards",
-    "Add SAML SSO support (enterprise)",
-    "Improve onboarding empty state copy",
-    "Fix notification bell count mismatch",
     "Add column-level WIP enforcement",
-    "Write integration test for card move API",
-    "Add archive board action",
-    "Fix date picker timezone offset",
-    "Create Helm chart for staging deployment",
     "Add label filter to board view",
-    "Document card weight feature",
-    "Set up MinIO for local dev attachments",
-    "Fix due-date badge color for overdue cards",
     "Add OAuth2 PKCE flow for mobile clients",
     "Implement rate limiting on auth endpoints",
-    "Fix column separator drag on Firefox",
     "Add board activity feed",
-    "Integrate Sentry for frontend error tracking",
-    "Write migration guide from v0.9 to v1.0",
     "Add card quick-add shortcut to swimlane",
-    "Fix empty state not showing on fresh board",
-    "Investigate flaky test in test_concurrent_moves",
     "Add bulk label assignment",
-    "Fix checklist item delete losing position",
     "Implement card template system",
     "Add swimlane color picker to edit modal",
-    "Write performance test for /boards/{id}/full/",
-    "Fix XSS via card title in notifications",
     "Add read receipt to comments",
-    "Review and update CONTRIBUTING.md",
     "Add offline mode banner",
-    "Fix pagination cursors on Safari",
-    "Set up weekly demo data refresh job",
     "Add card age indicator",
     "Implement board copy feature",
-    "Fix Dockerfile layer caching regression",
     "Add card position audit log",
-    "Clean up unused CSS utility classes",
     "Add export to Markdown option",
-    "Fix Google OAuth callback 500 on new user",
-    "Update Python dependencies to latest patch",
     "Add column archival (soft delete)",
+    "Add SAML SSO support (enterprise)",
+    "Add multi-board dashboard view",
+    "Add card dependency linking",
+    "Add swimlane WIP limits",
+    "Add board-level custom fields",
+    "Add recurring card automation",
+    "Add email-to-card creation via unique board address",
+    "Add card timer for time tracking",
+    "Add board export to PDF",
+    "Add card voting and prioritization",
+    "Add global search across all boards",
+    "Add user activity heatmap to profile",
+    "Add custom notification rules per board",
+    "Add card subtasks with progress bar",
+    "Add personal card favorites list",
+    "Add column auto-archive after N days",
+    "Add drag-to-select multiple cards",
+    "Add board access audit log for admins",
+    # Infrastructure / DevOps
+    "Investigate slow card load on large boards",
+    "Increase test coverage for CardMovement",
+    "Optimize full-board query with select_related",
+    "Migrate CI from Docker-in-Docker to kaniko",
+    "Investigate memory leak in frontend bundle",
+    "Write runbook for on-call rotation",
+    "Benchmark board load with 1000+ cards",
+    "Write integration test for card move API",
+    "Create Helm chart for staging deployment",
+    "Document card weight feature",
+    "Set up MinIO for local dev attachments",
+    "Integrate Sentry for frontend error tracking",
+    "Write migration guide from v0.9 to v1.0",
+    "Investigate flaky test in test_concurrent_moves",
+    "Write performance test for /boards/{id}/full/",
+    "Review and update CONTRIBUTING.md",
+    "Set up weekly demo data refresh job",
+    "Clean up unused CSS utility classes",
+    "Update Python dependencies to latest patch",
     "Improve accessibility of drag handles",
+    "Audit all endpoints for IDOR vulnerabilities",
+    "Remove deprecated /api/v1/ aliases",
+    "Set up staging environment seed job",
+    "Improve error messages on 403 responses",
+    "Improve onboarding empty state copy",
+    "Add database connection pooling via pgBouncer",
+    "Reduce frontend bundle size below 200 KB gzipped",
+    "Set up canary deploys in Kubernetes",
+    "Write load test for WebSocket connections at scale",
+    "Upgrade PostgreSQL from 15 to 16",
+    "Add structured JSON logging for backend",
+    "Configure automated database backups to S3",
+    "Set up preview environments for MRs",
+    "Profile and optimize N+1 queries in analytics endpoint",
+    "Add health check endpoint for load balancer",
+    "Document disaster recovery runbook",
+    "Set up Renovate for automated dependency PRs",
+    "Add Redis cache layer for board state",
+    "Migrate from REST polling to Server-Sent Events",
+    "Write end-to-end Playwright test suite",
+    "Add Terraform module for production infrastructure",
+    "Set up OpenTelemetry tracing for API requests",
+    "Configure rate limiting on public API endpoints",
+    "Implement graceful shutdown for background workers",
+    "Add Dependabot alerts to Slack channel",
 ]
 
 CARD_DESCRIPTIONS = [
@@ -524,10 +575,12 @@ class Command(BaseCommand):
         col_positions = {c.id: 0 for c in columns}
 
         for swimlane in swimlanes:
-            n_cards = random.randint(6, 10)
+            n_cards = random.randint(11, 13)
 
             for _ in range(n_cards):
-                title = titles[title_idx % len(titles)]
+                if title_idx >= len(titles):
+                    break  # Never duplicate card titles
+                title = titles[title_idx]
                 title_idx += 1
 
                 description = random.choice(CARD_DESCRIPTIONS)
@@ -818,9 +871,10 @@ class Command(BaseCommand):
             .order_by("swimlane__position", "column__position", "position")
         )
 
-        # Export path: BASE_DIR = .../backend/, so seed_data is a subdirectory
-        # of the boards app regardless of whether we run locally or in Docker.
-        seed_dir = settings.BASE_DIR / "boards" / "seed_data"
+        # Export path: write to the top-level sample-boards/ directory so
+        # users can discover importable board files at the repo root.
+        # BASE_DIR = .../backend/, so repo root is BASE_DIR.parent.
+        seed_dir = settings.BASE_DIR.parent / "sample-boards"
         seed_dir.mkdir(parents=True, exist_ok=True)
 
         self._export_json(board, columns, swimlanes, labels, cards, seed_dir)
@@ -840,7 +894,9 @@ class Command(BaseCommand):
                     "position": c.position,
                     "color": c.color,
                     "wip_limit": c.wip_limit,
+                    "weight_limit": c.weight_limit,
                     "allow_card_creation": c.allow_card_creation,
+                    "is_done": c.is_done,
                 }
                 for c in columns
             ],

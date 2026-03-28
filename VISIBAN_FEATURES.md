@@ -360,7 +360,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - `--wipe`: removes the existing demo board first (refuses on production without `--force`)
 - `--export`: regenerates seed JSON/CSV files
 
-`python manage.py seed_template_boards` — seeds all 10 non-blank board templates with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement + CardActivity history. Seed files exported to `backend/boards/seed_data/<slug>.json`.
+`python manage.py seed_template_boards` — seeds all 10 non-blank board templates with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement + CardActivity history. Seed files exported to `sample-boards/<slug>.json`.
 
 ---
 

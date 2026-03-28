@@ -923,7 +923,7 @@ seed-demo-data:
 
 # ─── Seed export drift check ──────────────────────────────────────────────────
 #
-# Regenerates backend/boards/seed_data/demo_board.{json,csv} and fails if they
+# Regenerates sample-boards/demo_board.{json,csv} and fails if they
 # differ from the committed versions. Catches model changes that invalidate the
 # static files. Run on MR pipelines when seed commands or models are touched.
 
@@ -954,16 +954,17 @@ seed-export-check:
     - cd backend
     - python manage.py migrate --run-syncdb --no-input
     - python manage.py seed_demo_data --export
+    - cd ..
     - |
-      if ! git diff --exit-code boards/seed_data/demo_board.json boards/seed_data/demo_board.csv; then
-        echo "ERROR: boards/seed_data/demo_board.{json,csv} are out of date. Run 'python manage.py seed_demo_data --export' and commit the result."
+      if ! git diff --exit-code sample-boards/demo_board.json sample-boards/demo_board.csv; then
+        echo "ERROR: sample-boards/demo_board.{json,csv} are out of date. Run 'python manage.py seed_demo_data --export' and commit the result."
         exit 1
       fi
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/boards/management/commands/seed_demo_data.py
-        - backend/boards/seed_data/demo_board.*
+        - sample-boards/demo_board.*
 
 # Runs on the gh-pages branch after docs-deploy pushes to it.
 # Copies the branch content to public/ for GitLab Pages to serve.
