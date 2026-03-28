@@ -24,10 +24,11 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | Create cards | ✓ | ✓ | — | — |
 | Edit cards (title, description, priority, due date, weight, labels, assignee) | ✓ | ✓ | — | — |
 | Move cards (drag-and-drop, column / swimlane change) | ✓ | ✓ | — | — |
-| Archive / restore cards | ✓ | ✓ | — | — |
-| Delete cards | ✓ | ✓ | — | — |
+| Archive / restore cards | ✓ | Own† | — | — |
+| Delete cards | ✓ | Own† | — | — |
 | **Collaboration** | | | | |
 | Add comments | ✓ | ✓ | ✓ | — |
+| Delete comments | ✓ | Own† | Own | — |
 | Add attachments | ✓ | ✓ | ✓ | — |
 | Delete attachments | ✓ | ✓ | ✓ | — |
 | Add checklist items | ✓ | ✓ | ✓ | — |
@@ -46,6 +47,8 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | Remove members | ✓ | — | — | — |
 | Delete board | ✓ (owner only) | — | — | — |
 
+**†** Members can only perform this action on content they created (cards they own, comments they authored). Members with the **moderator** entitlement — and admins — can perform it on any content. See [Moderator entitlement](#moderator-entitlement) below.
+
 !!! note "Viewer boundary enforced since 1.0"
     Prior to the 1.0 release, the Viewer role was not fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. This was corrected in [#248](https://gitlab.com/visiban/visiban/-/issues/248): all write operations now return `403 Forbidden` for Viewers.
 
@@ -61,7 +64,13 @@ Only board Admins (and site admins) can perform these actions.
 
 ## Moderator entitlement
 
-The **moderator** entitlement lets an admin delegate content-moderation rights to a specific member without granting them full admin access. A moderator can delete and archive cards and comments created by other users — actions that a regular member can only perform on their own content.
+The **moderator** entitlement lets an admin delegate content-moderation rights to a specific member without granting them full admin access. A moderator can:
+
+- **Delete** cards created by other users
+- **Archive and restore** cards created by other users
+- **Delete** comments authored by other users
+
+Without the moderator flag, members can only delete/archive cards they created and delete comments they authored.
 
 To grant moderator rights, open Board Settings → Members and check the **Moderator** checkbox next to the member's name. Only admins can toggle this setting. The moderator checkbox is only available for members and admins — collaborators and viewers cannot be designated as moderators.
 

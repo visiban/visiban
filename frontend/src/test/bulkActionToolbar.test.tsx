@@ -466,4 +466,80 @@ describe('BulkActionToolbar', () => {
     await waitFor(() => expect(mockMoveCard).toHaveBeenCalledTimes(2))
     expect(onCardsUpdated).not.toHaveBeenCalled()
   })
+
+  it('shows partial error when some deletes fail and keeps selection', async () => {
+    const user = userEvent.setup()
+    mockDeleteCard
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('forbidden'))
+    const onClearSelection = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={onClearSelection}
+      />
+    )
+    await user.click(screen.getByText('Delete'))
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete' })
+    await user.click(deleteButtons[deleteButtons.length - 1])
+
+    await waitFor(() =>
+      expect(screen.getByText(/could not be deleted/)).toBeInTheDocument()
+    )
+    expect(onClearSelection).not.toHaveBeenCalled()
+  })
+
+  it('shows partial error when some archives fail and keeps selection', async () => {
+    const user = userEvent.setup()
+    mockArchiveCard
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('forbidden'))
+    const onClearSelection = vi.fn()
+
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={onClearSelection}
+      />
+    )
+    await user.click(screen.getByText('Archive'))
+
+    await waitFor(() =>
+      expect(screen.getByText(/could not be archived/)).toBeInTheDocument()
+    )
+    expect(onClearSelection).not.toHaveBeenCalled()
+  })
+
+  it('shows warning in delete modal when member selects cards by others', async () => {
+    const user = userEvent.setup()
+    const memberUser = { id: 99, username: 'member', email: '', first_name: 'Member', last_name: '', avatar_url: '', display_name: 'Member', is_site_admin: false, must_change_password: false }
+    const board = makeBoard()
+    board.current_user_role = 'member'
+    board.members = [{ id: 2, user: memberUser, role: 'member', is_moderator: false, joined_at: '' }]
+    // cards have created_by: 1, current user is 99
+
+    render(
+      <BulkActionToolbar
+        board={board}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+        currentUser={memberUser}
+      />
+    )
+    await user.click(screen.getByText('Delete'))
+
+    expect(screen.getByText(/None of the selected cards will be deleted/)).toBeInTheDocument()
+  })
 })

@@ -32,10 +32,14 @@ Visiban has five roles that control access at both the group and board level.
 | Edit board structure (columns, swimlanes, labels) | ✓ | ✓ | — | — | — |
 | Manage board members | ✓ | ✓ | — | — | — |
 | **Cards** | | | | | |
-| Create / edit / move / delete card | ✓ | ✓ | ✓ | — | — |
+| Create / edit / move card | ✓ | ✓ | ✓ | — | — |
+| Delete own card | ✓ | ✓ | ✓ | — | — |
+| Delete any card | ✓ | ✓ | mod† | — | — |
+| Archive / restore own card | ✓ | ✓ | ✓ | — | — |
+| Archive / restore any card | ✓ | ✓ | mod† | — | — |
 | Comment on cards | ✓ | ✓ | ✓ | ✓ | — |
 | Delete own comment | ✓ | ✓ | ✓ | ✓ | — |
-| Delete any comment | ✓ | ✓ | ✓ | — | — |
+| Delete any comment | ✓ | ✓ | mod† | — | — |
 | Upload / delete attachments | ✓ | ✓ | ✓ | ✓ | — |
 | Add / edit / delete checklist items | ✓ | ✓ | ✓ | ✓ | — |
 | View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -46,6 +50,8 @@ Visiban has five roles that control access at both the group and board level.
 | **Analytics** | | | | | |
 | View analytics & summary | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Export analytics CSV | ✓ | ✓ | — | — | — |
+
+**†** `mod` = only members with the moderator entitlement. Regular members can only perform these actions on their own content.
 
 ## Moderator entitlement
 

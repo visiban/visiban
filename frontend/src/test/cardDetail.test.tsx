@@ -278,6 +278,44 @@ describe('CardDetail', () => {
     expect(screen.queryByText('Delete card')).not.toBeInTheDocument()
   })
 
+  it('hides delete/archive buttons for member who does not own the card', () => {
+    const otherUser: User = { ...fakeUser, id: 99, username: 'other' }
+    const props = defaultProps()
+    props.board = makeBoard({
+      current_user_role: 'member',
+      members: [{ id: 2, user: otherUser, role: 'member', is_moderator: false, joined_at: '' }],
+    })
+    props.card = makeCard({ created_by: 1 }) // card owned by user 1, current user is 99
+    render(<CardDetail {...props} currentUser={otherUser} />)
+    expect(screen.queryByText('Delete card')).not.toBeInTheDocument()
+    expect(screen.queryByText('Archive card')).not.toBeInTheDocument()
+  })
+
+  it('shows delete/archive buttons for member who owns the card', () => {
+    const props = defaultProps()
+    props.board = makeBoard({
+      current_user_role: 'member',
+      members: [{ id: 1, user: fakeUser, role: 'member', is_moderator: false, joined_at: '' }],
+    })
+    props.card = makeCard({ created_by: 1 })
+    render(<CardDetail {...props} currentUser={fakeUser} />)
+    expect(screen.getByText('Delete card')).toBeInTheDocument()
+    expect(screen.getByText('Archive card')).toBeInTheDocument()
+  })
+
+  it('shows delete/archive buttons for moderator who does not own the card', () => {
+    const modUser: User = { ...fakeUser, id: 99, username: 'moderator' }
+    const props = defaultProps()
+    props.board = makeBoard({
+      current_user_role: 'member',
+      members: [{ id: 2, user: modUser, role: 'member', is_moderator: true, joined_at: '' }],
+    })
+    props.card = makeCard({ created_by: 1 }) // card owned by user 1, moderator is 99
+    render(<CardDetail {...props} currentUser={modUser} />)
+    expect(screen.getByText('Delete card')).toBeInTheDocument()
+    expect(screen.getByText('Archive card')).toBeInTheDocument()
+  })
+
   it('hides comment input for viewer', () => {
     const props = defaultProps()
     props.board = makeBoard({ current_user_role: 'viewer' })

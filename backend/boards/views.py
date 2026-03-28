@@ -194,6 +194,23 @@ def get_board_for_user(board_id, user):
     return board, role
 
 
+def _can_modify_others_content(board, role, user):
+    """Return True if the user may delete/archive content created by other users.
+
+    Admins, site admins, and board owners always can. Members with the
+    is_moderator flag can. Regular members and collaborators cannot.
+    """
+    if role in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+        return True
+    if board.owner_id == user.id:
+        return True
+    try:
+        membership = BoardMembership.objects.get(board=board, user=user)
+        return membership.is_moderator
+    except BoardMembership.DoesNotExist:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Boards
 # ---------------------------------------------------------------------------
@@ -1864,10 +1881,15 @@ class CardViewSet(viewsets.ModelViewSet):
             transaction.on_commit(lambda: notify_new_mentions(_card, _actor, "", _desc))
 
     def perform_destroy(self, instance):
-        _, role = self._board_and_role()
+        board, role = self._board_and_role()
         # Allow-list: same pattern as perform_create — safer than block-list.
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied("You do not have permission to perform this action.")
+        # Ownership gate: members may only delete cards they created, unless
+        # they have the moderator entitlement (#362).
+        if instance.created_by_id != self.request.user.id:
+            if not _can_modify_others_content(board, role, self.request.user):
+                raise PermissionDenied("You can only delete cards you created.")
         board_id = instance.board_id
         card_id = instance.id
         instance.delete()
@@ -1882,11 +1904,15 @@ class CardViewSet(viewsets.ModelViewSet):
         period it was active (entry → archive timestamp).
         """
         board, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         # Use the unfiltered manager so archiving an already-archived card is
         # a no-op rather than a 404.
         card = get_object_or_404(Card, pk=pk, board=board)
+        # Ownership gate: members may only archive cards they created (#362).
+        if card.created_by_id != request.user.id:
+            if not _can_modify_others_content(board, role, request.user):
+                raise PermissionDenied("You can only archive cards you created.")
         if card.archived_at is None:
             board_id = card.board_id
             card_id = card.id
@@ -1929,9 +1955,13 @@ class CardViewSet(viewsets.ModelViewSet):
         query the raw manager directly.
         """
         board, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         card = get_object_or_404(Card, pk=pk, board=board)
+        # Ownership gate: members may only unarchive cards they created (#362).
+        if card.created_by_id != request.user.id:
+            if not _can_modify_others_content(board, role, request.user):
+                raise PermissionDenied("You can only restore cards you created.")
         if card.archived_at is not None:
             board_id = card.board_id
             # Capture the board object now (not via card.board inside the lambda)
@@ -2346,7 +2376,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["delete"], url_path="comments/(?P<comment_pk>[^/.]+)")
     def delete_comment(self, request, board_pk=None, pk=None, comment_pk=None):
-        """Delete a comment. Collaborators may only delete their own comments; admins/members may delete any."""
+        """Delete a comment. Non-moderator members and collaborators may only delete their own."""
         board, role = self._board_and_role()
         if role == BoardMembership.Role.VIEWER:
             return Response(
@@ -2355,12 +2385,14 @@ class CardViewSet(viewsets.ModelViewSet):
             )
         card = get_object_or_404(Card, pk=pk, board=board)
         comment = get_object_or_404(CardComment, pk=comment_pk, card=card)
-        # Collaborators may only delete their own comments; member+ can delete any.
-        if role == BoardMembership.Role.COLLABORATOR and comment.author != request.user:
-            return Response(
-                {"detail": "You can only delete your own comments."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Ownership gate: members and collaborators may only delete their own
+        # comments unless the member has the moderator entitlement (#362).
+        if comment.author_id != request.user.id:
+            if not _can_modify_others_content(board, role, request.user):
+                return Response(
+                    {"detail": "You can only delete your own comments."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         comment.delete()
         card_data = CardSerializer(card, context={"request": request, "board": board}).data
         board_id = board.id

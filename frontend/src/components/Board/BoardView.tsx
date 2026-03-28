@@ -1053,6 +1053,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           onCardsDeleted={(ids) => ids.forEach(onCardDeleted)}
           onCardsArchived={(ids) => { ids.forEach(onCardArchived); if (ids.length > 0) showArchiveToast(); }}
           onClearSelection={clearSelection}
+          currentUser={currentUser}
         />
       )}
 
@@ -1110,6 +1111,7 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
           board={board}
           onClose={() => setShowArchived(false)}
           onUnarchived={(card) => { onCardUnarchived(card); }}
+          currentUser={currentUser}
         />
       )}
 

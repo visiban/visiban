@@ -37,6 +37,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Admin panel includes a new "Invite Links" tab showing each token's status badge and a one-time reveal of the token value; links can be revoked inline
 
 ### Changed
+- Card delete, archive/unarchive, and comment delete are now ownership-gated — members can only perform these actions on content they created; admins, site admins, and members with the moderator entitlement can act on any content; cards with a null creator (deleted users) can only be managed by admins or moderators (#362)
 - Board export (`GET /api/boards/{id}/export/`) now requires member or admin access — viewers and collaborators receive `403 Forbidden` with a descriptive error message (#362)
 - Sample board files relocated from `backend/boards/seed_data/` to a top-level `sample-boards/` directory for discoverability — all 11 templates (10 domain-specific + 1 demo board) now ship as ready-to-import JSON and CSV files at the repo root with a README documenting the import flow
 - All 10 template boards expanded from 5 swimlanes / ~12 cards to 10–11 swimlanes / 110–121 unique cards with theme-appropriate content, movement history, activities, labels, checklists, and comments; demo board expanded from ~80 to ~120 unique cards with no duplicate titles

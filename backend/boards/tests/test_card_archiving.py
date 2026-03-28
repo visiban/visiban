@@ -63,11 +63,20 @@ class TestArchivePermissions(CardArchivingSetup):
         self.card.refresh_from_db()
         self.assertIsNotNone(self.card.archived_at)
 
-    def test_member_can_archive(self):
-        r = self._client_for(self.member).post(self._archive_url())
+    def test_member_can_archive_own_card(self):
+        own_card = Card.objects.create(
+            board=self.board, column=self.column, swimlane=self.swimlane,
+            title="Member Card", created_by=self.member, position=1,
+        )
+        url = f"/api/boards/{self.board.pk}/cards/{own_card.pk}/archive/"
+        r = self._client_for(self.member).post(url)
         self.assertEqual(r.status_code, 200)
-        self.card.refresh_from_db()
-        self.assertIsNotNone(self.card.archived_at)
+        own_card.refresh_from_db()
+        self.assertIsNotNone(own_card.archived_at)
+
+    def test_member_cannot_archive_others_card(self):
+        r = self._client_for(self.member).post(self._archive_url())
+        self.assertEqual(r.status_code, 403)
 
     def test_viewer_cannot_archive(self):
         r = self._client_for(self.viewer).post(self._archive_url())
@@ -97,9 +106,21 @@ class TestUnarchivePermissions(CardArchivingSetup):
         self.card.refresh_from_db()
         self.assertIsNone(self.card.archived_at)
 
-    def test_member_can_unarchive(self):
-        r = self._client_for(self.member).post(self._unarchive_url())
+    def test_member_can_unarchive_own_card(self):
+        own_card = Card.objects.create(
+            board=self.board, column=self.column, swimlane=self.swimlane,
+            title="Member Card", created_by=self.member, position=1,
+            archived_at=timezone.now(),
+        )
+        url = f"/api/boards/{self.board.pk}/cards/{own_card.pk}/unarchive/"
+        r = self._client_for(self.member).post(url)
         self.assertEqual(r.status_code, 200)
+        own_card.refresh_from_db()
+        self.assertIsNone(own_card.archived_at)
+
+    def test_member_cannot_unarchive_others_card(self):
+        r = self._client_for(self.member).post(self._unarchive_url())
+        self.assertEqual(r.status_code, 403)
 
     def test_viewer_cannot_unarchive(self):
         r = self._client_for(self.viewer).post(self._unarchive_url())

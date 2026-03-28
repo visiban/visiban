@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import type { BoardFull, Card, Column } from "../../types";
+import type { BoardFull, Card, Column, User } from "../../types";
 import { userDisplayName } from "../../types";
 import { moveCard, updateCard, deleteCard, archiveCard } from "../../api/cards";
 
@@ -11,15 +11,16 @@ interface Props {
   onCardsDeleted: (cardIds: number[]) => void;
   onCardsArchived: (cardIds: number[]) => void;
   onClearSelection: () => void;
+  currentUser?: User | null;
 }
 
 type Dropdown = "move" | "assign" | "priority" | null;
 
-export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdated, onCardsDeleted, onCardsArchived, onClearSelection }: Props) {
+export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdated, onCardsDeleted, onCardsArchived, onClearSelection, currentUser }: Props) {
   const [dropdown, setDropdown] = useState<Dropdown>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [movePartialError, setMovePartialError] = useState<string | null>(null);
+  const [partialError, setPartialError] = useState<string | null>(null);
 
   const moveRef = useRef<HTMLButtonElement>(null);
   const assignRef = useRef<HTMLButtonElement>(null);
@@ -41,11 +42,20 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const count = selectedCardIds.size;
   const selectedCards = board.cards.filter((c) => selectedCardIds.has(c.id));
 
+  const role = board.current_user_role;
+  const isModerator = board.members.some(
+    (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
+  );
+  const canModifyAll = role === "admin" || role === "site_admin" || isModerator;
+  const othersCards = currentUser
+    ? selectedCards.filter((c) => c.created_by !== currentUser.id)
+    : selectedCards;
+
   const toggle = (d: Dropdown) => setDropdown((prev) => (prev === d ? null : d));
 
   const handleMove = async (column: Column) => {
     setDropdown(null);
-    setMovePartialError(null);
+    setPartialError(null);
     setBusy(true);
     // Serialize move requests to avoid database deadlocks from concurrent
     // position-reorder transactions targeting the same column.
@@ -66,7 +76,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     const failed = selectedCards.length - updated.length;
     if (failed > 0) {
       // Keep selection active so the user can see which cards remain and dismiss manually.
-      setMovePartialError(
+      setPartialError(
         `${failed} of ${selectedCards.length} card${selectedCards.length !== 1 ? "s" : ""} could not be moved — blocked by a WIP or weight limit.`
       );
     } else {
@@ -108,6 +118,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   };
 
   const handleArchive = async () => {
+    setPartialError(null);
     setBusy(true);
     const results = await Promise.allSettled(
       selectedCards.map((card) => archiveCard(board.id, card.id).then(() => card.id))
@@ -116,13 +127,21 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
       .filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled")
       .map((r) => r.value);
     if (archivedIds.length > 0) onCardsArchived(archivedIds);
-    onClearSelection();
+    const failed = selectedCards.length - archivedIds.length;
+    if (failed > 0) {
+      setPartialError(
+        `${failed} of ${selectedCards.length} card${selectedCards.length !== 1 ? "s" : ""} could not be archived — you can only archive cards you created.`
+      );
+    } else {
+      onClearSelection();
+    }
     setBusy(false);
   };
 
   const handleDelete = async () => {
     setConfirmDelete(false);
     setDropdown(null);
+    setPartialError(null);
     setBusy(true);
     const results = await Promise.allSettled(
       selectedCards.map((card) => deleteCard(board.id, card.id).then(() => card.id))
@@ -131,7 +150,14 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
       .filter((r): r is PromiseFulfilledResult<number> => r.status === "fulfilled")
       .map((r) => r.value);
     if (deletedIds.length > 0) onCardsDeleted(deletedIds);
-    onClearSelection();
+    const failed = selectedCards.length - deletedIds.length;
+    if (failed > 0) {
+      setPartialError(
+        `${failed} of ${selectedCards.length} card${selectedCards.length !== 1 ? "s" : ""} could not be deleted — you can only delete cards you created.`
+      );
+    } else {
+      onClearSelection();
+    }
     setBusy(false);
   };
 
@@ -257,7 +283,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
         {/* Deselect */}
         <button
-          onClick={() => { setMovePartialError(null); onClearSelection(); }}
+          onClick={() => { setPartialError(null); onClearSelection(); }}
           disabled={busy}
           className="text-slate-400 hover:text-white transition p-1 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
           title="Deselect all (Esc)"
@@ -267,12 +293,14 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           </svg>
         </button>
 
-        {movePartialError && (
-          <span className="text-xs text-amber-400 shrink-0">{movePartialError}</span>
-        )}
-        {busy && (
-          <span className="text-xs text-slate-400 animate-pulse">Working...</span>
-        )}
+        <span className="text-xs h-4 flex items-center min-w-0">
+          {partialError && (
+            <span className="text-amber-400 truncate max-w-[20rem]" title={partialError}>{partialError}</span>
+          )}
+          {busy && (
+            <span className="text-slate-400 animate-pulse">Working...</span>
+          )}
+        </span>
       </div>
 
       {/* Delete confirmation modal */}
@@ -283,6 +311,13 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             <p className="text-slate-400 text-sm mb-5">
               This will permanently delete {count === 1 ? "this card" : `all ${count} selected cards`}. This cannot be undone.
             </p>
+            {!canModifyAll && othersCards.length > 0 && (
+              <p className="text-xs text-amber-400 -mt-3 mb-4">
+                {othersCards.length === count
+                  ? "You can only delete cards you created. None of the selected cards will be deleted."
+                  : `${othersCards.length} card${othersCards.length !== 1 ? "s" : ""} created by others will be skipped.`}
+              </p>
+            )}
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmDelete(false)}

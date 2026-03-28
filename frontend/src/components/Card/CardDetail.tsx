@@ -316,12 +316,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const canEdit = role === "site_admin" || role === "admin" || role === "member";
   const canManageLabels = role === "site_admin" || role === "admin";
   const canComment = canEdit || role === "collaborator";
-  // A comment may be deleted by its author, board admins, or site admins.
-  // Admins can delete any comment for moderation purposes.
+
+  // Ownership gating: members can only delete/archive cards they created,
+  // unless they have admin, site_admin, or is_moderator entitlement.
+  const isModerator = board.members.some(
+    (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
+  );
+  const canModifyOthersContent =
+    role === "admin" || role === "site_admin" || isModerator;
+  const isCardOwner =
+    currentUser != null && localCard.created_by === currentUser.id;
+  const canDeleteOrArchive = canEdit && (isCardOwner || canModifyOthersContent);
+
   const canDeleteComment = (c: CardComment): boolean =>
     (c.author !== null && currentUser !== null && c.author.id === currentUser.id) ||
-    role === "admin" ||
-    role === "site_admin";
+    canModifyOthersContent;
 
   const handleDeleteComment = async (commentId: number) => {
     await deleteComment(board.id, card.id, commentId);
@@ -929,7 +938,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         </div>
 
         {/* Footer */}
-        {canEdit && (
+        {canDeleteOrArchive && (
           <div className="px-5 py-3 border-t border-slate-700 flex items-center justify-between">
             <button onClick={handleArchive} className="text-xs text-slate-500 hover:text-amber-400 transition">
               Archive card
