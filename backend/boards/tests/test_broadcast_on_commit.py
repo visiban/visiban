@@ -31,7 +31,7 @@ class CardCreatedBroadcastOnCommitTests(TestCase):
 
     def test_card_created_broadcast_fires_after_commit(self):
         """broadcast_board_event for card.created fires via on_commit, not inside the transaction."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
                     f"/api/boards/{self.board.pk}/cards/",
@@ -44,7 +44,7 @@ class CardCreatedBroadcastOnCommitTests(TestCase):
 
     def test_card_created_broadcast_not_called_before_commit(self):
         """Broadcast must not have fired before on_commit callbacks execute."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(
                     f"/api/boards/{self.board.pk}/cards/",
@@ -73,7 +73,7 @@ class CardMovedBroadcastOnCommitTests(TestCase):
 
     def test_card_moved_broadcast_fires_after_commit(self):
         """broadcast_board_event for card.moved fires via on_commit, not inside the transaction."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(self._move_url(), {
                     "column_id": self.col_b.pk,
@@ -87,7 +87,7 @@ class CardMovedBroadcastOnCommitTests(TestCase):
 
     def test_card_moved_broadcast_not_called_before_commit(self):
         """Broadcast must not have fired before on_commit callbacks execute."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(self._move_url(), {
                     "column_id": self.col_b.pk,
@@ -102,7 +102,7 @@ class CardMovedBroadcastOnCommitTests(TestCase):
             board=self.board, column=self.col_a, swimlane=self.swim,
             title="Other Card", created_by=self.user, position=1,
         )
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(self._move_url(), {
                     "column_id": self.col_a.pk,
@@ -139,7 +139,7 @@ class CardMoveBroadcastRollbackTests(TransactionTestCase):
         def capture_broadcast(*args, **kwargs):
             broadcast_calls.append(args)
 
-        with patch("boards.views.broadcast_board_event", side_effect=capture_broadcast):
+        with patch("boards.broadcast.broadcast_board_event", side_effect=capture_broadcast):
             try:
                 with transaction.atomic():
                     # Manually queue an on_commit callback the same way the view does.
@@ -184,7 +184,7 @@ class HardWipBroadcastTests(TestCase):
 
     def test_no_broadcast_on_hard_blocked_move(self):
         """No broadcast fires when a move is rejected by hard WIP enforcement."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
                     f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/",

@@ -10,7 +10,7 @@ from accounts.models import User
 from boards.models import Board, BoardMembership, Card, CardAttachment, Column, Swimlane
 
 
-PATCH_BROADCAST = "boards.views.broadcast_board_event"
+PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
 
 
 def _make_board(owner):
@@ -274,7 +274,7 @@ class CollaboratorAttachmentOwnershipTests(TestCase):
             uploaded_by=uploaded_by,
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_cannot_delete_another_users_attachment(self, _mock):
         attachment = self._make_attachment(uploaded_by=self.other_member)
         client = APIClient()
@@ -286,7 +286,7 @@ class CollaboratorAttachmentOwnershipTests(TestCase):
         # Attachment must not have been deleted
         self.assertTrue(CardAttachment.objects.filter(pk=attachment.pk).exists())
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_delete_own_attachment(self, _mock):
         attachment = self._make_attachment(uploaded_by=self.collab)
         client = APIClient()

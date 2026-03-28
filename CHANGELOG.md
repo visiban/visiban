@@ -38,6 +38,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Board deletion now emits a structured `INFO` log (`board.deleted board_id=… board_name=… deleted_by=… deleted_by_username=…`) before the row is removed, providing an application-level audit trail for irreversible operations (#426)
 
 ### Changed
+- `boards/views.py` split into a `boards/views/` package with 14 focused modules — backward-compatible re-exports in `__init__.py` keep all existing imports working (#423)
 - Card delete, archive/unarchive, and comment delete are now ownership-gated — members can only perform these actions on content they created; admins, site admins, and members with the moderator entitlement can act on any content; cards with a null creator (deleted users) can only be managed by admins or moderators (#362)
 - Board export (`GET /api/boards/{id}/export/`) now requires member or admin access — viewers and collaborators receive `403 Forbidden` with a descriptive error message (#362)
 - Sample board files relocated from `backend/boards/seed_data/` to a top-level `sample-boards/` directory for discoverability — all 11 templates (10 domain-specific + 1 demo board) now ship as ready-to-import JSON and CSV files at the repo root with a README documenting the import flow

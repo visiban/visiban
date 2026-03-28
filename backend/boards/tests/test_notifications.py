@@ -152,7 +152,7 @@ class CardAssignmentNotificationTests(TestCase):
             position=0,
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_assigning_card_notifies_assignee(self, _mock_broadcast):
         assignee = User.objects.create_user(username="assignee", password="pass")
         BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
@@ -170,7 +170,7 @@ class CardAssignmentNotificationTests(TestCase):
             ).exists()
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_self_assignment_does_not_notify(self, _mock_broadcast):
         self.client.patch(
             f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
@@ -181,7 +181,7 @@ class CardAssignmentNotificationTests(TestCase):
             Notification.objects.filter(recipient=self.owner, card=self.card).count(), 0
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_card_move_notifies_assignee(self, _mock_broadcast):
         col_b = Column.objects.create(board=self.board, name="Doing", position=2)
         # notif_card_moved=True — card-move notifications respect this preference.
@@ -199,7 +199,7 @@ class CardAssignmentNotificationTests(TestCase):
             Notification.objects.filter(recipient=assignee, card=self.card).exists()
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_card_move_does_not_notify_mover_when_self_assigned(self, _mock_broadcast):
         col_b = Column.objects.create(board=self.board, name="Doing", position=2)
         self.card.assignee = self.owner
@@ -238,7 +238,7 @@ class MentionNotificationEdgeCaseTests(TestCase):
             {"body": body},
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_self_mention_does_not_create_notification(self, _):
         """Author mentioning themselves should NOT create a notification."""
         resp = self._post_comment(f"Note to self: @{self.owner.username} fix this")
@@ -250,7 +250,7 @@ class MentionNotificationEdgeCaseTests(TestCase):
             0,
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_mentioning_non_board_member_does_not_notify(self, _):
         """Mentioning a user who is not a board member should NOT create a notification."""
         outsider = User.objects.create_user(username="outsider", password="pass")
@@ -260,7 +260,7 @@ class MentionNotificationEdgeCaseTests(TestCase):
             Notification.objects.filter(recipient=outsider).count(), 0
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_duplicate_mention_creates_single_notification(self, _):
         """Mentioning the same user twice in one comment should create only ONE notification."""
         member = User.objects.create_user(username="member", password="pass")
@@ -276,7 +276,7 @@ class MentionNotificationEdgeCaseTests(TestCase):
             1,
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_mentioning_nonexistent_user_is_silently_ignored(self, _):
         """Mentioning a username that does not exist should not cause errors."""
         resp = self._post_comment("Hey @ghost_user_12345 what do you think?")

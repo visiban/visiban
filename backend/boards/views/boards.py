@@ -1,0 +1,332 @@
+"""BoardViewSet — the primary viewset for board CRUD and board-scoped actions."""
+
+from django.db import transaction
+from django.db.models import Count, Exists, OuterRef, Q
+from django.shortcuts import get_object_or_404
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+
+from accounts.models import User
+from groups.models import Group, GroupMembership, get_accessible_group_ids
+
+from .. import broadcast as _broadcast
+from ..models import (
+    Board, BoardFavorite, BoardMembership, Column, SavedFilter, Swimlane,
+)
+from ..permissions import get_board_role, SITE_ADMIN
+from ..serializers import (
+    BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
+    SavedFilterSerializer,
+)
+from ..templates import BOARD_TEMPLATES
+from ._helpers import get_board_for_user
+from .analytics import BoardAnalyticsMixin
+from .import_export import BoardImportExportMixin
+
+
+class BoardViewSet(
+    BoardAnalyticsMixin,
+    BoardImportExportMixin,
+    viewsets.ModelViewSet,
+):
+    """CRUD endpoints for boards, scoped to boards the requesting user has access to."""
+
+    serializer_class = BoardSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.can_access_all_content:
+            qs = Board.objects.all()
+        else:
+            qs = Board.objects.filter(
+                Q(owner=user) |
+                Q(memberships__user=user) |
+                Q(group__in=get_accessible_group_ids(user))
+            ).distinct()
+        if self.request.query_params.get("starred") == "true":
+            qs = qs.filter(favorites__user=user)
+        # select_related("owner", "group") prevents one JOIN-per-board for the
+        # owner and group_name serializer fields. Annotate to avoid 3 further
+        # subqueries per board (member_count, card_count, is_starred).
+        return qs.select_related("owner", "group").annotate(
+            _member_count=Count("memberships", distinct=True),
+            _card_count=Count("cards", distinct=True),
+            _is_starred=Exists(
+                BoardFavorite.objects.filter(board=OuterRef("pk"), user=user)
+            ),
+        )
+
+    def perform_create(self, serializer):
+        board = serializer.save(owner=self.request.user)
+        BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
+
+        template_key = self.request.data.get("template", "simple_kanban")
+        template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
+
+        if template["columns"]:
+            Column.objects.bulk_create([
+                Column(
+                    board=board,
+                    name=col["name"],
+                    position=i,
+                    color=col["color"],
+                    allow_card_creation=(i == 0),
+                    is_done=col.get("is_done", False),
+                )
+                for i, col in enumerate(template["columns"])
+            ])
+
+        # Prefer the user-supplied swimlane name from the modal prompt;
+        # fall back to the legacy static default for backwards compatibility.
+        swimlane_name = (self.request.data.get("swimlane_name") or "").strip()
+        if not swimlane_name:
+            swimlane_name = template.get("default_swimlane") or ""
+        if swimlane_name:
+            Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
+
+    def perform_update(self, serializer):
+        """Guard board-level updates: only admins can edit any board field.
+
+        Viewers and collaborators have read-only access. Members and above can
+        read but only admins can change the board name, description, settings, or
+        enforcement flags. Previously only enforcement flags were guarded, which
+        allowed viewers and members to rename boards via PATCH.
+        """
+        board = serializer.instance
+        role = get_board_role(self.request.user, board)
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only board admins can edit board settings.")
+        serializer.save()
+        board = serializer.instance
+        board_id = board.id
+        board_data = BoardSerializer(board, context={"request": self.request}).data
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        board = self.get_object()
+        role = get_board_role(request.user, board)
+        if board.owner != request.user and role != SITE_ADMIN:
+            raise PermissionDenied
+        board_id = board.id
+        board.delete()
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post", "delete"], url_path="star")
+    def star(self, request, pk=None):
+        """Star or unstar a board for the requesting user."""
+        board = self.get_object()
+        if request.method == "POST":
+            BoardFavorite.objects.get_or_create(user=request.user, board=board)
+        else:
+            BoardFavorite.objects.filter(user=request.user, board=board).delete()
+        # Re-fetch via get_queryset() so the _is_starred annotation reflects the
+        # change just made — the object fetched by get_object() above is stale.
+        board = self.get_queryset().get(pk=board.pk)
+        return Response(self.get_serializer(board).data)
+
+    @action(detail=True, methods=["post", "delete"], url_path="share")
+    def share(self, request, pk=None):
+        """Enable or revoke the public share link for a board.
+
+        POST  — generates a fresh UUID token (replaces any existing token).
+        DELETE — clears the token, immediately invalidating any live share link.
+        Both operations are admin-only; the token is a public credential.
+        """
+        import uuid as _uuid
+        board, role = get_board_for_user(pk, request.user)
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        if request.method == "POST":
+            board.share_token = _uuid.uuid4()
+            board.save(update_fields=["share_token"])
+            share_url = request.build_absolute_uri(f"/share/{board.share_token}")
+            response_data = {"share_token": str(board.share_token), "share_url": share_url}
+        else:
+            # DELETE
+            board.share_token = None
+            board.save(update_fields=["share_token"])
+            response_data = {"share_token": None}
+
+        # Notify connected clients so the Sharing tab updates without a reload.
+        board_id = board.pk
+        board_summary = BoardSerializer(board, context={"request": request}).data
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_summary)
+        )
+        return Response(response_data)
+
+    @action(detail=True, methods=["post"], url_path="move-group")
+    def move_group(self, request, pk=None):
+        """Move a board into a group (or back to personal) that the requesting user belongs to."""
+        board, role = get_board_for_user(pk, request.user)
+        if board.owner != request.user and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+
+        group_id = request.data.get("group_id")  # None = move to personal
+        if group_id is not None:
+            group = get_object_or_404(Group, pk=group_id)
+            is_member = (
+                group.owner_id == request.user.id or
+                GroupMembership.objects.filter(group=group, user=request.user).exists()
+            )
+            if not is_member:
+                raise PermissionDenied("You are not a member of the target group.")
+            board.group = group
+        else:
+            board.group = None
+
+        board.save()
+        board_id = board.id
+        board_data = BoardSerializer(board, context={"request": request}).data
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
+        )
+        return Response(board_data)
+
+    @action(detail=True, methods=["get"])
+    def full(self, request, pk=None):
+        """Return the full board state: columns, swimlanes, cards, labels, and members.
+
+        The resolved role is threaded into serializer context so that
+        get_current_user_role() and get_swimlanes() can reuse it without
+        issuing a second get_board_role() query.
+        """
+        board, role = get_board_for_user(pk, request.user)
+        return Response(BoardFullSerializer(board, context={"request": request, "role": role}).data)
+
+    @action(detail=True, methods=["get", "post"], url_path="saved-filters")
+    def saved_filters(self, request, pk=None):
+        """List or create saved filter presets for the requesting user on this board.
+
+        GET  — returns all saved filters belonging to the requesting user on this board.
+        POST — creates a new saved filter; name must be unique per user per board.
+
+        Saved filters are private to the requesting user. Any board member (including
+        viewer-role) can save and restore their own filter presets; no shared presets.
+        """
+        board, _ = get_board_for_user(pk, request.user)
+
+        if request.method == "GET":
+            qs = SavedFilter.objects.filter(user=request.user, board=board)
+            return Response(SavedFilterSerializer(qs, many=True).data)
+
+        # POST — create a new saved filter for this user on this board.
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(name) > 100:
+            return Response(
+                {"detail": "name must be 100 characters or fewer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        state_json = request.data.get("state_json")
+        if state_json is None:
+            return Response({"detail": "state_json is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(state_json, dict):
+            return Response(
+                {"detail": "state_json must be an object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            saved = SavedFilter.objects.create(
+                user=request.user,
+                board=board,
+                name=name,
+                state_json=state_json,
+            )
+        except Exception:
+            # unique_together violation — a filter with this name already exists.
+            return Response(
+                {"detail": "A saved filter with this name already exists on this board."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(SavedFilterSerializer(saved).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path=r"saved-filters/(?P<filter_pk>[0-9]+)")
+    def saved_filter_delete(self, request, pk=None, filter_pk=None):
+        """Delete a single saved filter preset owned by the requesting user.
+
+        The queryset is scoped to request.user — attempting to delete another
+        user's saved filter returns 404, not 403, to avoid confirming existence.
+        """
+        board, _ = get_board_for_user(pk, request.user)
+        try:
+            saved = SavedFilter.objects.get(pk=filter_pk, user=request.user, board=board)
+        except SavedFilter.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        saved.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"])
+    def members(self, request, pk=None):
+        """Add or update a member's role on the board (admin only)."""
+        board, role = get_board_for_user(pk, request.user)
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        user_id = request.data.get("user_id")
+        member_role = request.data.get("role", BoardMembership.Role.MEMBER)
+        target_user = get_object_or_404(User, pk=user_id)
+        # Only site admins can add/change other site admins
+        if target_user.is_site_admin and role != SITE_ADMIN:
+            raise PermissionDenied("Cannot modify a site admin's board membership.")
+        raw_mod = request.data.get("is_moderator")
+        # Normalize: None means "not provided", else coerce to bool.
+        # Multipart forms send "false"/"true" as strings.
+        if raw_mod is None:
+            is_moderator = None
+        elif isinstance(raw_mod, str):
+            is_moderator = raw_mod.lower() not in ("false", "0", "")
+        else:
+            is_moderator = bool(raw_mod)
+        if is_moderator and member_role in (
+            BoardMembership.Role.COLLABORATOR,
+            BoardMembership.Role.VIEWER,
+        ):
+            return Response(
+                {"detail": "Moderator entitlement can only be granted to members or admins."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        defaults = {"role": member_role}
+        if is_moderator is not None:
+            defaults["is_moderator"] = is_moderator
+        membership, created = BoardMembership.objects.get_or_create(
+            board=board, user=target_user, defaults=defaults
+        )
+        if not created:
+            membership.role = member_role
+            if is_moderator is not None:
+                membership.is_moderator = is_moderator
+            # Clear moderator flag when demoting to collaborator/viewer
+            if member_role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
+                membership.is_moderator = False
+            membership.save()
+        membership_data = BoardMembershipSerializer(membership).data
+        board_id = board.id
+        ws_event = "member.added" if created else "member.updated"
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, ws_event, membership_data))
+        return Response(membership_data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
+    def remove_member(self, request, pk=None, user_id=None):
+        """Remove a member from the board (admin only)."""
+        board, role = get_board_for_user(pk, request.user)
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        target_user = get_object_or_404(User, pk=user_id)
+        if target_user.is_site_admin and role != SITE_ADMIN:
+            raise PermissionDenied("Cannot remove a site admin from a board.")
+        board_id = board.id
+        removed_user_id = target_user.id
+        BoardMembership.objects.filter(board=board, user=target_user).delete()
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "member.removed", {"user_id": removed_user_id}))
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -38,7 +38,7 @@ def _make_board(owner, enforce_weight=False, enforce_wip=False):
 
 class WeightEnforcementTests(TestCase):
     def setUp(self):
-        self._broadcast_patcher = patch("boards.views.broadcast_board_event")
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
         self._broadcast_patcher.start()
 
         self.client = APIClient()

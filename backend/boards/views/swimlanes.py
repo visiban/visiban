@@ -1,0 +1,91 @@
+"""SwimlaneViewSet — CRUD endpoints for swimlanes on a board."""
+
+from django.db import transaction
+from django.db.models import Max
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+
+from .. import broadcast as _broadcast
+from ..models import Board, BoardMembership, Swimlane
+from ..permissions import SITE_ADMIN
+from ..serializers import SwimlaneSerializer, SwimlaneAdminSerializer
+from ._helpers import get_board_for_user
+
+
+class SwimlaneViewSet(viewsets.ModelViewSet):
+    """CRUD endpoints for swimlanes on a board; write operations require admin role."""
+
+    def get_serializer_class(self):
+        # Admin and site_admin members see contact_email and notes; all others get the
+        # public serializer which omits those fields to prevent viewer-role PII exposure.
+        _, role = self._board_and_role()
+        if role in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            return SwimlaneAdminSerializer
+        return SwimlaneSerializer
+
+    def _board_and_role(self):
+        return get_board_for_user(self.kwargs["board_pk"], self.request.user)
+
+    def _board(self):
+        return self._board_and_role()[0]
+
+    def get_queryset(self):
+        return Swimlane.objects.filter(board=self._board())
+
+    def perform_create(self, serializer):
+        board, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        # Lock the board row for the same reason as ColumnViewSet.perform_create —
+        # concurrent swimlane creation could race on Max(position).
+        with transaction.atomic():
+            Board.objects.select_for_update().get(pk=board.pk)
+            _max = board.swimlanes.aggregate(m=Max("position"))["m"]
+            max_pos = 0 if _max is None else _max + 1
+            swimlane = serializer.save(board=board, position=max_pos)
+        # Broadcast uses the public serializer — contact_email and notes must not be
+        # sent to viewer-role members who are connected via WebSocket.
+        swimlane_data = SwimlaneSerializer(swimlane).data
+        board_id = board.id
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.created", swimlane_data))
+
+    def perform_update(self, serializer):
+        _, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        swimlane = serializer.save()
+        # Same broadcast-safety constraint as perform_create.
+        swimlane_data = SwimlaneSerializer(swimlane).data
+        board_id = swimlane.board_id
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.updated", swimlane_data))
+
+    def perform_destroy(self, instance):
+        _, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        board_id = instance.board_id
+        swimlane_id = instance.id
+        instance.delete()
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_id": swimlane_id}))
+
+    @action(detail=False, methods=["post"])
+    def reorder(self, request, board_pk=None):
+        """Reorder swimlanes by accepting a list of swimlane IDs in the desired order (admin only)."""
+        board, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        order = request.data.get("order", [])
+        with transaction.atomic():
+            # Single-pass update is safe here: Swimlane has unique_together on
+            # (board, name), NOT (board, position), so mid-update position
+            # collisions cannot cause an IntegrityError.  Contrast with
+            # ColumnViewSet.reorder which requires a two-pass approach because
+            # Column has unique_together = ["board", "position"].
+            for pos, swimlane_id in enumerate(order):
+                Swimlane.objects.filter(board=board, pk=swimlane_id).update(position=pos)
+        lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
+        board_id = board.id
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlanes.reordered", {"swimlanes": list(lanes_data)}))
+        return Response(lanes_data)
