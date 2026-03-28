@@ -586,6 +586,20 @@ class BoardViewSet(viewsets.ModelViewSet):
                 )
                 label_map[lbl["name"]] = label
 
+            # Bulk-load all referenced usernames so the card loop does not
+            # issue a per-card query for assignee, moved_by, or actor (#420).
+            all_usernames = set()
+            for card_data in data.get("cards", []):
+                if card_data.get("assignee"):
+                    all_usernames.add(card_data["assignee"])
+                for mv in card_data.get("movements", []):
+                    if mv.get("moved_by"):
+                        all_usernames.add(mv["moved_by"])
+                for act in card_data.get("activities", []):
+                    if act.get("actor"):
+                        all_usernames.add(act["actor"])
+            user_map = {u.username: u for u in User.objects.filter(username__in=all_usernames)}
+
             # Create cards
             for card_data in data.get("cards", []):
                 column = column_map.get(card_data["column"])
@@ -599,11 +613,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
                 # Resolve assignee by username if present; silently skip unknown users.
                 assignee_username = card_data.get("assignee")
-                assignee = (
-                    User.objects.filter(username=assignee_username).first()
-                    if assignee_username
-                    else None
-                )
+                assignee = user_map.get(assignee_username) if assignee_username else None
 
                 card = Card.objects.create(
                     board=board,
@@ -658,9 +668,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                     to_sw = swimlane_map.get(to_sw_name)
                     moved_by_username = mv_data.get("moved_by")
                     moved_by = (
-                        User.objects.filter(username=moved_by_username).first()
-                        if moved_by_username
-                        else None
+                        user_map.get(moved_by_username) if moved_by_username else None
                     ) or request.user
                     mv = CardMovement.objects.create(
                         card=card,
@@ -691,9 +699,7 @@ class BoardViewSet(viewsets.ModelViewSet):
                         continue
                     actor_username = act_data.get("actor")
                     actor = (
-                        User.objects.filter(username=actor_username).first()
-                        if actor_username
-                        else None
+                        user_map.get(actor_username) if actor_username else None
                     ) or request.user
                     act = CardActivity.objects.create(
                         card=card,

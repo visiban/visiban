@@ -56,6 +56,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 - `CardSerializer` now scopes `label_ids` and `assignee_id` querysets to the current board — previously both used unscoped querysets (`Label.objects.all()` / `User.objects.all()`), allowing cross-board label assignment and assignment of non-member users (#416)
+- JSON board import now resolves assignee, moved_by, and actor usernames via a single bulk query instead of one query per card — eliminates N+1 queries that scaled linearly with card count (#420)
 - All 11 seed data JSON export files now include `is_done` on terminal columns — previously the field was omitted from exports, causing imported boards to lose done-column marking and breaking analytics dwell-time exclusion and stalled-card detection
 - Demo board seed data no longer produces duplicate card titles — expanded title pool from 82 to 129 entries and replaced modulo-wrap index with a break guard that stops card generation when titles are exhausted
 - Public share endpoint now enforces rate limiting (120 req/hour per IP via `ShareLinkThrottle`) — previously `throttle_classes` was empty, leaving the unauthenticated endpoint unprotected against scraping (#348)
