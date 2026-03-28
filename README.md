@@ -45,13 +45,18 @@ All connected users see changes in **real time** over a WebSocket connection. Dr
 | **Movement audit trail** | Every card move is timestamped and attributed. View per-card history or search the board-level History tab. [→ Card history](https://docs.visiban.com/next/features/card-history/) |
 | **Analytics** | Dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
 | **Real-time sync** | WebSocket-powered — card moves, edits, and structural changes appear instantly for all connected users. [→ Real-time](https://docs.visiban.com/next/features/realtime/) |
-| **Groups & RBAC** | Boards live inside groups (unlimited nesting). Four roles — admin, member, collaborator, viewer — with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
+| **Groups & RBAC** | Boards live inside groups (unlimited nesting). Five roles — admin, member, collaborator, viewer, plus moderator entitlement — with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
 | **Card detail** | Rich-text description, priority, assignee, labels, due date, weight, checklist, file attachments, and threaded comments with @mentions. [→ Board guide](https://docs.visiban.com/next/features/board/#cards) |
 | **Board sharing** | Generate a read-only public link. Anyone with the URL can view the board — no account needed. Revoke it any time. [→ Sharing](https://docs.visiban.com/next/features/board/#board-sharing) |
 | **Import & export** | JSON round-trip with full movement history, or CSV for spreadsheets. Import from the dashboard; export from the board toolbar. [→ Export & import](https://docs.visiban.com/next/features/board/#export--import) |
 | **Bulk operations** | Select multiple cards and move, reassign, reprioritize, archive, or delete them all at once. |
 | **OAuth & OIDC login** | Google, GitHub, and GitLab OAuth out of the box. Connect any OIDC provider via environment variables. [→ OAuth setup](https://docs.visiban.com/next/getting-started/oauth/) |
 | **Notifications** | In-app alerts for @mentions, card assignments, and stale cards. [→ Notifications](https://docs.visiban.com/next/features/notifications/) |
+| **Saved filters** | Save and restore filter presets per board — private to each user, synced across devices. [→ Board guide](https://docs.visiban.com/next/features/board/#filters-and-search) |
+| **Board history** | Board-level History tab with filterable movement log — search by swimlane, column, user, and date range. [→ Card history](https://docs.visiban.com/next/features/card-history/) |
+| **Swimlane focus** | Focus on a single swimlane to dim all other rows — toggle via crosshair button or URL `?focus=`. [→ Board guide](https://docs.visiban.com/next/features/board/) |
+| **Hard WIP enforcement** | Block all card moves (including admins) when a column is at capacity. [→ Board guide](https://docs.visiban.com/next/features/board/) |
+| **Invite links** | Shareable URLs with configurable role, expiry (1d/7d/30d), and single-use options. [→ Groups](https://docs.visiban.com/next/features/groups/) |
 | **Personal access tokens** | Token-based API access for scripts and integrations. [→ PATs](https://docs.visiban.com/next/features/personal-access-tokens/) |
 
 ---
@@ -86,7 +91,7 @@ mkdocs serve --dev-addr=localhost:8001
 |---|---|
 | Backend | Python 3.12, Django 5, Django REST Framework |
 | ASGI / WebSocket | daphne, Django Channels 4, channels-redis |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 17 |
 | Cache | Redis 7 |
 | Auth | django-allauth — Google / GitHub / GitLab OAuth + OIDC |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |

@@ -84,6 +84,7 @@ nav:
     - Overview: architecture/overview.md
     - Data Model: architecture/data-model.md
     - Deployment: architecture/deployment.md
+    - Scaling: architecture/scaling.md
     - Open-Core Boundary: architecture/open-core-boundary.md
   - Administration:
     - administration/index.md

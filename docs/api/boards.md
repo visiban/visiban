@@ -257,6 +257,49 @@ Each result object fields:
 
 ---
 
+## Saved Filters
+
+Saved filters are user-scoped filter presets on a board. Any board member (including viewers) can save and restore their own filter presets. Filters are private — users cannot see or modify other users' presets.
+
+### `GET /api/boards/{id}/saved-filters/`
+List all saved filters belonging to the requesting user on this board.
+
+**Response**
+```json
+[
+  {
+    "id": 1,
+    "name": "My urgent cards",
+    "state_json": { "priority": ["urgent", "high"], "assignee": [3] },
+    "created_at": "2026-03-20T10:00:00Z"
+  }
+]
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Filter preset ID |
+| `name` | string | User-defined name (unique per user per board, max 100 characters) |
+| `state_json` | object | Opaque filter state — schema owned by the frontend; stored and returned as-is |
+| `created_at` | string | ISO 8601 timestamp |
+
+### `POST /api/boards/{id}/saved-filters/`
+Create a new saved filter preset.
+
+**Request**
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | ✓ | Filter name (max 100 characters, unique per user per board) |
+| `state_json` | ✓ | Filter state object (must be a valid JSON object) |
+
+**Errors:** `400 Bad Request` if name is empty, exceeds 100 characters, or a filter with the same name already exists for this user on this board.
+
+### `DELETE /api/boards/{id}/saved-filters/{filter_id}/`
+Delete a saved filter preset. Only the owning user can delete their own filters — attempting to delete another user's filter returns `404 Not Found`.
+
+---
+
 ## Export & Import
 
 ### `GET /api/boards/{id}/export/`
