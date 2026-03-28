@@ -311,6 +311,78 @@ describe('AdminPage — Users tab', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Tests: Invite Links tab
+// ---------------------------------------------------------------------------
+
+describe('AdminPage — Invite Links tab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetAdminSettings.mockResolvedValue(fakeSettings)
+    mockGetAdminUsers.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+    mockGetAdminInviteLinks.mockResolvedValue([])
+
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, origin: 'https://visiban.example.com' },
+      writable: true,
+    })
+
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    })
+  })
+
+  it('shows full join URL (not raw token) after creating a link', async () => {
+    const rawToken = 'vbnl_abc123def456'
+    mockCreateAdminInviteLink.mockResolvedValue({
+      id: 1,
+      prefix: 'vbnl_ab',
+      status: 'pending',
+      single_use: false,
+      expires_at: null,
+      created_by_username: 'admin',
+      raw_token: rawToken,
+    })
+
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+    await waitFor(() => screen.getByText('Create link'))
+    fireEvent.click(screen.getByText('Create link'))
+
+    await waitFor(() => {
+      expect(screen.getByText('https://visiban.example.com/join/vbnl_abc123def456')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(rawToken)).not.toBeInTheDocument()
+  })
+
+  it('copies full join URL to clipboard (not raw token)', async () => {
+    const rawToken = 'vbnl_abc123def456'
+    mockCreateAdminInviteLink.mockResolvedValue({
+      id: 1,
+      prefix: 'vbnl_ab',
+      status: 'pending',
+      single_use: false,
+      expires_at: null,
+      created_by_username: 'admin',
+      raw_token: rawToken,
+    })
+
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Invite Links'))
+    fireEvent.click(screen.getByText('Invite Links'))
+    await waitFor(() => screen.getByText('Create link'))
+    fireEvent.click(screen.getByText('Create link'))
+
+    await waitFor(() => screen.getByText('Copy'))
+    fireEvent.click(screen.getByText('Copy'))
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      'https://visiban.example.com/join/vbnl_abc123def456'
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Tests: Escape key behaviour
 // ---------------------------------------------------------------------------
 

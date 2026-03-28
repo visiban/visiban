@@ -291,7 +291,7 @@ function InviteLinksTab() {
 
   const handleCopy = () => {
     if (!newLink) return;
-    navigator.clipboard.writeText(newLink.raw_token).then(() => {
+    navigator.clipboard.writeText(`${window.location.origin}/join/${newLink.raw_token}`).then(() => {
       setCopied(true);
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
@@ -363,10 +363,10 @@ function InviteLinksTab() {
           <p className="text-xs text-amber-400">Copy this link now — it won't be shown again.</p>
           <div className="flex items-center gap-2">
             <span
-              title={newLink.raw_token}
+              title={`${window.location.origin}/join/${newLink.raw_token}`}
               className="flex-1 font-mono text-xs text-slate-200 bg-slate-800 border border-slate-700 rounded px-2 py-1.5 truncate"
             >
-              {newLink.raw_token}
+              {`${window.location.origin}/join/${newLink.raw_token}`}
             </span>
             <button
               onClick={handleCopy}

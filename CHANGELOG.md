@@ -36,6 +36,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Deactivating a user now triggers an offboarding flow: board ownership on any boards the user owns is transferred to an eligible member before the account is deactivated; deactivation is blocked when no eligible transfer target exists on any owned board (`POST /api/admin/users/{id}/deactivate/`)
 - Admin panel includes a new "Invite Links" tab showing each token's status badge and a one-time reveal of the token value; links can be revoked inline
 - Board deletion now emits a structured `INFO` log (`board.deleted board_id=… board_name=… deleted_by=… deleted_by_username=…`) before the row is removed, providing an application-level audit trail for irreversible operations (#426)
+- Security test coverage: cross-board IDOR tests for cards, comments, and attachments (#399); unauthenticated access rejection tests for all core endpoints (#401); file size limit enforcement tests for the attachment upload endpoint (#400)
 
 ### Changed
 - CI default job setting changed from `interruptible: true` to `interruptible: false` — main-branch pipelines were being silently canceled when two MRs landed in quick succession; `workflow: auto_cancel: on_new_commit: interruptible` preserves the optimisation on feature branches for any job that opts in
@@ -62,6 +63,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 - Avatar color palette unified to `-600` tones across the entire frontend — `Avatar.tsx` updated from `-500`, `CardDetail.tsx` inline `AVATAR_PALETTE` (`-700` tones) removed in favor of the shared `Avatar` component, and `BoardSettingsModal.tsx` hardcoded `bg-blue-700` circles replaced with `<Avatar>` (#428)
+- Admin invite link panel now displays and copies the full join URL (`/join/<token>`) instead of the raw token — the raw token alone was unusable as a shareable link
 - `RegistrationEndpointToggleTests` now invalidates the registration-mode cache in `setUp()` — previously a stale LocMemCache entry from `test_registration_blocked_when_closed` survived the transaction rollback, causing `test_registration_allowed_when_open` to see "closed" mode and fail with 403
 - `CardSerializer` now scopes `label_ids` and `assignee_id` querysets to the current board — previously both used unscoped querysets (`Label.objects.all()` / `User.objects.all()`), allowing cross-board label assignment and assignment of non-member users (#416)
 - JSON board import now resolves assignee, moved_by, and actor usernames via a single bulk query instead of one query per card — eliminates N+1 queries that scaled linearly with card count (#420)
