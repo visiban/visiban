@@ -3,7 +3,7 @@
 [![pipeline](https://gitlab.com/visiban/visiban/badges/main/pipeline.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
 [![coverage](https://gitlab.com/visiban/visiban/badges/main/coverage.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
 [![release](https://img.shields.io/badge/release-v1.0.0--rc.9-blue)](https://gitlab.com/visiban/visiban/-/releases/v1.0.0-rc.9)
-[![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/latest/)
+[![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/next/)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 **Visiban is a self-hosted Kanban board for teams that track many independent entities through a shared pipeline.** Think customers moving through a sales process, accounts in an onboarding flow, or projects across delivery stages — each gets its own swimlane row, and the whole board gives you an at-a-glance view of where everything stands.
@@ -23,7 +23,7 @@ docker compose up --build
 
 Open **http://localhost:5173**. The first-boot admin password is printed to the container logs.
 
-> **Running in production?** See the [installation guide](https://docs.visiban.com/latest/getting-started/installation/) for HTTPS setup, environment variables, and database configuration.
+> **Running in production?** See the [installation guide](https://docs.visiban.com/next/getting-started/installation/) for HTTPS setup, environment variables, and database configuration.
 
 ---
 
@@ -41,35 +41,35 @@ All connected users see changes in **real time** over a WebSocket connection. Dr
 
 | Feature | Description |
 |---|---|
-| **Swimlane board** | Grid of columns × swimlane rows. Collapse, resize, and reorder with drag-and-drop. [→ Board guide](https://docs.visiban.com/latest/features/board/) |
-| **Movement audit trail** | Every card move is timestamped and attributed. View per-card history or search the board-level History tab. [→ Card history](https://docs.visiban.com/latest/features/card-history/) |
-| **Analytics** | Dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/latest/features/analytics/) |
-| **Real-time sync** | WebSocket-powered — card moves, edits, and structural changes appear instantly for all connected users. [→ Real-time](https://docs.visiban.com/latest/features/realtime/) |
-| **Groups & RBAC** | Boards live inside groups (unlimited nesting). Four roles — admin, member, collaborator, viewer — with automatic group inheritance. [→ Groups](https://docs.visiban.com/latest/features/groups/) |
-| **Card detail** | Rich-text description, priority, assignee, labels, due date, weight, checklist, file attachments, and threaded comments with @mentions. [→ Board guide](https://docs.visiban.com/latest/features/board/#cards) |
-| **Board sharing** | Generate a read-only public link. Anyone with the URL can view the board — no account needed. Revoke it any time. [→ Sharing](https://docs.visiban.com/latest/features/board/#board-sharing) |
-| **Import & export** | JSON round-trip with full movement history, or CSV for spreadsheets. Import from the dashboard; export from the board toolbar. [→ Export & import](https://docs.visiban.com/latest/features/board/#export--import) |
+| **Swimlane board** | Grid of columns × swimlane rows. Collapse, resize, and reorder with drag-and-drop. [→ Board guide](https://docs.visiban.com/next/features/board/) |
+| **Movement audit trail** | Every card move is timestamped and attributed. View per-card history or search the board-level History tab. [→ Card history](https://docs.visiban.com/next/features/card-history/) |
+| **Analytics** | Dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
+| **Real-time sync** | WebSocket-powered — card moves, edits, and structural changes appear instantly for all connected users. [→ Real-time](https://docs.visiban.com/next/features/realtime/) |
+| **Groups & RBAC** | Boards live inside groups (unlimited nesting). Four roles — admin, member, collaborator, viewer — with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
+| **Card detail** | Rich-text description, priority, assignee, labels, due date, weight, checklist, file attachments, and threaded comments with @mentions. [→ Board guide](https://docs.visiban.com/next/features/board/#cards) |
+| **Board sharing** | Generate a read-only public link. Anyone with the URL can view the board — no account needed. Revoke it any time. [→ Sharing](https://docs.visiban.com/next/features/board/#board-sharing) |
+| **Import & export** | JSON round-trip with full movement history, or CSV for spreadsheets. Import from the dashboard; export from the board toolbar. [→ Export & import](https://docs.visiban.com/next/features/board/#export--import) |
 | **Bulk operations** | Select multiple cards and move, reassign, reprioritize, archive, or delete them all at once. |
-| **OAuth & OIDC login** | Google, GitHub, and GitLab OAuth out of the box. Connect any OIDC provider via environment variables. [→ OAuth setup](https://docs.visiban.com/latest/getting-started/oauth/) |
-| **Notifications** | In-app alerts for @mentions, card assignments, and stale cards. [→ Notifications](https://docs.visiban.com/latest/features/notifications/) |
-| **Personal access tokens** | Token-based API access for scripts and integrations. [→ PATs](https://docs.visiban.com/latest/features/personal-access-tokens/) |
+| **OAuth & OIDC login** | Google, GitHub, and GitLab OAuth out of the box. Connect any OIDC provider via environment variables. [→ OAuth setup](https://docs.visiban.com/next/getting-started/oauth/) |
+| **Notifications** | In-app alerts for @mentions, card assignments, and stale cards. [→ Notifications](https://docs.visiban.com/next/features/notifications/) |
+| **Personal access tokens** | Token-based API access for scripts and integrations. [→ PATs](https://docs.visiban.com/next/features/personal-access-tokens/) |
 
 ---
 
 ## Documentation
 
-Full documentation is at **[docs.visiban.com](https://docs.visiban.com/latest/)**.
+Full documentation is at **[docs.visiban.com](https://docs.visiban.com/next/)**.
 
 | Topic | Link |
 |---|---|
-| Installation & configuration | [Getting started](https://docs.visiban.com/latest/getting-started/installation/) |
-| First boot | [First boot](https://docs.visiban.com/latest/getting-started/first-boot/) |
-| Board & cards | [Board guide](https://docs.visiban.com/latest/features/board/) |
-| Analytics & summary | [Analytics](https://docs.visiban.com/latest/features/analytics/) |
-| Groups | [Groups](https://docs.visiban.com/latest/features/groups/) |
-| Roles & permissions | [RBAC](https://docs.visiban.com/latest/rbac/roles/) |
-| API reference | [API](https://docs.visiban.com/latest/api/boards/) |
-| Site administration | [Administration](https://docs.visiban.com/latest/administration/site-admins/) |
+| Installation & configuration | [Getting started](https://docs.visiban.com/next/getting-started/installation/) |
+| First boot | [First boot](https://docs.visiban.com/next/getting-started/first-boot/) |
+| Board & cards | [Board guide](https://docs.visiban.com/next/features/board/) |
+| Analytics & summary | [Analytics](https://docs.visiban.com/next/features/analytics/) |
+| Groups | [Groups](https://docs.visiban.com/next/features/groups/) |
+| Roles & permissions | [RBAC](https://docs.visiban.com/next/rbac/roles/) |
+| API reference | [API](https://docs.visiban.com/next/api/boards/) |
+| Site administration | [Administration](https://docs.visiban.com/next/administration/site-admins/) |
 
 To serve the docs locally:
 

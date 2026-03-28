@@ -7,5 +7,5 @@ router.register(r"groups", GroupViewSet, basename="group")
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("groups/join/<uuid:token>/", JoinGroupView.as_view(), name="group-join"),
+    path("groups/join/<str:token>/", JoinGroupView.as_view(), name="group-join"),
 ]

@@ -365,7 +365,9 @@ export interface CreatedAdminInviteLink extends AdminInviteLink {
 
 export interface GroupInviteLink {
   id: number;
-  token: string;
+  prefix: string;
+  /** Full raw token — only present in the creation response. */
+  token?: string;
   name: string;
   role: "admin" | "member" | "collaborator" | "viewer";
   expires_at: string | null;

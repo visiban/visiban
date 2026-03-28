@@ -105,5 +105,5 @@ class GroupInviteLinkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GroupInviteLink
-        fields = ["id", "token", "is_active", "created_at", "name", "role", "expires_at", "is_expired"]
-        read_only_fields = ["id", "token", "is_active", "created_at", "is_expired"]
+        fields = ["id", "prefix", "is_active", "created_at", "name", "role", "expires_at", "is_expired"]
+        read_only_fields = ["id", "prefix", "is_active", "created_at", "is_expired"]

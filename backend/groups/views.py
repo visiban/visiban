@@ -376,15 +376,16 @@ class GroupViewSet(viewsets.ModelViewSet):
             if expiry_days > 0:
                 expires_at = timezone.now() + datetime.timedelta(days=expiry_days)
 
-        link = GroupInviteLink.objects.create(
+        link, raw_token = GroupInviteLink.generate(
             group=group,
             created_by=request.user,
             name=name,
             role=role,
             expires_at=expires_at,
-            is_active=True,
         )
-        return Response(GroupInviteLinkSerializer(link).data, status=status.HTTP_201_CREATED)
+        data = GroupInviteLinkSerializer(link).data
+        data["token"] = raw_token
+        return Response(data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path=r"invite-links/(?P<link_id>[^/.]+)")
     def revoke_invite_link(self, request, pk=None, link_id=None):
@@ -510,7 +511,12 @@ class JoinGroupView(APIView):
         # while still making it possible to correlate with an audit trail.
         token_hint = str(token)[:8]
         ip = _get_client_ip(request)
-        link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
+        link = GroupInviteLink.lookup_by_token(str(token))
+        if link is None:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         if link.is_expired:
             logger.info(
                 "Invite token lookup failed: expired. token=%s ip=%s",
@@ -536,7 +542,12 @@ class JoinGroupView(APIView):
     def post(self, request, token):
         token_hint = str(token)[:8]
         ip = _get_client_ip(request)
-        link = get_object_or_404(GroupInviteLink, token=token, is_active=True)
+        link = GroupInviteLink.lookup_by_token(str(token))
+        if link is None:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         if link.is_expired:
             logger.info(
                 "Invite token redemption failed: expired. token=%s user_id=%s ip=%s outcome=failure",
