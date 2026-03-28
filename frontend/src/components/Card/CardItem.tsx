@@ -108,7 +108,7 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
         </div>
       )}
       <div className="px-2.5 py-2">
-        <p className="text-xs font-medium text-slate-200 leading-snug line-clamp-2">{card.title}</p>
+        <p className="text-sm text-slate-200 leading-snug line-clamp-2">{card.title}</p>
 
         {/* Description exists — indicator only; full content shown in card detail */}
 
