@@ -349,23 +349,15 @@ REST_AUTH = {
 
 APP_VERSION = env("APP_VERSION", default="dev")
 
-# Suppress expected 401/403 WARNING noise from unauthenticated startup polls.
-# django.request logs every 4xx response at WARNING level by default; 401 and
-# 403 are normal for the initial session-check call made before login and
-# should not clutter startup output.  Real server errors (5xx) still propagate.
+# Log auth failures (401/403) at WARNING so operators can detect brute-force
+# attempts and misconfigured clients. Previously these were suppressed, hiding
+# legitimate security signals alongside the benign initial session check.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "filters": {
-        "suppress_401_403": {
-            "()": "django.utils.log.CallbackFilter",
-            "callback": lambda record: getattr(record, "status_code", 0) not in (401, 403),
-        },
-    },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "filters": ["suppress_401_403"],
         },
     },
     "loggers": {

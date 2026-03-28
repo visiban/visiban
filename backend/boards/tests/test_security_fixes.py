@@ -558,3 +558,27 @@ class JoinGroupLoggingTests(TestCase):
             r = client.post(f"/api/groups/join/{raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_410_GONE)
         self.assertTrue(any("outcome=failure" in line for line in cm.output))
+
+
+# ---------------------------------------------------------------------------
+# Static media fallback removal (#374)
+# ---------------------------------------------------------------------------
+
+class MediaStaticFallbackTests(TestCase):
+    """Verify that the static() media fallback has been removed from urlconf."""
+
+    def test_no_static_media_fallback_in_urlconf(self):
+        """urlconf should not contain a django.views.static.serve pattern for /media/."""
+        from django.urls import get_resolver
+        resolver = get_resolver()
+        for pattern in resolver.url_patterns:
+            callback = getattr(pattern, "callback", None)
+            if callback is not None:
+                module = getattr(callback, "__module__", "")
+                name = getattr(callback, "__name__", "")
+                # django.views.static.serve is what static() registers
+                self.assertFalse(
+                    module == "django.views.static" and name == "serve",
+                    "static() media fallback found in urlconf — it must be removed "
+                    "because it bypasses authentication on media files.",
+                )

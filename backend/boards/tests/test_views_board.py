@@ -130,6 +130,16 @@ class BoardAnalyticsTests(TestCase):
         r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=-5")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_analytics_days_exceeds_cap_returns_400(self):
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=366")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("365", r.json()["detail"])
+
+    def test_analytics_stalled_days_exceeds_cap_returns_400(self):
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?stalled_days=91")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("90", r.json()["detail"])
+
     def test_analytics_period_filter_affects_dwell_times(self):
         """Period window clamps dwell time so all periods show non-null heatmap data.
 

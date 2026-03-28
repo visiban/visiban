@@ -1,5 +1,3 @@
-from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from accounts.views import InviteRegisterView
@@ -17,8 +15,8 @@ urlpatterns = [
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/health/liveness/", LivenessView.as_view()),
     path("api/health/readiness/", ReadinessView.as_view()),
-    # Authenticated media serving — replaces the unauthenticated Nginx /media/ proxy.
-    # Must be listed before static() so this view handles /media/ in all environments.
+    # Authenticated media serving — all media requests go through ServeMediaView.
+    # No static() fallback: that would bypass auth and serve files unauthenticated.
     path("media/<path:path>", ServeMediaView.as_view()),
     path("api/", include("boards.urls")),
     path("api/", include("accounts.urls")),
@@ -30,4 +28,4 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]

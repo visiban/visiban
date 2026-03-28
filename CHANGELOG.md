@@ -97,6 +97,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Text file uploads (CSV, plain text) are now rejected if the first 4 KB contains HTML/script markers (`<script>`, `<svg>`, `<html>`, `<iframe>`, `<!DOCTYPE>`) — prevents stored XSS via polyglot files (#372)
 - `ServeMediaView` now sets explicit `Content-Type` from the stored filename and forces `Content-Disposition: attachment` for all non-image file types — prevents browsers from rendering uploaded PDFs, CSVs, or text files inline as HTML (#372)
 - Group invite link tokens are now hashed (SHA-256) before storage — plaintext tokens are never persisted; the raw token is returned exactly once at creation time. Existing tokens were backfilled via data migration. The deprecated `token` column is retained for one release cycle (#373)
+- Removed `static()` media URL fallback from urlconf — the fallback bypassed `ServeMediaView` authentication, allowing unauthenticated access to uploaded files via the development server (#374)
+- Auth failure logging (401/403) is no longer suppressed — `django.request` WARNING entries now include failed authentication attempts so operators can detect brute-force patterns (#374)
+- `PATAuthentication` now updates `last_used_at` on every successful authentication, enabling operators to identify unused tokens for rotation (#375)
+- Analytics `days` query param is now capped at 365 and `stalled_days` at 90 — prevents unbounded date-range queries that could degrade database performance (#375)
 
 ---
 

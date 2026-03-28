@@ -1133,6 +1133,11 @@ class BoardViewSet(viewsets.ModelViewSet):
                 {"detail": "Query param 'days' must be a positive integer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if days > 365:
+            return Response(
+                {"detail": "Query param 'days' must not exceed 365."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         now = timezone.now()
         # Stall threshold is a board-level setting, independent of the period selector.
         # The period controls the dwell-time analysis window; staleness is how long a
@@ -1150,6 +1155,11 @@ class BoardViewSet(viewsets.ModelViewSet):
             if stalled_days_param <= 0:
                 return Response(
                     {"detail": "Query param 'stalled_days' must be a positive integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if stalled_days_param > 90:
+                return Response(
+                    {"detail": "Query param 'stalled_days' must not exceed 90."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             effective_stalled_days = stalled_days_param
