@@ -55,6 +55,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - New `ux-design` agent proposes concrete UI layout, component composition, interaction flow, and state handling before implementation — runs on Opus with 3 parallel Sonnet sub-agents for research; workflow order is now `architect` → `ux-design` → implement → `ux-review`
 
 ### Fixed
+- `RegistrationEndpointToggleTests` now invalidates the registration-mode cache in `setUp()` — previously a stale LocMemCache entry from `test_registration_blocked_when_closed` survived the transaction rollback, causing `test_registration_allowed_when_open` to see "closed" mode and fail with 403
 - `CardSerializer` now scopes `label_ids` and `assignee_id` querysets to the current board — previously both used unscoped querysets (`Label.objects.all()` / `User.objects.all()`), allowing cross-board label assignment and assignment of non-member users (#416)
 - All 11 seed data JSON export files now include `is_done` on terminal columns — previously the field was omitted from exports, causing imported boards to lose done-column marking and breaking analytics dwell-time exclusion and stalled-card detection
 - Demo board seed data no longer produces duplicate card titles — expanded title pool from 82 to 129 entries and replaced modulo-wrap index with a break guard that stops card generation when titles are exhausted

@@ -3,7 +3,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import SiteSetting, User
+from accounts.models import SiteSetting, User, invalidate_registration_mode_cache
 
 
 class SiteConfigViewTests(TestCase):
@@ -89,6 +89,10 @@ class RegistrationEndpointToggleTests(TestCase):
     """
 
     def setUp(self):
+        # LocMemCache survives TestCase transaction rollbacks, so a prior test
+        # that sets registration_mode=CLOSED leaves a stale cache entry that
+        # causes subsequent tests to see "closed" even though the DB was reset.
+        invalidate_registration_mode_cache()
         self.client = APIClient()
 
     def test_registration_blocked_when_closed(self):
