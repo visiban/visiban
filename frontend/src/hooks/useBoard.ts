@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
@@ -29,6 +29,16 @@ export function useBoard() {
   const [moveError, setMoveError] = useState<MoveBlockedError | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 
+  // Ref mirrors the latest board state so callbacks can read it without
+  // capturing `board` in their dependency arrays. This stabilizes the
+  // identity of moveCard / forceMoveCard / reorderColumns / reorderSwimlanes
+  // across renders, preventing unnecessary re-renders of memoized children.
+  const boardRef = useRef(board);
+  boardRef.current = board;
+
+  const pendingMoveRef = useRef(pendingMove);
+  pendingMoveRef.current = pendingMove;
+
   const load = useCallback(() => {
     setLoading(true);
     getBoardFull(boardId)
@@ -57,10 +67,11 @@ export function useBoard() {
     swimlaneId: number,
     position: number
   ) => {
-    if (!board) return;
+    if (!boardRef.current) return;
 
-    // Optimistic update
-    const prev = board.cards;
+    // Optimistic update — capture current cards for rollback via the ref
+    // so this callback does not depend on the `board` state value.
+    const prev = boardRef.current.cards;
     setBoard((b) => {
       if (!b) return b;
       return {
@@ -95,15 +106,15 @@ export function useBoard() {
         }
       }
     }
-  }, [board, boardId]);
+  }, [boardId]);
 
   // Admin-only: retry the last blocked move with force=true, bypassing the WIP limit.
   const forceMoveCard = useCallback(async () => {
-    if (!board || !pendingMove) return;
-    const { cardId, columnId, swimlaneId, position } = pendingMove;
+    if (!boardRef.current || !pendingMoveRef.current) return;
+    const { cardId, columnId, swimlaneId, position } = pendingMoveRef.current;
     clearMoveError();
 
-    const prev = board.cards;
+    const prev = boardRef.current.cards;
     setBoard((b) => {
       if (!b) return b;
       return {
@@ -132,7 +143,7 @@ export function useBoard() {
         if (data?.code) setMoveError(data);
       }
     }
-  }, [board, boardId, pendingMove, clearMoveError]);
+  }, [boardId, clearMoveError]);
 
   const addCard = useCallback((card: Card) => {
     setBoard((b) => {
@@ -229,8 +240,8 @@ export function useBoard() {
   }, []);
 
   const reorderColumns = useCallback(async (orderedIds: number[]) => {
-    if (!board) return;
-    const prev = board.columns;
+    if (!boardRef.current) return;
+    const prev = boardRef.current.columns;
     setBoard((b) => {
       if (!b) return b;
       const map = new Map(b.columns.map((c) => [c.id, c]));
@@ -242,11 +253,11 @@ export function useBoard() {
     } catch {
       setBoard((b) => b ? { ...b, columns: prev } : b);
     }
-  }, [board, boardId]);
+  }, [boardId]);
 
 
   const reorderSwimlanes = useCallback(async (orderedIds: number[]) => {
-    if (!board) return;
+    if (!boardRef.current) return;
     setBoard((b) => {
       if (!b) return b;
       const map = new Map(b.swimlanes.map((s) => [s.id, s]));
@@ -261,7 +272,7 @@ export function useBoard() {
       // swimlane added in the same batch, even though it was persisted.
       load();
     }
-  }, [board, boardId, load]);
+  }, [boardId, load]);
 
   const updateSwimlane = useCallback((swimlane: Swimlane) => {
     setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.map((s) => s.id === swimlane.id ? swimlane : s) } : b);
@@ -277,7 +288,7 @@ export function useBoard() {
   }, [boardId, load]);
 
   const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
-    if (!board) return;
+    if (!boardRef.current) return;
     setBoard((b) => b ? { ...b, ...patch } : b);
     try {
       await apiPatchBoard(boardId, patch);
@@ -285,7 +296,7 @@ export function useBoard() {
       // Reload fresh state on failure
       load();
     }
-  }, [board, boardId, load]);
+  }, [boardId, load]);
 
   return { board, loading, error, reload: load, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings };
 }

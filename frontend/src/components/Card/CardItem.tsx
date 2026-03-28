@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
@@ -25,7 +25,54 @@ interface Props {
   readOnly?: boolean;
 }
 
-export default function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false }: Props) {
+// Custom comparator for React.memo — avoids re-renders when the card object
+// is referentially new but semantically identical.  We compare the scalar
+// fields that affect rendering plus label/assignee identity.
+function arePropsEqual(prev: Props, next: Props): boolean {
+  if (
+    prev.card.id !== next.card.id ||
+    prev.card.updated_at !== next.card.updated_at ||
+    prev.card.title !== next.card.title ||
+    prev.card.column !== next.card.column ||
+    prev.card.swimlane !== next.card.swimlane ||
+    prev.card.position !== next.card.position ||
+    prev.card.priority !== next.card.priority ||
+    prev.card.due_date !== next.card.due_date ||
+    prev.card.weight !== next.card.weight ||
+    prev.card.description !== next.card.description ||
+    prev.card.last_moved_at !== next.card.last_moved_at ||
+    prev.card.attachment_count !== next.card.attachment_count ||
+    prev.card.checklist_total !== next.card.checklist_total ||
+    prev.card.checklist_done !== next.card.checklist_done ||
+    prev.card.is_stale !== next.card.is_stale ||
+    prev.card.archived_at !== next.card.archived_at ||
+    prev.card.assignee?.id !== next.card.assignee?.id ||
+    prev.card.labels.length !== next.card.labels.length
+  ) return false;
+
+  // Shallow label identity check
+  for (let i = 0; i < prev.card.labels.length; i++) {
+    if (prev.card.labels[i].id !== next.card.labels[i].id) return false;
+  }
+
+  return (
+    prev.onClick === next.onClick &&
+    prev.overlay === next.overlay &&
+    prev.selected === next.selected &&
+    prev.highlighted === next.highlighted &&
+    prev.onSelect === next.onSelect &&
+    prev.hideLabels === next.hideLabels &&
+    prev.hideDueDate === next.hideDueDate &&
+    prev.hideAssignee === next.hideAssignee &&
+    prev.hidePriority === next.hidePriority &&
+    prev.hideLastMoved === next.hideLastMoved &&
+    prev.userTimezone === next.userTimezone &&
+    prev.userDateFormat === next.userDateFormat &&
+    prev.readOnly === next.readOnly
+  );
+}
+
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false }: Props) {
   // useDraggable must be called unconditionally (hook rules). When readOnly,
   // we do not attach its ref or event listeners so the card is non-draggable.
   const draggable = useDraggable({ id: card.id, disabled: readOnly });
@@ -210,4 +257,6 @@ export default function CardItem({ card, onClick, overlay, selected, highlighted
       </div>
     </div>
   );
-}
+}, arePropsEqual);
+
+export default CardItem;
