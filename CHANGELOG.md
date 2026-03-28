@@ -48,6 +48,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Board Settings stale card section renamed from "Stale card threshold" to "Stale card settings" with a second input for the warning percentage.
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 - 13 checklist-style Claude Code agents (changelog, rbac-check, broadcast-check, migration-check, perf-check, perf-bench, dependency, duplicate-check, enterprise-check, test-scaffold, api-docs, docs, ux-review) now run on Sonnet; architect, security-review, and `/mr` remain on Opus and delegate parallel research phases to Sonnet sub-agents before synthesizing results
+- New `ux-design` agent proposes concrete UI layout, component composition, interaction flow, and state handling before implementation — runs on Opus with 3 parallel Sonnet sub-agents for research; workflow order is now `architect` → `ux-design` → implement → `ux-review`
 
 ### Fixed
 - All 11 seed data JSON export files now include `is_done` on terminal columns — previously the field was omitted from exports, causing imported boards to lose done-column marking and breaking analytics dwell-time exclusion and stalled-card detection
