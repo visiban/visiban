@@ -36,7 +36,7 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
       data-testid="share-card"
     >
       <div className="px-2.5 py-2">
-        <p className="text-xs font-medium text-slate-200 leading-snug line-clamp-2">{card.title}</p>
+        <p className="text-sm text-slate-200 leading-snug line-clamp-2">{card.title}</p>
         {/* Metadata row */}
         {(cardLabels.length > 0 || card.due_date || card.assignee || card.checklist_total > 0 || card.weight > 1) && (
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden flex-wrap">

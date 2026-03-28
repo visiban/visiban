@@ -145,11 +145,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 }}
                 onBlur={commitRename}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full text-sm font-semibold bg-slate-900 text-white border border-blue-500 rounded px-1 py-0 outline-none"
+                className="w-full text-sm bg-slate-900 text-white border border-blue-500 rounded px-1 py-0 outline-none"
               />
             ) : (
               <p
-                className={`text-sm font-bold text-white truncate ${isAdmin ? "cursor-text hover:text-blue-200" : ""}`}
+                className={`text-sm text-slate-300 truncate ${isAdmin ? "cursor-text hover:text-blue-200" : ""}`}
                 title={isAdmin ? "Click to rename" : swimlane.name}
                 onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
               >

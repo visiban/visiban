@@ -678,9 +678,10 @@ describe('SwimlaneRow', () => {
     expect(label).toBeInTheDocument()
   })
 
-  it('swimlane name uses font-bold', () => {
+  it('swimlane name uses text-slate-300 per design system', () => {
     render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
     const name = screen.getByText('Customer A')
-    expect(name.className).toContain('font-bold')
+    expect(name.className).toContain('text-slate-300')
+    expect(name.className).not.toContain('font-bold')
   })
 })
