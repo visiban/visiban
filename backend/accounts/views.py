@@ -82,6 +82,8 @@ class AuthProvidersView(APIView):
 class CurrentUserView(APIView):
     """Retrieve or update the currently authenticated user's profile."""
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
 
@@ -159,6 +161,8 @@ class PersonalAccessTokenListCreateView(APIView):
     automatically when the user changes their password.
     """
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         tokens = request.user.personal_access_tokens.all()
         return Response(PersonalAccessTokenSerializer(tokens, many=True).data)
@@ -205,6 +209,8 @@ class PersonalAccessTokenDeleteView(APIView):
     The queryset is scoped to request.user — attempting to delete another
     user's token returns 404, not 403, to avoid confirming token existence.
     """
+
+    permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
         try:
