@@ -47,5 +47,10 @@ docker compose run --rm backend python manage.py set_site_admin <username>
 
 Navigate to `/admin/accounts/user/`, find the user, and toggle the `is_site_admin` checkbox.
 
+!!! note "Two separate flags"
+    The `set_site_admin` command sets both `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) together. To manage them independently — for example, granting admin panel access without board omniscience — use the admin panel instead. See [Site Admins](../../administration/site-admins.md) for details.
+
 !!! warning
-    Only grant site admin to trusted operators. Site admins have unrestricted access to all data and cannot be removed by regular admins.
+    The `is_site_admin` flag protects the user from demotion: any role-change or remove-member API call targeting a user with `is_site_admin=True` returns `403 Forbidden` unless the caller is also a site admin. This protection is based on `is_site_admin` specifically, not `can_access_all_content`.
+
+    Only grant site admin to trusted operators.

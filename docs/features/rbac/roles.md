@@ -6,7 +6,7 @@ Visiban has five roles that control access at both the group and board level.
 
 | Role | Scope | Description |
 |---|---|---|
-| `site_admin` | Site-wide | Full access to everything. Cannot be removed or demoted by any other admin. |
+| `site_admin` | Site-wide | Full access to everything. Granted when the user has `can_access_all_content` enabled. Cannot be removed or demoted by any other admin. |
 | `admin` | Group or Board | Manages the group/board: members, structure, settings. |
 | `member` | Group or Board | Standard contributor — creates and moves cards. |
 | `collaborator` | Group or Board | Can comment on cards, upload attachments, and manage checklist items but cannot create, edit, move, or delete cards. |
@@ -51,8 +51,11 @@ Visiban has five roles that control access at both the group and board level.
 
 Site admins are protected at the API level:
 
-- A board or group admin calling any role-change or remove-member endpoint **targeting a site admin** receives a `403 Forbidden`
-- Only another site admin can modify a site admin's membership
-- Site admins see all boards and groups regardless of explicit membership
+- A board or group admin calling any role-change or remove-member endpoint **targeting a user with `is_site_admin`** receives a `403 Forbidden`. This check uses the `is_site_admin` flag specifically, not `can_access_all_content`.
+- Only another site admin can modify a site admin's membership.
+- Users with `can_access_all_content` see all boards and groups regardless of explicit membership. This is the flag that controls board-level omniscience — `is_site_admin` alone does not grant it.
+
+!!! note "Two flags, two purposes"
+    `is_site_admin` gates admin panel access and protection from demotion. `can_access_all_content` gates implicit board/group access. The `set_site_admin` management command sets both together, but they can be managed independently via the admin panel. See [Site Admins](../../administration/site-admins.md) for details.
 
 See [Managing Roles](managing.md) for how to grant site admin status.

@@ -9,8 +9,8 @@ from column 0 through each intermediate stage so the History tab is populated.
 
 Uses a fixed SEED_ANCHOR_DATE so exported JSON/CSV files are git-stable across runs.
 
-Export path: backend/boards/seed_data/<slug>.json   (JSON — includes full movement history)
-             backend/boards/seed_data/<slug>.csv    (CSV — column summary only, no history)
+Export path: sample-boards/<slug>.json   (JSON — includes full movement history)
+             sample-boards/<slug>.csv    (CSV — column summary only, no history)
 
 JSON is the recommended export format: it preserves the complete CardMovement history
 so seeded boards display a realistic History tab. CSV omits movement history and is
@@ -32,7 +32,7 @@ Usage:
 
     python manage.py seed_template_boards --template all --export
         After seeding, write JSON and CSV snapshots to
-        backend/boards/seed_data/<slug>/seed.{json,csv}.
+        sample-boards/<slug>.{json,csv}.
         Commit the results when board structure changes so CI does not fail.
 """
 
@@ -3392,7 +3392,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--export",
             action="store_true",
-            help="Write JSON and CSV snapshots to backend/boards/seed_data/<slug>/ after seeding.",
+            help="Write JSON and CSV snapshots to sample-boards/<slug>.{json,csv} after seeding.",
         )
 
     def handle(self, *args, **options):
@@ -3745,6 +3745,30 @@ class Command(BaseCommand):
             _backdate(act, day_offset + random.randint(2, 5))
             day_offset += random.randint(3, 6)
 
+        # Weight change for cards with non-default weight
+        if card.weight and card.weight > 1:
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.WEIGHT_CHANGE,
+                from_value="1",
+                to_value=str(card.weight),
+                actor=random.choice(users),
+            )
+            _backdate(act, day_offset)
+            day_offset += random.randint(1, 2)
+
+        # Description change for cards with a description
+        if card.description:
+            act = CardActivity.objects.create(
+                card=card,
+                event_type=CardActivity.EventType.DESCRIPTION_CHANGE,
+                from_value="",
+                to_value="(updated)",
+                actor=random.choice(users),
+            )
+            _backdate(act, day_offset)
+            day_offset += random.randint(1, 3)
+
         # Checklist items added one by one, checked items get a checked event
         for item in card.checklist_items.all().order_by("position"):
             act = CardActivity.objects.create(
@@ -3782,7 +3806,7 @@ class Command(BaseCommand):
     # ── Export ─────────────────────────────────────────────────────────────
 
     def _export(self, slug, board, columns, swimlane_specs, label_specs, cards):
-        """Write JSON and CSV snapshots to backend/boards/seed_data/<slug>/."""
+        """Write JSON and CSV snapshots to sample-boards/<slug>.{json,csv}."""
         # Re-fetch with prefetch to avoid N+1 on labels, checklist, comments.
         card_qs = (
             board.cards
@@ -3800,9 +3824,10 @@ class Command(BaseCommand):
             .order_by("swimlane__position", "column__position", "position")
         )
 
-        # Export path: BASE_DIR = .../backend/, so seed_data lives at
-        # .../backend/boards/seed_data/
-        seed_data_dir = settings.BASE_DIR / "boards" / "seed_data"
+        # Export path: write to top-level sample-boards/ so users can
+        # discover importable board files at the repo root.
+        # BASE_DIR = .../backend/, so repo root is BASE_DIR.parent.
+        seed_data_dir = settings.BASE_DIR.parent / "sample-boards"
         seed_data_dir.mkdir(parents=True, exist_ok=True)
 
         self._export_json(board, columns, swimlane_specs, label_specs, card_qs, seed_data_dir / f"{slug}.json")
@@ -3820,7 +3845,9 @@ class Command(BaseCommand):
                     "position": c.position,
                     "color": c.color,
                     "wip_limit": c.wip_limit,
+                    "weight_limit": c.weight_limit,
                     "allow_card_creation": c.allow_card_creation,
+                    "is_done": c.is_done,
                 }
                 for c in columns
             ],

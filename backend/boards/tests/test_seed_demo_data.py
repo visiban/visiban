@@ -60,9 +60,9 @@ class SeedCreateTests(TestCase):
         _seed()
         board = Board.objects.get(name=BOARD_NAME)
         count = board.cards.count()
-        # Expect 60–100 cards across 10 swimlanes × 6–10 each
-        self.assertGreaterEqual(count, 60)
-        self.assertLessEqual(count, 100)
+        # Expect 110–130 cards across 10 swimlanes × 11–13 each
+        self.assertGreaterEqual(count, 110)
+        self.assertLessEqual(count, 130)
 
     def test_board_owner_is_admin_member(self):
         _seed()
@@ -238,9 +238,9 @@ class SeedDeterminismTests(TestCase):
         _seed()
         _seed(wipe=True, seed=99)
         count_custom = Card.objects.count()
-        # Card count range (6-10 per swimlane × 10 swimlanes) is the same regardless of seed.
-        self.assertGreaterEqual(count_custom, 60)
-        self.assertLessEqual(count_custom, 100)
+        # Card count range (11-13 per swimlane × 10 swimlanes) is the same regardless of seed.
+        self.assertGreaterEqual(count_custom, 110)
+        self.assertLessEqual(count_custom, 130)
 
     def test_different_seed_may_produce_different_card_titles(self):
         """--seed N shuffles titles differently — first card title should differ from seed 42."""

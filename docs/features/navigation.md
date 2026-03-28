@@ -27,19 +27,44 @@ A toggle button sits in the header of the sidebar. Clicking it switches between 
 | State | Width | Content |
 |---|---|---|
 | Expanded (default) | 220 px | Section headings, group names with expand/collapse chevrons, board names, footer shortcuts |
-| Collapsed (icon rail) | 48 px | Icon for each item; no text labels; no footer shortcuts |
+| Collapsed (icon rail) | 48 px | One trigger icon per section; no text labels; no footer shortcuts |
 
-In the collapsed state, each item is represented by an icon:
+In the collapsed state, fixed destinations (Dashboard, Site Admin) render as direct icon links. Variable-length sections (Favorites, Groups, Personal boards) each render as a single trigger icon regardless of how many items the section contains:
 
 | Section | Collapsed icon |
 |---|---|
 | Dashboard | Grid (four squares) icon |
-| Favorite Boards | Filled star ★ (yellow) |
-| Favorite Groups | Filled star ★ (yellow) |
+| Favorites | Filled star ★ (yellow) |
 | Groups | Folder icon |
-| Personal boards | Person (user silhouette) icon |
+| Personal boards | Clipboard icon |
 
-Every icon in the collapsed rail shows an immediate tooltip on hover with the item's name. The collapsed state persists across sessions via `localStorage`.
+Every icon in the collapsed rail shows an immediate tooltip on hover with the section name. The collapsed state persists across sessions via `localStorage`.
+
+### Collapsed rail flyout panels
+
+> **Added in 1.0.0**
+
+When the sidebar is collapsed to the 48 px icon rail, clicking a section trigger icon opens a flyout panel to the right of the rail. The flyout contains the full list of items for that section with scroll support, so you can browse and navigate without expanding the sidebar.
+
+Three sections produce flyouts:
+
+| Trigger icon | Flyout contents |
+|---|---|
+| Filled star (Favorites) | Starred boards and starred groups, split into labeled sub-sections when both are present |
+| Folder (Groups) | All groups and their boards, flattened in depth-first pre-order with indentation |
+| Clipboard (Personal) | All boards not belonging to any group |
+
+Each flyout panel is 224 px wide (`w-56`), dark-themed (`bg-slate-800`), and scrollable up to 320 px tall (`max-h-80`). A section header appears at the top in uppercase muted text. Items in the list are clickable links that navigate to the board or group and close the flyout.
+
+**Mutual exclusion** — only one flyout can be open at a time. Opening a flyout automatically closes any other open flyout. Flyouts are also closed by clicking outside the panel, pressing Escape, or clicking the same trigger icon a second time.
+
+**Active route indicator** — when the currently active board or group belongs to items inside a collapsed flyout, the trigger icon receives the blue active highlight (`text-blue-400 bg-blue-600/20`) even while the flyout is closed. This communicates "you are here" without requiring the flyout to be open.
+
+### Groups flyout ordering
+
+The Groups flyout flattens the sidebar tree in depth-first pre-order. Within each group, boards appear before subgroups. This matches the ordering you see in the expanded sidebar tree.
+
+Items are indented based on their depth in the group hierarchy. The indentation formula is `paddingLeft: 12 + depth * 12` pixels. Visual depth is capped at 3 — groups nested deeper than three levels are rendered at the same indentation as depth 3, but they are never omitted. Root-level items (`depth 0`) use brighter text (`text-slate-300`); nested items (`depth > 0`) use slightly muted text (`text-slate-400`).
 
 ## localStorage persistence
 

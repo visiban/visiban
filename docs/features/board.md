@@ -3,6 +3,12 @@
 !!! note "Desktop only in 1.0"
     The board view is designed for desktop browsers (1024 px and wider). Mobile viewports are not supported in this release — drag-and-drop, column resizing, and swimlane resizing require a pointer device. A mobile-optimised layout is planned for a future release.
 
+## Board creation
+
+When creating a new board, you can select from a set of pre-built templates in the **Create Board** modal. Each template provides a tailored column layout and a first swimlane so you can start working immediately. Eleven templates are available, covering workflows such as Sales Pipeline, Customer Support, Product Roadmap, Project Delivery, Hiring & Recruiting, and more. If no template fits your needs, select **Blank board** to start with the default columns (Backlog, To Do, Doing, Done).
+
+Templates are applied once at creation time — after the board is created you can rename, reorder, add, or remove columns freely.
+
 ## Board layout
 
 The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as `cell:{column_id}:{swimlane_id}`.
@@ -18,6 +24,19 @@ Swimlanes represent entities moving through your pipeline (customers, projects, 
 The swimlane label sidebar is resizable: drag its right edge to set the width (minimum ~56 px, maximum 400 px). Width is persisted per-board in localStorage.
 
 Each swimlane row height is resizable: drag the bottom edge of any swimlane row to set a minimum height. Height is persisted per-swimlane per-board in localStorage.
+
+Each swimlane has the following fields:
+
+| Field | Description |
+|---|---|
+| Name | Required; unique per board |
+| Color | Left-edge stripe color on the label panel |
+| Contact email | Optional; displayed in the label panel for admins only (hidden from members and viewers) |
+| Notes | Optional free-text field; visible in the Edit Swimlane modal for admins only |
+| Position | Controls row order on the board |
+
+!!! note
+    The `contact_email` and `notes` fields are restricted to board admin and site admin roles. Members and viewers do not receive this data via the REST API or WebSocket events.
 
 Each swimlane can be collapsed to save vertical space. Click the chevron on the label panel to toggle. When collapsed:
 
@@ -71,7 +90,7 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
+- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode.
 - **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
@@ -92,6 +111,22 @@ The far-left separator (between the swimlane label column and the first board co
 ### Column trash zone
 
 When dragging a column, a red **Delete** drop target appears at the right edge of the board. Drop the column on it to delete it. A confirmation dialog shows the number of cards that will be lost before proceeding.
+
+### Hard WIP enforcement
+
+> **Added in 1.0.0-rc.10**
+
+By default, WIP limit enforcement is "soft" — board admins can bypass a full column by appending `?force=true` to the move request. The **Enforce WIP hard** board setting removes this override entirely. When enabled:
+
+- Card moves into a column at or over its WIP limit are blocked for **all roles**, including board admins and site admins.
+- The `?force=true` query parameter is ignored — there is no bypass.
+- The API returns a `409` error with `code: "wip_hard_blocked"`.
+- The toast indicator uses a `⛔` icon instead of `⚠` to distinguish hard blocks from soft blocks.
+
+Hard enforcement is **off by default**. Enable it in **Board Settings → Rules → Enforce WIP hard**. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.
+
+!!! tip
+    Hard WIP enforcement is useful for teams that treat WIP limits as a strict policy rather than a guideline. To unblock a column, move a card out of it or ask an admin to raise the WIP limit.
 
 ## Cards
 
@@ -176,6 +211,34 @@ Click **Filters** in the toolbar (or press `f`) to open the filter bar below the
 An active filter count badge appears on the Filters button when filters are in use. Click **Clear** to reset all filters at once.
 
 When all filters are active and no cards match, a **"No cards match"** banner appears across the board area so it is clear the board has cards but none satisfy the current criteria.
+
+### Saved filters
+
+> **Added in 1.0.0-rc.10**
+
+You can save the current filter combination under a name and restore it later in one click. Saved filters are stored server-side, so they persist across devices and browsers.
+
+**Saving a filter:**
+
+1. Set your desired filters in the filter bar.
+2. Click the **Saved** dropdown (to the right of the filter controls).
+3. Click **Save current filters**, enter a name, and confirm.
+
+**Loading a saved filter:**
+
+Open the **Saved** dropdown and click any previously saved filter. The filter bar updates immediately.
+
+**Deleting a saved filter:**
+
+Hover over a saved filter in the dropdown to reveal the delete icon. Click it to remove the filter permanently.
+
+Saved filters are private to each user — other board members cannot see or modify your saved filters. Any board member, including viewers, can create, load, and delete their own saved filters.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/boards/{id}/saved-filters/` | List saved filters for the current user |
+| `POST` | `/api/boards/{id}/saved-filters/` | Save a new filter preset |
+| `DELETE` | `/api/boards/{id}/saved-filters/{filter_id}/` | Delete a saved filter |
 
 ## Views
 

@@ -36,6 +36,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Admin panel includes a new "Invite Links" tab showing each token's status badge and a one-time reveal of the token value; links can be revoked inline
 
 ### Changed
+- Sample board files relocated from `backend/boards/seed_data/` to a top-level `sample-boards/` directory for discoverability — all 11 templates (10 domain-specific + 1 demo board) now ship as ready-to-import JSON and CSV files at the repo root with a README documenting the import flow
+- All 10 template boards expanded from 5 swimlanes / ~12 cards to 10–11 swimlanes / 110–121 unique cards with theme-appropriate content, movement history, activities, labels, checklists, and comments; demo board expanded from ~80 to ~120 unique cards with no duplicate titles
 - Clicking the crosshair (focus) button on an already-focused swimlane now toggles focus mode off; Escape key and the banner "Exit focus" button remain as alternative exit paths; the button now carries `aria-pressed` for screen reader accessibility (#363)
 - Board sub-nav tabs (Board / Summary / Analytics) are now URL-addressable — switching tabs updates the `?view=` search param with `{ replace: true }` so the browser Back button skips tab transitions and tab views can be bookmarked and shared (#332)
 - Analytics heatmap column headers no longer show per-column median values; coloring is now driven by the board-level stale threshold.
@@ -43,6 +45,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 
 ### Fixed
+- All 11 seed data JSON export files now include `is_done` on terminal columns — previously the field was omitted from exports, causing imported boards to lose done-column marking and breaking analytics dwell-time exclusion and stalled-card detection
+- Demo board seed data no longer produces duplicate card titles — expanded title pool from 82 to 129 entries and replaced modulo-wrap index with a break guard that stops card generation when titles are exhausted
 - Public share endpoint now enforces rate limiting (120 req/hour per IP via `ShareLinkThrottle`) — previously `throttle_classes` was empty, leaving the unauthenticated endpoint unprotected against scraping (#348)
 - Public board serializer now includes `staleness_threshold_days`, `is_stale`, and `last_moved_at` on each public card using prefetched movement history — previously all three fields were missing from the share endpoint response (#348)
 - Toggling a board's share link now broadcasts a `board.updated` event to connected clients so the share token state updates in real time without a page refresh (#348)
