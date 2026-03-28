@@ -293,12 +293,14 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           </svg>
         </button>
 
-        {partialError && (
-          <span className="text-xs text-amber-400 shrink-0">{partialError}</span>
-        )}
-        {busy && (
-          <span className="text-xs text-slate-400 animate-pulse">Working...</span>
-        )}
+        <span className="text-xs h-4 flex items-center min-w-0">
+          {partialError && (
+            <span className="text-amber-400 truncate max-w-[20rem]" title={partialError}>{partialError}</span>
+          )}
+          {busy && (
+            <span className="text-slate-400 animate-pulse">Working...</span>
+          )}
+        </span>
       </div>
 
       {/* Delete confirmation modal */}
