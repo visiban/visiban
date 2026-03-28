@@ -41,11 +41,19 @@ Visiban has five roles that control access at both the group and board level.
 | View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Bulk card operations (move, assign, priority, delete) | ✓ | ✓ | ✓ | — | — |
 | **Export & Import** | | | | | |
-| Export board (CSV / JSON) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Export board (CSV / JSON) | ✓ | ✓ | ✓ | — | — |
 | Import board from file | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Analytics** | | | | | |
 | View analytics & summary | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Export analytics CSV | ✓ | ✓ | — | — | — |
+
+## Moderator entitlement
+
+Board admins can grant the **moderator** entitlement to any member or admin via the Members tab in Board Settings. A moderator can delete and archive cards and comments created by other users — normally a member can only perform these actions on their own content.
+
+Moderator is a boolean flag (`is_moderator`) on the board membership, not a separate role. It appears as a checkbox next to the role dropdown. Demoting a moderator to collaborator or viewer automatically clears the flag.
+
+See [Board Permissions](../permissions.md#moderator-entitlement) for the full description.
 
 ## Site admin protection
 

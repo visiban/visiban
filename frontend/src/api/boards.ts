@@ -3,8 +3,8 @@ import type { Board, BoardFull, BoardMembership, BoardTemplate, BoardPublic, Boa
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
-export const setBoardMember = (boardId: number, userId: number, role: BoardRole) =>
-  client.post<BoardMembership>(`/api/boards/${boardId}/members/`, { user_id: userId, role }).then((r) => r.data);
+export const setBoardMember = (boardId: number, userId: number, role: BoardRole, is_moderator?: boolean) =>
+  client.post<BoardMembership>(`/api/boards/${boardId}/members/`, { user_id: userId, role, ...(is_moderator !== undefined && { is_moderator }) }).then((r) => r.data);
 
 export const removeBoardMember = (boardId: number, userId: number) =>
   client.delete(`/api/boards/${boardId}/members/${userId}/`);

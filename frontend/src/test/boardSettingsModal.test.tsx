@@ -69,8 +69,8 @@ const fakeBoard: BoardFull = {
   cards: [],
   labels: [],
   members: [
-    { id: 10, user: fakeUser, role: 'admin', joined_at: '' },
-    { id: 11, user: fakeMember2, role: 'member', joined_at: '' },
+    { id: 10, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
+    { id: 11, user: fakeMember2, role: 'member', is_moderator: false, joined_at: '' },
   ],
   staleness_threshold_days: 7,
   stale_warning_pct: 50,
@@ -164,7 +164,7 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('changing role select calls setBoardMember with correct args', async () => {
     const user = userEvent.setup()
-    mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', joined_at: '' })
+    mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', is_moderator: false, joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     // Open Bob's dropdown (currently showing 'Member') and select 'Viewer'
@@ -176,7 +176,7 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('role change updates the displayed role after API resolves', async () => {
     const user = userEvent.setup()
-    mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', joined_at: '' })
+    mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', is_moderator: false, joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     await user.click(screen.getByRole('button', { name: 'Member' }))
@@ -402,7 +402,7 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
 
   it('submit calls setBoardMember for each staged user and shows success message', async () => {
     mockSearchUsers.mockResolvedValue([aliceUser])
-    mockSetBoardMember.mockResolvedValue({ id: 99, user: aliceUser, role: 'member', joined_at: '' })
+    mockSetBoardMember.mockResolvedValue({ id: 99, user: aliceUser, role: 'member', is_moderator: false, joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
@@ -632,5 +632,38 @@ describe('BoardSettingsModal — Sharing tab', () => {
     // Non-admin cannot select "sharing" tab — it won't exist in DOM
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
     expect(screen.queryByText('Public sharing')).toBeNull()
+  })
+})
+
+// ─── Moderator toggle ────────────────────────────────────────────────────
+
+describe('BoardSettingsModal — Moderator toggle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('shows moderator checkbox for member-role users when isAdmin', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    const checkboxes = screen.getAllByRole('checkbox')
+    // At least one moderator checkbox (for Bob who is a member)
+    expect(checkboxes.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Moderator').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('hides moderator checkbox when isAdmin is false', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
+    expect(screen.queryByText('Moderator')).toBeNull()
+  })
+
+  it('toggling moderator calls setBoardMember with is_moderator', async () => {
+    const user = userEvent.setup()
+    mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'member', is_moderator: true, joined_at: '' })
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+
+    // Both admin and member rows have a moderator checkbox; Bob's is the second one
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[1])
+
+    expect(mockSetBoardMember).toHaveBeenCalledWith(1, 2, 'member', true)
   })
 })

@@ -155,10 +155,20 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     try {
       const updated = await setBoardMember(board.id, userId, role);
       setMembers((prev) => {
-        const next = prev.map((m) => m.user.id === userId ? { ...m, role: updated.role } : m);
+        const next = prev.map((m) => m.user.id === userId ? { ...m, role: updated.role, is_moderator: updated.is_moderator } : m);
         if (!next.find((m) => m.user.id === userId)) next.push(updated);
         return next;
       });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleModeratorToggle = async (userId: number, currentRole: BoardRole, isModerator: boolean) => {
+    setSaving(userId);
+    try {
+      const updated = await setBoardMember(board.id, userId, currentRole, !isModerator);
+      setMembers((prev) => prev.map((m) => m.user.id === userId ? { ...m, is_moderator: updated.is_moderator } : m));
     } finally {
       setSaving(null);
     }
@@ -318,6 +328,22 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         {(!canRemove || isRemoving) && <span className="w-5" />}
                       </div>
                     </div>
+
+                    {isAdmin && (m.role === "member" || m.role === "admin") && (
+                      <div className="mt-1 pl-9 flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={m.is_moderator}
+                            disabled={isDisabled}
+                            onChange={() => handleModeratorToggle(m.user.id, m.role, m.is_moderator)}
+                            className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5"
+                          />
+                          <span className="text-xs text-slate-400">Moderator</span>
+                        </label>
+                        <span className="text-xs text-slate-600" title="Can delete and archive other members' content">ⓘ</span>
+                      </div>
+                    )}
 
                     {isRemoving && (
                       <div className="mt-1.5 pl-9 flex items-center gap-2 text-xs">

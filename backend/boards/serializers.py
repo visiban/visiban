@@ -28,7 +28,7 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BoardMembership
-        fields = ["id", "user", "role", "joined_at"]
+        fields = ["id", "user", "role", "is_moderator", "joined_at"]
 
 
 class ColumnSerializer(serializers.ModelSerializer):
@@ -316,7 +316,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         # Direct board members keyed by user_id
         seen = {}
         for m in obj.memberships.select_related("user").all():
-            seen[m.user_id] = {"id": m.id, "user": m.user, "role": m.role, "joined_at": m.joined_at}
+            seen[m.user_id] = {"id": m.id, "user": m.user, "role": m.role, "is_moderator": m.is_moderator, "joined_at": m.joined_at}
 
         # Group-inherited members — collect ancestor group IDs in a single
         # traversal (parent FK only, no memberships fetched yet), then load
@@ -338,16 +338,16 @@ class BoardFullSerializer(serializers.ModelSerializer):
                     .select_related("user")
                 ):
                     if gm.user_id not in seen:
-                        seen[gm.user_id] = {"id": None, "user": gm.user, "role": gm.role, "joined_at": gm.joined_at}
+                        seen[gm.user_id] = {"id": None, "user": gm.user, "role": gm.role, "is_moderator": False, "joined_at": gm.joined_at}
 
         # Include the board owner if not already present
         if obj.owner_id and obj.owner_id not in seen:
-            seen[obj.owner_id] = {"id": None, "user": obj.owner, "role": "admin", "joined_at": obj.created_at}
+            seen[obj.owner_id] = {"id": None, "user": obj.owner, "role": "admin", "is_moderator": False, "joined_at": obj.created_at}
 
         # Include users with can_access_all_content so they appear in @mention autocomplete
         for u in User.objects.filter(can_access_all_content=True):
             if u.pk not in seen:
-                seen[u.pk] = {"id": None, "user": u, "role": "site_admin", "joined_at": obj.created_at}
+                seen[u.pk] = {"id": None, "user": u, "role": "site_admin", "is_moderator": False, "joined_at": obj.created_at}
 
         result = []
         for entry in seen.values():
@@ -357,6 +357,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 "id": entry["id"],
                 "user": UserSerializer(entry["user"], context=self.context).data,
                 "role": entry["role"],
+                "is_moderator": entry["is_moderator"],
                 "joined_at": entry["joined_at"],
             })
         return result

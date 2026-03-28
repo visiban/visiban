@@ -177,7 +177,7 @@ Time-in-stage heatmap derived from `CardMovement` records.
 
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
 
-CSV export (`Export CSV` button) is available to `admin` and `site_admin` roles only.
+CSV export (`Export CSV` button) is available to `member`, `admin`, and `site_admin` roles only.
 
 ---
 
@@ -260,14 +260,14 @@ Each result object fields:
 ## Export & Import
 
 ### `GET /api/boards/{id}/export/`
-Export the board as CSV. Returns a downloadable `text/csv` file. Available to all board members.
+Export the board as CSV. Returns a downloadable `text/csv` file. Requires `member` or `admin` role — viewers and collaborators receive `403 Forbidden`.
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
 
 `Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`.
 
 ### `GET /api/boards/{id}/export/?format=json`
-Export the board as JSON. Returns `application/json`. Available to all board members.
+Export the board as JSON. Returns `application/json`. Requires `member` or `admin` role — viewers and collaborators receive `403 Forbidden`.
 
 **Response shape:**
 
@@ -309,9 +309,13 @@ Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-d
 ### `POST /api/boards/{id}/members/`
 Add or update a board member. Requires board admin.
 
-**Request** `{ "user_id": 42, "role": "member" }`
+**Request** `{ "user_id": 42, "role": "member", "is_moderator": true }`
 
-Valid roles: `admin`, `member`, `collaborator`, `viewer`
+| Field | Required | Description |
+|---|---|---|
+| `user_id` | ✓ | ID of the user to add or update |
+| `role` | | Role to assign (default: `"member"`). Valid: `admin`, `member`, `collaborator`, `viewer` |
+| `is_moderator` | | Boolean. Grants content-moderation rights (delete/archive others' content). Only valid for `member` and `admin` roles — setting `true` on a collaborator or viewer returns `400 Bad Request`. Automatically cleared when demoting to collaborator or viewer. |
 
 ### `DELETE /api/boards/{id}/members/{user_id}/`
 Remove a member. Requires board admin. Cannot remove a site admin.

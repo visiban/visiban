@@ -17,8 +17,8 @@ const fakeUser2: User = {
 }
 
 const members: BoardMembership[] = [
-  { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
-  { id: 2, user: fakeUser2, role: 'member', joined_at: '' },
+  { id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' },
+  { id: 2, user: fakeUser2, role: 'member', is_moderator: false, joined_at: '' },
 ]
 
 describe('MentionTextarea', () => {

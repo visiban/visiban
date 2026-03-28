@@ -115,6 +115,10 @@ class BoardMembership(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    is_moderator = models.BooleanField(
+        default=False,
+        help_text="Grants content-moderation rights (delete/archive others' content) without full admin.",
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
