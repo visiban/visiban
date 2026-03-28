@@ -16,7 +16,6 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
@@ -247,7 +246,6 @@ def _refetched_card_data(card, request, board):
 class BoardViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for boards, scoped to boards the requesting user has access to."""
 
-    permission_classes = [IsAuthenticated]
     serializer_class = BoardSerializer
 
     def get_queryset(self):
@@ -1398,8 +1396,13 @@ class BoardViewSet(viewsets.ModelViewSet):
                         "name": sw.name,
                         "position": sw.position,
                         "color": sw.color,
-                        "contact_email": sw.contact_email,
-                        "notes": sw.notes,
+                        # Only admins may see swimlane PII (contact_email, notes)
+                        # — consistent with SwimlaneAdminSerializer vs SwimlaneSerializer.
+                        **(
+                            {"contact_email": sw.contact_email, "notes": sw.notes}
+                            if role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
+                            else {}
+                        ),
                     }
                     for sw in swimlanes
                 ],
@@ -1616,7 +1619,6 @@ class BoardViewSet(viewsets.ModelViewSet):
 class ColumnViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for columns on a board; write operations require admin role."""
 
-    permission_classes = [IsAuthenticated]
     serializer_class = ColumnSerializer
 
     def _board_and_role(self):
@@ -1691,7 +1693,6 @@ class ColumnViewSet(viewsets.ModelViewSet):
 class SwimlaneViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for swimlanes on a board; write operations require admin role."""
 
-    permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         # Admin and site_admin members see contact_email and notes; all others get the
@@ -1774,7 +1775,6 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
 class LabelViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for labels on a board; write operations require admin role."""
 
-    permission_classes = [IsAuthenticated]
     serializer_class = LabelSerializer
 
     def _board_and_role(self):
@@ -1844,7 +1844,6 @@ class CardFilter(django_filters.FilterSet):
 class CardViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for cards on a board; viewers cannot create/edit/delete."""
 
-    permission_classes = [IsAuthenticated]
     serializer_class = CardSerializer
     filterset_class = CardFilter
     # Disable pagination: the full board state is loaded via the /full/ endpoint; individual
@@ -2603,7 +2602,6 @@ class CardViewSet(viewsets.ModelViewSet):
 
 class NotificationListView(APIView):
     """GET /api/notifications/ — last 50 notifications for current user"""
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
@@ -2625,7 +2623,6 @@ class NotificationListView(APIView):
 
 class NotificationMarkReadView(APIView):
     """POST /api/notifications/mark-read/"""
-    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         if request.data.get("all"):
@@ -2638,7 +2635,6 @@ class NotificationMarkReadView(APIView):
 
 class NotificationUnreadCountView(APIView):
     """GET /api/notifications/unread-count/"""
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         count = Notification.objects.filter(recipient=request.user, read=False).count()
@@ -2647,7 +2643,6 @@ class NotificationUnreadCountView(APIView):
 
 class VersionView(APIView):
     """GET /api/version/ — returns the running application version."""
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response({"version": django_settings.APP_VERSION})
@@ -2710,7 +2705,6 @@ class BoardTemplateListView(APIView):
     aligns with the rest of the boards API.
     """
 
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         templates = BoardTemplate.objects.filter(is_active=True).order_by("sort_order", "name")
@@ -2735,7 +2729,6 @@ class ServeMediaView(APIView):
     leaking whether a path is a valid attachment.
     """
 
-    permission_classes = [IsAuthenticated]
 
     def get(self, request, path):
         try:

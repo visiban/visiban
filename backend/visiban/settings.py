@@ -203,7 +203,8 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
         # Block all API access for accounts with a forced password-change pending.
         # Views that must remain accessible (ChangePasswordView) opt out by declaring
-        # their own explicit permission_classes = [IsAuthenticated].
+        # their own explicit permission_classes without this class. All other views
+        # must NOT override permission_classes with [IsAuthenticated] alone.
         "visiban.permissions.MustNotHavePendingPasswordChange",
     ],
     "DEFAULT_FILTER_BACKENDS": [
