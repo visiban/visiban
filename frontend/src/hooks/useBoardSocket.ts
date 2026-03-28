@@ -15,15 +15,27 @@ export type BoardEvent = {
 export type SocketStatus = "connecting" | "connected" | "reconnecting" | "failed";
 
 /**
+ * How long (ms) the client waits for *any* message (including server pings)
+ * before assuming the connection is dead.  The server sends a ping every 30 s,
+ * so 45 s gives a comfortable margin for network jitter.
+ */
+const PING_TIMEOUT_MS = 45_000;
+
+/**
  * Opens a WebSocket connection to the board's real-time channel and calls
  * `onEvent` for every message received from the server.
  *
- * Reconnection behaviour: the socket reconnects automatically after 3 seconds
+ * Reconnection behavior: the socket reconnects automatically after 3 seconds
  * whenever it closes unexpectedly. Reconnection is suppressed for:
  *   - Normal closure (code 1000) — e.g. component unmount.
  *   - Auth rejection (code 4001 / 4003) — the server closes the socket when
  *     the session cookie is invalid or the user is no longer a board member.
  *     Reconnecting would loop indefinitely in those cases.
+ *
+ * Keepalive: the server sends `{"event":"ping"}` every 30 seconds.  If no
+ * message arrives within `PING_TIMEOUT_MS` (45 s), the client treats the
+ * connection as dead, closes the socket, and triggers a reconnect.  Ping
+ * events are silently consumed — they are not forwarded to `onEvent`.
  *
  * `onEvent` is stored in a ref so callers can pass an inline arrow function
  * without causing the effect to re-run on every render.
@@ -45,21 +57,40 @@ export function useBoardSocket(
 
     let ws: WebSocket;
     let reconnectTimer: ReturnType<typeof setTimeout>;
+    let pingTimer: ReturnType<typeof setTimeout>;
     let canceled = false;
+
+    function resetPingTimeout() {
+      clearTimeout(pingTimer);
+      pingTimer = setTimeout(() => {
+        // No message received within the timeout window — assume dead.
+        // Close with a non-1000 code so onclose triggers a reconnect.
+        ws?.close(4002);
+      }, PING_TIMEOUT_MS);
+    }
 
     function connect() {
       ws = new WebSocket(url);
 
-      ws.onopen = () => { if (!canceled) setStatus("connected"); };
+      ws.onopen = () => {
+        if (!canceled) {
+          setStatus("connected");
+          resetPingTimeout();
+        }
+      };
 
       ws.onmessage = (e) => {
+        resetPingTimeout();
         try {
           const data = JSON.parse(e.data) as BoardEvent;
+          // Silently consume server keepalive pings — they are not board events.
+          if (data.event === "ping") return;
           onEventRef.current(data);
         } catch { /* ignore malformed messages */ }
       };
 
       ws.onclose = (e) => {
+        clearTimeout(pingTimer);
         if (canceled) return;
         // Auth rejection — stop here, no reconnect
         if (e.code === 4001 || e.code === 4003) {
@@ -68,7 +99,7 @@ export function useBoardSocket(
         }
         // Normal unmount close — status stays as-is; component is gone
         if (e.code === 1000) return;
-        // Unexpected close — schedule reconnect
+        // Unexpected close (including ping timeout 4002) — schedule reconnect
         setStatus("reconnecting");
         reconnectTimer = setTimeout(connect, 3000);
       };
@@ -79,6 +110,7 @@ export function useBoardSocket(
     return () => {
       canceled = true;
       clearTimeout(reconnectTimer);
+      clearTimeout(pingTimer);
       ws?.close(1000);
     };
   }, [boardId]);

@@ -177,4 +177,68 @@ describe('useBoardSocket', () => {
     act(() => { vi.advanceTimersByTime(5000) })
     expect(instances).toHaveLength(1)
   })
+
+  // ---------------------------------------------------------------------------
+  // Keepalive / ping timeout (#425)
+  // ---------------------------------------------------------------------------
+
+  it('silently ignores ping events — does not forward to onEvent', () => {
+    const onEvent = vi.fn()
+    renderHook(() => useBoardSocket(1, onEvent))
+
+    act(() => { latestWS().onopen?.() })
+    act(() => {
+      latestWS().onmessage?.({ data: JSON.stringify({ event: 'ping' }) })
+    })
+
+    expect(onEvent).not.toHaveBeenCalled()
+  })
+
+  it('triggers reconnect when no message arrives within 45 seconds', () => {
+    const onEvent = vi.fn()
+    const { result } = renderHook(() => useBoardSocket(1, onEvent))
+
+    act(() => { latestWS().onopen?.() })
+    expect(result.current.connected).toBe(true)
+
+    const firstWS = latestWS()
+
+    // Advance time past the 45-second ping timeout
+    act(() => { vi.advanceTimersByTime(45_000) })
+
+    // The hook should have called close(4002) to signal a ping timeout
+    expect(firstWS.close).toHaveBeenCalledWith(4002)
+
+    // Simulate the browser firing onclose after our close() call
+    act(() => { firstWS.onclose?.({ code: 4002 }) })
+
+    expect(result.current.status).toBe('reconnecting')
+
+    // After 3 s reconnect delay, a new WebSocket should be created
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(instances).toHaveLength(2)
+  })
+
+  it('resets the ping timeout when a message arrives', () => {
+    const onEvent = vi.fn()
+    renderHook(() => useBoardSocket(1, onEvent))
+
+    act(() => { latestWS().onopen?.() })
+
+    // Advance 30 seconds (within timeout), then send a message to reset
+    act(() => { vi.advanceTimersByTime(30_000) })
+    act(() => {
+      latestWS().onmessage?.({ data: JSON.stringify({ event: 'ping' }) })
+    })
+
+    // Another 30 seconds — still within the reset window
+    act(() => { vi.advanceTimersByTime(30_000) })
+
+    // Socket should not have been closed because the ping reset the timer
+    expect(latestWS().close).not.toHaveBeenCalled()
+
+    // But if we wait the full 45 s without another message, it should close
+    act(() => { vi.advanceTimersByTime(15_000) })
+    expect(latestWS().close).toHaveBeenCalledWith(4002)
+  })
 })
