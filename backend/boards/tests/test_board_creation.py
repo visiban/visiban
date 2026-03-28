@@ -152,6 +152,9 @@ class BoardCreationTests(TestCase):
         memberships_before = BoardMembership.objects.count()
         columns_before = Column.objects.count()
 
+        # DRF's test client re-raises unhandled exceptions by default;
+        # disable so we get the 500 response instead.
+        self.client.raise_request_exception = False
         resp = self._create_board(swimlane_name="Will Fail")
         self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
