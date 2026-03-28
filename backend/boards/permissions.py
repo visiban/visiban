@@ -34,9 +34,13 @@ def get_board_role(user, board):
         return SITE_ADMIN
     if board.owner_id == user.id:
         return BoardMembership.Role.ADMIN
-    # Explicit per-board membership overrides group membership
+    # Explicit per-board membership overrides group membership.
+    # Cache the membership on the board so _can_modify_others_content can
+    # reuse it without a second query.
     try:
-        return board.memberships.get(user=user).role
+        membership = board.memberships.get(user=user)
+        board._cached_membership = membership
+        return membership.role
     except BoardMembership.DoesNotExist:
         pass
     # Walk up the group ancestor chain — collect IDs first, then load all
