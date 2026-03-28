@@ -12,6 +12,7 @@ import CardMovementTimeline from "./CardMovementTimeline";
 import { formatDateStr, formatDueDate } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
+import Avatar from "../Common/Avatar";
 
 interface Props {
   card: Card;
@@ -45,21 +46,6 @@ export function formatCommentTime(iso: string): string {
   });
 }
 
-// Deterministic avatar color per user — cycles through a fixed palette so each
-// person's initials always appear in the same color regardless of where they show up.
-const AVATAR_PALETTE = [
-  { bg: "bg-teal-700",    text: "text-teal-100"    },
-  { bg: "bg-amber-700",   text: "text-amber-100"   },
-  { bg: "bg-violet-700",  text: "text-violet-100"  },
-  { bg: "bg-rose-700",    text: "text-rose-100"    },
-  { bg: "bg-blue-700",    text: "text-blue-100"    },
-  { bg: "bg-emerald-700", text: "text-emerald-100" },
-  { bg: "bg-orange-700",  text: "text-orange-100"  },
-  { bg: "bg-pink-700",    text: "text-pink-100"    },
-];
-function avatarColor(userId: number) {
-  return AVATAR_PALETTE[userId % AVATAR_PALETTE.length];
-}
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "low",    label: "Low",    color: PRIORITY_COLORS.low },
@@ -865,13 +851,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 <div className="flex flex-col gap-3 mb-3">
                   {comments.map((c) => {
                     const authorName = c.author ? userDisplayName(c.author) : "Unknown";
-                    const authorInitials = authorName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-                    const avatarCls = avatarColor(c.author?.id ?? 0);
                     return (
                       <div key={c.id} className="flex gap-2.5 group">
-                        <span className={`w-7 h-7 rounded-full ${avatarCls.bg} ${avatarCls.text} text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5`}>
-                          {authorInitials}
-                        </span>
+                        <Avatar user={c.author} size="sm" className="mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-semibold text-slate-300">{authorName}</span>

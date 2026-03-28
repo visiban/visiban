@@ -8,6 +8,7 @@ import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, del
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
+import Avatar from "../Common/Avatar";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -218,7 +219,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     }
   };
 
-  const initials = (user: User) => userDisplayName(user).slice(0, 1).toUpperCase();
 
   const handleStalenessBlur = () => {
     patchBoard(board.id, { staleness_threshold_days: stalenessThreshold });
@@ -289,9 +289,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   <div key={m.user.id} className="py-2.5 border-b border-slate-700/60 last:border-0">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-xs font-semibold text-white shrink-0">
-                          {initials(m.user)}
-                        </div>
+                        <Avatar user={m.user} size="sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white truncate">{userDisplayName(m.user)}</p>
                           <p className="text-xs text-slate-500 truncate">{m.user.email}</p>
@@ -398,9 +396,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               onMouseDown={(e) => { e.preventDefault(); addToStaged(u); }}
                               className="w-full text-left px-3 py-2.5 hover:bg-slate-700 transition flex items-center gap-2.5"
                             >
-                              <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-xs font-semibold text-white shrink-0">
-                                {initials(u)}
-                              </div>
+                              <Avatar user={u} size="sm" />
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-slate-200 truncate">{userDisplayName(u)}</p>
                                 <p className="text-xs text-slate-500 truncate">{u.email}</p>
@@ -418,9 +414,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           {staged.map((s) => (
                             <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-slate-700/60 last:border-0">
                               <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-[10px] font-semibold text-white shrink-0">
-                                  {initials(s.user)}
-                                </div>
+                                <Avatar user={s.user} size="sm" />
                                 <p className="text-sm text-white truncate">{userDisplayName(s.user)}</p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
