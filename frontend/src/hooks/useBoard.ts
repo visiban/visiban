@@ -164,8 +164,13 @@ export function useBoard() {
       columns: b.columns.filter((c) => c.id !== columnId),
       cards: b.cards.filter((c) => c.column !== columnId),
     } : b);
-    await apiDeleteColumn(boardId, columnId);
-  }, [boardId]);
+    try {
+      await apiDeleteColumn(boardId, columnId);
+    } catch {
+      // Re-fetch on failure so the column and its cards reappear.
+      load();
+    }
+  }, [boardId, load]);
 
   const addSwimlane = useCallback((swimlane: Swimlane) => {
     setBoard((b) => {
