@@ -121,12 +121,16 @@ git push origin "$TAG"
 
 echo "Pushed tag $TAG"
 
-# Create GitLab release
+# Create GitLab release — use --notes-file to avoid shell escaping issues
+NOTES_FILE=$(mktemp)
 if [[ -z "$RELEASE_NOTES" ]]; then
-  RELEASE_NOTES="See CHANGELOG.md for details."
+  echo "See CHANGELOG.md for details." > "$NOTES_FILE"
+else
+  echo "$RELEASE_NOTES" > "$NOTES_FILE"
 fi
 
-glab release create "$TAG" --name "$TAG" --notes "$RELEASE_NOTES"
+glab release create "$TAG" --name "$TAG" --notes-file "$NOTES_FILE"
+rm -f "$NOTES_FILE"
 
 # Deploy docs with mike
 echo "Deploying docs..."
