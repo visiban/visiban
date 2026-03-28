@@ -152,6 +152,22 @@ class CardSerializer(serializers.ModelSerializer):
         write_only=True, read_only=False, queryset=User.objects.all(), source="assignee", required=False, allow_null=True
     )
     last_moved_at = serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        """Scope label_ids and assignee_id querysets to the current board.
+
+        Without this, a client could assign labels from another board or assign
+        a user who is not a member of the board — both are cross-board IDOR
+        vulnerabilities.  The board must be passed via serializer context.
+        """
+        super().__init__(*args, **kwargs)
+        board = self.context.get("board")
+        if board:
+            self.fields["label_ids"].child_relation.queryset = Label.objects.filter(board=board)
+            from .utils import _get_effective_member_ids
+            self.fields["assignee_id"].queryset = User.objects.filter(
+                pk__in=_get_effective_member_ids(board)
+            )
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
@@ -296,7 +312,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
         /cards/archived/ action when the user opens the archived panel.
         """
         qs = _card_queryset(obj.cards.filter(archived_at__isnull=True))
-        return CardSerializer(qs, many=True, context=self.context).data
+        ctx = {**self.context, "board": obj}
+        return CardSerializer(qs, many=True, context=ctx).data
 
     def get_members(self, obj):
         """Return the effective member list for @mention autocomplete and the members panel.
