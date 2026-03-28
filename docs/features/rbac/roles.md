@@ -40,7 +40,9 @@ Visiban has five roles that control access at both the group and board level.
 | Comment on cards | ✓ | ✓ | ✓ | ✓ | — |
 | Delete own comment | ✓ | ✓ | ✓ | ✓ | — |
 | Delete any comment | ✓ | ✓ | mod† | — | — |
-| Upload / delete attachments | ✓ | ✓ | ✓ | ✓ | — |
+| Upload attachments | ✓ | ✓ | ✓ | ✓ | — |
+| Delete own attachment | ✓ | ✓ | ✓ | ✓ | — |
+| Delete any attachment | ✓ | ✓ | mod† | — | — |
 | Add / edit / delete checklist items | ✓ | ✓ | ✓ | ✓ | — |
 | View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Bulk card operations (move, assign, priority, delete) | ✓ | ✓ | ✓ | — | — |

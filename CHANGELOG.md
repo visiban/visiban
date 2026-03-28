@@ -85,6 +85,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Rich text editor color picker now correctly activates the toolbar "A" indicator when White is selected — previously White was excluded from the active-color check by an overly narrow condition
 - Analytics heatmap `is_outlier` cell coloring now correctly uses the board's configured staleness threshold in all cases — a backend test was added to confirm the board threshold is used even when the `stalled_days` query param overrides the stalled-card list
 
+### Security
+- `delete_attachment` now enforces the same ownership gate as `delete_comment` — members can only delete their own attachments unless they have the moderator entitlement; previously any member-role user could delete attachments uploaded by other members (#378)
+
 ---
 
 ## [1.0.0-rc.9] — 2026-03-24
