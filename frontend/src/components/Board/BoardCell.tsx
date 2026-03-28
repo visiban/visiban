@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, Column, Swimlane } from "../../types";
@@ -28,7 +28,7 @@ interface Props {
   width?: number;
 }
 
-export default function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -130,4 +130,6 @@ export default function BoardCell({ column, swimlane, cards, boardId, canEdit, c
       )}
     </div>
   );
-}
+});
+
+export default BoardCell;
