@@ -25,7 +25,15 @@ For interactive use in a browser, the session-based login is used automatically 
 !!! warning "Copy your token now"
     The full token value is shown **only once** — immediately after creation. Once you navigate away, Visiban stores only a secure hash and cannot show the token again. Copy it to a password manager or secret store before leaving the page.
 
-Tokens are prefixed with `vbn_` so they are easy to identify in logs and configuration files.
+Tokens are prefixed with `vbn_` so they are easy to identify in logs and configuration files. The full format is `vbn_` followed by 40 hex characters (44 characters total), generated with `secrets.token_hex`. Integrators can validate this with the regex `^vbn_[0-9a-f]{40}$`.
+
+---
+
+## Identifying tokens after creation
+
+Because the full token value is shown only once, the Access Tokens list identifies each token by its **prefix** — the first 8 characters of the raw value (e.g. `vbn_a3f1...`). Combined with the name you gave the token and the **last used** timestamp, this is usually enough to tell tokens apart.
+
+The **Last used** column shows when the token was last used to authenticate an API request. Tokens that have never been used show "Never".
 
 ---
 

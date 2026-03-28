@@ -32,7 +32,8 @@ Lists all accounts on the instance, paginated 50 per page. Use the search bar to
 
 | Badge | Meaning |
 |---|---|
-| **Admin** | User has site admin privileges |
+| **Admin** | User has site admin privileges (`is_site_admin`) |
+| **All content** | User can read and write every board and group on the instance (`can_access_all_content`) |
 | **Reset req.** | User will be prompted to set a new password on next login |
 | **Inactive** | Account is deactivated — user cannot log in |
 
@@ -63,6 +64,20 @@ You cannot deactivate your own account from this panel.
 Grants or revokes site admin status. You cannot change your own admin status — ask another site admin.
 
 The last active site admin on the instance cannot be demoted.
+
+#### Grant all-content / Revoke all-content
+
+> **Added in 1.0.0-rc.9**
+
+Controls the `can_access_all_content` flag independently of admin status. When enabled, the user can read and write every board and group on the instance regardless of membership.
+
+- **Grant all-content** gives a user omniscient access without making them a site admin. This is useful for support engineers who need visibility into all boards but should not manage instance settings.
+- **Revoke all-content** removes that access. The user will only see boards and groups they are explicitly a member of.
+
+These two flags — `is_site_admin` (admin panel access) and `can_access_all_content` (board/group omniscience) — are fully independent. See [Site Admins](site-admins.md) for a detailed explanation of the two-flag model and examples of common configurations.
+
+!!! tip
+    The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently, use the admin panel toggles described here, or edit the user directly in the Django admin at `/django-admin/accounts/user/`.
 
 #### Force password reset
 
