@@ -157,7 +157,7 @@ class CardCreationRBACTests(TestCase):
             {"title": "New Card", "column": self.col.pk, "swimlane": self.swim.pk},
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_member_can_create_card(self, _mock_broadcast):
         member = User.objects.create_user(username="member", password="pass")
         BoardMembership.objects.create(board=self.board, user=member, role=BoardMembership.Role.MEMBER)
@@ -239,7 +239,7 @@ class ColumnCreationRBACTests(TestCase):
             {"name": "New Column", "position": 99},
         )
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_admin_can_create_column(self, _mock_broadcast):
         resp = self._create_column(self.owner)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -282,7 +282,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     # Comments
     # ------------------------------------------------------------------
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_viewer_cannot_post_comment(self, _mock):
         self.client.force_authenticate(self.viewer)
         resp = self.client.post(
@@ -291,7 +291,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_post_comment(self, _mock):
         self.client.force_authenticate(self.collab)
         resp = self.client.post(
@@ -300,7 +300,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_viewer_cannot_delete_comment(self, _mock):
         comment = CardComment.objects.create(card=self.card, author=self.owner, body="original")
         self.client.force_authenticate(self.viewer)
@@ -309,7 +309,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_delete_own_comment(self, _mock):
         comment = CardComment.objects.create(card=self.card, author=self.collab, body="my comment")
         self.client.force_authenticate(self.collab)
@@ -318,7 +318,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_cannot_delete_other_users_comment(self, _mock):
         comment = CardComment.objects.create(card=self.card, author=self.owner, body="owner comment")
         self.client.force_authenticate(self.collab)
@@ -331,7 +331,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     # Attachments
     # ------------------------------------------------------------------
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_viewer_cannot_upload_attachment(self, _mock):
         from django.core.files.uploadedfile import SimpleUploadedFile
         self.client.force_authenticate(self.viewer)
@@ -343,7 +343,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_upload_attachment(self, _mock):
         from django.core.files.uploadedfile import SimpleUploadedFile
         self.client.force_authenticate(self.collab)
@@ -355,7 +355,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_viewer_cannot_delete_attachment(self, _mock):
         from boards.models import CardAttachment
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -376,7 +376,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     # Checklist
     # ------------------------------------------------------------------
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_viewer_cannot_add_checklist_item(self, _mock):
         self.client.force_authenticate(self.viewer)
         resp = self.client.post(
@@ -385,7 +385,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_add_checklist_item(self, _mock):
         self.client.force_authenticate(self.collab)
         resp = self.client.post(
@@ -394,7 +394,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_viewer_cannot_patch_checklist_item(self, _mock):
         from boards.models import CardChecklist
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
@@ -405,7 +405,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_patch_checklist_item(self, _mock):
         from boards.models import CardChecklist
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
@@ -416,7 +416,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_viewer_cannot_delete_checklist_item(self, _mock):
         from boards.models import CardChecklist
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
@@ -426,7 +426,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_collaborator_can_delete_checklist_item(self, _mock):
         from boards.models import CardChecklist
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)

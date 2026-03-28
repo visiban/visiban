@@ -114,7 +114,7 @@ class BoardUpdatedBroadcastTests(TestCase):
 
     def test_board_updated_broadcast_fires_after_commit(self):
         """PATCH /api/boards/{id}/ fires board.updated via on_commit."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.patch(
                     f"/api/boards/{self.board.pk}/",
@@ -126,7 +126,7 @@ class BoardUpdatedBroadcastTests(TestCase):
 
     def test_board_updated_broadcast_not_called_before_commit(self):
         """board.updated must not fire before on_commit callbacks execute."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.patch(
                     f"/api/boards/{self.board.pk}/",
@@ -136,7 +136,7 @@ class BoardUpdatedBroadcastTests(TestCase):
 
     def test_board_updated_payload_contains_board_id(self):
         """board.updated payload is keyed by the board's own ID."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.patch(
                     f"/api/boards/{self.board.pk}/",
@@ -163,7 +163,7 @@ class BoardDeletedBroadcastTests(TestCase):
     def test_board_deleted_broadcast_fires_after_commit(self):
         """DELETE /api/boards/{id}/ fires board.deleted via on_commit."""
         board_pk = self.board.pk
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.delete(f"/api/boards/{board_pk}/")
             self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
@@ -172,7 +172,7 @@ class BoardDeletedBroadcastTests(TestCase):
 
     def test_board_deleted_broadcast_not_called_before_commit(self):
         """board.deleted must not fire before on_commit callbacks execute."""
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.delete(f"/api/boards/{self.board.pk}/")
                 mock_broadcast.assert_not_called()
@@ -180,7 +180,7 @@ class BoardDeletedBroadcastTests(TestCase):
     def test_board_deleted_payload_contains_board_id(self):
         """board.deleted payload dict contains the deleted board's id."""
         board_pk = self.board.pk
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.delete(f"/api/boards/{board_pk}/")
             deleted_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "board.deleted"]
@@ -214,8 +214,8 @@ class AttachmentAtomicBroadcastTests(TestCase):
     def test_attachment_upload_broadcasts_card_updated_after_commit(self):
         """Attachment upload fires card.updated broadcast via on_commit."""
         fake_file = SimpleUploadedFile("doc.txt", b"hello", content_type="text/plain")
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
-            with patch("boards.views._validate_upload_mime", return_value=None):
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with patch("boards.views.cards._validate_upload_mime", return_value=None):
                 with self.captureOnCommitCallbacks(execute=True):
                     resp = self.client.post(self._url(), {"file": fake_file}, format="multipart")
                 self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -225,8 +225,8 @@ class AttachmentAtomicBroadcastTests(TestCase):
     def test_attachment_broadcast_not_called_before_commit(self):
         """card.updated broadcast must not fire before on_commit callbacks execute."""
         fake_file = SimpleUploadedFile("doc.txt", b"hello", content_type="text/plain")
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
-            with patch("boards.views._validate_upload_mime", return_value=None):
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with patch("boards.views.cards._validate_upload_mime", return_value=None):
                 with self.captureOnCommitCallbacks(execute=False):
                     self.client.post(self._url(), {"file": fake_file}, format="multipart")
                     mock_broadcast.assert_not_called()
@@ -250,7 +250,7 @@ class AttachmentAtomicRollbackTests(TransactionTestCase):
         def capture(*args, **kwargs):
             broadcast_calls.append(args)
 
-        with patch("boards.views.broadcast_board_event", side_effect=capture):
+        with patch("boards.broadcast.broadcast_board_event", side_effect=capture):
             try:
                 with transaction.atomic():
                     transaction.on_commit(lambda: capture("should_not_fire"))

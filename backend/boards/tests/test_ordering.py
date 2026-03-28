@@ -9,7 +9,7 @@ from boards.models import (
 )
 
 
-PATCH_BROADCAST = "boards.views.broadcast_board_event"
+PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
 
 
 def _make_board(owner, name="Board"):

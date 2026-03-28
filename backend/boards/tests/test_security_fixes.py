@@ -180,7 +180,7 @@ class AttachmentUploadMimeValidationTests(TestCase):
         r = self._upload(b"\xDE\xAD\xBE\xEF" * 10, "image/jpeg", "fake.jpg")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @patch("boards.views.CardAttachment.objects.create")
+    @patch("boards.views.cards.CardAttachment.objects.create")
     def test_accepts_valid_jpeg(self, mock_create):
         from boards.models import CardAttachment
         # Return a mock attachment so we don't need to actually write a file
@@ -216,7 +216,7 @@ class AttachmentUploadMimeValidationTests(TestCase):
         """CSV without HTML content should be accepted."""
         content = b"name,email\nAlice,alice@example.com\nBob,bob@example.com\n"
         # Mock the create to avoid filesystem writes
-        with patch("boards.views.CardAttachment.objects.create") as mock_create:
+        with patch("boards.views.cards.CardAttachment.objects.create") as mock_create:
             from boards.models import CardAttachment
             mock_create.return_value = CardAttachment(
                 id=2, filename="data.csv", size=len(content),
@@ -401,7 +401,7 @@ class NotificationStructuredFieldsTests(TestCase):
 
         client = APIClient()
         client.force_authenticate(owner)
-        with patch("boards.views.broadcast_board_event"):
+        with patch("boards.broadcast.broadcast_board_event"):
             r = client.patch(
                 f"/api/boards/{board.id}/cards/{card.id}/",
                 # assignee_id is the write field name on CardSerializer

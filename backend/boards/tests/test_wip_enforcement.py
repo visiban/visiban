@@ -31,7 +31,7 @@ def _make_board(owner, enforce=False):
 
 class WipEnforcementTests(TestCase):
     def setUp(self):
-        self._broadcast_patcher = patch("boards.views.broadcast_board_event")
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
         self._broadcast_patcher.start()
 
         self.client = APIClient()
@@ -233,7 +233,7 @@ class TestHardWipEnforcement(TestCase):
     """
 
     def setUp(self):
-        self._broadcast_patcher = patch("boards.views.broadcast_board_event")
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
         self._broadcast_patcher.start()
 
         self.client = APIClient()

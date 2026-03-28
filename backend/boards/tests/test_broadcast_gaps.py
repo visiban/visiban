@@ -3,7 +3,7 @@ Tests for #203: broadcast_board_event wired to previously-silent mutation
 endpoints (comment, checklist, attachment, label, membership, reorder) and
 confirmed to fire via transaction.on_commit().
 
-Pattern: patch boards.views.broadcast_board_event, use captureOnCommitCallbacks,
+Pattern: patch boards.broadcast.broadcast_board_event, use captureOnCommitCallbacks,
 make the API call, assert the expected event_type was broadcast.
 """
 import tempfile
@@ -63,7 +63,7 @@ class CommentAddBroadcastTests(BroadcastGapsMixin, TestCase):
         return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/"
 
     def test_comment_add_broadcasts_card_updated_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(self._url(), {"body": "Hello!"})
             self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -71,7 +71,7 @@ class CommentAddBroadcastTests(BroadcastGapsMixin, TestCase):
             self.assertIn("card.updated", event_types)
 
     def test_comment_add_broadcast_not_called_before_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(self._url(), {"body": "Hello!"})
                 mock_broadcast.assert_not_called()
@@ -88,8 +88,8 @@ class AttachmentBroadcastTests(BroadcastGapsMixin, TestCase):
 
     def test_attachment_add_broadcasts_card_updated_after_commit(self):
         fake_file = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
-            with patch("boards.views._validate_upload_mime", return_value=None):
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with patch("boards.views.cards._validate_upload_mime", return_value=None):
                 with self.captureOnCommitCallbacks(execute=True):
                     resp = self.client.post(self._url(), {"file": fake_file}, format="multipart")
                 self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -104,7 +104,7 @@ class AttachmentBroadcastTests(BroadcastGapsMixin, TestCase):
             uploaded_by=self.user,
         )
         del_url = f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with patch.object(attachment.file, "delete", return_value=None):
                 with self.captureOnCommitCallbacks(execute=True):
                     resp = self.client.delete(del_url)
@@ -122,7 +122,7 @@ class ChecklistBroadcastTests(BroadcastGapsMixin, TestCase):
         return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{pk}/"
 
     def test_checklist_add_broadcasts_card_updated_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(self._list_url(), {"text": "Step one"})
             self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -130,14 +130,14 @@ class ChecklistBroadcastTests(BroadcastGapsMixin, TestCase):
             self.assertIn("card.updated", event_types)
 
     def test_checklist_add_broadcast_not_called_before_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(self._list_url(), {"text": "Step one"})
                 mock_broadcast.assert_not_called()
 
     def test_checklist_update_broadcasts_card_updated_after_commit(self):
         item = CardChecklist.objects.create(card=self.card, text="Step one", position=0)
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.patch(self._item_url(item.pk), {"is_checked": True})
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -146,7 +146,7 @@ class ChecklistBroadcastTests(BroadcastGapsMixin, TestCase):
 
     def test_checklist_delete_broadcasts_card_updated_after_commit(self):
         item = CardChecklist.objects.create(card=self.card, text="Step one", position=0)
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.delete(self._item_url(item.pk))
             self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
@@ -167,7 +167,7 @@ class LabelBroadcastTests(BroadcastGapsMixin, TestCase):
         return f"/api/boards/{self.board.pk}/labels/{pk}/"
 
     def test_label_create_broadcasts_label_created_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(self._list_url(), {"name": "Bug", "color": "#EF4444"})
             self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -175,14 +175,14 @@ class LabelBroadcastTests(BroadcastGapsMixin, TestCase):
             self.assertIn("label.created", event_types)
 
     def test_label_create_broadcast_not_called_before_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(self._list_url(), {"name": "Bug", "color": "#EF4444"})
                 mock_broadcast.assert_not_called()
 
     def test_label_update_broadcasts_label_updated_after_commit(self):
         label = Label.objects.create(board=self.board, name="Bug", color="#EF4444")
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.patch(self._detail_url(label.pk), {"name": "Bug (revised)"})
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -191,7 +191,7 @@ class LabelBroadcastTests(BroadcastGapsMixin, TestCase):
 
     def test_label_delete_broadcasts_label_deleted_after_commit(self):
         label = Label.objects.create(board=self.board, name="Bug", color="#EF4444")
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.delete(self._detail_url(label.pk))
             self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
@@ -201,7 +201,7 @@ class LabelBroadcastTests(BroadcastGapsMixin, TestCase):
     def test_label_deleted_payload_contains_label_id(self):
         label = Label.objects.create(board=self.board, name="Bug", color="#EF4444")
         label_id = label.pk
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.delete(self._detail_url(label.pk))
             delete_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "label.deleted"]
@@ -227,7 +227,7 @@ class MembershipBroadcastTests(BroadcastGapsMixin, TestCase):
         return f"/api/boards/{self.board.pk}/members/{user_id}/"
 
     def test_member_add_broadcasts_member_added_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
                     self._members_url(),
@@ -242,7 +242,7 @@ class MembershipBroadcastTests(BroadcastGapsMixin, TestCase):
         BoardMembership.objects.create(
             board=self.board, user=self.other_user, role=BoardMembership.Role.MEMBER
         )
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
                     self._members_url(),
@@ -257,7 +257,7 @@ class MembershipBroadcastTests(BroadcastGapsMixin, TestCase):
         BoardMembership.objects.create(
             board=self.board, user=self.other_user, role=BoardMembership.Role.MEMBER
         )
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.delete(self._remove_url(self.other_user.pk))
             self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
@@ -269,7 +269,7 @@ class MembershipBroadcastTests(BroadcastGapsMixin, TestCase):
             board=self.board, user=self.other_user, role=BoardMembership.Role.MEMBER
         )
         user_id = self.other_user.pk
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.delete(self._remove_url(self.other_user.pk))
             remove_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "member.removed"]
@@ -290,7 +290,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
         self.swim2 = Swimlane.objects.create(board=self.board, name="Beta Corp", position=1)
 
     def test_column_reorder_broadcasts_columns_reordered_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
                     f"/api/boards/{self.board.pk}/columns/reorder/",
@@ -301,7 +301,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
             self.assertIn("columns.reordered", event_types)
 
     def test_column_reorder_broadcast_not_called_before_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(
                     f"/api/boards/{self.board.pk}/columns/reorder/",
@@ -310,7 +310,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 mock_broadcast.assert_not_called()
 
     def test_swimlane_reorder_broadcasts_swimlanes_reordered_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
                     f"/api/boards/{self.board.pk}/swimlanes/reorder/",
@@ -321,7 +321,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
             self.assertIn("swimlanes.reordered", event_types)
 
     def test_swimlane_reorder_broadcast_not_called_before_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(
                     f"/api/boards/{self.board.pk}/swimlanes/reorder/",
@@ -337,7 +337,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
 class CardDeletedOnCommitTests(BroadcastGapsMixin, TestCase):
 
     def test_card_deleted_broadcast_fires_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.delete(
                     f"/api/boards/{self.board.pk}/cards/{self.card.pk}/"
@@ -347,7 +347,7 @@ class CardDeletedOnCommitTests(BroadcastGapsMixin, TestCase):
             self.assertIn("card.deleted", event_types)
 
     def test_card_deleted_broadcast_not_called_before_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.delete(f"/api/boards/{self.board.pk}/cards/{self.card.pk}/")
                 mock_broadcast.assert_not_called()
@@ -356,7 +356,7 @@ class CardDeletedOnCommitTests(BroadcastGapsMixin, TestCase):
 class CardUpdatedOnCommitTests(BroadcastGapsMixin, TestCase):
 
     def test_card_updated_broadcast_fires_after_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.patch(
                     f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
@@ -367,7 +367,7 @@ class CardUpdatedOnCommitTests(BroadcastGapsMixin, TestCase):
             self.assertIn("card.updated", event_types)
 
     def test_card_updated_broadcast_not_called_before_commit(self):
-        with patch("boards.views.broadcast_board_event") as mock_broadcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.patch(
                     f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",

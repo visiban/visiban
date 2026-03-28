@@ -42,37 +42,37 @@ class MustChangePasswordBlocksAPITests(TestCase):
     # Board endpoints
     # ------------------------------------------------------------------
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_board_list_blocked(self, _bc):
         resp = self.client.get("/api/boards/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_board_detail_blocked(self, _bc):
         resp = self.client.get(f"/api/boards/{self.board.pk}/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_board_full_blocked(self, _bc):
         resp = self.client.get(f"/api/boards/{self.board.pk}/full/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_column_list_blocked(self, _bc):
         resp = self.client.get(f"/api/boards/{self.board.pk}/columns/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_card_list_blocked(self, _bc):
         resp = self.client.get(f"/api/boards/{self.board.pk}/cards/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_swimlane_list_blocked(self, _bc):
         resp = self.client.get(f"/api/boards/{self.board.pk}/swimlanes/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_label_list_blocked(self, _bc):
         resp = self.client.get(f"/api/boards/{self.board.pk}/labels/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -145,12 +145,12 @@ class NormalUserNotBlockedTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_board_list_allowed(self, _bc):
         resp = self.client.get("/api/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-    @patch("boards.views.broadcast_board_event")
+    @patch("boards.broadcast.broadcast_board_event")
     def test_board_detail_allowed(self, _bc):
         resp = self.client.get(f"/api/boards/{self.board.pk}/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
