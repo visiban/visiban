@@ -1,3 +1,4 @@
+import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -8,13 +9,20 @@ vi.mock('../hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
-vi.mock('../hooks/useBoard', () => ({
-  useBoard: vi.fn().mockReturnValue({
+vi.mock('../contexts/BoardContext', () => ({
+  BoardProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useBoardContext: vi.fn().mockReturnValue({
     board: null, loading: true, error: null,
-    moveCard: vi.fn(), addCard: vi.fn(), removeCard: vi.fn(),
+    moveCard: vi.fn(), forceMoveCard: vi.fn(), moveError: null, clearMoveError: vi.fn(),
+    addCard: vi.fn(), removeCard: vi.fn(),
     addColumn: vi.fn(), removeColumn: vi.fn(), addSwimlane: vi.fn(),
     updateCard: vi.fn(), updateColumn: vi.fn(), addLabel: vi.fn(),
-    reorderColumns: vi.fn(), updateSwimlane: vi.fn(), removeSwimlane: vi.fn(),
+    updateLabel: vi.fn(), removeLabel: vi.fn(),
+    addMember: vi.fn(), updateMember: vi.fn(), removeMember: vi.fn(),
+    applyColumnOrder: vi.fn(), applySwimlaneOrder: vi.fn(),
+    reorderColumns: vi.fn(), reorderSwimlanes: vi.fn(),
+    updateSwimlane: vi.fn(), removeSwimlane: vi.fn(),
+    updateBoardSettings: vi.fn(), reload: vi.fn(),
   }),
 }))
 
@@ -59,9 +67,9 @@ vi.mock('../pages/AdminPage', () => ({
 }))
 
 import { useAuth } from '../hooks/useAuth'
-import { useBoard } from '../hooks/useBoard'
+import { useBoardContext } from '../contexts/BoardContext'
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
-const mockUseBoard = useBoard as ReturnType<typeof vi.fn>
+const mockUseBoardContext = useBoardContext as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -71,17 +79,23 @@ const fakeUser: User = {
 
 const defaultBoardHook = {
   board: null, loading: true, error: null,
-  moveCard: vi.fn(), addCard: vi.fn(), removeCard: vi.fn(),
+  moveCard: vi.fn(), forceMoveCard: vi.fn(), moveError: null, clearMoveError: vi.fn(),
+  addCard: vi.fn(), removeCard: vi.fn(),
   addColumn: vi.fn(), removeColumn: vi.fn(), addSwimlane: vi.fn(),
   updateCard: vi.fn(), updateColumn: vi.fn(), addLabel: vi.fn(),
-  reorderColumns: vi.fn(), updateSwimlane: vi.fn(), removeSwimlane: vi.fn(),
+  updateLabel: vi.fn(), removeLabel: vi.fn(),
+  addMember: vi.fn(), updateMember: vi.fn(), removeMember: vi.fn(),
+  applyColumnOrder: vi.fn(), applySwimlaneOrder: vi.fn(),
+  reorderColumns: vi.fn(), reorderSwimlanes: vi.fn(),
+  updateSwimlane: vi.fn(), removeSwimlane: vi.fn(),
+  updateBoardSettings: vi.fn(), reload: vi.fn(),
 }
 
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sessionStorage.clear()
-    mockUseBoard.mockReturnValue(defaultBoardHook)
+    mockUseBoardContext.mockReturnValue(defaultBoardHook)
   })
 
   it('shows loading state', () => {
@@ -150,14 +164,14 @@ describe('App', () => {
 
   it('shows board loading state on /boards/:id', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    mockUseBoard.mockReturnValue({ ...defaultBoardHook, board: null, loading: true, error: null })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: true, error: null })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
     expect(screen.getByText('Loading board…')).toBeInTheDocument()
   })
 
   it('shows board error state on /boards/:id', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    mockUseBoard.mockReturnValue({ ...defaultBoardHook, board: null, loading: false, error: 'Not found' })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: null, loading: false, error: 'Not found' })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
     expect(screen.getByText('Not found')).toBeInTheDocument()
   })
@@ -169,7 +183,7 @@ describe('App', () => {
       columns: [], swimlanes: [], cards: [], labels: [], members: [],
       created_at: '', updated_at: '', current_user_role: 'admin' as const,
     }
-    mockUseBoard.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
     expect(screen.getByTestId('board-view')).toBeInTheDocument()
   })
@@ -184,7 +198,7 @@ describe('App', () => {
       columns: [], swimlanes: [], cards: [], labels: [], members: [],
       created_at: '', updated_at: '', current_user_role: 'admin' as const,
     }
-    mockUseBoard.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, board: fakeBoard, loading: false, error: null })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
     expect(screen.getByTestId('navbar')).toBeInTheDocument()
   })

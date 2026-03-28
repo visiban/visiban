@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useEscapeStack } from "./hooks/useEscapeStack";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
-import { useBoard } from "./hooks/useBoard";
+import { BoardProvider, useBoardContext } from "./contexts/BoardContext";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
 import Navbar from "./components/Layout/Navbar";
@@ -90,7 +90,7 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
     <Routes>
       <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
       <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
-      <Route path="/boards/:id" element={<BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
+      <Route path="/boards/:id" element={<BoardProvider><BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} /></BoardProvider>} />
       <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
       <Route path="/admin" element={<AdminPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -105,11 +105,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   onStarToggled: () => void;
 }) {
   const navigate = useNavigate();
-  const { board, loading, error, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn,
-    addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel,
-    addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder,
-    reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings,
-  } = useBoard();
+  const { board, loading, error, forceMoveCard, moveError, clearMoveError } = useBoardContext();
 
   const isAdmin = board?.current_user_role === "admin" || board?.current_user_role === "site_admin";
 
@@ -194,31 +190,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         )}
         {board && (
           <BoardView
-            board={board}
-            onMoveCard={moveCard}
-            onCardAdded={addCard}
-            onCardDeleted={removeCard}
-            onCardUpdated={updateCard}
-            onCardArchived={removeCard}
-            onCardUnarchived={addCard}
-            onColumnAdded={addColumn}
-            onColumnUpdated={updateColumn}
-            onColumnDeleted={removeColumn}
-            onColumnsReordered={reorderColumns}
-            onSwimlaneAdded={addSwimlane}
-            onSwimlaneUpdated={updateSwimlane}
-            onSwimlaneDeleted={removeSwimlane}
-            onSwimlanesReordered={reorderSwimlanes}
-            onLabelAdded={addLabel}
-            onLabelUpdated={updateLabel}
-            onLabelDeleted={removeLabel}
-            onMemberAdded={addMember}
-            onMemberUpdated={updateMember}
-            onMemberRemoved={removeMember}
-            onColumnOrderApplied={applyColumnOrder}
-            onSwimlaneOrderApplied={applySwimlaneOrder}
             onBoardDeleted={handleBack}
-            onUpdateBoardSettings={updateBoardSettings}
             userTimezone={user.timezone ?? ""}
             userDateFormat={user.date_format ?? "MM/DD/YYYY"}
             userTimeFormat={user.time_format ?? "12h"}

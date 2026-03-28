@@ -56,6 +56,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - 13 checklist-style Claude Code agents (changelog, rbac-check, broadcast-check, migration-check, perf-check, perf-bench, dependency, duplicate-check, enterprise-check, test-scaffold, api-docs, docs, ux-review) now run on Sonnet; architect, security-review, and `/mr` remain on Opus and delegate parallel research phases to Sonnet sub-agents before synthesizing results
 - New `ux-design` agent proposes concrete UI layout, component composition, interaction flow, and state handling before implementation — runs on Opus with 3 parallel Sonnet sub-agents for research; workflow order is now `architect` → `ux-design` → implement → `ux-review`
 - Added composite database indexes on `CardMovement` (card + moved_at descending) and `Notification` (recipient + read + created_at descending) to eliminate sequential scans on movement history and notification inbox queries (#421)
+- Board state is now provided via `BoardProvider` React context instead of prop-drilling 27+ values from `BoardPage` through `BoardView` — consumers use `useBoardContext()` to access board data and mutation callbacks; no behavior change (#424)
 
 ### Fixed
 - `RegistrationEndpointToggleTests` now invalidates the registration-mode cache in `setUp()` — previously a stale LocMemCache entry from `test_registration_blocked_when_closed` survived the transaction rollback, causing `test_registration_allowed_when_open` to see "closed" mode and fail with 403
