@@ -2,11 +2,15 @@ import io
 import json
 
 from django.test import TestCase, TransactionTestCase
+from django.test.utils import override_settings
 from rest_framework.test import APIClient
 from rest_framework import status
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane, Label, Card, CardComment, CardChecklist
+from boards.models import (
+    Board, BoardMembership, Column, Swimlane, Label, Card,
+    CardComment, CardChecklist, CardMovement, CardActivity,
+)
 
 
 class BoardImportJSONTests(TestCase):
@@ -484,3 +488,156 @@ class BoardImportCSVRoundtripTests(TestCase):
         imported_card = CardModel.objects.get(board_id=imported_board_id, title="Round-trip card")
         self.assertIsNotNone(imported_card.due_date)
         self.assertEqual(str(imported_card.due_date), "2026-06-15")
+
+
+class BoardImportBulkUserLookupTests(TestCase):
+    """Verify that JSON import resolves users via a single bulk query
+    instead of per-card lookups (#420)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="importer", password="pass")
+        self.alice = User.objects.create_user(username="alice", password="pass")
+        self.bob = User.objects.create_user(username="bob", password="pass")
+        self.client.force_authenticate(self.user)
+
+    def _make_json_file(self, data, filename="board.json"):
+        content = json.dumps(data).encode("utf-8")
+        f = io.BytesIO(content)
+        f.name = filename
+        return f
+
+    def _data_with_users(self, card_count=5):
+        """Build import data with multiple cards referencing different users."""
+        cards = []
+        for i in range(card_count):
+            cards.append({
+                "title": f"Card {i}",
+                "column": "To Do",
+                "swimlane": "General",
+                "priority": "medium",
+                "assignee": "alice" if i % 2 == 0 else "bob",
+                "labels": [],
+                "position": i,
+                "movements": [
+                    {
+                        "from_column": "To Do",
+                        "to_column": "To Do",
+                        "moved_by": "bob",
+                    },
+                ],
+                "activities": [
+                    {
+                        "event_type": "priority_change",
+                        "from_value": "low",
+                        "to_value": "medium",
+                        "actor": "alice",
+                    },
+                ],
+            })
+        return {
+            "name": "Bulk User Board",
+            "columns": [{"name": "To Do", "position": 0}],
+            "swimlanes": [{"name": "General", "position": 0}],
+            "labels": [],
+            "cards": cards,
+        }
+
+    def test_import_resolves_assignee_from_bulk_lookup(self):
+        """Assignee should be resolved correctly via the bulk user map."""
+        data = self._data_with_users(card_count=2)
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card0 = Card.objects.get(board_id=board_id, title="Card 0")
+        card1 = Card.objects.get(board_id=board_id, title="Card 1")
+        self.assertEqual(card0.assignee, self.alice)
+        self.assertEqual(card1.assignee, self.bob)
+
+    def test_import_resolves_moved_by_from_bulk_lookup(self):
+        """moved_by on CardMovement should be resolved via the bulk user map."""
+        data = self._data_with_users(card_count=1)
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Card 0")
+        mv = CardMovement.objects.filter(card=card).first()
+        self.assertIsNotNone(mv)
+        self.assertEqual(mv.moved_by, self.bob)
+
+    def test_import_resolves_actor_from_bulk_lookup(self):
+        """actor on CardActivity should be resolved via the bulk user map."""
+        data = self._data_with_users(card_count=1)
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Card 0")
+        act = CardActivity.objects.filter(card=card).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.actor, self.alice)
+
+    def test_unknown_username_falls_back_gracefully(self):
+        """Unknown assignee should resolve to None; unknown moved_by/actor
+        should fall back to the importing user."""
+        data = self._data_with_users(card_count=1)
+        data["cards"][0]["assignee"] = "nonexistent_user"
+        data["cards"][0]["movements"][0]["moved_by"] = "ghost"
+        data["cards"][0]["activities"][0]["actor"] = "ghost"
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Card 0")
+        self.assertIsNone(card.assignee)
+        mv = CardMovement.objects.filter(card=card).first()
+        self.assertEqual(mv.moved_by, self.user)
+        act = CardActivity.objects.filter(card=card).first()
+        self.assertEqual(act.actor, self.user)
+
+    @override_settings(DEBUG=True)
+    def test_no_per_card_user_queries(self):
+        """With 5 cards referencing 2 users, there should be exactly one
+        User query for all usernames — not one per card/movement/activity.
+
+        We count queries that hit the accounts_user table. Before the fix
+        there would be 5 (assignee) + 5 (moved_by) + 5 (actor) = 15
+        such queries. After the fix there should be exactly 1."""
+        from django.db import connection, reset_queries
+
+        data = self._data_with_users(card_count=5)
+        reset_queries()
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        # Count per-card user lookups (individual username = 'xxx' queries).
+        # The fix replaces them with a single bulk IN query, so there should
+        # be zero individual lookups.
+        per_card_user_queries = [
+            q for q in connection.queries
+            if "accounts_user" in q["sql"]
+            and "username" in q["sql"]
+            and "IN" not in q["sql"].upper()
+        ]
+        self.assertEqual(len(per_card_user_queries), 0,
+            f"Expected 0 per-card user queries, got {len(per_card_user_queries)}: "
+            f"{[q['sql'][:120] for q in per_card_user_queries]}"
+        )
