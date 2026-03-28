@@ -89,6 +89,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `delete_attachment` now enforces the same ownership gate as `delete_comment` — members can only delete their own attachments unless they have the moderator entitlement; previously any member-role user could delete attachments uploaded by other members (#378)
 - `CurrentUserView`, `PersonalAccessTokenListCreateView`, and `PersonalAccessTokenDeleteView` now declare explicit `permission_classes = [IsAuthenticated]` instead of relying on the global default — prevents accidental exposure if default permissions are changed (#376)
 - `GroupViewSet.boards` now filters returned boards by the requesting user's board-level membership — previously any group member could see metadata for all boards in the group regardless of their per-board access (#377)
+- Text file uploads (CSV, plain text) are now rejected if the first 4 KB contains HTML/script markers (`<script>`, `<svg>`, `<html>`, `<iframe>`, `<!DOCTYPE>`) — prevents stored XSS via polyglot files (#372)
+- `ServeMediaView` now sets explicit `Content-Type` from the stored filename and forces `Content-Disposition: attachment` for all non-image file types — prevents browsers from rendering uploaded PDFs, CSVs, or text files inline as HTML (#372)
 
 ---
 
