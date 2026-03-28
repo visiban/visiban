@@ -14,6 +14,10 @@ include:
         backend/boards/migrations,
         backend/groups/migrations,
         backend/accounts/migrations
+  - component: gitlab.com/components/secret-detection/secret-detection@~latest
+    inputs:
+      stage: security
+      enable_mr_pipelines: true
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 #
@@ -44,6 +48,7 @@ stages:
 # cleanup, image pull transients). Only retries on runner_system_failure
 # and stuck_or_timeout_failure — never on script failures.
 default:
+  interruptible: true
   retry:
     max: 2
     when:
@@ -97,7 +102,7 @@ default:
     paths:
       - .npm/
       - frontend/node_modules/
-    policy: pull-push
+    policy: pull
 
 # PIP_CACHE_DIR stores downloaded wheels/sdists. pip honors this env var
 # automatically so no extra flags are needed in before_script.
@@ -110,7 +115,47 @@ default:
       prefix: "pip"
       files: [backend/requirements.txt]
     paths: [.cache/pip/]
+    policy: pull
+
+# Warm the caches on the default branch so feature-branch jobs can pull from
+# them without paying the push cost on every MR pipeline. Only one job per
+# cache key prefix — runs after tests succeed on main.
+
+cache-warm-pip:
+  stage: deploy
+  needs: [backend-test-coverage]
+  image: python:3.12-slim
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  cache:
+    key:
+      prefix: "pip"
+      files: [backend/requirements.txt]
+    paths: [.cache/pip/]
     policy: pull-push
+  script:
+    - pip install --quiet -r backend/requirements.txt
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+cache-warm-npm:
+  stage: deploy
+  needs: [frontend-test]
+  image: node:20-alpine
+  variables:
+    npm_config_cache: "$CI_PROJECT_DIR/.npm"
+  cache:
+    key:
+      prefix: "npm"
+      files: [frontend/package-lock.json]
+    paths:
+      - .npm/
+      - frontend/node_modules/
+    policy: pull-push
+  script:
+    - cd frontend && npm ci --prefer-offline
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
@@ -130,30 +175,7 @@ backend-lint:
     - pip install --quiet ruff
   script:
     - ruff check backend/
-    - ruff check backend/ --output-format=json -o ruff-raw.json || true
-    - |
-      python3 - <<'PY'
-      import json, hashlib
-      raw = json.load(open("ruff-raw.json"))
-      issues = []
-      for issue in raw:
-          path = issue["filename"]
-          row = issue["location"]["row"]
-          code = issue.get("code") or "RUFF"
-          msg = issue["message"]
-          fp = hashlib.md5(f"{path}:{row}:{code}".encode()).hexdigest()
-          issues.append({
-              "type": "issue",
-              "check_name": code,
-              "description": f"[{code}] {msg}",
-              "categories": ["Style"],
-              "severity": "minor",
-              "fingerprint": fp,
-              "location": {"path": path, "lines": {"begin": row}},
-          })
-      json.dump(issues, open("code-quality-report.json", "w"))
-      print(f"{len(issues)} code quality issues")
-      PY
+    - ruff check backend/ --output-format=gitlab -o code-quality-report.json || true
   artifacts:
     reports:
       codequality: code-quality-report.json
@@ -164,12 +186,22 @@ backend-lint:
   allow_failure: true
 
 # ─── Backend — test ───────────────────────────────────────────────────────────
+#
+# Runs Django tests via pytest, sharded across 3 parallel jobs using
+# pytest-split's least_duration algorithm for time-balanced distribution.
+# Each shard runs its slice of the test suite under coverage, then coverage
+# results are combined in backend-test-coverage.
+#
+# On first run (no .test_durations in cache), pytest-split falls back to
+# round-robin splitting. After one run, the durations file is cached and
+# subsequent runs use time-balanced splitting.
 
 backend-test:
   extends: .pip-cache
   stage: test
   needs: []
   image: python:3.12-slim
+  parallel: 3
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -188,20 +220,54 @@ backend-test:
     DJANGO_SECRET_KEY: "ci-secret-key-not-for-production"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
+  cache:
+    - key:
+        prefix: "pip"
+        files: [backend/requirements.txt]
+      paths: [.cache/pip/]
+      policy: pull
+    - key: test-durations
+      paths: [backend/.test_durations]
+      policy: pull-push
   before_script:
     - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet coverage unittest-xml-reporting
+    - pip install --quiet coverage pytest pytest-django pytest-split
   script:
     - cd backend
-    - coverage run --source=. manage.py test boards accounts groups
-        --testrunner=xmlrunner.extra.djangotestrunner.XMLTestRunner
-        --verbosity=0
+    - coverage run --source=. --data-file=.coverage.${CI_NODE_INDEX} -m pytest
+        --splitting-algorithm least_duration
+        --store-durations
+        --group $CI_NODE_INDEX
+        --splits $CI_NODE_TOTAL
+        --junitxml=test-results/junit-${CI_NODE_INDEX}.xml
+        -q
+  artifacts:
+    paths:
+      - backend/.coverage.*
+    reports:
+      junit: backend/test-results/junit-*.xml
+    when: always
+    expire_in: 1 day
+
+# Combine coverage from all shards and enforce the 90% threshold.
+backend-test-coverage:
+  extends: .pip-cache
+  stage: test
+  needs: [backend-test]
+  image: python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - pip install --quiet coverage
+  script:
+    - cd backend
+    - coverage combine
     - coverage report --skip-covered --fail-under=90
     - coverage xml -o coverage.xml
   coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+)%/'
   artifacts:
     reports:
-      junit: backend/test-results/TEST-*.xml
       coverage_report:
         coverage_format: cobertura
         path: backend/coverage.xml
@@ -526,31 +592,6 @@ frontend-dep-scan:
     paths:
       - npm-audit-report.json
 
-# detect-secrets: regex scan for accidentally committed API keys, tokens, etc.
-# A .secrets.baseline file (committed) lets you track and acknowledge
-# any intentional false-positives so the job stays green.
-secret-detection:
-  extends: .on-mr
-  stage: security
-  image: python:3.12-slim
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git
-    - pip install --quiet detect-secrets
-  script:
-    - |
-      if [ -f .secrets.baseline ]; then
-        detect-secrets scan --baseline .secrets.baseline .
-      else
-        detect-secrets scan . > .secrets.baseline
-        echo "No baseline found — created one. Review and commit .secrets.baseline."
-      fi
-  allow_failure: true
-  artifacts:
-    when: always
-    expire_in: 1 week
-    paths:
-      - .secrets.baseline
-
 # License compliance — flag GPL-2.0/GPL-3.0 dependencies that are incompatible
 # with the project's Apache 2.0 license. Non-blocking so it warns but doesn't
 # gate merges.
@@ -702,11 +743,12 @@ frontend-docker-build:
 
 backend-docker-push:
   stage: deploy
-  needs: [backend-test]
+  needs: [backend-test-coverage]
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
   rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - mkdir -p /kaniko/.docker
@@ -715,13 +757,12 @@ backend-docker-push:
       "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
       > /kaniko/.docker/config.json
   script:
-    - >-
-      /kaniko/executor
-      --context=backend
-      --dockerfile=backend/Dockerfile
-      --destination=${CI_REGISTRY_IMAGE}/backend:latest
-      --destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}
-      --snapshot-mode=redo
+    - |
+      DESTINATIONS="--destination=${CI_REGISTRY_IMAGE}/backend:latest --destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}"
+      if [ -n "${CI_COMMIT_TAG}" ]; then
+        DESTINATIONS="${DESTINATIONS} --destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}"
+      fi
+      /kaniko/executor --context=backend --dockerfile=backend/Dockerfile ${DESTINATIONS} --snapshot-mode=redo
 
 frontend-docker-push:
   stage: deploy
@@ -730,6 +771,7 @@ frontend-docker-push:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
   rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - mkdir -p /kaniko/.docker
@@ -738,13 +780,12 @@ frontend-docker-push:
       "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
       > /kaniko/.docker/config.json
   script:
-    - >-
-      /kaniko/executor
-      --context=frontend
-      --dockerfile=frontend/Dockerfile
-      --destination=${CI_REGISTRY_IMAGE}/frontend:latest
-      --destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}
-      --snapshot-mode=redo
+    - |
+      DESTINATIONS="--destination=${CI_REGISTRY_IMAGE}/frontend:latest --destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}"
+      if [ -n "${CI_COMMIT_TAG}" ]; then
+        DESTINATIONS="${DESTINATIONS} --destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG}"
+      fi
+      /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile ${DESTINATIONS} --snapshot-mode=redo
 
 # ─── Docs — versioned with mike ───────────────────────────────────────────────
 #
@@ -802,6 +843,11 @@ docs-deploy:
         mike deploy --push --update-aliases "$VERSION" next
       fi
   rules:
+    # Auto-deploy on version tags (pushed by scripts/release.sh)
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+      variables:
+        DOCS_VERSION: $CI_COMMIT_TAG
+    # Manual recovery on main — set DOCS_VERSION in pipeline variables
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: manual
 
@@ -879,12 +925,18 @@ cleanup-merged-branches:
 # The --wipe flag deletes the "Visiban Demo Board" and recreates it from scratch.
 # --force overrides the DEBUG=False guard so the command runs in CI without DEBUG=True.
 # Board-scoped wipe: only the demo board is deleted; all other data is untouched.
+#
+# PROTECTION: The "demo" environment must be configured as a protected environment
+# in GitLab (Settings → CI/CD → Protected environments) so only maintainers can
+# trigger this job. Without this, any developer with push access can wipe the demo board.
 
 seed-demo-data:
   stage: deploy
   needs: []
   image: python:3.12-slim
-  environment: demo
+  environment:
+    name: demo
+    deployment_tier: staging
   variables:
     DATABASE_URL: $DEMO_DATABASE_URL
     REDIS_URL: $DEMO_REDIS_URL
