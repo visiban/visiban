@@ -2474,14 +2474,15 @@ class CardViewSet(viewsets.ModelViewSet):
             )
         card = get_object_or_404(Card, pk=pk, board=board)
         attachment = get_object_or_404(CardAttachment, pk=attachment_pk, card=card)
-        # Collaborators may only delete their own attachments — they cannot
-        # delete attachments uploaded by other members. This mirrors the ownership
-        # check on delete_comment to keep the two delete actions consistent.
-        if role == BoardMembership.Role.COLLABORATOR and attachment.uploaded_by != request.user:
-            return Response(
-                {"detail": "You can only delete your own attachments."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Ownership gate: members and collaborators may only delete their own
+        # attachments unless the member has the moderator entitlement (#362).
+        # This mirrors the ownership check on delete_comment.
+        if attachment.uploaded_by != request.user:
+            if not _can_modify_others_content(board, role, request.user):
+                return Response(
+                    {"detail": "You can only delete your own attachments."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         attachment.file.delete(save=False)
         attachment.delete()
         card_data = CardSerializer(card, context={"request": request, "board": board}).data

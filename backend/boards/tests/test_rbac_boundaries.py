@@ -297,3 +297,75 @@ class CollaboratorAttachmentOwnershipTests(TestCase):
                 f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
             )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+
+class MemberAttachmentOwnershipTests(TestCase):
+    """Members may only delete their own attachments unless they are moderators (#378)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_ma", password="pass")
+        self.member = User.objects.create_user(username="member_ma", password="pass")
+        self.other_member = User.objects.create_user(username="other_ma", password="pass")
+        self.moderator = User.objects.create_user(username="mod_ma", password="pass")
+        self.board = Board.objects.create(name="MA Board", owner=self.owner)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
+        BoardMembership.objects.create(board=self.board, user=self.other_member, role=BoardMembership.Role.MEMBER)
+        BoardMembership.objects.create(
+            board=self.board, user=self.moderator, role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+        col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
+        swim = Swimlane.objects.create(board=self.board, name="General", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=swim, title="Card", position=0,
+        )
+
+    def _make_attachment(self, uploaded_by):
+        f = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
+        return CardAttachment.objects.create(
+            card=self.card, file=f, filename="test.txt", size=5, uploaded_by=uploaded_by,
+        )
+
+    @patch(PATCH_BROADCAST)
+    def test_member_cannot_delete_another_users_attachment(self, _mock):
+        attachment = self._make_attachment(uploaded_by=self.other_member)
+        client = APIClient()
+        client.force_authenticate(self.member)
+        resp = client.delete(
+            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(CardAttachment.objects.filter(pk=attachment.pk).exists())
+
+    @patch(PATCH_BROADCAST)
+    def test_member_can_delete_own_attachment(self, _mock):
+        attachment = self._make_attachment(uploaded_by=self.member)
+        client = APIClient()
+        client.force_authenticate(self.member)
+        with patch.object(attachment.file, "delete", return_value=None):
+            resp = client.delete(
+                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            )
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    @patch(PATCH_BROADCAST)
+    def test_moderator_can_delete_another_users_attachment(self, _mock):
+        attachment = self._make_attachment(uploaded_by=self.other_member)
+        client = APIClient()
+        client.force_authenticate(self.moderator)
+        with patch.object(attachment.file, "delete", return_value=None):
+            resp = client.delete(
+                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            )
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_delete_another_users_attachment(self, _mock):
+        attachment = self._make_attachment(uploaded_by=self.member)
+        client = APIClient()
+        client.force_authenticate(self.owner)
+        with patch.object(attachment.file, "delete", return_value=None):
+            resp = client.delete(
+                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            )
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)

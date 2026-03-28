@@ -245,11 +245,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     }
   };
 
+  const [attachError, setAttachError] = useState<string | null>(null);
+
   const handleDeleteAttachment = async (id: number) => {
-    await deleteCardAttachment(board.id, localCard.id, id);
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-    setLocalCard((c) => ({ ...c, attachment_count: Math.max(0, c.attachment_count - 1) }));
-    onUpdated({ ...localCard, attachment_count: Math.max(0, localCard.attachment_count - 1) });
+    try {
+      setAttachError(null);
+      await deleteCardAttachment(board.id, localCard.id, id);
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+      setLocalCard((c) => ({ ...c, attachment_count: Math.max(0, c.attachment_count - 1) }));
+      onUpdated({ ...localCard, attachment_count: Math.max(0, localCard.attachment_count - 1) });
+    } catch {
+      setAttachError("Could not delete attachment.");
+    }
   };
 
   const handleAddChecklistItem = async () => {
@@ -330,6 +337,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   const canDeleteComment = (c: CardComment): boolean =>
     (c.author !== null && currentUser !== null && c.author.id === currentUser.id) ||
+    canModifyOthersContent;
+
+  const canDeleteAttachment = (a: CardAttachment): boolean =>
+    (a.uploaded_by !== null && currentUser !== null && a.uploaded_by.id === currentUser.id) ||
     canModifyOthersContent;
 
   const handleDeleteComment = async (commentId: number) => {
@@ -816,7 +827,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 </div>
                 {attachmentsOpen && (attachments.length === 0 ? (
                   <p className="text-xs text-slate-600 italic">No attachments.</p>
-                ) : (
+                ) : (<>
                   <div className="flex flex-col gap-1.5">
                     {attachments.map((a) => (
                       <div key={a.id} className="flex items-center gap-2 bg-slate-700 rounded-lg px-3 py-2 group">
@@ -830,15 +841,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           </a>
                           <p className="text-xs text-slate-500">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
                         </div>
-                        <button
-                          onClick={() => handleDeleteAttachment(a.id)}
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
-                          title="Delete"
-                        >✕</button>
+                        {canDeleteAttachment(a) && (
+                          <button
+                            onClick={() => handleDeleteAttachment(a.id)}
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
+                            title="Delete"
+                          >✕</button>
+                        )}
                       </div>
                     ))}
                   </div>
-                ))}
+                  <p className="text-xs h-4">{attachError && <span className="text-red-400">{attachError}</span>}</p>
+                </>))}
               </div>
 
               <div className="border-t border-slate-700" />
