@@ -1,5 +1,7 @@
 """BoardViewSet — the primary viewset for board CRUD and board-scoped actions."""
 
+import logging
+
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
@@ -24,6 +26,8 @@ from ..templates import BOARD_TEMPLATES
 from ._helpers import get_board_for_user
 from .analytics import BoardAnalyticsMixin
 from .import_export import BoardImportExportMixin
+
+logger = logging.getLogger(__name__)
 
 
 class BoardViewSet(
@@ -59,32 +63,36 @@ class BoardViewSet(
         )
 
     def perform_create(self, serializer):
-        board = serializer.save(owner=self.request.user)
-        BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
+        # Wrap the entire creation sequence in a transaction so a failure
+        # in any step (e.g. swimlane creation) rolls back the board,
+        # membership, and columns — preventing orphaned records.
+        with transaction.atomic():
+            board = serializer.save(owner=self.request.user)
+            BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
 
-        template_key = self.request.data.get("template", "simple_kanban")
-        template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
+            template_key = self.request.data.get("template", "simple_kanban")
+            template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
 
-        if template["columns"]:
-            Column.objects.bulk_create([
-                Column(
-                    board=board,
-                    name=col["name"],
-                    position=i,
-                    color=col["color"],
-                    allow_card_creation=(i == 0),
-                    is_done=col.get("is_done", False),
-                )
-                for i, col in enumerate(template["columns"])
-            ])
+            if template["columns"]:
+                Column.objects.bulk_create([
+                    Column(
+                        board=board,
+                        name=col["name"],
+                        position=i,
+                        color=col["color"],
+                        allow_card_creation=(i == 0),
+                        is_done=col.get("is_done", False),
+                    )
+                    for i, col in enumerate(template["columns"])
+                ])
 
-        # Prefer the user-supplied swimlane name from the modal prompt;
-        # fall back to the legacy static default for backwards compatibility.
-        swimlane_name = (self.request.data.get("swimlane_name") or "").strip()
-        if not swimlane_name:
-            swimlane_name = template.get("default_swimlane") or ""
-        if swimlane_name:
-            Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
+            # Prefer the user-supplied swimlane name from the modal prompt;
+            # fall back to the legacy static default for backwards compatibility.
+            swimlane_name = (self.request.data.get("swimlane_name") or "").strip()
+            if not swimlane_name:
+                swimlane_name = template.get("default_swimlane") or ""
+            if swimlane_name:
+                Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
     def perform_update(self, serializer):
         """Guard board-level updates: only admins can edit any board field.
@@ -112,6 +120,10 @@ class BoardViewSet(
         if board.owner != request.user and role != SITE_ADMIN:
             raise PermissionDenied
         board_id = board.id
+        logger.info(
+            "board.deleted board_id=%d board_name=%s deleted_by=%d deleted_by_username=%s",
+            board.id, board.name, request.user.pk, request.user.username,
+        )
         board.delete()
         transaction.on_commit(
             lambda: _broadcast.broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
