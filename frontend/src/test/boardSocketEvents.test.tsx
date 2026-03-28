@@ -258,36 +258,36 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)
   })
 
-  it('board.updated routes to onUpdateBoardSettings with the patch data', async () => {
-    const onUpdateBoardSettings = vi.fn()
-    const props = makeProps({ onUpdateBoardSettings })
-    render(<BoardView {...props} />)
+  it('board.updated routes to updateBoardSettings via context', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     const patch = { name: 'Renamed Board', enforce_wip_limits: true }
     act(() => { getOnEvent.dispatch({ event: 'board.updated', data: patch }) })
-    expect(onUpdateBoardSettings).toHaveBeenCalledWith(patch)
+    expect(ctx.updateBoardSettings).toHaveBeenCalledWith(patch)
   })
 
-  it('board.updated is a no-op when onUpdateBoardSettings is not provided', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('board.updated is a no-op when updateBoardSettings is not provided', async () => {
+    mockBoardContextValue = makeContext()
+    render(<BoardView />)
     await act(async () => {})
-    // Should not throw when the optional callback is absent
+    // Should not throw
     act(() => { getOnEvent.dispatch({ event: 'board.updated', data: { name: 'New name' } }) })
   })
 
   it('board.deleted routes to onBoardDeleted', async () => {
     const onBoardDeleted = vi.fn()
-    const props = makeProps({ onBoardDeleted })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = makeContext()
+    render(<BoardView onBoardDeleted={onBoardDeleted} />)
     await act(async () => {})
     act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_id: 1 } }) })
     expect(onBoardDeleted).toHaveBeenCalledTimes(1)
   })
 
   it('board.deleted is a no-op when onBoardDeleted is not provided', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+    mockBoardContextValue = makeContext()
+    render(<BoardView />)
     await act(async () => {})
     // Should not throw when the optional callback is absent
     act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_id: 1 } }) })
