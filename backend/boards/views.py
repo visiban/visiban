@@ -275,32 +275,36 @@ class BoardViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        board = serializer.save(owner=self.request.user)
-        BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
+        # Wrap the entire creation sequence in a transaction so a failure
+        # in any step (e.g. swimlane creation) rolls back the board,
+        # membership, and columns — preventing orphaned records.
+        with transaction.atomic():
+            board = serializer.save(owner=self.request.user)
+            BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
 
-        template_key = self.request.data.get("template", "simple_kanban")
-        template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
+            template_key = self.request.data.get("template", "simple_kanban")
+            template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
 
-        if template["columns"]:
-            Column.objects.bulk_create([
-                Column(
-                    board=board,
-                    name=col["name"],
-                    position=i,
-                    color=col["color"],
-                    allow_card_creation=(i == 0),
-                    is_done=col.get("is_done", False),
-                )
-                for i, col in enumerate(template["columns"])
-            ])
+            if template["columns"]:
+                Column.objects.bulk_create([
+                    Column(
+                        board=board,
+                        name=col["name"],
+                        position=i,
+                        color=col["color"],
+                        allow_card_creation=(i == 0),
+                        is_done=col.get("is_done", False),
+                    )
+                    for i, col in enumerate(template["columns"])
+                ])
 
-        # Prefer the user-supplied swimlane name from the modal prompt;
-        # fall back to the legacy static default for backwards compatibility.
-        swimlane_name = (self.request.data.get("swimlane_name") or "").strip()
-        if not swimlane_name:
-            swimlane_name = template.get("default_swimlane") or ""
-        if swimlane_name:
-            Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
+            # Prefer the user-supplied swimlane name from the modal prompt;
+            # fall back to the legacy static default for backwards compatibility.
+            swimlane_name = (self.request.data.get("swimlane_name") or "").strip()
+            if not swimlane_name:
+                swimlane_name = template.get("default_swimlane") or ""
+            if swimlane_name:
+                Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
     def perform_update(self, serializer):
         """Guard board-level updates: only admins can edit any board field.

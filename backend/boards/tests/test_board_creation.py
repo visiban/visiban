@@ -1,9 +1,11 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 
 from accounts.models import User
-from boards.models import Board, BoardTemplate, Column, Swimlane
+from boards.models import Board, BoardMembership, BoardTemplate, Column, Swimlane
 
 
 class BoardCreationTests(TestCase):
@@ -140,6 +142,26 @@ class BoardCreationTests(TestCase):
         resp = self._create_board(template="does_not_exist")
         board_id = resp.data["id"]
         self.assertEqual(Column.objects.filter(board_id=board_id).count(), 5)
+
+    @patch("boards.models.Swimlane.objects.create", side_effect=RuntimeError("db boom"))
+    def test_perform_create_rolls_back_on_swimlane_failure(self, _mock_create):
+        """If swimlane creation fails, the entire board creation is rolled
+        back — no orphaned board, membership, or columns should remain (#419).
+        """
+        boards_before = Board.objects.count()
+        memberships_before = BoardMembership.objects.count()
+        columns_before = Column.objects.count()
+
+        # DRF's test client re-raises unhandled exceptions by default;
+        # disable so we get the 500 response instead.
+        self.client.raise_request_exception = False
+        resp = self._create_board(swimlane_name="Will Fail")
+        self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # All records created inside the transaction must be rolled back.
+        self.assertEqual(Board.objects.count(), boards_before)
+        self.assertEqual(BoardMembership.objects.count(), memberships_before)
+        self.assertEqual(Column.objects.count(), columns_before)
 
 
 class BoardTemplateAPITests(TestCase):
