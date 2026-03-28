@@ -183,8 +183,14 @@ export default function BoardView({ board, onMoveCard, onCardAdded, onCardDelete
       onMemberUpdated(d as unknown as BoardMembership);
     } else if (event.event === "member.removed") {
       onMemberRemoved((d as { user_id: number }).user_id);
+    } else if (event.event === "board.updated") {
+      // Another user changed board-level settings — merge the patch into local state
+      onUpdateBoardSettings?.(d as Record<string, unknown>);
+    } else if (event.event === "board.deleted") {
+      // Board was deleted by another user — navigate away
+      onBoardDeleted?.();
     }
-  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved]);
+  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onUpdateBoardSettings, onBoardDeleted]);
 
   const { status: socketStatus } = useBoardSocket(board.id, handleSocketEvent);
 
