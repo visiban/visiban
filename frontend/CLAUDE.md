@@ -141,6 +141,7 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - Content: 2-letter uppercase initials only
 - Position on cards: bottom-right, `absolute` or flex end
 - Never show more than the initials — no full name, no tooltip required (but allowed)
+- **Always use the `Avatar` component** (`src/components/Common/Avatar.tsx`) — never hand-roll avatar circles with inline palette arrays or hardcoded background colors. The `Avatar` component owns the canonical `-600` tone palette and handles initials, image avatars, and deterministic color assignment.
 
 ## Swimlane label panel
 
