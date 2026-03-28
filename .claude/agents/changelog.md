@@ -1,5 +1,6 @@
 ---
 name: changelog
+model: sonnet
 description: Use proactively before opening any merge request on a branch that touches source code. Updates CHANGELOG.md [Unreleased] with the correct entry type (Added/Changed/Fixed/Security) and format. Required — the CI changelog-check job will block merge if the entry is missing.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---

@@ -6,21 +6,36 @@ You are creating a GitLab MR for the current branch. Every change — including 
 
 Given the branch or change description in `$ARGUMENTS` (or infer from the current branch and git diff if no argument is provided):
 
-### 1. Pre-flight checks
+### Step 1 — Parallel research (delegate to Sonnet agents)
 
-- [ ] On a feature branch (not `main`) — if on `main`, stop and create a branch first
-- [ ] Branch name follows convention: `feat/`, `fix/`, `docs/`, or `chore/` prefix
-- [ ] `CHANGELOG.md [Unreleased]` is updated — if not, run `/changelog` first
-- [ ] All relevant skill checks have been run (see `SKILLS.md` for when each applies)
+Launch **2 sub-agents in parallel** (both with `model: "sonnet"`). Wait for both to complete before proceeding.
 
-### 2. Gather context
+#### Agent 1: Branch and diff analysis
+> Gather the full context of this branch:
+> - Run `git log main..HEAD --oneline` to get all commits
+> - Run `git diff main...HEAD --stat` to get a file-level summary
+> - Run `git diff main...HEAD` to read the full diff
+> - Identify which areas are touched: backend models, serializers, views, frontend components, tests, docs, migrations, config
+> - Look for issue references in commit messages or the branch name
+>
+> Return: a structured summary with commit list, files changed by area, and any issue references found.
 
-Read:
-- `git log main..HEAD --oneline` — all commits on this branch
-- `git diff main...HEAD` — full diff for understanding scope
-- The relevant issue number(s) if any (look for issue refs in commits or branch name)
+#### Agent 2: Pre-flight checks
+> Verify branch readiness:
+> - Confirm we are on a feature branch (not `main`)
+> - Confirm branch name follows convention: `feat/`, `fix/`, `docs/`, or `chore/` prefix
+> - Check if `CHANGELOG.md [Unreleased]` has been updated (read the file, look for entries that match this branch's changes)
+> - Check if the branch has been pushed to origin (`git log origin/main..HEAD` vs `git log main..HEAD`)
+> - Run `git status` to check for uncommitted changes
+>
+> Return: a checklist of pass/fail for each pre-flight item, and any blockers that must be fixed before the MR can be created.
 
-### 3. Draft the MR
+### Steps 2–4 — MR creation (you do this — do NOT delegate)
+
+#### 2. Fix any blockers
+If pre-flight checks found issues (e.g. CHANGELOG not updated, uncommitted changes, not pushed), fix them or stop and report to the user.
+
+#### 3. Draft the MR
 
 **Title format:** `<type>: <short description>` (matches the primary commit)
 - `feat:` new feature
@@ -33,7 +48,7 @@ Read:
 - **Test plan** — checklist of how to verify the change works; include both happy path and edge cases
 - **Closes #N** — if this MR resolves a GitLab issue
 
-### 4. Create the MR
+#### 4. Create the MR
 
 Always use heredoc syntax — never inline `\n` literals:
 

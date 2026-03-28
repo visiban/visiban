@@ -1,5 +1,6 @@
 ---
 name: migration-check
+model: sonnet
 description: Use proactively whenever backend/*/models.py is modified. Audits Django model changes for missing migrations, destructive operations (DROP COLUMN, NOT NULL without default, column renames), and risky patterns that could break a zero-downtime deploy. Also triggered automatically via post-edit hook on models.py.
 tools: Read, Grep, Glob, Bash
 ---

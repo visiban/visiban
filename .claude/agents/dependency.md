@@ -1,5 +1,6 @@
 ---
 name: dependency
+model: sonnet
 description: Use proactively before adding any new pip or npm package. Checks license (blocks GPL-2.0/3.0), looks up known CVEs, evaluates justification vs existing stack, and assesses transitive dependency and bundle size impact.
 tools: Bash, Read, WebSearch, WebFetch
 ---

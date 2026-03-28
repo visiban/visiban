@@ -1,5 +1,6 @@
 ---
 name: test-scaffold
+model: sonnet
 description: Use proactively when implementing a new feature or bug fix that lacks test coverage. Generates Django TestCase scaffolds for backend endpoints, models, and permission boundaries, and Vitest + React Testing Library scaffolds for frontend components, hooks, and API functions.
 tools: Read, Grep, Glob, Write, Bash
 ---

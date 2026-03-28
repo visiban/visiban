@@ -1,5 +1,6 @@
 ---
 name: perf-bench
+model: sonnet
 description: Use proactively when adding a SerializerMethodField to CardSerializer, adding a new relation to Card/Board/CardMovement models, modifying the summary or analytics endpoint, or when perf-check flags a potential N+1 that needs verification with actual query counts.
 tools: Read, Grep, Glob, Bash
 ---

@@ -1,5 +1,6 @@
 ---
 name: ux-review
+model: sonnet
 description: Use proactively before writing any frontend code that adds or changes UI components, layouts, modals, pages, or user flows. Reviews the change against the Visiban design system in frontend/CLAUDE.md. Do not start implementing UI changes until blocking questions are resolved.
 tools: Read, Grep, Glob
 ---

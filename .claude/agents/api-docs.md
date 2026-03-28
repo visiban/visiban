@@ -1,5 +1,6 @@
 ---
 name: api-docs
+model: sonnet
 description: Use proactively when adding or modifying an API endpoint, serializer field, or permission rule. Keeps docs/api/ in sync with code changes. Checks completeness of HTTP method, permissions, request fields, response examples, and error cases.
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
