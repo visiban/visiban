@@ -247,9 +247,9 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByText('Filters'))
     const filterBar = screen.getByTestId('filter-bar')
-    const toolbar = screen.getByText('Board').closest('div[class*="h-10"]')
-    // FilterBar should not be a descendant of the fixed-height toolbar row
-    expect(toolbar?.contains(filterBar)).toBe(false)
+    const toolbar = screen.getByTestId('board-toolbar')
+    // FilterBar should not be a descendant of the toolbar row
+    expect(toolbar.contains(filterBar)).toBe(false)
   })
 
   it('renders Filters button', () => {

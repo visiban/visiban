@@ -725,7 +725,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   return (
     <>
       {/* Primary toolbar row */}
-      <div className="flex items-center px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 gap-2">
+      <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 gap-2">
         <ViewToggle view={view} onChange={setView} />
         <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
