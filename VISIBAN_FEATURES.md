@@ -8,8 +8,8 @@ Visiban is a self-hosted, open-core Kanban board built for small-to-medium teams
 
 ## Tech stack
 
-- **Backend:** Python 3.12, Django 5, Django REST Framework, PostgreSQL 16, django-allauth, gunicorn
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS 3, @dnd-kit, Tiptap (rich text), React Router v6, Axios
+- **Backend:** Python 3.12, Django 5, Django REST Framework, PostgreSQL 17, django-allauth, gunicorn
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS 3, @dnd-kit, Tiptap (rich text), React Router v6, Axios
 - **Real-time:** WebSockets (Django Channels)
 - **Infra:** Docker Compose, Nginx, kaniko (CI builds)
 - **Auth:** django-allauth headless/API mode, OAuth (Google, GitHub, GitLab), OIDC
@@ -107,6 +107,7 @@ Every column or swimlane change creates a `CardMovement` record:
 - `from_swimlane` / `to_swimlane`
 - `moved_by` (user)
 - `moved_at` (timestamp)
+- `movement_type` — one of `move`, `archived`, `unarchived`
 
 Card creation also produces a movement record with `from_column=None` so the History tab always has at least one entry, even for cards that have never left the Backlog.
 
@@ -123,11 +124,13 @@ Pure reorders (same cell, different position) do not create movement records.
 - Column headers sticky on scroll, show WIP count
 - Optional WIP limit enforcement (`enforce_wip_limits` board setting): moving a card into a full column returns an error; board admins can override; archived cards excluded from count
 - Optional weight limit enforcement (`enforce_weight_limits` board setting): moving a card that would push a column over its weight budget is blocked; board admins can override; archived cards excluded from weight sum
+- Hard WIP enforcement (`enforce_wip_hard` board setting): when enabled, WIP/weight limits block all roles including admins — no force override available
 - Both WIP and weight enforcement default to **on** for newly created boards
 
 ### Board navigation
 
-- Sub-nav tabs (Board / Summary / Analytics) are URL-addressable via `?view=` — tabs can be bookmarked and shared; Back button skips tab transitions
+- Sub-nav tabs (Board / Summary / Analytics / History) are URL-addressable via `?view=` — tabs can be bookmarked and shared; Back button skips tab transitions
+- Board-level History tab with filterable movement log — search by swimlane, column, user, and date range
 - Space + drag panning — hold Space to enter pan mode (cursor changes to grab), then drag to scroll the board without activating card drag-and-drop
 
 ### Resizing
@@ -141,7 +144,7 @@ Pure reorders (same cell, different position) do not create movement records.
 - Rename inline: click the name, Enter to confirm, Escape to cancel
 - Full settings modal: double-click header / label, or ✎ icon
 - Column settings modal includes an admin-only "Delete column" danger button (alternative to the drag-to-trash gesture)
-- `is_done` flag per column — marks columns as completion targets for cycle-time and throughput metrics; set automatically on terminal columns (e.g. Done, Closed Won) when using a template
+- `is_done` flag per column — marks columns as completion targets for cycle-time and throughput metrics; done columns are excluded from the dwell-time heatmap; set automatically on terminal columns (e.g. Done, Closed Won) when using a template
 - Add column/swimlane via "+" on the separator handles
 - Reorder by dragging (collapsed columns can also be dragged)
 - Collapse columns (click to toggle); collapsed columns with filter matches pulse with a count badge
@@ -150,6 +153,7 @@ Pure reorders (same cell, different position) do not create movement records.
 
 - Filter by: priority, label, assignee, due date (overdue, upcoming)
 - Active filter count badge on the filter bar
+- Saved filter presets — save and restore named filter combinations per board; user-private, stored server-side; any board member (including viewers) can save presets
 - Server-side card search (title + description, case-insensitive, debounced 300ms with AbortController cancellation); client-side filters intersected with server results
 - Filter state persisted to localStorage per board
 - "No cards match the active filters" banner when filters produce zero results
@@ -168,6 +172,7 @@ Pure reorders (same cell, different position) do not create movement records.
 - Contact email and notes fields
 - Color picker
 - Position reorder
+- Focus mode — crosshair button dims all other swimlanes; URL-addressable via `?focus=<swimlane_id>`; toggles off on second click
 
 ---
 
@@ -179,6 +184,7 @@ Boards can be shared as a public read-only link with no login required.
 - Share link serves a static read-only board view at `/share/:token` — full grid with column headers, swimlane labels, and card tiles (title, labels, checklist progress, due date, weight, assignee)
 - Revoking the token immediately invalidates the link; visitors see a "This board is no longer shared" page
 - Share links expose only non-sensitive card fields — no comments, attachments, or movement history
+- Rate-limited to 120 requests/hour per IP
 
 ---
 
@@ -221,10 +227,10 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 | View archived cards | ✅ | ✅ | ✅ | ✅ |
 | Post comments | ❌ | ✅ | ✅ | ✅ |
 | Delete own comment | ❌ | ✅ | ✅ | ✅ |
-| Delete any comment | ❌ | ❌ | ✅ | ✅ |
+| Delete any comment | ❌ | ❌ | moderator or admin | ✅ |
 | Upload attachments | ❌ | ✅ | ✅ | ✅ |
 | Delete own attachment | ❌ | ✅ | ✅ | ✅ |
-| Delete any attachment | ❌ | ❌ | ✅ | ✅ |
+| Delete any attachment | ❌ | ❌ | moderator or admin | ✅ |
 | Add / edit / delete checklist items | ❌ | ✅ | ✅ | ✅ |
 | Create / edit / move / delete cards | ❌ | ❌ | ✅ | ✅ |
 | Archive / unarchive cards | ❌ | ❌ | ✅ | ✅ |
@@ -232,6 +238,12 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 | Manage board members | ❌ | ❌ | ❌ | ✅ |
 | Generate / revoke share link | ❌ | ❌ | ❌ | ✅ |
 | Export board | ✅ | ✅ | ✅ | ✅ |
+
+### Moderator entitlement
+
+- `is_moderator` boolean on `BoardMembership` — grants content-moderation rights (delete/archive other users' cards, delete others' comments and attachments)
+- Only valid for `member` and `admin` roles — collaborators and viewers cannot be moderators
+- Automatically cleared when demoting to collaborator or viewer
 
 ### Site admin
 
@@ -333,6 +345,9 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - `SECRET_KEY` validation at startup
 - No default DB password in production compose
 - File attachment MIME type + magic byte validation
+- Text file polyglot XSS prevention (HTML/script markers rejected in first 4 KB)
+- `Content-Disposition: attachment` enforced on all media downloads (no inline rendering)
+- Invite link tokens hashed SHA-256 (raw token returned once at creation)
 - CSV export formula injection protection
 - User search rate-limited (30 req/min)
 - Invite link redemption rate-limited (10/hr per IP)
@@ -390,7 +405,6 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 | Cross-board card search | Search across all boards the user can access (#224) |
 | Email notifications | Transactional email channel (#225) |
 | Card templates | Reusable card scaffolds |
-| Saved filter presets | Persist filter combinations |
 | Threaded comment replies | Nested comment threads |
 | Board-level admin audit log | Track admin actions |
 | PDF/print export | CSS print or headless renderer |

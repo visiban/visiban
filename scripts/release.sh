@@ -54,6 +54,16 @@ sed -i '' "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" frontend/package.
 BADGE_VER=$(echo "$TAG" | sed 's/-/--/g')
 sed -i '' "s|^\[!\[release\].*$|[![release](https://img.shields.io/badge/release-${BADGE_VER}-blue)](https://gitlab.com/visiban/visiban/-/releases/${TAG})|" README.md
 
+# Update docs/index.md release candidate banner
+# Matches lines like "**rc.8 is the current stable release candidate.**"
+# and "Earlier release candidates (rc.1–rc.7) are superseded..."
+if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
+  RC_NUM=$(echo "$VERSION" | grep -oE 'rc\.[0-9]+')
+  PREV_RC_NUM=$(( $(echo "$RC_NUM" | grep -oE '[0-9]+$') - 1 ))
+  sed -i '' "s|**rc\.[0-9]* is the current stable release candidate\.\*\*|**${RC_NUM} is the current stable release candidate.**|" docs/index.md
+  sed -i '' "s|Earlier release candidates (rc\.1–rc\.[0-9]*)|Earlier release candidates (rc.1–rc.${PREV_RC_NUM})|" docs/index.md
+fi
+
 # Rotate CHANGELOG: rename [Unreleased] → [v{VERSION}] and prepend a fresh [Unreleased]
 if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
   echo "Error: CHANGELOG.md has no [Unreleased] section" >&2
@@ -77,10 +87,45 @@ awk -v version="$VERSION" -v date="$TODAY" '
   { print }
 ' CHANGELOG.md > "$TMP" && mv "$TMP" CHANGELOG.md
 
-echo "Updated .env.example, docker-compose.yml, frontend/package.json, CHANGELOG.md, README.md"
+echo "Updated .env.example, docker-compose.yml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md"
+
+# Verify version consistency across key files
+echo "Verifying version consistency..."
+ERRORS=0
+
+# .env.example must contain the version
+if ! grep -q "APP_VERSION=${VERSION}" .env.example; then
+  echo "  WARN: .env.example does not contain APP_VERSION=${VERSION}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
+# frontend/package.json must contain the version
+if ! grep -q "\"version\": \"${VERSION}\"" frontend/package.json; then
+  echo "  WARN: frontend/package.json does not contain version ${VERSION}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
+# README.md badge must reference the tag
+if ! grep -q "${TAG}" README.md; then
+  echo "  WARN: README.md release badge does not reference ${TAG}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
+# docs/index.md must reference the RC number (for RC releases)
+if echo "$VERSION" | grep -qE 'rc\.[0-9]+'; then
+  RC_NUM=$(echo "$VERSION" | grep -oE 'rc\.[0-9]+')
+  if ! grep -q "${RC_NUM} is the current stable release candidate" docs/index.md; then
+    echo "  WARN: docs/index.md does not reference ${RC_NUM} as current RC" >&2
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+if [[ "$ERRORS" -gt 0 ]]; then
+  echo "  ${ERRORS} version consistency warning(s) — review before committing" >&2
+fi
 
 # Commit and push branch
-git add CHANGELOG.md .env.example docker-compose.yml frontend/package.json README.md
+git add CHANGELOG.md .env.example docker-compose.yml frontend/package.json README.md docs/index.md
 git commit -m "chore: release ${TAG}"
 git push -u origin "$RELEASE_BRANCH"
 
