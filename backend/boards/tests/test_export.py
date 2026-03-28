@@ -158,3 +158,53 @@ class ExportPermissionTests(TestCase):
         self.client.force_authenticate(stranger)
         r = self.client.get(f"/api/boards/{self.board.id}/export/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+
+class ExportJsonSwimlanePiiTests(TestCase):
+    """Swimlane PII (contact_email, notes) must only appear for admin roles (#417)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.board, self.col, self.swim = _make_board(self.owner)
+        # Add PII to the swimlane
+        self.swim.contact_email = "secret@example.com"
+        self.swim.notes = "Internal notes about the customer"
+        self.swim.save()
+        self.client = APIClient()
+
+    def _export_json(self):
+        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return json.loads(r.content.decode("utf-8"))
+
+    def test_admin_sees_swimlane_pii(self):
+        """Admin-role members receive contact_email and notes in JSON export."""
+        self.client.force_authenticate(self.owner)  # owner has admin role
+        data = self._export_json()
+        sw = data["swimlanes"][0]
+        self.assertEqual(sw["contact_email"], "secret@example.com")
+        self.assertEqual(sw["notes"], "Internal notes about the customer")
+
+    def test_member_does_not_see_swimlane_pii(self):
+        """Member-role users must not receive contact_email or notes."""
+        member = User.objects.create_user(username="member", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=member, role=BoardMembership.Role.MEMBER,
+        )
+        self.client.force_authenticate(member)
+        data = self._export_json()
+        sw = data["swimlanes"][0]
+        self.assertNotIn("contact_email", sw)
+        self.assertNotIn("notes", sw)
+
+    def test_site_admin_sees_swimlane_pii(self):
+        """Site admins receive contact_email and notes even without board membership."""
+        site_admin = User.objects.create_user(
+            username="siteadmin", password="pass",
+            is_site_admin=True, can_access_all_content=True,
+        )
+        self.client.force_authenticate(site_admin)
+        data = self._export_json()
+        sw = data["swimlanes"][0]
+        self.assertEqual(sw["contact_email"], "secret@example.com")
+        self.assertEqual(sw["notes"], "Internal notes about the customer")
