@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardFull, Card, Column, Swimlane, User } from "../../types";
+import type { BoardMembership, Card, Column, Label, Swimlane, User } from "../../types";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
