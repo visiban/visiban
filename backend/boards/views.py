@@ -134,9 +134,20 @@ def _validate_upload_mime(file) -> str | None:
     file.seek(0)
 
     # Text-based types have no reliable magic bytes; allow them through if the
-    # declared MIME type is in the allowlist (already checked above).
+    # declared MIME type is in the allowlist (already checked above).  However,
+    # reject files whose first 4 KB contains HTML/SVG markers that could enable
+    # stored XSS if a browser renders the file inline (#372).
     text_types = {"text/plain", "text/csv"}
     if declared_type in text_types:
+        sniff = file.read(4096)
+        file.seek(0)
+        sniff_lower = sniff.lower()
+        if any(marker in sniff_lower for marker in [b"<script", b"<svg", b"<!doctype", b"<html", b"<iframe"]):
+            return (
+                "File contains HTML/script content and cannot be uploaded as "
+                f"{declared_type}. Rename it with an appropriate extension or "
+                "remove the embedded markup."
+            )
         return None
 
     # For binary types, require at least one known signature to match.
@@ -2718,18 +2729,34 @@ class ServeMediaView(APIView):
             from django.http import Http404
             raise Http404
 
+        # Determine Content-Type from the stored filename (not the URL path,
+        # which could be tampered) and set Content-Disposition to prevent
+        # browsers from rendering uploaded files inline as HTML (#372).
+        import mimetypes
+        content_type, _ = mimetypes.guess_type(attachment.filename)
+        content_type = content_type or "application/octet-stream"
+        # Only allow inline display for known-safe image types; everything
+        # else is forced to download to prevent stored XSS via polyglot files.
+        _safe_inline_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+        if content_type in _safe_inline_types:
+            disposition = "inline"
+        else:
+            disposition = f'attachment; filename="{attachment.filename}"'
+
         if django_settings.DEBUG:
             # Development: serve the file directly through Django. Not used in
             # production where Nginx handles the transfer via X-Accel-Redirect.
-            from django.views.static import serve as django_serve
-            return django_serve(request, path, document_root=django_settings.MEDIA_ROOT)
+            from django.http import FileResponse
+            import os
+            file_path = os.path.join(django_settings.MEDIA_ROOT, path)
+            resp = FileResponse(open(file_path, "rb"), content_type=content_type)
+            resp["Content-Disposition"] = disposition
+            return resp
 
         response = HttpResponse()
-        # Hand the transfer to Nginx's internal /protected-media/ location,
-        # which maps to MEDIA_ROOT (/app/media). Nginx re-adds Content-Type
-        # from the file extension; setting it to empty here avoids a conflict.
         response["X-Accel-Redirect"] = f"/protected-media/{path}"
-        response["Content-Type"] = ""
+        response["Content-Type"] = content_type
+        response["Content-Disposition"] = disposition
         return response
 
 

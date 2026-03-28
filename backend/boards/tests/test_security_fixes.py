@@ -18,7 +18,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, Column, Notification, Swimlane,
+    Board, BoardMembership, Card, CardAttachment, Column, Notification, Swimlane,
 )
 from boards.views import _sanitize_csv_field, _validate_upload_mime
 
@@ -192,6 +192,80 @@ class AttachmentUploadMimeValidationTests(TestCase):
         content = b"\xff\xd8\xff\xe0" + b"\x00" * 100
         r = self._upload(content, "image/jpeg", "photo.jpg")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+    def test_rejects_csv_with_script_tag(self):
+        """Polyglot text file containing HTML script tags must be rejected (#372)."""
+        content = b"name,value\n<script>alert(1)</script>,evil\n"
+        r = self._upload(content, "text/csv", "data.csv")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("HTML/script", r.data["detail"])
+
+    def test_rejects_text_with_svg_tag(self):
+        """Polyglot text file containing SVG markup must be rejected (#372)."""
+        content = b"<svg onload=alert(1)>innocent text</svg>"
+        r = self._upload(content, "text/plain", "notes.txt")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("HTML/script", r.data["detail"])
+
+    def test_rejects_text_with_html_doctype(self):
+        content = b"<!DOCTYPE html><html><body>xss</body></html>"
+        r = self._upload(content, "text/plain", "readme.txt")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_accepts_clean_csv(self):
+        """CSV without HTML content should be accepted."""
+        content = b"name,email\nAlice,alice@example.com\nBob,bob@example.com\n"
+        # Mock the create to avoid filesystem writes
+        with patch("boards.views.CardAttachment.objects.create") as mock_create:
+            from boards.models import CardAttachment
+            mock_create.return_value = CardAttachment(
+                id=2, filename="data.csv", size=len(content),
+                card=self.card, uploaded_by=self.user,
+            )
+            mock_create.return_value.file = type("f", (), {"url": "/media/data.csv"})()
+            r = self._upload(content, "text/csv", "data.csv")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+
+class ServeMediaContentDispositionTests(TestCase):
+    """ServeMediaView must set Content-Disposition to prevent inline rendering of non-image files (#372)."""
+
+    def setUp(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.user = User.objects.create_user(username="dl_user", password="pass")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", priority="medium", position=0, created_by=self.user,
+        )
+        f = SimpleUploadedFile("report.pdf", b"%PDF-1.4 fake", content_type="application/pdf")
+        self.pdf_attachment = CardAttachment.objects.create(
+            card=self.card, file=f, filename="report.pdf", size=13, uploaded_by=self.user,
+        )
+        f2 = SimpleUploadedFile("photo.jpg", b"\xff\xd8\xff\xe0" + b"\x00" * 10, content_type="image/jpeg")
+        self.img_attachment = CardAttachment.objects.create(
+            card=self.card, file=f2, filename="photo.jpg", size=14, uploaded_by=self.user,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_pdf_served_as_attachment(self):
+        r = self.client.get(f"/media/{self.pdf_attachment.file.name}")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("attachment", r.get("Content-Disposition", ""))
+        self.assertEqual(r.get("Content-Type"), "application/pdf")
+
+    def test_image_served_inline(self):
+        r = self.client.get(f"/media/{self.img_attachment.file.name}")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get("Content-Disposition"), "inline")
+        self.assertEqual(r.get("Content-Type"), "image/jpeg")
+
+    def test_unauthenticated_returns_401_or_403(self):
+        anon = APIClient()
+        r = anon.get(f"/media/{self.pdf_attachment.file.name}")
+        self.assertIn(r.status_code, [401, 403])
 
 
 # ---------------------------------------------------------------------------
