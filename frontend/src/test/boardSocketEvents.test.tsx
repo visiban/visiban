@@ -11,6 +11,7 @@ import { render, act } from '@testing-library/react'
 import BoardView from '../components/Board/BoardView'
 import type { BoardEvent } from '../hooks/useBoardSocket'
 import type { BoardFull, Column, Label, BoardMembership, Swimlane, User } from '../types'
+import type { BoardContextType } from '../contexts/BoardContext'
 
 // ---------------------------------------------------------------------------
 // Capture onEvent from useBoardSocket so tests can dispatch events
@@ -90,6 +91,12 @@ vi.mock('../hooks/useSavedFilters', () => ({
   }),
 }))
 
+// Board context mock — lets tests control what useBoardContext returns.
+let mockBoardContextValue: BoardContextType
+vi.mock('../contexts/BoardContext', () => ({
+  useBoardContext: () => mockBoardContextValue,
+}))
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -124,31 +131,36 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   }
 }
 
-function makeProps(overrides: Record<string, unknown> = {}) {
+function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextType {
   return {
     board: makeBoard(),
-    onMoveCard: vi.fn(),
-    onCardAdded: vi.fn(),
-    onCardDeleted: vi.fn(),
-    onCardUpdated: vi.fn(),
-    onColumnAdded: vi.fn(),
-    onColumnUpdated: vi.fn(),
-    onColumnDeleted: vi.fn(),
-    onColumnsReordered: vi.fn(),
-    onSwimlaneAdded: vi.fn(),
-    onSwimlaneUpdated: vi.fn(),
-    onSwimlaneDeleted: vi.fn(),
-    onSwimlanesReordered: vi.fn(),
-    onCardArchived: vi.fn(),
-    onCardUnarchived: vi.fn(),
-    onLabelAdded: vi.fn(),
-    onLabelUpdated: vi.fn(),
-    onLabelDeleted: vi.fn(),
-    onMemberAdded: vi.fn(),
-    onMemberUpdated: vi.fn(),
-    onMemberRemoved: vi.fn(),
-    onColumnOrderApplied: vi.fn(),
-    onSwimlaneOrderApplied: vi.fn(),
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+    moveCard: vi.fn(),
+    forceMoveCard: vi.fn(),
+    moveError: null,
+    clearMoveError: vi.fn(),
+    addCard: vi.fn(),
+    removeCard: vi.fn(),
+    addColumn: vi.fn(),
+    removeColumn: vi.fn(),
+    addSwimlane: vi.fn(),
+    updateCard: vi.fn(),
+    updateColumn: vi.fn(),
+    addLabel: vi.fn(),
+    updateLabel: vi.fn(),
+    removeLabel: vi.fn(),
+    addMember: vi.fn(),
+    updateMember: vi.fn(),
+    removeMember: vi.fn(),
+    applyColumnOrder: vi.fn(),
+    applySwimlaneOrder: vi.fn(),
+    reorderColumns: vi.fn(),
+    reorderSwimlanes: vi.fn(),
+    updateSwimlane: vi.fn(),
+    removeSwimlane: vi.fn(),
+    updateBoardSettings: vi.fn(),
     ...overrides,
   }
 }
@@ -158,81 +170,92 @@ function makeProps(overrides: Record<string, unknown> = {}) {
 // ---------------------------------------------------------------------------
 
 describe('BoardView socket event routing — new event types', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockBoardContextValue = makeContext()
+  })
 
-  it('label.created routes to onLabelAdded', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('label.created routes to addLabel', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     const label: Label = { id: 200, uid: 'lbl002', name: 'Feature', color: '#22C55E' }
     act(() => { getOnEvent.dispatch({ event: 'label.created', data: label as unknown as Record<string, unknown> }) })
-    expect(props.onLabelAdded).toHaveBeenCalledWith(expect.objectContaining({ id: 200, name: 'Feature' }))
+    expect(ctx.addLabel).toHaveBeenCalledWith(expect.objectContaining({ id: 200, name: 'Feature' }))
   })
 
-  it('label.updated routes to onLabelUpdated', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('label.updated routes to updateLabel', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     const label: Label = { id: 100, uid: 'lbl001', name: 'Bug (renamed)', color: '#EF4444' }
     act(() => { getOnEvent.dispatch({ event: 'label.updated', data: label as unknown as Record<string, unknown> }) })
-    expect(props.onLabelUpdated).toHaveBeenCalledWith(expect.objectContaining({ id: 100, name: 'Bug (renamed)' }))
+    expect(ctx.updateLabel).toHaveBeenCalledWith(expect.objectContaining({ id: 100, name: 'Bug (renamed)' }))
   })
 
-  it('label.deleted routes to onLabelDeleted with label_id', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('label.deleted routes to removeLabel with label_id', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     act(() => { getOnEvent.dispatch({ event: 'label.deleted', data: { label_id: 100 } }) })
-    expect(props.onLabelDeleted).toHaveBeenCalledWith(100)
+    expect(ctx.removeLabel).toHaveBeenCalledWith(100)
   })
 
-  it('member.added routes to onMemberAdded', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('member.added routes to addMember', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     const membership: BoardMembership = { id: 2, user: { ...fakeUser, id: 2, username: 'bob' }, role: 'member', is_moderator: false, joined_at: '' }
     act(() => { getOnEvent.dispatch({ event: 'member.added', data: membership as unknown as Record<string, unknown> }) })
-    expect(props.onMemberAdded).toHaveBeenCalledWith(expect.objectContaining({ role: 'member' }))
+    expect(ctx.addMember).toHaveBeenCalledWith(expect.objectContaining({ role: 'member' }))
   })
 
-  it('member.updated routes to onMemberUpdated', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('member.updated routes to updateMember', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     const membership: BoardMembership = { id: 1, user: fakeUser, role: 'viewer', is_moderator: false, joined_at: '' }
     act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
-    expect(props.onMemberUpdated).toHaveBeenCalledWith(expect.objectContaining({ role: 'viewer' }))
+    expect(ctx.updateMember).toHaveBeenCalledWith(expect.objectContaining({ role: 'viewer' }))
   })
 
-  it('member.removed routes to onMemberRemoved with user_id', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('member.removed routes to removeMember with user_id', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     act(() => { getOnEvent.dispatch({ event: 'member.removed', data: { user_id: 1 } }) })
-    expect(props.onMemberRemoved).toHaveBeenCalledWith(1)
+    expect(ctx.removeMember).toHaveBeenCalledWith(1)
   })
 
-  it('columns.reordered routes to onColumnOrderApplied with column list', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('columns.reordered routes to applyColumnOrder with column list', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     const columns: Column[] = [
       { id: 11, uid: 'col002', name: 'Done', position: 0, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
       { id: 10, uid: 'col001', name: 'To Do', position: 1, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
     ]
     act(() => { getOnEvent.dispatch({ event: 'columns.reordered', data: { columns } }) })
-    expect(props.onColumnOrderApplied).toHaveBeenCalledWith(columns)
+    expect(ctx.applyColumnOrder).toHaveBeenCalledWith(columns)
   })
 
-  it('swimlanes.reordered routes to onSwimlaneOrderApplied with swimlane list', async () => {
-    const props = makeProps()
-    render(<BoardView {...props} />)
+  it('swimlanes.reordered routes to applySwimlaneOrder with swimlane list', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
     await act(async () => {})
     const swimlanes: Swimlane[] = [
       { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
     ]
     act(() => { getOnEvent.dispatch({ event: 'swimlanes.reordered', data: { swimlanes } }) })
-    expect(props.onSwimlaneOrderApplied).toHaveBeenCalledWith(swimlanes)
+    expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)
   })
 
   it('board.updated routes to onUpdateBoardSettings with the patch data', async () => {

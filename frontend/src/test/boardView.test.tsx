@@ -4,6 +4,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
+import type { BoardContextType } from '../contexts/BoardContext'
 import type { CollisionDetection, DragEndEvent } from '@dnd-kit/core'
 import * as dndCore from '@dnd-kit/core'
 
@@ -63,6 +64,12 @@ vi.mock('../hooks/useBoardSocket', () => ({
 
 vi.mock('../hooks/useBoardPan', () => ({
   useBoardPan: () => {},
+}))
+
+// Board context mock — lets tests control what useBoardContext returns.
+let mockBoardContextValue: BoardContextType
+vi.mock('../contexts/BoardContext', () => ({
+  useBoardContext: () => mockBoardContextValue,
 }))
 
 vi.mock('../api/boards', () => ({
@@ -173,37 +180,48 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   }
 }
 
-const defaultProps = () => ({
-  board: makeBoard(),
-  onMoveCard: vi.fn(),
-  onCardAdded: vi.fn(),
-  onCardDeleted: vi.fn(),
-  onCardUpdated: vi.fn(),
-  onCardArchived: vi.fn(),
-  onCardUnarchived: vi.fn(),
-  onColumnAdded: vi.fn(),
-  onColumnUpdated: vi.fn(),
-  onColumnDeleted: vi.fn(),
-  onColumnsReordered: vi.fn(),
-  onSwimlaneAdded: vi.fn(),
-  onSwimlaneUpdated: vi.fn(),
-  onSwimlaneDeleted: vi.fn(),
-  onSwimlanesReordered: vi.fn(),
-  onLabelAdded: vi.fn(),
-  onLabelUpdated: vi.fn(),
-  onLabelDeleted: vi.fn(),
-  onMemberAdded: vi.fn(),
-  onMemberUpdated: vi.fn(),
-  onMemberRemoved: vi.fn(),
-  onColumnOrderApplied: vi.fn(),
-  onSwimlaneOrderApplied: vi.fn(),
-})
+function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContextType {
+  return {
+    board: makeBoard(),
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+    moveCard: vi.fn(),
+    forceMoveCard: vi.fn(),
+    moveError: null,
+    clearMoveError: vi.fn(),
+    addCard: vi.fn(),
+    removeCard: vi.fn(),
+    addColumn: vi.fn(),
+    removeColumn: vi.fn(),
+    addSwimlane: vi.fn(),
+    updateCard: vi.fn(),
+    updateColumn: vi.fn(),
+    addLabel: vi.fn(),
+    updateLabel: vi.fn(),
+    removeLabel: vi.fn(),
+    addMember: vi.fn(),
+    updateMember: vi.fn(),
+    removeMember: vi.fn(),
+    applyColumnOrder: vi.fn(),
+    applySwimlaneOrder: vi.fn(),
+    reorderColumns: vi.fn(),
+    reorderSwimlanes: vi.fn(),
+    updateSwimlane: vi.fn(),
+    removeSwimlane: vi.fn(),
+    updateBoardSettings: vi.fn(),
+    ...overrides,
+  }
+}
+
+const defaultProps = () => ({})
 
 describe('BoardView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSearchParams = new URLSearchParams()
     localStorage.clear()
+    mockBoardContextValue = defaultContext()
   })
 
   it('renders view toggle buttons', () => {
@@ -250,9 +268,8 @@ describe('BoardView', () => {
   })
 
   it('hides Settings button for viewer', () => {
-    const props = defaultProps()
-    props.board = makeBoard({ current_user_role: 'viewer' })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
+    render(<BoardView {...defaultProps()} />)
     expect(screen.queryByText('Settings')).not.toBeInTheDocument()
   })
 
@@ -268,23 +285,20 @@ describe('BoardView', () => {
   })
 
   it('shows empty state when no columns', () => {
-    const props = defaultProps()
-    props.board = makeBoard({ columns: [] })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns: [] }) })
+    render(<BoardView {...defaultProps()} />)
     expect(screen.getByText(/No columns/)).toBeInTheDocument()
   })
 
   it('shows + Add column button in empty state for admin', () => {
-    const props = defaultProps()
-    props.board = makeBoard({ columns: [] })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns: [] }) })
+    render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('+ Add column')).toBeInTheDocument()
   })
 
   it('shows empty state when no swimlanes', () => {
-    const props = defaultProps()
-    props.board = makeBoard({ swimlanes: [] })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ swimlanes: [] }) })
+    render(<BoardView {...defaultProps()} />)
     expect(screen.getByText(/No swimlanes/)).toBeInTheDocument()
   })
 
@@ -308,9 +322,8 @@ describe('BoardView', () => {
       updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
       attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
     }
-    const props = defaultProps()
-    props.board = makeBoard({ cards: [stalledCard] })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [stalledCard] }) })
+    render(<BoardView {...defaultProps()} />)
     const user = userEvent.setup()
     await user.click(screen.getByText('Analytics'))
     expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
@@ -428,9 +441,8 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null,
     }
-    const props = defaultProps()
-    props.board = makeBoard({ cards: [card] })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+    render(<BoardView {...defaultProps()} />)
     expect(screen.getByTestId('card-detail')).toBeInTheDocument()
     expect(screen.getByText('Deep Link Card')).toBeInTheDocument()
     expect(mockSetSearchParams).toHaveBeenCalled()
@@ -472,10 +484,9 @@ describe('BoardView', () => {
   })
 
   it('column added via AddColumnModal is immediately expanded', async () => {
-    const props = defaultProps()
     // Start with no columns so the empty-state "+ Add column" button is visible
-    props.board = makeBoard({ columns: [] })
-    render(<BoardView {...props} />)
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns: [] }) })
+    render(<BoardView {...defaultProps()} />)
     await act(async () => {})
     await userEvent.setup().click(screen.getByText('+ Add column'))
     expect(screen.getByTestId('add-column-modal')).toBeInTheDocument()
@@ -529,7 +540,6 @@ describe('BoardView', () => {
   })
 
   it('handleDragEnd does not call onMoveCard when card is dropped on a column header', async () => {
-    const props = defaultProps()
     const card = {
       id: 228, uid: 'carduid00228', column: 10, swimlane: 20, title: 'Test Card',
       description: '', priority: 'medium' as const, assignee: null,
@@ -538,8 +548,9 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null,
     }
-    props.board = makeBoard({ cards: [card] })
-    render(<BoardView {...props} />)
+    const ctx = defaultContext({ board: makeBoard({ cards: [card] }) })
+    mockBoardContextValue = ctx
+    render(<BoardView {...defaultProps()} />)
     expect(capturedOnDragEnd).toBeDefined()
 
     // Simulate dropping a card (id=228) onto a column header zone (over.id="col:11")
@@ -553,8 +564,8 @@ describe('BoardView', () => {
 
     act(() => { capturedOnDragEnd!(dragEndEvent) })
 
-    // The guard should prevent onMoveCard from being called
-    expect(props.onMoveCard).not.toHaveBeenCalled()
+    // The guard should prevent moveCard from being called
+    expect(ctx.moveCard).not.toHaveBeenCalled()
   })
 
   // --- Focus mode tests (#340) ---
@@ -613,13 +624,12 @@ describe('BoardView', () => {
   it('swimlane.deleted event for focused swimlane exits focus', async () => {
     // Start with focus=20
     mockSearchParams = new URLSearchParams('focus=20')
-    const props = defaultProps()
-    const { rerender } = render(<BoardView {...props} />)
+    const { rerender } = render(<BoardView {...defaultProps()} />)
     expect(screen.getByText('Focused on:')).toBeInTheDocument()
 
-    // Simulate swimlane deleted — remove it from the board prop
-    const boardWithoutSwimlane = makeBoard({ swimlanes: [] })
-    rerender(<BoardView {...props} board={boardWithoutSwimlane} />)
+    // Simulate swimlane deleted — update the context and force re-render
+    mockBoardContextValue = defaultContext({ board: makeBoard({ swimlanes: [] }) })
+    rerender(<BoardView {...defaultProps()} />)
 
     // Focus banner should be gone since the focused swimlane no longer exists
     expect(screen.queryByText('Focused on:')).not.toBeInTheDocument()

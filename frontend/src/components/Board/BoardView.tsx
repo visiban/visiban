@@ -17,7 +17,8 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, User } from "../../types";
+import type { BoardFull, Card, Column, Swimlane, User } from "../../types";
+import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
 import RowSeparator from "./RowSeparator";
@@ -40,31 +41,7 @@ import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 
 interface Props {
-  board: BoardFull;
-  onMoveCard: (cardId: number, columnId: number, swimlaneId: number, position: number) => void;
-  onCardAdded: (card: Card) => void;
-  onCardDeleted: (cardId: number) => void;
-  onCardUpdated: (card: Card) => void;
-  onColumnAdded: (column: Column) => void;
-  onColumnUpdated: (column: Column) => void;
-  onColumnDeleted: (columnId: number) => void;
-  onColumnsReordered: (orderedIds: number[]) => void;
-  onSwimlaneAdded: (swimlane: Swimlane) => void;
-  onSwimlaneUpdated: (swimlane: Swimlane) => void;
-  onSwimlaneDeleted: (swimlaneId: number) => void;
-  onSwimlanesReordered: (orderedIds: number[]) => void;
-  onLabelAdded: (label: Label) => void;
-  onLabelUpdated: (label: Label) => void;
-  onLabelDeleted: (labelId: number) => void;
-  onMemberAdded: (membership: BoardMembership) => void;
-  onMemberUpdated: (membership: BoardMembership) => void;
-  onMemberRemoved: (userId: number) => void;
-  onColumnOrderApplied: (columns: Column[]) => void;
-  onSwimlaneOrderApplied: (swimlanes: Swimlane[]) => void;
-  onCardArchived: (cardId: number) => void;
-  onCardUnarchived: (card: Card) => void;
   onBoardDeleted?: () => void;
-  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
   userTimezone?: string;
   userDateFormat?: string;
   userTimeFormat?: string;
@@ -122,7 +99,42 @@ function ViewToggle({
   );
 }
 
-export default function BoardView({ board, onMoveCard, onCardAdded, onCardDeleted, onCardUpdated, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnsReordered, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlanesReordered, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onColumnOrderApplied, onSwimlaneOrderApplied, onBoardDeleted, onUpdateBoardSettings, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null }: Props) {
+export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null }: Props) {
+  const {
+    board: boardOrNull,
+    moveCard: onMoveCard,
+    addCard: onCardAdded,
+    removeCard,
+    updateCard: onCardUpdated,
+    addColumn: onColumnAdded,
+    updateColumn: onColumnUpdated,
+    removeColumn: onColumnDeleted,
+    reorderColumns: onColumnsReordered,
+    addSwimlane: onSwimlaneAdded,
+    updateSwimlane: onSwimlaneUpdated,
+    removeSwimlane: onSwimlaneDeleted,
+    reorderSwimlanes: onSwimlanesReordered,
+    addLabel: onLabelAdded,
+    updateLabel: onLabelUpdated,
+    removeLabel: onLabelDeleted,
+    addMember: onMemberAdded,
+    updateMember: onMemberUpdated,
+    removeMember: onMemberRemoved,
+    applyColumnOrder: onColumnOrderApplied,
+    applySwimlaneOrder: onSwimlaneOrderApplied,
+    updateBoardSettings: onUpdateBoardSettings,
+  } = useBoardContext();
+
+  // BoardView is only rendered when board is non-null (guarded by the parent).
+  // The non-null assertion keeps the existing contract without changing every
+  // downstream reference from BoardFull to BoardFull | null.
+  const board = boardOrNull!;
+
+  // Alias removeCard for the two semantic uses (archive and delete both remove
+  // the card from local state).
+  const onCardDeleted = removeCard;
+  const onCardArchived = removeCard;
+  const onCardUnarchived = onCardAdded;
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
