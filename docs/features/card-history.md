@@ -37,6 +37,10 @@ In addition to movements, the activity log tracks:
 | Comment added | Flagged |
 | Attachment added / deleted | Flagged |
 | Checklist item added / checked / unchecked / deleted | Item text |
+| Due date change | Old and new date (or "none" if cleared) |
+
+!!! note
+    Due date change tracking was added in 1.0.0-rc.7.
 
 ## Viewing history
 
@@ -47,6 +51,14 @@ Open a card and click the **History** tab in the side panel. The timeline shows 
 - When it happened (relative time, e.g. "3 days ago")
 
 Movement entries display the full column and swimlane names, preserved even if those columns or swimlanes have since been renamed or deleted. If a referenced column has been deleted since the move occurred, its name is shown in italic red with a **Deleted —** prefix and a hover tooltip, so you can distinguish live columns from removed ones at a glance.
+
+### Duration between entries
+
+Each movement entry shows how long the card stayed in that column before the next move. The label appears as "Spent 3h here" or "Spent 2d here" on the right side of the entry. Durations are calculated from the gap between consecutive movement timestamps and displayed in the most readable unit (minutes, hours, or days). The last movement entry has no duration label because the card is still in that column.
+
+### Checklist event grouping
+
+When multiple checklist events of the same type occur in sequence (for example, adding several checklist items at once), the timeline collapses them into a single grouped entry instead of showing one row per item. A grouped entry reads like "Added checklist items: "item a", "item b", "item c"". This keeps the timeline compact when bulk checklist edits would otherwise dominate the view.
 
 The UID fields on each movement record (`from_column_uid`, `to_column_uid`, `from_swimlane_uid`, `to_swimlane_uid`) are also preserved permanently — these are the correct identifiers to use when correlating movement history in an external system. See [Stable UIDs](stable-uids.md).
 

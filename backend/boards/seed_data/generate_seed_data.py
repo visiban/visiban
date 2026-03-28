@@ -14,6 +14,7 @@ Usage (from repo root):
 No Django or database connection required.
 """
 
+import csv
 import json
 import os
 import random
@@ -1463,16 +1464,52 @@ def main():
     part2 = _load_part2()
     ALL_TEMPLATES = ALL_TEMPLATES + part2
 
+    out_dir = os.path.normpath(
+        os.path.join(SEED_DATA_DIR, "..", "..", "..", "sample-boards")
+    )
+    os.makedirs(out_dir, exist_ok=True)
+
     for tpl in ALL_TEMPLATES:
         slug = tpl["slug"]
         data = _build(tpl)
-        out_path = os.path.join(SEED_DATA_DIR, f"{slug}.json")
-        with open(out_path, "w", encoding="utf-8") as f:
+
+        # Ensure every column has an explicit is_done field
+        for col in data["columns"]:
+            col.setdefault("is_done", False)
+
+        json_path = os.path.join(out_dir, f"{slug}.json")
+        with open(json_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write("\n")
-        print(f"  \u2713  {slug}.json  ({len(data['cards'])} cards)")
 
-    print(f"\nDone -- {len(ALL_TEMPLATES)} templates regenerated.")
+        csv_path = os.path.join(out_dir, f"{slug}.csv")
+        with open(csv_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "title", "column", "swimlane", "priority", "due_date",
+                "weight", "labels", "assignee", "checklist_total",
+                "checklist_done", "comment_count", "description_preview",
+            ])
+            for card in data["cards"]:
+                cl = card.get("checklist_items", [])
+                writer.writerow([
+                    card.get("title", ""),
+                    card.get("column", ""),
+                    card.get("swimlane", ""),
+                    card.get("priority", ""),
+                    card.get("due_date", ""),
+                    card.get("weight", ""),
+                    "|".join(card.get("labels", [])),
+                    card.get("assignee", ""),
+                    len(cl),
+                    sum(1 for c in cl if c.get("is_done")),
+                    len(card.get("comments", [])),
+                    (card.get("description", "") or "")[:80],
+                ])
+
+        print(f"  ✓  {slug}.json + .csv  ({len(data['cards'])} cards)")
+
+    print(f"\nDone -- {len(ALL_TEMPLATES)} templates written to {out_dir}")
 
 
 if __name__ == "__main__":

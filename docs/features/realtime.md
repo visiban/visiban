@@ -6,7 +6,7 @@ Visiban uses WebSockets (Django Channels + Redis) to push board changes to all c
 
 1. When a user opens a board, the frontend opens a WebSocket connection to `ws://{host}/ws/boards/{board_id}/`
 2. The server authenticates the connection using the session cookie; unauthenticated connections are closed with code `4001`
-3. Any mutation — card, column, or swimlane change — broadcasts an event to all clients subscribed to that board's channel group
+3. Any mutation — card, column, swimlane, label, member, or board setting change — broadcasts an event to all clients subscribed to that board's channel group
 4. The frontend applies the event to local state, keeping all open tabs in sync without a page refresh
 
 ## Connection status
@@ -20,6 +20,24 @@ The top-right corner of the board toolbar shows the connection state:
 The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**.
 
 ## Event types
+
+### Board events
+
+| Event | Trigger |
+|---|---|
+| `board.updated` | Board settings changed, share token toggled, or board moved between groups |
+| `board.deleted` | Board deleted |
+
+### Member events
+
+| Event | Trigger |
+|---|---|
+| `member.added` | User added to the board |
+| `member.updated` | Member's role changed |
+| `member.removed` | Member removed from the board |
+
+!!! warning
+    When a `member.removed` event targets the current user, the server automatically closes that user's WebSocket connection. The client does not need to handle this explicitly — the connection indicator will switch to **Offline** and the user will no longer receive events for the board.
 
 ### Card events
 
@@ -37,9 +55,17 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `card.archived` | Card archived via the Archive action |
 | `card.unarchived` | Card restored from the archived panel |
 
-`card.archived` payload: `{ "card": { "id": 101, "archived_at": "2026-03-20T10:00:00Z", ... } }`
+`card.archived` payload — contains only the card ID (not the full card object):
 
-`card.unarchived` payload: `{ "card": { "id": 101, "archived_at": null, ... } }`
+```json
+{ "event": "card.archived", "data": { "card_id": 101 } }
+```
+
+`card.unarchived` payload — contains the full serialized card so the frontend can restore it to the board without an additional API call:
+
+```json
+{ "event": "card.unarchived", "data": { "id": 101, "uid": "3a9f1c2d7e4b8a05", "title": "...", "archived_at": null, ... } }
+```
 
 ### Column events
 
@@ -48,6 +74,7 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `column.created` | Column added to the board |
 | `column.updated` | Column renamed, recolored, or limits changed |
 | `column.deleted` | Column deleted |
+| `columns.reordered` | Columns reordered by an admin |
 
 ### Swimlane events
 
@@ -56,6 +83,15 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `swimlane.created` | Swimlane added to the board |
 | `swimlane.updated` | Swimlane renamed, recolored, or collapsed state changed |
 | `swimlane.deleted` | Swimlane deleted |
+| `swimlanes.reordered` | Swimlanes reordered by an admin |
+
+### Label events
+
+| Event | Trigger |
+|---|---|
+| `label.created` | Label added to the board |
+| `label.updated` | Label renamed or recolored |
+| `label.deleted` | Label deleted |
 
 ## Event payload structure
 
@@ -71,10 +107,42 @@ Every WebSocket message has this envelope:
 - **`event`** — the event type string (e.g. `card.created`, `card.moved`)
 - **`data`** — the serialized payload; contents depend on the event type
 
-For most events `data` is the full serialized object. Deletion events include only the ID:
+For most events, `data` is the full serialized object. Deletion and archive-removal events include only the ID:
 
 ```json
 { "event": "card.deleted", "data": { "card_id": 101 } }
+```
+
+```json
+{ "event": "column.deleted", "data": { "column_id": 5 } }
+```
+
+```json
+{ "event": "swimlane.deleted", "data": { "swimlane_id": 3 } }
+```
+
+```json
+{ "event": "label.deleted", "data": { "label_id": 12 } }
+```
+
+```json
+{ "event": "board.deleted", "data": { "board_id": 7 } }
+```
+
+```json
+{ "event": "member.removed", "data": { "user_id": 42 } }
+```
+
+### Reorder payloads
+
+The `columns.reordered` and `swimlanes.reordered` events include the full list of objects in their new order:
+
+```json
+{ "event": "columns.reordered", "data": { "columns": [ { "id": 1, ... }, { "id": 2, ... } ] } }
+```
+
+```json
+{ "event": "swimlanes.reordered", "data": { "swimlanes": [ { "id": 1, ... }, { "id": 2, ... } ] } }
 ```
 
 ### `card.moved` payload
@@ -100,11 +168,16 @@ The `card.moved` event includes both the updated card and the movement record �
 
 `movement` is `null` if only the position changed within the same column/swimlane cell (pure reorder — no column or swimlane change occurred).
 
-All other events include the full serialized object (or just the ID for deletion events) so the frontend can update local state without a round-trip to the API.
-
 ## Requirements
 
-A Redis instance is required as the Django Channels channel layer backend. The `REDIS_URL` environment variable must be set.
+Real-time updates require a Redis instance. Visiban uses two separate Redis connections:
+
+| Environment variable | Purpose | Default |
+|---|---|---|
+| `REDIS_URL` | Django Channels — the WebSocket channel layer | `redis://localhost:6379/0` |
+| `REDIS_CACHE_URL` | Django cache — rate limiting, health checks | `redis://localhost:6379/1` |
+
+These are independent variables. By default they point to the same Redis host but use different databases (`/0` and `/1`). You can point them at separate Redis instances in production if needed.
 
 ### Docker Compose
 
@@ -127,6 +200,9 @@ redis:
 externalRedis:
   url: "redis://my-redis-host:6379/0"
 ```
+
+!!! tip
+    If you use a single external Redis instance for both Channels and caching, set both `REDIS_URL` and `REDIS_CACHE_URL` to the same DSN. Using different database numbers (e.g. `/0` and `/1`) keeps the keyspaces separate and avoids accidental eviction of channel-layer data by cache expiry.
 
 ## ASGI server
 

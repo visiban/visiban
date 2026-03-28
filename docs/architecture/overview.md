@@ -17,7 +17,7 @@
 └────────────┬────────────────────────┬───────────────┘
              │ psycopg2               │ channels-redis
 ┌────────────▼────────────┐ ┌─────────▼───────────────┐
-│      PostgreSQL 16      │ │         Redis 7         │
+│      PostgreSQL 17      │ │       Redis 7 / 8       │
 │  (primary data store)   │ │(WebSocket channel layer)│
 └─────────────────────────┘ └─────────────────────────┘
 ```
@@ -28,8 +28,8 @@
 |---|---|
 | Backend | Python 3.12, Django 5, Django REST Framework |
 | ASGI server | daphne (required for WebSocket support) |
-| Database | PostgreSQL 16 |
-| Cache / Pub-Sub | Redis 7 (Django Channels channel layer) |
+| Database | PostgreSQL 17 |
+| Cache / Pub-Sub | Redis 7 (Docker Compose) / Redis 8 (Helm — Bitnami subchart) |
 | Real-time | Django Channels 4, channels-redis |
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
@@ -41,7 +41,7 @@
 
 | App | Responsibility |
 |---|---|
-| `accounts` | Custom `User` model, password change, auth provider list |
+| `accounts` | Custom `User` model, `SiteSetting` (registration mode, uploads toggle), `PersonalAccessToken`, `InviteLink`, notification preferences, password change, auth provider list |
 | `boards` | Boards, columns, swimlanes, labels, cards, movements, comments, attachments, checklists |
 | `groups` | Group hierarchy, group memberships, invite links |
 
@@ -115,5 +115,7 @@ The SPA is a single `App.tsx` with React Router v7 routes:
 - `/boards/:id` — Board view (DnD kanban grid)
 - `/settings` — User settings (profile, locale, appearance, notifications, security)
 - `/join/:token` — Invite link landing page
+- `/share/:token` — Public read-only board view (no authentication required)
+- `/admin` — Site administration panel (site admins only)
 
 State is local React state with optimistic updates on drag-and-drop. No global state library.

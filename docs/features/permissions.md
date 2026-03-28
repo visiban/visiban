@@ -58,8 +58,18 @@ Visiban uses four board-level roles to control what each member can do on a boar
 
 Only board Admins (and site admins) can perform these actions.
 
-## Site Admin role
+## Site admin and content access
 
-Users with the **Site Admin** designation bypass all board-level role checks. They can view and modify any board, regardless of whether they hold an explicit board membership. Site admins are set by an operator via the management command or the `/admin` panel — they are not a role that board admins can assign.
+Visiban tracks two independent flags on the User model:
 
-See [Site Admins](../administration/site-admins.md) for details on granting and revoking site admin status.
+| Flag | What it controls |
+|---|---|
+| `is_site_admin` | Access to the admin panel (`/admin`) and admin API (`/api/admin/*`). Does **not** grant board or group access on its own. |
+| `can_access_all_content` | Read/write access to every board and group on the instance, regardless of membership. This is the flag that bypasses board-level role checks. |
+
+When a user with `can_access_all_content` accesses a board, the permission system treats them as a site-level admin role — they can view and modify any board without an explicit membership.
+
+A user who is `is_site_admin=True` but `can_access_all_content=False` can manage the admin panel (users, settings, instance configuration) but **cannot** see boards they are not a member of. This separation lets operators grant admin panel access without granting board omniscience.
+
+!!! tip
+    The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently, use the admin panel. See [Site Admins](../administration/site-admins.md) for details.

@@ -21,6 +21,8 @@ Columns are marked as done in the **Edit Column** modal ("Mark as done column" c
 
 Useful for a quick health check across all active pipelines.
 
+The summary response includes an `extension_panels` field (always an empty list in the OSS edition). Enterprise extensions can register additional panels here.
+
 **API:** `GET /api/boards/{id}/summary/`
 
 ## Analytics view
@@ -29,13 +31,35 @@ Shows time-in-stage data derived from `CardMovement` records.
 
 ### Dwell time heatmap
 
-A table with swimlanes as rows and columns (stages) as columns. Each cell shows the median days a card spent in that stage. Cells are color-coded:
+The heatmap is pinned at the top of the analytics panel and remains visible at all times. The stalled cards list scrolls independently below it, separated by an engraved divider.
 
-| Color | Meaning |
+The heatmap table has swimlanes as rows and active columns as columns. Each cell shows the average number of days cards spent in that stage during the selected period.
+
+#### Done column exclusion
+
+Columns marked `is_done = true` are excluded from dwell-time calculations and hidden from the heatmap. Time spent in a done column is post-completion idle time and would distort the data if included. The API response includes a `done_columns` field listing the excluded column names, and a footer note below the heatmap reads "N done column(s) not shown".
+
+#### Velocity column
+
+The rightmost column of the heatmap shows **Velocity** per swimlane. This is the average `deal_velocity_days` value — the number of days between a card's first and last movement within the selected period. A dash (`—`) appears when there is no velocity data for a swimlane.
+
+#### Color-coding
+
+Cells are color-coded based on the board's `staleness_threshold_days` setting and its `stale_warning_pct` percentage. The warning boundary is calculated as `threshold * (1 - stale_warning_pct / 100)`. With the defaults of 7 days and 50%, the warning boundary is 3.5 days.
+
+| Color | Condition |
 |---|---|
-| Green | At or below the board median |
-| Yellow | Up to 2× the board median |
-| Red | More than 2× the board median (outlier / bottleneck) |
+| Green | Average dwell time is below the warning boundary |
+| Yellow | Average is at or above the warning boundary but below the full threshold |
+| Red | Average is at or above `staleness_threshold_days` (outlier / bottleneck) |
+| Grey / dash | No data for that swimlane-column combination |
+
+!!! tip
+    Both `staleness_threshold_days` and `stale_warning_pct` are configurable per board in the board settings modal. Adjusting them changes the heatmap coloring immediately on the next analytics load.
+
+#### Capped dwell display
+
+When the average dwell time for a cell is equal to or greater than the selected period (the `days` value), the cell displays a `>=Nd` prefix (for example, `>=30d` on a 30-day period). This signals that the true average may be higher than the displayed value because some dwell intervals extend beyond the analysis window.
 
 ### Period toggle
 
@@ -51,9 +75,11 @@ Dwell-time calculations use only `movement_type = move` events. Archive and rest
 
 ### Stalled cards
 
-Below the heatmap, cards that haven't moved in more than the configured stalled-days threshold are listed with their swimlane, column, assignee, and days since last movement. Click any row to open the card detail panel directly — no need to navigate back to the board view first.
+Below the heatmap, cards that have not moved in more than the effective stalled-days threshold are listed with their swimlane, column, assignee, and days since last movement. The stalled cards section scrolls independently and shows a count badge (for example, "3 cards stalled"). Click any row to open the card detail panel directly — no need to navigate back to the board view first.
 
-Archived cards are excluded from stalled card detection — they are no longer in-flight and flagging them as stalled would be misleading.
+The default threshold is the board's `staleness_threshold_days` setting. You can override it for a single request by passing the `stalled_days` query parameter — this affects only the stalled cards list and does not change the heatmap coloring.
+
+Archived cards and cards in done columns are excluded from stalled card detection — they are no longer in-flight and flagging them as stalled would be misleading.
 
 ### Empty period
 
@@ -61,11 +87,22 @@ When the selected time window contains no movement data at all (for example, a n
 
 ### CSV export
 
-Click **Export CSV** to download the heatmap data as a comma-separated file for use in spreadsheets. The export button is only visible to **admin** and **site_admin** users.
+Click **Export CSV** to download the heatmap data as a comma-separated file for use in spreadsheets. The export includes all active columns, the velocity column, and a stalled card count per swimlane. The export button is only visible to **admin** and **site_admin** users.
 
-**API:** `GET /api/boards/{id}/analytics/?days=30&stalled_days=7`
+### API reference
+
+**API:** `GET /api/boards/{id}/analytics/?days=30`
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
-| `days` | integer | `30` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |
-| `stalled_days` | integer | `7` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |
+| `days` | integer | `30` | Must be a positive integer (`>= 1`). Returns `400` if non-integer or `<= 0`. |
+| `stalled_days` | integer | Board's `staleness_threshold_days` | Optional override. Must be a positive integer (`>= 1`). Returns `400` if non-integer or `<= 0`. When omitted, the board setting is used. |
+
+The response includes two threshold fields:
+
+| Field | Meaning |
+|---|---|
+| `staleness_threshold_days` | The board's configured threshold, used for heatmap cell coloring. Always reflects the board setting regardless of any `stalled_days` override. |
+| `stalled_threshold_days` | The effective threshold used for the stalled cards list. Equals the board setting by default, or the `stalled_days` query parameter value when provided. |
+| `stale_warning_pct` | The board's warning percentage (0--100). Controls the yellow/green boundary in the heatmap. |
+| `done_columns` | List of column names excluded from the heatmap because they are marked as done. |

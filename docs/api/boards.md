@@ -168,11 +168,14 @@ Time-in-stage heatmap derived from `CardMovement` records.
 | `columns` | list[str] | All column names on the board in position order, including done columns. Preserved for backward compatibility — consumers that need only active columns should subtract `done_columns`. |
 | `done_columns` | list[str] | Column names where `is_done=True`. These columns are excluded from the dwell-time heatmap. The `avg_days_per_column`, `is_outlier`, and `board_medians` dicts contain keys only for active (non-done) columns. |
 | `board_medians` | object | Median dwell time in days per active column, keyed by column name. Done columns are omitted. |
-| `stalled_threshold_days` | integer | Dwell-time threshold used for stalled-card detection, mirrored from the `stalled_days` query parameter. |
+| `stalled_threshold_days` | integer | Effective threshold used for stalled-card detection. Equals the board's `staleness_threshold_days` by default, or the `stalled_days` query parameter value when provided. |
+| `staleness_threshold_days` | integer | The board's configured staleness threshold in days. Used for heatmap cell coloring. Always reflects the board setting regardless of any `stalled_days` override. |
+| `stale_warning_pct` | integer | The board's warning percentage (0--100). Controls the yellow/green boundary in the heatmap. |
 | `swimlanes[].avg_days_per_column` | object | Average dwell time in days for each active column for this swimlane. Done columns are omitted. A `null` value means the swimlane has no movement data for that column in the requested window. |
-| `swimlanes[].is_outlier` | object | Whether the swimlane's average for each active column exceeds 2× the board-wide median. Done columns are omitted. |
+| `swimlanes[].deal_velocity_days` | number or null | Average days between a card's first and last movement within the period for this swimlane. `null` when there is no velocity data. |
+| `swimlanes[].is_outlier` | object | Whether the swimlane's average for each active column meets or exceeds `staleness_threshold_days`. Done columns are omitted. |
 
-A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average exceeds 2× the board-wide median for that column. Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
+A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
 
 CSV export (`Export CSV` button) is available to `admin` and `site_admin` roles only.
 

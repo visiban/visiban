@@ -772,7 +772,7 @@ _LEGAL_COLUMNS = [
     {"name": "Needs Clarification", "position": 2, "color": "#F59E0B", "wip_limit": None, "allow_card_creation": False},
     {"name": "Approved",            "position": 3, "color": "#10B981", "wip_limit": None, "allow_card_creation": False, "is_done": True},
     {"name": "Denied",              "position": 4, "color": "#EF4444", "wip_limit": None, "allow_card_creation": False, "is_done": True},
-    {"name": "Archived",            "position": 5, "color": "#9CA3AF", "wip_limit": None, "allow_card_creation": False, "is_done": True},
+    {"name": "Closed",              "position": 5, "color": "#9CA3AF", "wip_limit": None, "allow_card_creation": False, "is_done": True},
 ]
 
 _LEGAL_SWIMLANES = [
