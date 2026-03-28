@@ -182,6 +182,50 @@ class CardCreationRBACTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class CardMutationRBACTests(TestCase):
+    """Verify that collaborators cannot edit, move, or delete cards."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.board, self.col, self.swim = make_board(self.owner)
+        self.card = Card.objects.create(
+            board=self.board,
+            column=self.col,
+            swimlane=self.swim,
+            title="Test Card",
+            created_by=self.owner,
+            position=0,
+        )
+        self.collab = User.objects.create_user(username="collab", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=self.collab, role=BoardMembership.Role.COLLABORATOR
+        )
+
+    def test_collaborator_cannot_edit_card(self):
+        self.client.force_authenticate(self.collab)
+        resp = self.client.patch(
+            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+            {"title": "Changed"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_collaborator_cannot_move_card(self):
+        self.client.force_authenticate(self.collab)
+        resp = self.client.post(
+            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+            {"column_id": self.col.pk, "swimlane_id": self.swim.pk, "position": 0},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_collaborator_cannot_delete_card(self):
+        self.client.force_authenticate(self.collab)
+        resp = self.client.delete(
+            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class ColumnCreationRBACTests(TestCase):
     def setUp(self):
         self.client = APIClient()

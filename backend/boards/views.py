@@ -2374,6 +2374,8 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
         if request.method == "GET":
             return Response(CardCommentSerializer(card.comments.select_related("author"), many=True).data)
+        # Only viewers are blocked — collaborators are intentionally allowed to
+        # comment on cards.  See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
@@ -2416,6 +2418,8 @@ class CardViewSet(viewsets.ModelViewSet):
     def delete_comment(self, request, board_pk=None, pk=None, comment_pk=None):
         """Delete a comment. Non-moderator members and collaborators may only delete their own."""
         board, role = self._board_and_role()
+        # Only viewers are blocked — collaborators may delete their own comments.
+        # See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
@@ -2449,6 +2453,8 @@ class CardViewSet(viewsets.ModelViewSet):
             )
             return Response(serializer.data)
 
+        # Only viewers are blocked — collaborators are intentionally allowed to
+        # upload attachments.  See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
@@ -2505,6 +2511,8 @@ class CardViewSet(viewsets.ModelViewSet):
     def delete_attachment(self, request, board_pk=None, pk=None, attachment_pk=None):
         """Delete an attachment and its underlying file from storage."""
         board, role = self._board_and_role()
+        # Only viewers are blocked — collaborators may delete their own attachments.
+        # See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
@@ -2536,6 +2544,8 @@ class CardViewSet(viewsets.ModelViewSet):
         if request.method == "GET":
             items = card.checklist_items.all()
             return Response(CardChecklistSerializer(items, many=True).data)
+        # Only viewers are blocked — collaborators are intentionally allowed to
+        # add checklist items.  See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
@@ -2558,6 +2568,8 @@ class CardViewSet(viewsets.ModelViewSet):
     def checklist_item(self, request, board_pk=None, pk=None, item_pk=None):
         """Update (PATCH) or delete a single checklist item."""
         board, role = self._board_and_role()
+        # Only viewers are blocked — collaborators may edit and delete checklist
+        # items.  See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
                 {"detail": "Viewers cannot perform this action."},
