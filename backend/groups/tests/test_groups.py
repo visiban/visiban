@@ -362,27 +362,30 @@ class GroupBoardsTests(TestCase):
         )
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST])
 
-    def test_list_boards_filters_by_user_membership(self):
-        """Group member should only see boards they have board-level membership on (#377)."""
+    def test_list_boards_visible_to_group_members(self):
+        """Group membership grants access to all boards in the group — explicit
+        BoardMembership is no longer required (#377 superseded by group-board access)."""
         from boards.models import Board, BoardMembership
 
         member = User.objects.create_user(username="gm", password="pass")
         GroupMembership.objects.create(group=self.group, user=member, role=GroupMembership.Role.MEMBER)
 
-        # Create two boards in the group, but only add member to one
-        board_visible = Board.objects.create(name="Visible", owner=self.admin, group=self.group)
-        BoardMembership.objects.create(board=board_visible, user=self.admin, role=BoardMembership.Role.ADMIN)
-        BoardMembership.objects.create(board=board_visible, user=member, role=BoardMembership.Role.MEMBER)
+        # Create two boards in the group; member has explicit membership on one only.
+        # Both should be visible because group membership implies board access.
+        board_explicit = Board.objects.create(name="Explicit", owner=self.admin, group=self.group)
+        BoardMembership.objects.create(board=board_explicit, user=self.admin, role=BoardMembership.Role.ADMIN)
+        BoardMembership.objects.create(board=board_explicit, user=member, role=BoardMembership.Role.MEMBER)
 
-        board_hidden = Board.objects.create(name="Hidden", owner=self.admin, group=self.group)
-        BoardMembership.objects.create(board=board_hidden, user=self.admin, role=BoardMembership.Role.ADMIN)
+        board_implicit = Board.objects.create(name="Implicit", owner=self.admin, group=self.group)
+        BoardMembership.objects.create(board=board_implicit, user=self.admin, role=BoardMembership.Role.ADMIN)
 
         self.client.force_authenticate(member)
         r = self.client.get(f"/api/groups/{self.group.id}/boards/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         board_names = [b["name"] for b in r.json()]
-        self.assertIn("Visible", board_names)
-        self.assertNotIn("Hidden", board_names)
+        # Both boards are visible — group membership grants access to all group boards
+        self.assertIn("Explicit", board_names)
+        self.assertIn("Implicit", board_names)
 
 
 class GroupMemberSiteAdminTests(TestCase):

@@ -42,7 +42,9 @@ export default function LoginPage({ onLogin }: Props) {
       if (mode === "login") {
         await apiLogin(loginField, password);
       } else {
-        await apiRegister(loginField, password, confirm);
+        const inviteToken = sessionStorage.getItem("invite_token") || undefined;
+        await apiRegister(loginField, password, confirm, inviteToken);
+        sessionStorage.removeItem("invite_token");
       }
       const user = await getCurrentUser();
       onLogin(user);

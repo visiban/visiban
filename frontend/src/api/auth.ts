@@ -15,8 +15,8 @@ export const logout = () => client.post("/api/auth/logout/");
 export const login = (username: string, password: string) =>
   client.post("/api/auth/login/", { username, password });
 
-export const register = (email: string, password1: string, password2: string) =>
-  client.post("/api/auth/registration/", { email, password1, password2 });
+export const register = (email: string, password1: string, password2: string, invite_token?: string) =>
+  client.post("/api/auth/registration/", { email, password1, password2, ...(invite_token ? { invite_token } : {}) });
 
 export const getAuthProviders = () =>
   client.get<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null }>("/api/auth/providers/").then((r) => r.data);

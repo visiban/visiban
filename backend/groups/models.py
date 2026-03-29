@@ -35,6 +35,24 @@ def get_accessible_group_ids(user):
         ).values_list("id", flat=True)
     )
     all_ids = set(direct_ids)
+    # Walk UP: include ancestor groups so the user can navigate to their
+    # subgroup through the sidebar tree.  Ancestors are read-only — the user
+    # won't have write permissions on them unless they have an explicit
+    # membership there.
+    ancestor_frontier = set(
+        Group.objects.filter(id__in=direct_ids, parent__isnull=False)
+        .values_list("parent_id", flat=True)
+    )
+    for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+        if not ancestor_frontier:
+            break
+        all_ids |= ancestor_frontier
+        ancestor_frontier = set(
+            Group.objects.filter(id__in=ancestor_frontier, parent__isnull=False)
+            .exclude(id__in=all_ids)
+            .values_list("parent_id", flat=True)
+        )
+    # Walk DOWN: include descendant sub-groups.
     frontier = set(direct_ids)
     for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH):
         if not frontier:

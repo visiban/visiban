@@ -68,8 +68,41 @@ function save(boardId: number, prefs: ViewPrefs): void {
   }
 }
 
-export function useViewPrefs(boardId: number) {
-  const [prefs, setPrefsState] = useState<ViewPrefs>(() => load(boardId));
+/**
+ * @param validColumnIds  – current column IDs on the board; any stored pref
+ *   referencing an ID not in this set is silently dropped (stale localStorage
+ *   from a previous database or deleted column).
+ * @param validSwimlaneIds – same, for swimlane IDs.
+ */
+export function useViewPrefs(
+  boardId: number,
+  validColumnIds?: Set<number>,
+  validSwimlaneIds?: Set<number>,
+) {
+  const [prefs, setPrefsState] = useState<ViewPrefs>(() => {
+    const raw = load(boardId);
+    if (!validColumnIds && !validSwimlaneIds) return raw;
+    // Strip IDs that no longer exist in the board (e.g. stale localStorage
+    // from a previous database or deleted columns/swimlanes).
+    const pruned = { ...raw };
+    if (validColumnIds) {
+      pruned.hiddenColumnIds = raw.hiddenColumnIds.filter((id) => validColumnIds.has(id));
+      pruned.collapsedColumnIds = raw.collapsedColumnIds.filter((id) => validColumnIds.has(id));
+      pruned.columnWidths = Object.fromEntries(
+        Object.entries(raw.columnWidths).filter(([id]) => validColumnIds.has(Number(id))),
+      );
+    }
+    if (validSwimlaneIds) {
+      pruned.hiddenSwimlaneIds = raw.hiddenSwimlaneIds.filter((id) => validSwimlaneIds.has(id));
+      pruned.collapsedSwimlaneIds = raw.collapsedSwimlaneIds.filter((id) => validSwimlaneIds.has(id));
+      pruned.swimlaneHeights = Object.fromEntries(
+        Object.entries(raw.swimlaneHeights).filter(([id]) => validSwimlaneIds.has(Number(id))),
+      );
+    }
+    // Persist the pruned version so stale IDs don't accumulate.
+    if (JSON.stringify(pruned) !== JSON.stringify(raw)) save(boardId, pruned);
+    return pruned;
+  });
 
   const setPrefs = useCallback(
     (updater: ViewPrefs | ((prev: ViewPrefs) => ViewPrefs)) => {

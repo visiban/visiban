@@ -23,13 +23,23 @@ export default function JoinPage({ user }: Props) {
   const [countdown, setCountdown] = useState(5);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
 
+  // Site-wide invite links (vbnl_ prefix) are for registration, not group joining.
+  // Redirect to the login page with the token so the registration form can consume it.
+  const isSiteInvite = token?.startsWith("vbnl_") ?? false;
+
   useEffect(() => {
     if (!token) return;
+    if (isSiteInvite) {
+      // Store the invite token for the registration form to pick up.
+      sessionStorage.setItem("invite_token", token);
+      navigate("/", { state: { authMode: "register" }, replace: true });
+      return;
+    }
     resolveJoinToken(token)
       .then((data) => { setGroupName(data.group_name); setGroupId(data.group_id); })
       .catch(() => setInvalid(true))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, isSiteInvite, navigate]);
 
   useEffect(() => {
     if (!invalid) return;
