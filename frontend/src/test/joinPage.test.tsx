@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import JoinPage from '../pages/JoinPage'
@@ -45,7 +45,12 @@ function renderJoinPage(user: User | null = fakeUser, token = 'abc123') {
 describe('JoinPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
+  })
+
+  afterEach(() => {
+    sessionStorage.clear()
   })
 
   it('shows loading state initially', () => {
@@ -60,10 +65,11 @@ describe('JoinPage', () => {
     expect(await screen.findByText('Invalid or expired invite link')).toBeInTheDocument()
   })
 
-  it('shows join button for authenticated user', async () => {
+  it('auto-joins and shows spinner for authenticated user', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockJoinGroup.mockReturnValue(new Promise(() => {})) // keep pending so spinner stays
     renderJoinPage(fakeUser)
-    expect(await screen.findByText('Join Engineering')).toBeInTheDocument()
+    expect(await screen.findByText('Joining Engineering…')).toBeInTheDocument()
   })
 
   it('shows group name in invite message', async () => {
@@ -108,23 +114,26 @@ describe('JoinPage', () => {
 
   it('does not fetch providers when user is authenticated', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
+    mockJoinGroup.mockReturnValue(new Promise(() => {}))
     renderJoinPage(fakeUser)
-    await screen.findByText('Join Engineering')
+    await screen.findByText('Joining Engineering…')
     expect(mockGetAuthProviders).not.toHaveBeenCalled()
   })
 
-  it('sets returnTo in sessionStorage when redirecting to register', async () => {
+  it('sets returnTo and pendingJoinToken in sessionStorage when redirecting to register', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null)
     fireEvent.click(await screen.findByText('Create an account'))
     expect(sessionStorage.getItem('returnTo')).toBe('/join/abc123')
+    expect(sessionStorage.getItem('pendingJoinToken')).toBe('abc123')
   })
 
-  it('sets returnTo in sessionStorage when redirecting to sign in', async () => {
+  it('sets returnTo and pendingJoinToken in sessionStorage when redirecting to sign in', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null)
     fireEvent.click(await screen.findByText('Sign in'))
     expect(sessionStorage.getItem('returnTo')).toBe('/join/abc123')
+    expect(sessionStorage.getItem('pendingJoinToken')).toBe('abc123')
   })
 
   it('shows countdown redirect on invalid invite', async () => {
@@ -133,9 +142,9 @@ describe('JoinPage', () => {
     expect(await screen.findByText(/Redirecting to dashboard in/)).toBeInTheDocument()
   })
 
-  it('navigates to group page with joinedGroup state on successful join', async () => {
+  it('auto-joins and navigates to group page on success', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 42, group_name: 'Engineering' })
-    mockJoinGroup.mockResolvedValue({})
+    mockJoinGroup.mockResolvedValue({ id: 42, name: 'Engineering' })
     render(
       <MemoryRouter initialEntries={['/join/abc123']}>
         <Routes>
@@ -144,17 +153,16 @@ describe('JoinPage', () => {
         </Routes>
       </MemoryRouter>
     )
-    fireEvent.click(await screen.findByText('Join Engineering'))
     await waitFor(() => expect(screen.getByTestId('group-page')).toBeInTheDocument())
     expect(mockJoinGroup).toHaveBeenCalledWith('abc123')
   })
 
-  it('shows error message when join fails', async () => {
+  it('shows error and Try again button when auto-join fails', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     mockJoinGroup.mockRejectedValue(new Error('Gone'))
     renderJoinPage(fakeUser)
-    fireEvent.click(await screen.findByText('Join Engineering'))
     expect(await screen.findByText('Failed to join group. The invite may have expired.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   it('shows SSO button when oidc provider is enabled', async () => {

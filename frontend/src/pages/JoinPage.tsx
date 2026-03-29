@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { resolveJoinToken, joinGroup } from "../api/groups";
 import { getAuthProviders } from "../api/auth";
@@ -22,6 +22,8 @@ export default function JoinPage({ user }: Props) {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(5);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
+  // Prevent double-firing auto-join in React StrictMode.
+  const autoJoinFired = useRef(false);
 
   // Site-wide invite links (vbnl_ prefix) are for registration, not group joining.
   // Redirect to the login page with the token so the registration form can consume it.
@@ -56,26 +58,45 @@ export default function JoinPage({ user }: Props) {
     }
   }, [user]);
 
-  const handleJoin = async () => {
-    if (!token) return;
+  // Auto-join: fires when the user is already authenticated and the token has resolved.
+  // Replaces the manual "Join" button — authenticated users should land in the group
+  // without an extra click.
+  useEffect(() => {
+    if (!user || !groupId || !token || autoJoinFired.current) return;
+    autoJoinFired.current = true;
     setJoining(true);
+    joinGroup(token)
+      .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
+      .catch(() => {
+        setJoinError("Failed to join group. The invite may have expired.");
+        setJoining(false);
+      });
+  }, [user, groupId, token, groupName, navigate]);
+
+  const handleRetry = () => {
+    autoJoinFired.current = false;
     setJoinError(null);
-    try {
-      await joinGroup(token);
-      navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } });
-    } catch {
-      setJoinError("Failed to join group. The invite may have expired.");
-    } finally {
-      setJoining(false);
-    }
+    setJoining(true);
+    if (!token) return;
+    joinGroup(token)
+      .then(() => navigate(`/groups/${groupId}`, { state: { joinedGroup: groupName } }))
+      .catch(() => {
+        setJoinError("Failed to join group. The invite may have expired.");
+        setJoining(false);
+      });
   };
 
   const handleAuthRedirect = (mode: "login" | "register") => {
+    sessionStorage.setItem("pendingJoinToken", token!);
     sessionStorage.setItem("returnTo", `/join/${token}`);
     navigate("/", { state: { authMode: mode } });
   };
 
   const handleOAuthRedirect = (provider: string) => {
+    // Store token for both paths: password login consumes returnTo via handleLogin
+    // and navigates to JoinPage; OAuth returns to the root where App.tsx consumes
+    // pendingJoinToken directly (handleLogin is never called for OAuth).
+    sessionStorage.setItem("pendingJoinToken", token!);
     sessionStorage.setItem("returnTo", `/join/${token}`);
     window.location.href = `${API}/accounts/${provider}/login/?process=login`;
   };
@@ -116,16 +137,24 @@ export default function JoinPage({ user }: Props) {
         </div>
 
         {user ? (
-          <>
-            <button
-              onClick={handleJoin}
-              disabled={joining}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50"
-            >
-              {joining ? "Joining…" : `Join ${groupName}`}
-            </button>
-            {joinError && <p className="text-red-400 text-sm mt-3">{joinError}</p>}
-          </>
+          <div className="flex flex-col items-center gap-3 min-h-[4rem] justify-center">
+            {joining ? (
+              <>
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-400 text-sm truncate max-w-full">Joining {groupName}…</p>
+              </>
+            ) : joinError ? (
+              <>
+                <p className="text-red-400 text-sm">{joinError}</p>
+                <button
+                  onClick={handleRetry}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Try again
+                </button>
+              </>
+            ) : null}
+          </div>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-slate-400 text-sm mb-1">

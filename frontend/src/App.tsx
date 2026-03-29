@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "./hooks/useEscapeStack";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
@@ -17,19 +17,50 @@ import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import type { User } from "./types";
 import { starBoard, unstarBoard } from "./api/boards";
+import { joinGroup } from "./api/groups";
 
 export default function App() {
   const { user, loading, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const [starVersion, setStarVersion] = useState(0);
   const handleStarToggled = useCallback(() => setStarVersion((v) => v + 1), []);
+  // Prevent double-firing in React StrictMode when consuming pendingJoinToken.
+  const oauthJoinFired = useRef(false);
+
+  // OAuth return path: after an OAuth provider redirects back to the frontend root,
+  // handleLogin is never called. If the user arrived via a group invite link and
+  // clicked an OAuth button, JoinPage stored the raw token in pendingJoinToken before
+  // the redirect. Consume it here so the user lands in the group instead of the
+  // Dashboard.
+  useEffect(() => {
+    if (!user || oauthJoinFired.current) return;
+    const pendingToken = sessionStorage.getItem("pendingJoinToken");
+    if (!pendingToken) return;
+    oauthJoinFired.current = true;
+    sessionStorage.removeItem("pendingJoinToken");
+    sessionStorage.removeItem("returnTo");
+    joinGroup(pendingToken)
+      .then((group) => navigate(`/groups/${group.id}`, { state: { joinedGroup: group.name } }))
+      .catch(() => navigate(`/join/${pendingToken}`));
+  }, [user, navigate]);
 
   const handleLogin = (loggedInUser: User) => {
     updateUser(loggedInUser);
     const returnTo = sessionStorage.getItem("returnTo");
     if (returnTo) {
       sessionStorage.removeItem("returnTo");
-      navigate(returnTo);
+      // JoinPage will handle auto-join when navigated to — clear pendingJoinToken
+      // so the OAuth useEffect above does not also fire and double-join.
+      if (returnTo.startsWith("/join/")) {
+        sessionStorage.removeItem("pendingJoinToken");
+      }
+      // Guard: only navigate to in-app paths to prevent open-redirect via
+      // sessionStorage manipulation (defense-in-depth; React Router v6 does not
+      // follow external URLs but this makes the intent explicit).
+      const safePath = returnTo.startsWith("/") && !returnTo.startsWith("//")
+        ? returnTo
+        : "/";
+      navigate(safePath);
       return;
     }
     // If the user has a default board set, navigate there directly instead of

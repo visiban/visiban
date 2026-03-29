@@ -233,7 +233,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 ## Loading and spinner states
 
-- Consistent spinner: single size per context (e.g. `w-5 h-5` inline, `w-8 h-8` full-page)
+- **Canonical animated spinner:** `w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin` (inline context). Use `w-8 h-8` for full-page center spinners. Always wrap in `flex items-center justify-center gap-2` with a `text-sm text-slate-400` label when the wait context is not obvious.
 - Center spinners with `flex items-center justify-center`
 
 ## Empty states
