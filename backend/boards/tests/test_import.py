@@ -96,6 +96,44 @@ class BoardImportJSONTests(TestCase):
         self.assertEqual(CardComment.objects.filter(card=card).count(), 1)
         self.assertEqual(CardChecklist.objects.filter(card=card).count(), 2)
 
+    def test_json_import_weight_activity_created_for_non_default(self):
+        """Importing a card with weight > 1 should create a WEIGHT_CHANGE activity."""
+        data = self._valid_json_data()
+        data["cards"][0]["weight"] = 3
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        activity = CardActivity.objects.filter(
+            card=card, event_type=CardActivity.EventType.WEIGHT_CHANGE
+        ).first()
+        self.assertIsNotNone(activity)
+        self.assertEqual(activity.from_value, "1")
+        self.assertEqual(activity.to_value, "3")
+        self.assertEqual(activity.actor, self.user)
+
+    def test_json_import_no_weight_activity_for_default(self):
+        """Importing a card with weight=1 (default) should NOT create a WEIGHT_CHANGE activity."""
+        data = self._valid_json_data()
+        data["cards"][0]["weight"] = 1
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        self.assertFalse(
+            CardActivity.objects.filter(
+                card=card, event_type=CardActivity.EventType.WEIGHT_CHANGE
+            ).exists()
+        )
+
     def test_json_import_name_override(self):
         data = self._valid_json_data()
         resp = self.client.post(
@@ -211,6 +249,48 @@ class BoardImportCSVTests(TestCase):
         card2 = Card.objects.get(board_id=board_id, title="Add dashboard")
         self.assertEqual(card2.weight, 2)
         self.assertEqual(card2.labels.count(), 2)
+
+    def test_csv_import_weight_activity_created_for_non_default(self):
+        """CSV import of a card with weight > 1 should create a WEIGHT_CHANGE activity."""
+        csv_content = (
+            "Card ID,Title,Description,Column,Swimlane,Priority,Assignee,Labels,Due Date,Weight,Created At,Created By,Last Moved At,Movement Count,Movement History\n"
+            "1,Weighted card,,To Do,General,medium,,,,2,2026-01-01,importer,,,\n"
+        )
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_csv_file(csv_content), "name": "CSV Weight Board"},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Weighted card")
+        activity = CardActivity.objects.filter(
+            card=card, event_type=CardActivity.EventType.WEIGHT_CHANGE
+        ).first()
+        self.assertIsNotNone(activity)
+        self.assertEqual(activity.from_value, "1")
+        self.assertEqual(activity.to_value, "2")
+        self.assertEqual(activity.actor, self.user)
+
+    def test_csv_import_no_weight_activity_for_default(self):
+        """CSV import of a card with weight=1 should NOT create a WEIGHT_CHANGE activity."""
+        csv_content = (
+            "Card ID,Title,Description,Column,Swimlane,Priority,Assignee,Labels,Due Date,Weight,Created At,Created By,Last Moved At,Movement Count,Movement History\n"
+            "1,Default weight card,,To Do,General,medium,,,,1,2026-01-01,importer,,,\n"
+        )
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_csv_file(csv_content), "name": "CSV Default Board"},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Default weight card")
+        self.assertFalse(
+            CardActivity.objects.filter(
+                card=card, event_type=CardActivity.EventType.WEIGHT_CHANGE
+            ).exists()
+        )
 
     def test_invalid_csv_returns_400(self):
         # Missing required headers
