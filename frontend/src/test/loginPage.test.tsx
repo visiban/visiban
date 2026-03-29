@@ -151,7 +151,8 @@ describe('LoginPage', () => {
     await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
     await user.click(screen.getByText('Create account'))
 
-    expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123')
+    // 4th arg is the invite token from sessionStorage — undefined when none is present
+    expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123', undefined)
   })
 
   it('hides "Create one" and shows invite-only message when registration is closed', async () => {
