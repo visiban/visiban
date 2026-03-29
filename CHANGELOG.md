@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+---
+
+## [1.0.0-rc.10] — 2026-03-29
+
 ### Added
 - Functional test coverage for group board defaults, invite link expiry/limit, cascade deletion of attachments and group invite links, management commands (ensure_site_admin/set_site_admin), token hash backfill, board movements and templates endpoints, and query count budgets for group members and notifications (#404, #405, #407, #408, #409, #410)
 - Getting-started onboarding tour for new users — a 4-step contextual tooltip walkthrough that triggers the first time a user opens a board, introducing swimlanes, card movement, the audit trail, and the filter bar; dismissing or completing the tour sets a persistent server-side flag so the user is never interrupted again; admins can reset the flag from the admin panel (#337)
@@ -44,6 +48,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Tests for ChangePasswordView PAT revocation — password change deletes all tokens, revoked tokens cannot authenticate, other users' tokens are unaffected (#406)
 - Tests for ServeMediaView non-member access (404, not 403) and path traversal rejection (#411)
 - Functional rate limit test verifying 429 response after exceeding throttle limit, plus throttle wiring assertions (#412)
+- Enforce case-insensitive username uniqueness — a PostgreSQL functional index now prevents `Kelly` and `kelly` from coexisting. Existing collisions are resolved automatically by the migration (winner keeps username, losers pick a new one via a non-dismissable modal on next login). A new `POST /api/auth/choose-username/` endpoint lets affected users (and API/PAT clients) set a new username.
+- Users now receive a notification when they are added to a board — the notification appears in the bell dropdown and respects a new "Board invites" preference in Settings → Notifications (default: on)
 
 ### Changed
 - CI default job setting changed from `interruptible: true` to `interruptible: false` — main-branch pipelines were being silently canceled when two MRs landed in quick succession; `workflow: auto_cancel: on_new_commit: interruptible` preserves the optimisation on feature branches for any job that opts in
@@ -65,6 +71,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Personal Access Tokens settings page now displays "Never" instead of a dash for tokens with no expiry date, making the non-expiring state immediately legible; expiry field now shows inline helper text ("Leave expiry blank for a non-expiring token (max 1 year if set)") so users understand the optional nature of the field without visiting docs
 - 13 checklist-style Claude Code agents (changelog, rbac-check, broadcast-check, migration-check, perf-check, perf-bench, dependency, duplicate-check, enterprise-check, test-scaffold, api-docs, docs, ux-review) now run on Sonnet; architect, security-review, and `/mr` remain on Opus and delegate parallel research phases to Sonnet sub-agents before synthesizing results
 - New `ux-design` agent proposes concrete UI layout, component composition, interaction flow, and state handling before implementation — runs on Opus with 3 parallel Sonnet sub-agents for research; workflow order is now `architect` → `ux-design` → implement → `ux-review`
+- Changelog workflow now uses fragment files in changelog.d/ instead of direct CHANGELOG.md edits — eliminates merge conflicts between concurrent branches
 
 ### Fixed
 - Site-wide invite links (`vbnl_…`) now correctly route through registration — `JoinPage` detects the `vbnl_` prefix, stores the token in `sessionStorage`, and redirects to the register page; `LoginPage` reads and submits it on registration then clears it from storage
@@ -125,6 +132,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Analytics heatmap `is_outlier` cell coloring now correctly uses the board's configured staleness threshold in all cases — a backend test was added to confirm the board threshold is used even when the `stalled_days` query param overrides the stalled-card list
 - `MustNotHavePendingPasswordChange` permission was silently dropped by every viewset that declared explicit `permission_classes = [IsAuthenticated]`, allowing users with a forced password-change flag to access the full API — views now inherit `DEFAULT_PERMISSION_CLASSES` instead of overriding them; `ChangePasswordView` is the only endpoint that intentionally omits the gate (#414)
 - `BoardViewSet.perform_create` now wraps board, membership, column, and swimlane creation in `transaction.atomic()` — previously a failure during swimlane creation left orphaned board and column records in the database (#419)
+- Invite link join flow no longer requires a second click — authenticated users are joined automatically on arrival; OAuth users are joined immediately after provider redirect without landing on the Dashboard first; password login/register users are joined automatically when returned to the join page (#433)
 
 ### Security
 - `delete_attachment` now enforces the same ownership gate as `delete_comment` — members can only delete their own attachments unless they have the moderator entitlement; previously any member-role user could delete attachments uploaded by other members (#378)

@@ -2,7 +2,7 @@
 
 [![pipeline](https://gitlab.com/visiban/visiban/badges/main/pipeline.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
 [![coverage](https://gitlab.com/visiban/visiban/badges/main/coverage.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
-[![release](https://img.shields.io/badge/release-v1.0.0--rc.9-blue)](https://gitlab.com/visiban/visiban/-/releases/v1.0.0-rc.9)
+[![release](https://img.shields.io/badge/release-v1.0.0--rc.10-blue)](https://gitlab.com/visiban/visiban/-/releases/v1.0.0-rc.10)
 [![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/next/)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
