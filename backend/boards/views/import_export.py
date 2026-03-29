@@ -585,9 +585,12 @@ class BoardImportExportMixin:
                 "labels",
                 "movements__from_column",
                 "movements__to_column",
+                "movements__from_swimlane",
+                "movements__to_swimlane",
                 "movements__moved_by",
                 "comments__author",
                 "checklist_items",
+                "activities__actor",
             )
             .order_by("position")
         )
@@ -629,6 +632,29 @@ class BoardImportExportMixin:
                             "is_checked": item.is_checked,
                         }
                         for item in sorted(card.checklist_items.all(), key=lambda i: i.position)
+                    ],
+                    "movements": [
+                        {
+                            "from_column": mv.from_column.name if mv.from_column else None,
+                            "to_column": mv.to_column.name if mv.to_column else None,
+                            "from_swimlane": mv.from_swimlane.name if mv.from_swimlane else None,
+                            "to_swimlane": mv.to_swimlane.name if mv.to_swimlane else None,
+                            "moved_by": mv.moved_by.username if mv.moved_by else None,
+                            "moved_at": mv.moved_at.isoformat(),
+                            "notes": mv.notes,
+                            "movement_type": mv.movement_type,
+                        }
+                        for mv in movements
+                    ],
+                    "activities": [
+                        {
+                            "event_type": act.event_type,
+                            "from_value": act.from_value,
+                            "to_value": act.to_value,
+                            "actor": act.actor.username if act.actor else None,
+                            "created_at": act.created_at.isoformat(),
+                        }
+                        for act in sorted(card.activities.all(), key=lambda a: a.created_at)
                     ],
                 })
 
