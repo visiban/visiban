@@ -21,6 +21,7 @@ export default function LoginPage({ onLogin }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
+  const [hasInviteToken, setHasInviteToken] = useState(() => !!sessionStorage.getItem("invite_token"));
 
   useEffect(() => {
     getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null }));
@@ -45,6 +46,7 @@ export default function LoginPage({ onLogin }: Props) {
         const inviteToken = sessionStorage.getItem("invite_token") || undefined;
         await apiRegister(loginField, password, confirm, inviteToken);
         sessionStorage.removeItem("invite_token");
+        setHasInviteToken(false);
       }
       const user = await getCurrentUser();
       onLogin(user);
@@ -96,7 +98,7 @@ export default function LoginPage({ onLogin }: Props) {
               className="w-full bg-slate-800 border border-slate-700 text-slate-300 placeholder-slate-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           )}
-          {mode === "register" && !registrationOpen && (
+          {mode === "register" && !registrationOpen && !hasInviteToken && (
             <p className="text-slate-400 text-xs text-center">
               An invite link is required to create an account.
             </p>
@@ -104,7 +106,7 @@ export default function LoginPage({ onLogin }: Props) {
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <button
             type="submit"
-            disabled={submitting || (mode === "register" && !registrationOpen)}
+            disabled={submitting || (mode === "register" && !registrationOpen && !hasInviteToken)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}

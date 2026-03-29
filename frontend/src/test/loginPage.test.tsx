@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -31,8 +31,13 @@ function renderLoginPage(locationState?: Record<string, unknown>) {
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
     mockGetSiteConfig.mockResolvedValue({ registration_open: true })
+  })
+
+  afterEach(() => {
+    sessionStorage.clear()
   })
 
   it('renders login form by default', () => {
@@ -178,6 +183,25 @@ describe('LoginPage', () => {
     renderLoginPage({ authMode: 'register' })
 
     expect(await screen.findByText('An invite link is required to create an account.')).toBeInTheDocument()
+  })
+
+  it('enables submit button in register mode when registration is closed but invite token is present', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    sessionStorage.setItem('invite_token', 'vbnl_abc123')
+    renderLoginPage({ authMode: 'register' })
+
+    // Wait for site config to resolve — the button must remain enabled
+    await screen.findByText('Create account')
+    expect(screen.getByRole('button', { name: 'Create account' })).not.toBeDisabled()
+  })
+
+  it('hides invite-required message when invite token is present', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+    sessionStorage.setItem('invite_token', 'vbnl_abc123')
+    renderLoginPage({ authMode: 'register' })
+
+    await screen.findByText('Create account')
+    expect(screen.queryByText('An invite link is required to create an account.')).not.toBeInTheDocument()
   })
 
   it('assumes registration open when getSiteConfig fails', async () => {
