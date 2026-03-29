@@ -61,6 +61,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - New `ux-design` agent proposes concrete UI layout, component composition, interaction flow, and state handling before implementation — runs on Opus with 3 parallel Sonnet sub-agents for research; workflow order is now `architect` → `ux-design` → implement → `ux-review`
 
 ### Fixed
+- Site-wide invite links (`vbnl_…`) now correctly route through registration — `JoinPage` detects the `vbnl_` prefix, stores the token in `sessionStorage`, and redirects to the register page; `LoginPage` reads and submits it on registration then clears it from storage
+- `get_accessible_group_ids()` now walks up the group hierarchy as well as down — a member of a subgroup can now see and navigate to ancestor groups in the sidebar
+- Group membership now implies access to all boards in that group — a separate `BoardMembership` record is no longer required for boards that belong to a group the user is a member of
+- `useViewPrefs` now prunes stale column and swimlane IDs from `localStorage` on load — deleted columns or swimlanes no longer leave phantom hidden/collapsed state
+- Entering swimlane focus mode now also expands all columns and snapshots column collapse state for restoration on exit; switching focus to a different swimlane no longer overwrites the original pre-focus snapshot
+- Collapse/Expand toolbar button now toggles both columns and swimlanes together; clicking it while in focus mode first exits focus
+- Site Admin sidebar link changed from `<a href>` (full reload) to React Router `<Link>` (SPA navigation)
 - Board sub-nav toolbar no longer jumps when switching between Board / Summary / History / Analytics views — the Board toolbar had `h-10 mt-2` (40px + 8px margin) while the other views used `py-1.5`; all views now use the same `py-1.5` padding (#432)
 - Avatar color palette unified to `-600` tones across the entire frontend — `Avatar.tsx` updated from `-500`, `CardDetail.tsx` inline `AVATAR_PALETTE` (`-700` tones) removed in favor of the shared `Avatar` component, and `BoardSettingsModal.tsx` hardcoded `bg-blue-700` circles replaced with `<Avatar>` (#428)
 - Admin invite link panel now displays and copies the full join URL (`/join/<token>`) instead of the raw token — the raw token alone was unusable as a shareable link

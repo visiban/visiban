@@ -138,7 +138,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
 
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id);
+  const validColumnIds = useMemo(() => new Set(board.columns.map((c) => c.id)), [board.columns]);
+  const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
 
   // Wrap in useMemo so downstream memos don't re-run on every render due to new Set instances
   const hiddenColumnIds = useMemo(() => new Set(viewPrefs.hiddenColumnIds), [viewPrefs.hiddenColumnIds]);
@@ -148,9 +150,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const allColumnsExpanded = board.columns.every((c) => !collapsedColumnIds.has(c.id));
   // Swimlane collapsed state — driven by useViewPrefs, seeded from board.swimlanes[*].is_collapsed on first load.
   const collapsedSwimlaneIds = useMemo(() => new Set(viewPrefs.collapsedSwimlaneIds), [viewPrefs.collapsedSwimlaneIds]);
+  const allSwimlanesExpanded = board.swimlanes.every((s) => !collapsedSwimlaneIds.has(s.id));
+  const allExpanded = allColumnsExpanded && allSwimlanesExpanded;
 
-  // Suppress unused-variable warning — expandAllSwimlanes is available for future toolbar use.
-  void expandAllSwimlanes;
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
@@ -227,17 +229,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   })();
   const focusedSwimlane = focusedSwimlaneId !== null ? board.swimlanes.find((s) => s.id === focusedSwimlaneId) ?? null : null;
 
-  // Snapshot of collapsedSwimlaneIds at the moment focus is entered — restored on exit.
-  // Stored in a ref so it doesn't trigger re-renders and is not persisted to localStorage.
+  // Snapshot of collapsed swimlane and column IDs at the moment focus is entered —
+  // restored on exit. Stored in refs so they don't trigger re-renders.
   const preFocusCollapsedSwimlaneIds = useRef<number[] | null>(null);
+  const preFocusCollapsedColumnIds = useRef<number[] | null>(null);
 
   const enterFocus = useCallback((swimlaneId: number) => {
-    // Snapshot current collapse state before overwriting it.
-    preFocusCollapsedSwimlaneIds.current = viewPrefs.collapsedSwimlaneIds.slice();
+    // Only snapshot on the first focus entry — switching focus to a different
+    // swimlane while already focused must not overwrite the original snapshot,
+    // otherwise exitFocus restores the wrong (already-focused) state.
+    if (preFocusCollapsedSwimlaneIds.current === null) {
+      preFocusCollapsedSwimlaneIds.current = viewPrefs.collapsedSwimlaneIds.slice();
+      preFocusCollapsedColumnIds.current = viewPrefs.collapsedColumnIds.slice();
+    }
     // Collapse all swimlanes except the focused one so they disappear from DOM.
     collapseAllSwimlanes(board.swimlanes.filter((s) => s.id !== swimlaneId).map((s) => s.id));
+    // Expand all columns so the focused swimlane shows full card content.
+    expandAllColumns();
     setSearchParams((prev) => { prev.set("focus", String(swimlaneId)); return prev; });
-  }, [board.swimlanes, collapseAllSwimlanes, viewPrefs.collapsedSwimlaneIds, setSearchParams]);
+  }, [board.swimlanes, collapseAllSwimlanes, expandAllColumns, viewPrefs.collapsedSwimlaneIds, viewPrefs.collapsedColumnIds, setSearchParams]);
 
   const exitFocus = useCallback(() => {
     // Restore the pre-focus collapse state if we have a snapshot.
@@ -245,8 +255,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       collapseAllSwimlanes(preFocusCollapsedSwimlaneIds.current);
       preFocusCollapsedSwimlaneIds.current = null;
     }
+    if (preFocusCollapsedColumnIds.current !== null) {
+      collapseAllColumns(preFocusCollapsedColumnIds.current);
+      preFocusCollapsedColumnIds.current = null;
+    }
     setSearchParams((prev) => { prev.delete("focus"); return prev; });
-  }, [collapseAllSwimlanes, setSearchParams]);
+  }, [collapseAllSwimlanes, collapseAllColumns, setSearchParams]);
 
   // Keep a stable ref to exitFocus so the deletion-detection effect below always calls the
   // latest version of exitFocus without needing to re-run the effect when exitFocus changes.
@@ -729,11 +743,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <ViewToggle view={view} onChange={setView} />
         <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
-          onClick={() => allColumnsExpanded ? collapseAllColumns(board.columns.map(c => c.id)) : expandAllColumns()}
+          onClick={() => {
+            // Exit focus mode first — expanding or collapsing everything
+            // contradicts focus, which hides all other swimlanes.
+            if (focusedSwimlaneId !== null) exitFocus();
+            if (allExpanded) {
+              collapseAllColumns(board.columns.map(c => c.id));
+              collapseAllSwimlanes(board.swimlanes.map(s => s.id));
+            } else {
+              expandAllColumns();
+              expandAllSwimlanes();
+            }
+          }}
           className="text-xs text-slate-300 hover:text-white hover:bg-slate-700/50 px-2 py-1 rounded transition shrink-0"
-          title={allColumnsExpanded ? "Collapse all columns" : "Expand all columns"}
+          title={allExpanded ? "Collapse all columns and swimlanes" : "Expand all columns and swimlanes"}
         >
-          {allColumnsExpanded ? "Collapse" : "Expand"}
+          {allExpanded ? "Collapse" : "Expand"}
         </button>
         <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
