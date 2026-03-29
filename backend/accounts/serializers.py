@@ -68,7 +68,7 @@ class UserSerializer(serializers.ModelSerializer):
             "close_editor_on_enter",
             "has_completed_tour",
             "notif_card_assigned", "notif_mentioned", "notif_due_soon",
-            "notif_card_moved", "notif_comment_added",
+            "notif_card_moved", "notif_comment_added", "notif_board_invite",
             "default_board_id",
         ]
         read_only_fields = ["id", "is_site_admin", "can_access_all_content", "must_change_password", "has_usable_password"]

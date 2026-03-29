@@ -438,6 +438,7 @@ class Notification(models.Model):
         MENTIONED = "mentioned", "mentioned"
         CARD_MOVED = "card_moved", "card moved"
         STALE = "stale", "stale"
+        BOARD_INVITE = "board_invite", "board invite"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"

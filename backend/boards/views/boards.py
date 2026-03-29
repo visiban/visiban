@@ -15,7 +15,7 @@ from groups.models import Group, GroupMembership, get_accessible_group_ids
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardFavorite, BoardMembership, Column, SavedFilter, Swimlane,
+    Board, BoardFavorite, BoardMembership, Column, Notification, SavedFilter, Swimlane,
 )
 from ..permissions import get_board_role, SITE_ADMIN
 from ..serializers import (
@@ -326,6 +326,16 @@ class BoardViewSet(
         board_id = board.id
         ws_event = "member.added" if created else "member.updated"
         transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, ws_event, membership_data))
+        # Notify the invited user when they are newly added (not on role updates).
+        # Skipped if they added themselves or have opted out of board invite notifications.
+        if created and target_user != request.user and target_user.notif_board_invite:
+            Notification.objects.create(
+                recipient=target_user,
+                actor=request.user,
+                action_type=Notification.ActionType.BOARD_INVITE,
+                verb=f"{request.user.username} added you to \"{board.name}\"",
+                board=board,
+            )
         return Response(membership_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")

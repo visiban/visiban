@@ -10,7 +10,7 @@ import datetime
 from django.utils import timezone
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Card, CardMovement, Column, Swimlane
+from boards.models import Board, BoardMembership, Card, CardMovement, Column, Notification, Swimlane
 
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
@@ -246,3 +246,49 @@ class BoardMembersTests(TestCase):
             {"user_id": site_admin.id, "role": "viewer"},
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch(PATCH_BROADCAST)
+    def test_board_invite_notification_created_on_add(self, _):
+        r = self.client.post(
+            f"/api/boards/{self.board.id}/members/",
+            {"user_id": self.target.id, "role": "member"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        notif = Notification.objects.filter(
+            recipient=self.target,
+            actor=self.admin,
+            action_type=Notification.ActionType.BOARD_INVITE,
+            board=self.board,
+        )
+        self.assertTrue(notif.exists())
+        self.assertIn(self.board.name, notif.first().verb)
+
+    @patch(PATCH_BROADCAST)
+    def test_board_invite_notification_not_created_on_role_update(self, _):
+        # Pre-existing membership — should not re-notify on role change.
+        BoardMembership.objects.create(board=self.board, user=self.target, role=BoardMembership.Role.VIEWER)
+        self.client.post(
+            f"/api/boards/{self.board.id}/members/",
+            {"user_id": self.target.id, "role": "member"},
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient=self.target,
+                action_type=Notification.ActionType.BOARD_INVITE,
+            ).exists()
+        )
+
+    @patch(PATCH_BROADCAST)
+    def test_board_invite_notification_suppressed_when_opted_out(self, _):
+        self.target.notif_board_invite = False
+        self.target.save()
+        self.client.post(
+            f"/api/boards/{self.board.id}/members/",
+            {"user_id": self.target.id, "role": "member"},
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient=self.target,
+                action_type=Notification.ActionType.BOARD_INVITE,
+            ).exists()
+        )
