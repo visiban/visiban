@@ -126,6 +126,43 @@ class NotificationListViewTests(TestCase):
         self.assertIn("unread notification", verbs)
         self.assertNotIn("read notification", verbs)
 
+    def test_list_includes_action_type_for_board_invite(self):
+        Notification.objects.create(
+            recipient=self.user,
+            verb="You were added to Test Board",
+            board=self.board,
+            action_type=Notification.ActionType.BOARD_INVITE,
+            read=False,
+        )
+
+        resp = self.client.get("/api/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["action_type"], "board_invite")
+
+    def test_list_includes_action_type_for_card_notifications(self):
+        card = Card.objects.create(
+            board=self.board,
+            column=self.col_a,
+            swimlane=self.swim,
+            title="Test Card",
+            created_by=self.user,
+            position=0,
+        )
+        Notification.objects.create(
+            recipient=self.user,
+            verb="You were assigned to Test Card",
+            board=self.board,
+            card=card,
+            action_type=Notification.ActionType.ASSIGNED,
+            read=False,
+        )
+
+        resp = self.client.get("/api/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["action_type"], "assigned")
+
     def test_mark_all_read_then_list_is_empty(self):
         Notification.objects.create(
             recipient=self.user, verb="will be read", board=self.board, read=False

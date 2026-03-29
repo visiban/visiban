@@ -21,6 +21,7 @@ const mockNotifications: Notification[] = [
     card_title: 'Setup CI',
     board_id: 1,
     board_name: 'Sprint 1',
+    action_type: 'card_moved',
     read: false,
     created_at: new Date(Date.now() - 5 * 60_000).toISOString(),
   },
@@ -31,6 +32,7 @@ const mockNotifications: Notification[] = [
     card_title: 'Fix login',
     board_id: 1,
     board_name: 'Sprint 1',
+    action_type: 'mentioned',
     read: false,
     created_at: new Date(Date.now() - 30 * 60_000).toISOString(),
   },
@@ -108,6 +110,7 @@ describe('Notification dropdown', () => {
       card_title: null,
       board_id: 1,
       board_name: 'Sprint 1',
+      action_type: 'board_invite',
       read: false,
       created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
     }
@@ -223,6 +226,45 @@ describe('Notification dropdown', () => {
 
     // Badge should disappear (count = 0)
     expect(screen.queryByText('2')).not.toBeInTheDocument()
+  })
+
+  it('renders "View board" affordance for board invite notifications', async () => {
+    const user = userEvent.setup()
+    const boardInviteNotification: Notification = {
+      id: 4,
+      verb: 'You were added to Sprint 1',
+      card_id: null,
+      card_title: null,
+      board_id: 1,
+      board_name: 'Sprint 1',
+      action_type: 'board_invite',
+      read: false,
+      created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
+    }
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([boardInviteNotification])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle('Notifications'))
+    await waitFor(() => screen.getByText('You were added to Sprint 1'))
+
+    expect(screen.getByText('View board →')).toBeInTheDocument()
+  })
+
+  it('does not render "View board" affordance for card-scoped notifications', async () => {
+    const user = userEvent.setup()
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([mockNotifications[0]])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle('Notifications'))
+    await waitFor(() => screen.getByText('Alice moved card "Setup CI" to Done'))
+
+    expect(screen.queryByText('View board →')).not.toBeInTheDocument()
   })
 
   it('shows empty state when there are no notifications', async () => {

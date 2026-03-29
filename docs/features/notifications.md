@@ -61,7 +61,7 @@ When a user is added to a board (directly or via group membership), they receive
 
 > "You were added to "{board name}""
 
-This notification appears in the bell dropdown. Users can disable it in **Settings → Notifications** by toggling the **Board invites** preference.
+This notification appears in the bell dropdown and includes a **View board →** link, making it clear that clicking will navigate to the board. Users can disable board invite notifications in **Settings → Notifications** by toggling the **Board invites** preference.
 
 ## Comment added notifications
 
@@ -119,10 +119,13 @@ The `GET /api/notifications/` response returns an array of objects with the foll
   "card_title": "Deploy v2.3",
   "board_id": 1,
   "board_name": "Engineering",
+  "action_type": "assigned",
   "read": false,
   "created_at": "2026-03-27T14:00:00Z"
 }
 ```
 
+The `action_type` field is a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, or `""` (empty string for legacy notifications created before action types were introduced).
+
 !!! note
-    The `action_type` and `actor` fields are stored on the model but are not currently included in the API response. They are available for direct database queries and will be added to the API in a future release.
+    The `actor` field is stored on the model but is not currently included in the API response. It is available for direct database queries and will be added to the API in a future release.

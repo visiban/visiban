@@ -155,6 +155,7 @@ export interface Notification {
   card_title: string | null;
   board_id: number | null;
   board_name: string | null;
+  action_type: string;
   read: boolean;
   created_at: string;
 }
