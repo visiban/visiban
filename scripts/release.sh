@@ -64,6 +64,11 @@ if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
   sed -i '' "s|Earlier release candidates (rc\.1–rc\.[0-9]*)|Earlier release candidates (rc.1–rc.${PREV_RC_NUM})|" docs/index.md
 fi
 
+# Assemble any pending changelog fragments into CHANGELOG.md before rotating
+if [ -d changelog.d ]; then
+  scripts/assemble-changelog.sh || { echo "Error: changelog assembly failed" >&2; exit 1; }
+fi
+
 # Rotate CHANGELOG: rename [Unreleased] → [v{VERSION}] and prepend a fresh [Unreleased]
 if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
   echo "Error: CHANGELOG.md has no [Unreleased] section" >&2
