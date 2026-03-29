@@ -60,6 +60,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - New `ux-design` agent proposes concrete UI layout, component composition, interaction flow, and state handling before implementation — runs on Opus with 3 parallel Sonnet sub-agents for research; workflow order is now `architect` → `ux-design` → implement → `ux-review`
 
 ### Fixed
+- Board sub-nav toolbar no longer jumps when switching between Board / Summary / History / Analytics views — the Board toolbar had `h-10 mt-2` (40px + 8px margin) while the other views used `py-1.5`; all views now use the same `py-1.5` padding (#432)
 - Avatar color palette unified to `-600` tones across the entire frontend — `Avatar.tsx` updated from `-500`, `CardDetail.tsx` inline `AVATAR_PALETTE` (`-700` tones) removed in favor of the shared `Avatar` component, and `BoardSettingsModal.tsx` hardcoded `bg-blue-700` circles replaced with `<Avatar>` (#428)
 - Admin invite link panel now displays and copies the full join URL (`/join/<token>`) instead of the raw token — the raw token alone was unusable as a shareable link
 - Standardized form input styling across the entire frontend to match the design system spec — replaced ad-hoc `rounded-lg`, `py-2`, `text-white`, `bg-slate-900`, `focus:border-*` variants with consistent `rounded`, `py-1.5`, `text-slate-300`, `bg-slate-800`, `focus:ring-2 focus:ring-blue-500` across Settings, Login, modals, card detail, filter bar, and admin pages (#429)
