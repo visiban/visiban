@@ -50,11 +50,13 @@ nav:
     - OAuth Setup: getting-started/oauth.md
     - Board Setup: getting-started/board-setup.md
     - Sample Boards: getting-started/sample-boards.md
+    - Onboarding Tour: getting-started/onboarding-tour.md
   - Features:
     - features/index.md
     - Board & Cards: features/board.md
     - Card Archiving: features/card-archiving.md
     - Card Descriptions: features/card-descriptions.md
+    - Saved Filters: features/saved-filters.md
     - Analytics: features/analytics.md
     - Notifications: features/notifications.md
     - Real-time Updates: features/realtime.md
@@ -64,6 +66,7 @@ nav:
     - Navigation: features/navigation.md
     - Personal Access Tokens: features/personal-access-tokens.md
     - Board Permissions: features/permissions.md
+    - Feature Toggles: features/feature-toggles.md
     - Roles & Permissions:
       - features/rbac/index.md
       - Overview: features/rbac/roles.md

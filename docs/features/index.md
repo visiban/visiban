@@ -205,6 +205,157 @@ Settings are accessed from the avatar menu in the top-right navbar.
 
 ---
 
+## WIP limits and hard enforcement
+
+
+WIP limits can now be configured in two modes: **soft** (advisory, admins can override) or **hard** (strict, no override for any role). When hard enforcement is enabled in **Board Settings → Rules → Enforce WIP hard**, moves into a full column are blocked for everyone — including board admins and site admins. The move API returns `409` with code `wip_hard_blocked`, and the board shows a `⛔` toast rather than the `⚠` used for soft blocks.
+
+Weight limits work the same way: the corresponding **Enforce weight limits** setting blocks moves that would push a column's total weight over its budget.
+
+→ [Board & Cards — Hard WIP enforcement](board.md#hard-wip-enforcement)
+
+---
+
+## Saved filters
+
+
+Save any combination of filters (search text, assignee, labels, priority, due date) under a name and restore it in one click from the **Saved** dropdown in the filter bar. Saved filters are stored server-side and persist across devices. They are private to each user — other board members cannot see or modify your presets. Any board role, including Viewer, can manage their own saved filters.
+
+→ [Saved Filters](saved-filters.md)
+
+---
+
+## Card information at a glance
+
+
+Two new fields are visible directly on the card face without opening the detail panel:
+
+- **Weight** — shown in the card metadata row when the card's weight is above 1, letting you scan column budgets at a glance.
+- **Last moved** — a relative label (e.g. "moved yesterday", "moved 3 days ago") appears on cards not moved within the last 24 hours. Cards moved within 24 hours continue to show the existing blue-dot indicator. The label can be hidden per-board via **Board Settings → Card fields → Last moved**.
+
+→ [Board & Cards — Cards](board.md#cards)
+
+---
+
+## Move to from the card detail panel
+
+
+The card detail panel now includes a **Move to** button in the breadcrumb row. Clicking it opens a popover where you can select a destination column and swimlane without closing the panel and without drag-and-drop. The button shows a first-encounter dot indicator for users who have not yet clicked it; the dot is dismissed permanently on first use.
+
+→ [Board & Cards — Cards](board.md#cards)
+
+---
+
+## URL-addressable board tabs and card history preference
+
+
+The board sub-navigation tabs (Board, Summary, Analytics, History) now reflect in the URL via a `?view=` search parameter. Tab views can be bookmarked and shared, and the browser Back button skips tab transitions.
+
+Within the card detail History tab, the **Show full history** toggle now persists across card opens, page refreshes, and sessions via `localStorage`. Users who prefer the expanded view no longer need to re-enable it each time.
+
+→ [Board & Cards](board.md) · [Card History](card-history.md)
+
+---
+
+## Analytics heatmap — absolute threshold coloring
+
+
+The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Stale card settings**.
+
+→ [Analytics](analytics.md#color-coding)
+
+---
+
+## Onboarding tour
+
+
+First-time users see a four-step contextual tooltip walkthrough when they open a board for the first time. The tour introduces swimlanes, card movement, the audit trail, and the filter bar. Completing or skipping the tour sets a persistent server-side flag — the tour never reappears. Site admins can reset the flag for any user from the admin panel.
+
+→ [Onboarding Tour](../getting-started/onboarding-tour.md)
+
+---
+
+## Board sharing
+
+
+Board admins can generate a public read-only link that lets anyone view the board without a Visiban account. The link serves a static board view showing the full grid (columns, swimlanes, cards) with titles, labels, checklist progress, due dates, weights, and assignee names visible. Editing and commenting are disabled in the public view. Revoking the token immediately invalidates the link.
+
+→ [Board & Cards — Board sharing](board.md#board-sharing)
+
+---
+
+## Sidebar explorer tree
+
+
+The expanded sidebar now renders groups and their boards as a recursive tree. Subgroups appear nested under their parent group with indented chevron expand/collapse controls, and boards belonging to subgroups are shown inline under their group. The collapsed icon rail is unchanged — it continues to show one icon per top-level section.
+
+→ [Navigation](navigation.md)
+
+---
+
+## Ownership-gated destructive actions
+
+
+Card delete, archive, and comment delete are now ownership-gated for members. A member can only delete or archive cards they created and delete comments they authored. Board admins and members with the **moderator** entitlement can act on any content.
+
+The **moderator** entitlement lets a board admin delegate content-moderation rights to a specific member without granting them full admin access.
+
+→ [Board Permissions](permissions.md#moderator-entitlement)
+
+---
+
+## Export restricted to members and above
+
+
+CSV and JSON board export is now restricted to members and admins. Collaborators and viewers receive `403 Forbidden` when they request the export endpoints. This aligns the export permission with the level of access required to have meaningful use of the full data set.
+
+→ [Board & Cards — Export](board.md#export-import)
+
+---
+
+## Invite link improvements
+
+
+Invite links now handle group-access-gated boards correctly. When a new user follows an invite link to a board that is protected by group membership, they see a clear explanation of the pending access request and what to expect next, rather than an error page. The admin panel invite links tab now displays and copies the full join URL (`/join/<token>`) rather than the raw token.
+
+→ [Administration](../administration/admin-panel.md)
+
+---
+
+## OIDC authentication
+
+
+Generic OpenID Connect (OIDC) is now configurable via environment variables, making it straightforward to integrate with Keycloak, Authentik, Okta, Dex, or any other standard OIDC identity provider. Set `OIDC_CLIENT_ID`, `OIDC_SECRET`, and `OIDC_SERVER_URL` to enable it; the provider is only registered when all three are present.
+
+!!! warning "Tech preview"
+    The configuration plumbing is implemented and unit-tested, but the end-to-end login flow has not been validated against a real identity provider. Treat this as a tech preview and report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
+
+→ [Authentication](../administration/authentication.md#generic-oidc)
+
+---
+
+## Feature toggles
+
+
+Site admins can enable or disable specific features instance-wide from the admin panel Settings tab. Toggling a feature takes effect within approximately 60 seconds and never deletes existing data. The current toggles control file uploads; additional toggles will be added as new gated features are introduced.
+
+→ [Feature Toggles](feature-toggles.md)
+
+---
+
+## UI polish — wave 1 and wave 2
+
+
+A focused set of usability improvements landed across two waves:
+
+- **Focus mode** on the board toolbar — a crosshair icon on any swimlane label collapses all other rows so you can work without distraction; the `?focus=<id>` URL parameter makes focus mode bookmarkable and shareable.
+- **Card move discoverability** — the **Move to** button in the card detail panel shows a first-encounter indicator for users who have not yet discovered it.
+- **Onboarding and offboarding navigation refinements** — improved flows for new users joining via invite link and for board ownership transfer when a user is deactivated.
+
+→ [Board & Cards — Swimlane focus mode](board.md#swimlane-focus-mode)
+
+---
+
 ## What to read next
 
 New to Visiban? We recommend this order:
@@ -214,3 +365,4 @@ New to Visiban? We recommend this order:
 3. [Groups](groups.md) — organize your boards and invite your team
 4. [Analytics](analytics.md) — find bottlenecks and track velocity
 5. [Notifications](notifications.md) — stay on top of stale work
+6. [Onboarding Tour](../getting-started/onboarding-tour.md) — what new users see on first login
