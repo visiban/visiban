@@ -20,6 +20,7 @@ export interface User {
   notif_card_moved?: boolean;
   notif_comment_added?: boolean;
   close_editor_on_enter?: boolean;
+  has_completed_tour?: boolean;
   /** PK of the board to open automatically on login, or null if not set. */
   default_board_id?: number | null;
   /** Whether file uploads are enabled instance-wide. Reflects SiteSetting.uploads_enabled. */

@@ -114,6 +114,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       {...listeners}
       onClick={readOnly ? undefined : onClick}
       data-no-pan
+      data-tour-step="card"
       className={`group bg-slate-800 rounded-md select-none transition-all border relative z-0
         ${readOnly ? "cursor-default" : "cursor-pointer hover:-translate-y-0.5 hover:z-20"}
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950

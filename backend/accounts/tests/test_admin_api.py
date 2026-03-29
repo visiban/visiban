@@ -275,6 +275,15 @@ class AdminPatchUserTests(TestCase):
         self.target.refresh_from_db()
         self.assertTrue(self.target.must_change_password)
 
+    def test_admin_reset_tour_flag(self):
+        """Admin can reset a user's onboarding tour flag."""
+        self.target.has_completed_tour = True
+        self.target.save(update_fields=["has_completed_tour"])
+        r = self.client.patch(f"/api/admin/users/{self.target.pk}/", {"has_completed_tour": False})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.target.refresh_from_db()
+        self.assertFalse(self.target.has_completed_tour)
+
     def test_non_admin_rejected(self):
         reg = make_user(username="reg5")
         self.client.force_authenticate(reg)

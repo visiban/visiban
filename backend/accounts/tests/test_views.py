@@ -32,6 +32,22 @@ class CurrentUserViewTests(TestCase):
         r = self.client.get("/api/auth/me/")
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
+    def test_patch_has_completed_tour(self):
+        """User can mark the onboarding tour as completed via PATCH /api/auth/me/."""
+        self.assertFalse(self.user.has_completed_tour)
+        r = self.client.patch("/api/auth/me/", {"has_completed_tour": True})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertTrue(r.json()["has_completed_tour"])
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.has_completed_tour)
+
+    def test_get_returns_has_completed_tour(self):
+        """GET /api/auth/me/ includes has_completed_tour in the response."""
+        r = self.client.get("/api/auth/me/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("has_completed_tour", r.json())
+        self.assertFalse(r.json()["has_completed_tour"])
+
 
 class ChangePasswordViewTests(TestCase):
     def setUp(self):

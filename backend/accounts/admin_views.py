@@ -72,6 +72,7 @@ class AdminUserSerializer(drf_serializers.ModelSerializer):
             "is_site_admin",
             "can_access_all_content",
             "must_change_password",
+            "has_completed_tour",
             "date_joined",
             "owned_boards",
         ]
@@ -102,6 +103,7 @@ class AdminPatchUserSerializer(drf_serializers.Serializer):
     is_site_admin = drf_serializers.BooleanField(required=False)
     can_access_all_content = drf_serializers.BooleanField(required=False)
     must_change_password = drf_serializers.BooleanField(required=False)
+    has_completed_tour = drf_serializers.BooleanField(required=False)
 
 
 class InviteLinkSerializer(drf_serializers.Serializer):
@@ -311,6 +313,10 @@ class AdminUserDetailView(APIView):
         if "must_change_password" in validated:
             target.must_change_password = validated["must_change_password"]
             update_fields.append("must_change_password")
+
+        if "has_completed_tour" in validated:
+            target.has_completed_tour = validated["has_completed_tour"]
+            update_fields.append("has_completed_tour")
 
         if update_fields:
             target.save(update_fields=update_fields)

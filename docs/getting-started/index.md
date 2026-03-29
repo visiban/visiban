@@ -9,6 +9,7 @@ Everything you need to go from zero to a running Visiban instance.
 | [OAuth Setup](oauth.md) | Configuring Google, GitHub, and GitLab OAuth login |
 | [Board Setup](board-setup.md) | Configuring columns, marking done columns for accurate analytics |
 | [Sample Boards](sample-boards.md) | Importing pre-built board templates with realistic data |
+| [Onboarding Tour](onboarding-tour.md) | The guided walkthrough shown to new users on their first board visit |
 
 ## Quick start checklist
 
