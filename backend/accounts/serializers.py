@@ -66,6 +66,7 @@ class UserSerializer(serializers.ModelSerializer):
             "display_name", "is_site_admin", "can_access_all_content", "must_change_password", "has_usable_password",
             "timezone", "date_format", "time_format", "number_locale",
             "close_editor_on_enter",
+            "has_completed_tour",
             "notif_card_assigned", "notif_mentioned", "notif_due_soon",
             "notif_card_moved", "notif_comment_added",
             "default_board_id",

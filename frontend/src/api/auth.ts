@@ -37,6 +37,9 @@ export const changePassword = (current_password: string, new_password: string) =
 export const updateDefaultBoard = (boardId: number | null) =>
   client.patch<import("../types").User>("/api/auth/me/", { default_board_id: boardId }).then((r) => r.data);
 
+export const completeTour = () =>
+  client.patch<import("../types").User>("/api/auth/me/", { has_completed_tour: true }).then((r) => r.data);
+
 export const searchUsers = (query: string) =>
   client.get<User[]>(`/api/users/?search=${encodeURIComponent(query)}`).then((r) => r.data);
 

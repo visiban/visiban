@@ -33,6 +33,7 @@ import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
+import OnboardingTour from "./OnboardingTour";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
@@ -47,6 +48,7 @@ interface Props {
   userTimeFormat?: string;
   closeEditorOnEnter?: boolean;
   currentUser?: User | null;
+  onUserUpdated?: (user: User) => void;
 }
 
 function ColumnTrashZone() {
@@ -77,7 +79,7 @@ function ViewToggle({
   view: "board" | "summary" | "history" | "analytics";
   onChange: (v: "board" | "summary" | "history" | "analytics") => void;
 }) {
-  const btn = (label: string, val: "board" | "summary" | "history" | "analytics") => (
+  const btn = (label: string, val: "board" | "summary" | "history" | "analytics", tourStep?: string) => (
     <button
       onClick={() => onChange(val)}
       className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -85,6 +87,7 @@ function ViewToggle({
           ? "bg-blue-600 text-white"
           : "text-slate-400 hover:text-white hover:bg-slate-600"
       }`}
+      {...(tourStep ? { "data-tour-step": tourStep } : {})}
     >
       {label}
     </button>
@@ -93,13 +96,13 @@ function ViewToggle({
     <div className="flex items-center gap-0.5 bg-slate-700 rounded p-0.5">
       {btn("Board", "board")}
       {btn("Summary", "summary")}
-      {btn("History", "history")}
+      {btn("History", "history", "history")}
       {btn("Analytics", "analytics")}
     </div>
   );
 }
 
-export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null }: Props) {
+export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   const {
     board: boardOrNull,
     moveCard: onMoveCard,
@@ -737,6 +740,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </button>
         <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
         <button
+          data-tour-step="filter"
           onClick={() => setShowFilters((v) => !v)}
           className={`text-xs px-2 py-1 rounded transition shrink-0 ${showFilters ? "text-blue-400 bg-blue-500/10" : "text-slate-300 hover:text-white hover:bg-slate-700/50"}`}
         >
@@ -1130,6 +1134,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onClose={() => setShowArchived(false)}
           onUnarchived={(card) => { onCardUnarchived(card); }}
           currentUser={currentUser}
+        />
+      )}
+
+      {!currentUser?.has_completed_tour && board && board.swimlanes.length > 0 && board.cards.length > 0 && (
+        <OnboardingTour
+          onComplete={() => {
+            if (currentUser && onUserUpdated) {
+              onUserUpdated({ ...currentUser, has_completed_tour: true });
+            }
+          }}
         />
       )}
 

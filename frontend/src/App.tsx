@@ -196,6 +196,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             userTimeFormat={user.time_format ?? "12h"}
             closeEditorOnEnter={user.close_editor_on_enter ?? true}
             currentUser={user}
+            onUserUpdated={onUserUpdated}
           />
         )}
       </div>
