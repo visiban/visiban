@@ -1,6 +1,6 @@
 # Notifications
 
-Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, and comment added. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
+Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the `notify_stale_cards` management command.
 
 ## Notification bell
 
@@ -22,6 +22,7 @@ Each user can enable or disable individual notification triggers in **Settings â
 | Due date warning | Off |
 | Card moved | Off |
 | Comment added | Off |
+| Board invites | On |
 
 Staleness notifications (from the `notify_stale_cards` command) are always delivered and are not user-configurable.
 
@@ -53,6 +54,14 @@ When a card's due date is approaching (within 24 hours by default), the assignee
 ## Card moved notifications
 
 When a card is moved to a different column by another user, the card's assignee is notified.
+
+## Board invite notifications
+
+When a user is added to a board (directly or via group membership), they receive a notification:
+
+> "You were added to "{board name}""
+
+This notification appears in the bell dropdown. Users can disable it in **Settings â†’ Notifications** by toggling the **Board invites** preference.
 
 ## Comment added notifications
 
