@@ -109,7 +109,7 @@ The pipeline must pass before an MR can be merged. Security and license jobs are
 2. **Name your branch** descriptively — `feat/my-feature`, `fix/the-bug`, `docs/update-readme`
 3. **Keep changes focused** — one feature or fix per MR makes review much easier
 4. **Write a clear MR description** — what changed and why, and any testing steps the reviewer should follow
-5. **Update the [CHANGELOG](CHANGELOG.md)** — add an entry under `[Unreleased]` in the appropriate section (Added / Changed / Fixed / Removed)
+5. **Add a changelog fragment** — create a file in `changelog.d/` named `<issue-or-slug>.<type>.md` (e.g. `434.fixed.md`). Valid types: `added`, `changed`, `fixed`, `security`. See `changelog.d/README.md` for details
 6. Open the MR against `main`
 
 If you're unsure whether a change is a good fit, open an issue to discuss it first before putting in the work.

@@ -65,8 +65,7 @@ When asked to create a release, invoke `/release`. The skill handles version str
   4. Open MR targeting `main`, wait for a **green pipeline**, then merge
 - Release commits also go through branches and MRs — `scripts/release.sh` handles this automatically
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
-- Always update `CHANGELOG.md` `[Unreleased]` section on any branch before merging
-- **CHANGELOG entries must be appended to the existing `### Added` / `### Changed` / `### Fixed` section** within `[Unreleased]` — never create a second `### Added`, `### Changed`, or `### Fixed` heading in the same release block; duplicate headings cause the changelog to render incorrectly and entries to appear twice
+- **Changelog entries use fragment files** — create a file in `changelog.d/` named `<issue-or-slug>.<type>.md` (e.g. `434.fixed.md`) instead of editing `CHANGELOG.md` directly. Valid types: `added`, `changed`, `fixed`, `security`. The CI `changelog-check` job enforces this. Fragments are assembled into `CHANGELOG.md` automatically at release time by `scripts/assemble-changelog.sh`. **Never edit `CHANGELOG.md` directly on a feature branch.**
 - **Every new or modified feature must include test cases and documentation updates in the same MR** — do not ship a feature without both. This applies to frontend and backend changes equally:
   - Frontend tests: `frontend/src/test/`
   - Backend tests: `backend/boards/tests/` (or the relevant app's `tests/` directory)
