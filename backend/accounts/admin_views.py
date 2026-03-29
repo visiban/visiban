@@ -87,7 +87,7 @@ class AdminCreateUserSerializer(drf_serializers.Serializer):
     force_password_reset = drf_serializers.BooleanField(default=True)
 
     def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
+        if User.objects.filter(username__iexact=value).exists():
             raise drf_serializers.ValidationError("A user with that username already exists.")
         return value
 

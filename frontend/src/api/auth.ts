@@ -27,6 +27,9 @@ export const getSiteConfig = () =>
 export const changePassword = (current_password: string, new_password: string) =>
   client.post<{ detail: string }>("/api/auth/change-password/", { current_password, new_password }).then((r) => r.data);
 
+export const chooseUsername = (username: string) =>
+  client.post<User>("/api/auth/choose-username/", { username }).then((r) => r.data);
+
 // updateDefaultBoard uses /api/auth/me/ (Visiban's own CurrentUserView) rather than
 // /api/auth/user/ (dj-rest-auth's built-in endpoint) because dj-rest-auth does not
 // know about the Visiban-specific `default_board_id` field — only CurrentUserView's

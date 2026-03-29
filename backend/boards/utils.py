@@ -65,8 +65,14 @@ def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
         return
 
     already_notified = set(fresh_card.mentioned_user_ids or [])
+    # Case-insensitive username lookup: @mentions typed in any casing
+    # should match the user regardless of how the username is stored.
+    from django.db.models import Q
+    from functools import reduce
+    import operator
+    username_q = reduce(operator.or_, (Q(username__iexact=u) for u in added_usernames))
     recipients = (
-        User.objects.filter(username__in=added_usernames, pk__in=eff_ids, notif_mentioned=True)
+        User.objects.filter(username_q, pk__in=eff_ids, notif_mentioned=True)
         .exclude(pk=actor.pk)
         .exclude(pk__in=already_notified)
     )

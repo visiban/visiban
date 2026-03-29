@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, InviteLink, get_registration_mode
-from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer
+from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -79,8 +79,14 @@ class AuthProvidersView(APIView):
 
 
 class CurrentUserView(APIView):
-    """Retrieve or update the currently authenticated user's profile."""
+    """Retrieve or update the currently authenticated user's profile.
 
+    Exempt from MustNotHavePendingPasswordChange and
+    MustNotHavePendingUsernameChange so the frontend can always fetch
+    the current user and render the appropriate force-change modal.
+    """
+
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
@@ -134,6 +140,57 @@ class ChangePasswordView(APIView):
         # user does not get logged out and left with a broken session state.
         update_session_auth_hash(request, request.user)
         return Response({"detail": "Password changed successfully."})
+
+
+class ChooseUsernameView(APIView):
+    """Let a user pick a new username after a forced rename.
+
+    Exempt from MustNotHavePendingUsernameChange so that affected users can
+    reach this endpoint. Also exempt from MustNotHavePendingPasswordChange so
+    the endpoint is reachable regardless of flag ordering (password change
+    takes priority in the UI, but the API must not block the username
+    endpoint if both flags are somehow set).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import re
+        username = (request.data.get("username") or "").strip()
+
+        if not username:
+            return Response(
+                {"detail": "Username is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(username) > 150:
+            return Response(
+                {"detail": "Username must be 150 characters or fewer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Django's default username validator: letters, digits, @/./+/-/_
+        if not re.match(r"^[\w.@+-]+$", username):
+            return Response(
+                {"detail": "Username may only contain letters, digits, and @/./+/-/_ characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Case-insensitive uniqueness check, excluding the requesting user.
+        if User.objects.filter(username__iexact=username).exclude(pk=request.user.pk).exists():
+            return Response(
+                {"detail": "That username is already taken."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request.user.username = username
+        request.user.must_change_username = False
+        request.user.save(update_fields=["username", "must_change_username"])
+
+        return Response(
+            UserSerializer(request.user, context={"request": request}).data
+        )
 
 
 class SiteConfigView(APIView):

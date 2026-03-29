@@ -9,6 +9,7 @@ export interface User {
   is_site_admin: boolean;
   can_access_all_content?: boolean;
   must_change_password: boolean;
+  must_change_username: boolean;
   has_usable_password?: boolean;
   timezone?: string;
   date_format?: string;

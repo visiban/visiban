@@ -24,3 +24,24 @@ class MustNotHavePendingPasswordChange(BasePermission):
         if not user.is_authenticated:
             return True
         return not getattr(user, "must_change_password", False)
+
+
+class MustNotHavePendingUsernameChange(BasePermission):
+    """Block all API access for users with a forced username-change flag set.
+
+    Mirrors MustNotHavePendingPasswordChange. Views that must remain accessible
+    despite the flag (ChooseUsernameView, ChangePasswordView) opt out by
+    declaring their own explicit permission_classes without this class.
+    """
+
+    # DRF uses `code` in the error response detail dict, giving API/PAT
+    # clients a machine-readable signal so they can detect and resolve the
+    # condition programmatically.
+    message = "You must choose a new username before continuing."
+    code = "must_change_username"
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user.is_authenticated:
+            return True
+        return not getattr(user, "must_change_username", False)

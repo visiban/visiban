@@ -206,6 +206,7 @@ REST_FRAMEWORK = {
         # their own explicit permission_classes without this class. All other views
         # must NOT override permission_classes with [IsAuthenticated] alone.
         "visiban.permissions.MustNotHavePendingPasswordChange",
+        "visiban.permissions.MustNotHavePendingUsernameChange",
     ],
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
