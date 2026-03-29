@@ -237,7 +237,7 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 | Manage columns / swimlanes / labels | ❌ | ❌ | ❌ | ✅ |
 | Manage board members | ❌ | ❌ | ❌ | ✅ |
 | Generate / revoke share link | ❌ | ❌ | ❌ | ✅ |
-| Export board | ✅ | ✅ | ✅ | ✅ |
+| Export board | ❌ | ❌ | ✅ | ✅ |
 
 ### Moderator entitlement
 
@@ -254,7 +254,10 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 
 - Registration mode: Open / Invite-only / Closed
 - User management: list, create, deactivate, promote to site admin, force password reset
+- User deactivation triggers offboarding flow — board ownership is transferred to an eligible member before the account is deactivated; blocked when no eligible transfer target exists
 - File uploads toggle — enable or disable attachment uploads instance-wide; existing attachments remain accessible when uploads are disabled
+- Invite links — admins can create site-wide invite links with optional TTL (1d / 7d / 30d) and single-use flag; "Invite Links" tab shows status badges and supports inline revocation
+- Invite link auto-join — authenticated users are joined automatically on arrival; OAuth users are joined immediately after provider redirect; invite-token registration works even when registration is globally closed
 
 ---
 
@@ -266,6 +269,7 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 - Personal Access Tokens (PATs) — create from Settings → Access Tokens; carry a `vbn_` prefix; shown only once at creation; optional expiry up to one year; max 10 per user; all tokens revoked on password change
 - Invite-only and closed registration modes
 - Force-password-reset on first login (admin-assignable)
+- Force-username-change — case-insensitive username uniqueness enforced via PostgreSQL functional index; existing collisions resolved automatically by migration (winner keeps username, losers pick a new one via a non-dismissable modal on next login); `POST /api/auth/choose-username/` endpoint for API/PAT clients
 - Default board redirect on login
 
 ---
@@ -273,9 +277,10 @@ Group admin role cascades to board-admin on all boards in the group (handled by 
 ## Notifications
 
 - In-app notification bell
-- Triggers: @mention in description, @mention in comment, card assigned to you
+- Triggers: @mention in description, @mention in comment, card assigned to you, board invite (added to a board), card moved, comment added, due date warning
 - Re-notification guard on description edits (won't re-notify the same user for the same mention)
 - Deep-link from notification to the card
+- Per-user notification preferences in Settings → Notifications (each trigger toggleable; board invites default on)
 - Capped at 50 most recent per user
 
 ---
@@ -292,6 +297,8 @@ All board mutations broadcast to connected clients after `transaction.on_commit(
 - Member added / updated / removed
 - Column / swimlane reordered
 - Board updated / deleted
+
+Server-side keepalive ping every 30 seconds prevents NATs and reverse proxies from dropping idle connections; frontend detects a missing ping within 45 seconds and auto-reconnects.
 
 Live indicator is three-state: green "Live" when connected, amber "Reconnecting…" while attempting to reconnect, grey "Offline" when the connection has permanently failed. Evicted members have their WebSocket connection closed immediately on removal.
 
@@ -338,6 +345,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 
 ## Security
 
+- Global permission gates — `MustNotHavePendingPasswordChange` and `MustNotHavePendingUsernameChange` are enforced on all viewsets via `DEFAULT_PERMISSION_CLASSES`; users with a forced password or username change are locked out of the full API until they comply
 - No raw SQL — ORM only
 - Input validation at serializer boundary
 - Object-level authorization (IDOR prevention)
@@ -359,9 +367,11 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 
 ## CI/CD
 
-- GitLab CI pipeline: lint, SAST, migration check, backend tests, frontend tests, docker build, changelog check
+- GitLab CI pipeline: lint, SAST (Semgrep + Bandit), secret detection, migration check, backend tests (sharded across 3 parallel jobs via pytest-split), frontend tests, docker build, changelog check
 - Docker image builds use kaniko (no Docker-in-Docker)
 - Merge only allowed with green pipeline
+- Cache policy split: pull on MR, pull-push on main via dedicated warm jobs
+- Docs auto-deploy on version tags; Docker images tagged with version on release
 - Scheduled seed-data refresh job for demo environment
 
 ---
@@ -369,13 +379,22 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 ## Seed / demo data
 
 `python manage.py seed_demo_data` — creates a realistic demo board:
-- 5 columns, 10 swimlanes, ~83 cards (8 archived)
+- 5 columns, 10 swimlanes, ~120 unique cards (8 archived)
 - Cards with checklists, comments, movement history, archived cards, varied priorities and due dates
 - All cards (including Backlog) have at least one creation movement so the History tab is never empty
 - `--wipe`: removes the existing demo board first (refuses on production without `--force`)
 - `--export`: regenerates seed JSON/CSV files
 
-`python manage.py seed_template_boards` — seeds all 10 non-blank board templates with domain-specific swimlanes, cards, labels, checklists, comments, and full CardMovement + CardActivity history. Seed files exported to `sample-boards/<slug>.json`.
+`python manage.py seed_template_boards` — seeds all 10 non-blank board templates with 10–11 swimlanes, 110–121 unique cards each, domain-specific content, movement history, activities, labels, checklists, and comments. Seed files exported to `sample-boards/<slug>.json`. All templates also ship as ready-to-import JSON and CSV files at the repo root.
+
+---
+
+## Onboarding
+
+- Getting-started tour for new users — a 4-step contextual tooltip walkthrough that triggers the first time a user opens a board
+- Tour covers: swimlanes, card movement, the audit trail, and the filter bar
+- Dismissing or completing the tour sets a persistent server-side flag (`has_completed_tour`) so the user is never interrupted again
+- Admins can reset the flag from the admin panel
 
 ---
 
@@ -385,6 +404,8 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - "Show full history" — per-user, controls whether the card activity panel shows all activity or just movements; persists across sessions via localStorage
 - Default board — login redirects to this board
 - Avatar color — distinct per user in comment threads
+- Notification preferences — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added, board invites)
+- Timezone, date format, time format, number locale
 
 ---
 
