@@ -28,7 +28,7 @@ const fakeBoard = {
     { id: 21, uid: 's2', name: 'Globex', position: 1, color: '#EC4899', is_collapsed: false, created_at: '' },
   ],
   members: [
-    { id: null, user: { id: 5, username: 'alice', email: 'alice@x.com', first_name: 'Alice', last_name: '', display_name: 'Alice', avatar_url: '', is_site_admin: false, must_change_password: false }, role: 'admin' as const, joined_at: '' },
+    { id: null, user: { id: 5, username: 'alice', email: 'alice@x.com', first_name: 'Alice', last_name: '', display_name: 'Alice', avatar_url: '', is_site_admin: false, must_change_password: false, must_change_username: false }, role: 'admin' as const, joined_at: '' },
   ],
   cards: [],
   labels: [],
@@ -65,7 +65,7 @@ function makeMovement(overrides: Partial<CardMovement> = {}): CardMovement {
     to_swimlane: 20,
     to_swimlane_name: 'Acme',
     to_swimlane_uid: 's1',
-    moved_by: { id: 5, username: 'alice', email: 'alice@x.com', first_name: 'Alice', last_name: '', display_name: 'Alice', avatar_url: '', is_site_admin: false, must_change_password: false },
+    moved_by: { id: 5, username: 'alice', email: 'alice@x.com', first_name: 'Alice', last_name: '', display_name: 'Alice', avatar_url: '', is_site_admin: false, must_change_password: false, must_change_username: false },
     moved_at: '2026-03-20T10:00:00Z',
     notes: '',
     movement_type: 'move',

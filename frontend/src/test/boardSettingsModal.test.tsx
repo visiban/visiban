@@ -40,7 +40,7 @@ const fakeUser: User = {
   avatar_url: '',
   display_name: 'Admin User',
   is_site_admin: false,
-  must_change_password: false,
+  must_change_password: false, must_change_username: false,
   has_usable_password: true,
 }
 
@@ -53,7 +53,7 @@ const fakeMember2: User = {
   avatar_url: '',
   display_name: 'Bob Smith',
   is_site_admin: false,
-  must_change_password: false,
+  must_change_password: false, must_change_username: false,
   has_usable_password: true,
 }
 
@@ -273,7 +273,7 @@ const aliceUser: User = {
   avatar_url: '',
   display_name: 'Alice Wonder',
   is_site_admin: false,
-  must_change_password: false,
+  must_change_password: false, must_change_username: false,
   has_usable_password: true,
 }
 

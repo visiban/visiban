@@ -101,9 +101,11 @@ class MustChangePasswordBlocksAPITests(TestCase):
         resp = self.client.get("/api/users/?search=test")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_current_user_view_blocked(self):
+    def test_current_user_view_allowed(self):
+        """CurrentUserView is exempt from pending-change gates so the frontend
+        can fetch the user object and render the appropriate force-change modal."""
         resp = self.client.get("/api/auth/me/")
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
     def test_pat_list_blocked(self):
         resp = self.client.get("/api/auth/tokens/")

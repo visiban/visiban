@@ -31,7 +31,7 @@ function makeBoard(): BoardFull {
     ],
     labels: [],
     members: [
-      { id: 1, user: { id: 1, username: 'jdoe', email: '', first_name: 'Jane', last_name: 'Doe', avatar_url: '', display_name: 'Jane Doe', is_site_admin: false, must_change_password: false }, role: 'admin', is_moderator: false, joined_at: '' },
+      { id: 1, user: { id: 1, username: 'jdoe', email: '', first_name: 'Jane', last_name: 'Doe', avatar_url: '', display_name: 'Jane Doe', is_site_admin: false, must_change_password: false, must_change_username: false }, role: 'admin', is_moderator: false, joined_at: '' },
     ],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
@@ -521,7 +521,7 @@ describe('BulkActionToolbar', () => {
 
   it('shows warning in delete modal when member selects cards by others', async () => {
     const user = userEvent.setup()
-    const memberUser = { id: 99, username: 'member', email: '', first_name: 'Member', last_name: '', avatar_url: '', display_name: 'Member', is_site_admin: false, must_change_password: false }
+    const memberUser = { id: 99, username: 'member', email: '', first_name: 'Member', last_name: '', avatar_url: '', display_name: 'Member', is_site_admin: false, must_change_password: false, must_change_username: false }
     const board = makeBoard()
     board.current_user_role = 'member'
     board.members = [{ id: 2, user: memberUser, role: 'member', is_moderator: false, joined_at: '' }]

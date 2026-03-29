@@ -64,6 +64,7 @@ Paginated list of all accounts on the instance. Site admin only.
       "is_active": true,
       "is_site_admin": false,
       "must_change_password": false,
+      "must_change_username": false,
       "date_joined": "2026-01-15T09:00:00Z"
     }
   ]
@@ -85,7 +86,7 @@ Create a new local account. Site admin only.
 
 | Field | Required | Notes |
 |---|---|---|
-| `username` | Yes | Must be unique on the instance |
+| `username` | Yes | Must be unique on the instance (case-insensitive) |
 | `email` | Yes | Must be unique on the instance |
 | `password` | Yes | Minimum 12 characters |
 | `force_password_reset` | No | Default `true` — the user must set a new password on first login |
@@ -103,6 +104,7 @@ Update a user's account flags. Site admin only.
 | `is_site_admin` | boolean | Grant or revoke admin panel access. Cannot demote yourself. Cannot demote the last active admin. |
 | `can_access_all_content` | boolean | Grant or revoke omniscient read/write access to all boards and groups. Independent of `is_site_admin` — see [Site Admins](../administration/site-admins.md). |
 | `must_change_password` | boolean | `true` forces a password reset on next login |
+| `must_change_username` | boolean | `true` forces a username change on next login (set automatically by the CI uniqueness migration) |
 
 **Request**
 ```json

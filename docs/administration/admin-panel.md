@@ -45,7 +45,7 @@ Creates a local account directly. Fields:
 
 | Field | Notes |
 |---|---|
-| Username | Must be unique on the instance |
+| Username | Must be unique on the instance (case-insensitive) |
 | Email | Used for future email notification features |
 | Password | Minimum 12 characters |
 | Force password reset | On by default — the user must choose a new password on first login |

@@ -74,7 +74,7 @@ const mockUseBoardContext = useBoardContext as ReturnType<typeof vi.fn>
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
   last_name: 'Doe', avatar_url: '', display_name: 'Jane Doe',
-  is_site_admin: false, must_change_password: false,
+  is_site_admin: false, must_change_password: false, must_change_username: false,
 }
 
 const defaultBoardHook = {
@@ -124,7 +124,7 @@ describe('App', () => {
 
   it('shows force change password modal when must_change_password', () => {
     mockUseAuth.mockReturnValue({
-      user: { ...fakeUser, must_change_password: true },
+      user: { ...fakeUser, must_change_password: true, must_change_username: false },
       loading: false, logout: vi.fn(), updateUser: vi.fn(),
     })
     render(<MemoryRouter><App /></MemoryRouter>)

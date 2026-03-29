@@ -22,7 +22,7 @@ const fakeUser = {
   avatar_url: '',
   display_name: 'Test User',
   is_site_admin: false,
-  must_change_password: false,
+  must_change_password: false, must_change_username: false,
 }
 
 describe('useAuth', () => {

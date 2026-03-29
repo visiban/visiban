@@ -58,13 +58,13 @@ function filterCards(cards: Card[], filters: FilterState): Card[] {
 const alice: User = {
   id: 1, username: 'alice', email: 'alice@example.com',
   first_name: 'Alice', last_name: 'Smith', avatar_url: '',
-  display_name: 'Alice Smith', is_site_admin: false, must_change_password: false,
+  display_name: 'Alice Smith', is_site_admin: false, must_change_password: false, must_change_username: false,
 }
 
 const bob: User = {
   id: 2, username: 'bob', email: 'bob@example.com',
   first_name: 'Bob', last_name: 'Jones', avatar_url: '',
-  display_name: 'Bob Jones', is_site_admin: false, must_change_password: false,
+  display_name: 'Bob Jones', is_site_admin: false, must_change_password: false, must_change_username: false,
 }
 
 function makeCard(overrides: Partial<Card> & { id: number; title: string }): Card {

@@ -62,11 +62,10 @@ def resolve_collisions(apps, schema_editor):
             loser.must_change_username = True
             loser.save(update_fields=["username", "must_change_username"])
             logger.info(
-                "  loser pk=%d renamed '%s' -> '%s' (email=%s, last_login=%s)",
+                "  loser pk=%d renamed '%s' -> '%s' (last_login=%s)",
                 loser.pk,
                 old_username,
                 loser.username,
-                loser.email,
                 loser.last_login,
             )
 
