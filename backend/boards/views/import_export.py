@@ -244,7 +244,14 @@ class BoardImportExportMixin:
                         all_usernames.add(act["actor"])
             # Case-insensitive user resolution: imported data may contain
             # usernames in a different casing than stored in the DB.
-            user_map = {u.username.lower(): u for u in User.objects.filter(username__in=all_usernames)}
+            # Annotate with Lower so the __in filter matches regardless of
+            # the stored casing, and key the map by lowered username.
+            from django.db.models.functions import Lower
+            user_map = {
+                u.username.lower(): u
+                for u in User.objects.annotate(lower_username=Lower("username"))
+                .filter(lower_username__in=[n.lower() for n in all_usernames])
+            } if all_usernames else {}
 
             # Create cards
             for card_data in data.get("cards", []):

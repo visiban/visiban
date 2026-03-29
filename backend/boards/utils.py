@@ -1,6 +1,8 @@
 """Shared board utilities — mention parsing and notification helpers."""
 
+import operator
 import re
+from functools import reduce
 
 
 def extract_mentions(text: str) -> set:
@@ -68,8 +70,6 @@ def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
     # Case-insensitive username lookup: @mentions typed in any casing
     # should match the user regardless of how the username is stored.
     from django.db.models import Q
-    from functools import reduce
-    import operator
     username_q = reduce(operator.or_, (Q(username__iexact=u) for u in added_usernames))
     recipients = (
         User.objects.filter(username_q, pk__in=eff_ids, notif_mentioned=True)

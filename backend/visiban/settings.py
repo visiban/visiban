@@ -238,6 +238,8 @@ REST_FRAMEWORK = {
         "register": "9999/hour" if DEBUG else "10/min",
         # Public board share-link reads: generous but bounded to limit scraping.
         "share_link": "120/hour",
+        # Choose-username: prevents username enumeration via "already taken" probing.
+        "choose_username": "9999/hour" if DEBUG else "10/min",
     },
 }
 

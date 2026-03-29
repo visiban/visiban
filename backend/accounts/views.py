@@ -1,9 +1,10 @@
 import hashlib
+import re
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, update_session_auth_hash
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -142,6 +143,16 @@ class ChangePasswordView(APIView):
         return Response({"detail": "Password changed successfully."})
 
 
+class ChooseUsernameThrottle(UserRateThrottle):
+    """Per-user rate limit for the choose-username endpoint.
+
+    Prevents username enumeration by an authenticated attacker probing
+    different values and observing "already taken" vs. success responses.
+    """
+
+    scope = "choose_username"
+
+
 class ChooseUsernameView(APIView):
     """Let a user pick a new username after a forced rename.
 
@@ -153,9 +164,9 @@ class ChooseUsernameView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [ChooseUsernameThrottle]
 
     def post(self, request):
-        import re
         username = (request.data.get("username") or "").strip()
 
         if not username:
@@ -184,9 +195,19 @@ class ChooseUsernameView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        request.user.username = username
-        request.user.must_change_username = False
-        request.user.save(update_fields=["username", "must_change_username"])
+        # The DB functional index (unique_username_ci) is the ultimate guard
+        # against concurrent races — catch IntegrityError so a TOCTOU
+        # collision returns a clean 400 instead of an unhandled 500.
+        try:
+            with transaction.atomic():
+                request.user.username = username
+                request.user.must_change_username = False
+                request.user.save(update_fields=["username", "must_change_username"])
+        except IntegrityError:
+            return Response(
+                {"detail": "That username is already taken."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             UserSerializer(request.user, context={"request": request}).data
