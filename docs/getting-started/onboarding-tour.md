@@ -1,5 +1,6 @@
 # Onboarding Tour
 
+
 When a new user opens a board for the first time, Visiban displays a 4-step guided tour that introduces the core concepts:
 
 | Step | Target | What it explains |
@@ -19,14 +20,20 @@ When a new user opens a board for the first time, Visiban displays a 4-step guid
 
 ## Resetting the tour
 
-Site admins can reset a user's tour flag from **Admin > Users** by patching `has_completed_tour` back to `false` via the API:
+Site admins can reset a user's tour flag from the admin panel:
+
+1. Go to `/admin` → **Users** tab.
+2. Find the user and open their detail view.
+3. Click **Reset onboarding tour**.
+
+The user will see the tour again the next time they open a board. Resetting the tour does not affect any board data or settings.
+
+You can also reset the flag via the API:
 
 ```
 PATCH /api/admin/users/{id}/
 { "has_completed_tour": false }
 ```
-
-This is useful for support scenarios where an admin wants a user to re-experience the tour after a major UI update.
 
 ## API
 
@@ -35,5 +42,3 @@ The tour state is stored as a boolean field on the User model:
 - `GET /api/auth/me/` — returns `has_completed_tour` in the response
 - `PATCH /api/auth/me/` with `{ "has_completed_tour": true }` — marks the tour as completed
 - `PATCH /api/admin/users/{id}/` with `{ "has_completed_tour": false }` — admin resets the flag
-
-> **Added in:** 1.x (unreleased)
