@@ -17,7 +17,7 @@ describe('notifications API', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   it('listNotifications calls GET /api/notifications/', async () => {
-    const notifications = [{ id: 1, verb: 'card.moved' }]
+    const notifications = [{ id: 1, verb: 'card.moved', action_type: 'card_moved' }]
     mockGet.mockResolvedValue({ data: notifications })
     const result = await listNotifications()
     expect(mockGet).toHaveBeenCalledWith('/api/notifications/')

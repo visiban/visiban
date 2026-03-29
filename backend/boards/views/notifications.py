@@ -19,6 +19,7 @@ class NotificationListView(APIView):
                 "card_title": n.card.title if n.card else None,
                 "board_id": n.board_id,
                 "board_name": n.board.name if n.board else None,
+                "action_type": n.action_type,
                 "read": n.read,
                 "created_at": n.created_at,
             }

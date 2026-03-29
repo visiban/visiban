@@ -140,6 +140,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                     >
                       <p className="text-xs text-slate-200 leading-snug">{n.verb}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">{relativeTime(n.created_at)}</p>
+                      {n.board_id && !n.card_id && (
+                        <p className="text-[10px] text-blue-400 mt-0.5">View board →</p>
+                      )}
                     </button>
                   ))}
                 </div>
