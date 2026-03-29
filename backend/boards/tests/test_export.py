@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, CardChecklist, CardComment,
+    Board, BoardMembership, Card, CardActivity, CardChecklist, CardComment,
     CardMovement, Column, Label, Swimlane,
 )
 
@@ -128,6 +128,45 @@ class ExportJsonTests(TestCase):
         self.assertEqual(card_data["comments"][0]["body"], "A comment")
         self.assertEqual(len(card_data["checklist"]), 1)
         self.assertTrue(card_data["checklist"][0]["is_checked"])
+
+    def test_json_includes_movements_and_activities(self):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="History Card", priority="medium", weight=5,
+            created_by=self.owner, position=0,
+        )
+        CardMovement.objects.create(
+            card=card, from_column=None, to_column=self.col,
+            from_swimlane=None, to_swimlane=self.swim,
+            from_column_name="", to_column_name="Backlog",
+            from_swimlane_name="", to_swimlane_name="General",
+            from_column_uid="", to_column_uid=self.col.uid,
+            from_swimlane_uid="", to_swimlane_uid=self.swim.uid,
+            moved_by=self.owner,
+        )
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.WEIGHT_CHANGE,
+            from_value="1", to_value="5", actor=self.owner,
+        )
+
+        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        data = json.loads(r.content.decode("utf-8"))
+        card_data = data["cards"][0]
+
+        self.assertEqual(len(card_data["movements"]), 1)
+        mv = card_data["movements"][0]
+        self.assertIsNone(mv["from_column"])
+        self.assertEqual(mv["to_column"], "Backlog")
+        self.assertEqual(mv["moved_by"], "owner")
+        self.assertIn("moved_at", mv)
+
+        self.assertEqual(len(card_data["activities"]), 1)
+        act = card_data["activities"][0]
+        self.assertEqual(act["event_type"], "weight_change")
+        self.assertEqual(act["from_value"], "1")
+        self.assertEqual(act["to_value"], "5")
+        self.assertEqual(act["actor"], "owner")
+        self.assertIn("created_at", act)
 
     def test_json_empty_board(self):
         r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")

@@ -74,6 +74,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Entering swimlane focus mode now also expands all columns and snapshots column collapse state for restoration on exit; switching focus to a different swimlane no longer overwrites the original pre-focus snapshot
 - Collapse/Expand toolbar button now toggles both columns and swimlanes together; clicking it while in focus mode first exits focus
 - Site Admin sidebar link changed from `<a href>` (full reload) to React Router `<Link>` (SPA navigation)
+- JSON board export now includes `movements` and `activities` arrays in each card object — previously export → import round-trips silently dropped all movement history and activity log entries, causing weight changes and other field-change events to disappear from the card timeline (#434)
 - Board sub-nav toolbar no longer jumps when switching between Board / Summary / History / Analytics views — the Board toolbar had `h-10 mt-2` (40px + 8px margin) while the other views used `py-1.5`; all views now use the same `py-1.5` padding (#432)
 - Avatar color palette unified to `-600` tones across the entire frontend — `Avatar.tsx` updated from `-500`, `CardDetail.tsx` inline `AVATAR_PALETTE` (`-700` tones) removed in favor of the shared `Avatar` component, and `BoardSettingsModal.tsx` hardcoded `bg-blue-700` circles replaced with `<Avatar>` (#428)
 - Admin invite link panel now displays and copies the full join URL (`/join/<token>`) instead of the raw token — the raw token alone was unusable as a shareable link
