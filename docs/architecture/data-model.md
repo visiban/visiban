@@ -7,6 +7,7 @@ User
  ├── is_site_admin (bool — grants access to the admin panel)
  ├── can_access_all_content (bool — read/write access to all boards and groups, independent of is_site_admin)
  ├── must_change_password (bool)
+ ├── must_change_username (bool — set when a CI collision renames the account)
  ├── close_editor_on_enter (bool — submit new-card input on Enter; default true)
  ├── default_board → Board (nullable — post-login redirect target)
  ├── timezone (str)

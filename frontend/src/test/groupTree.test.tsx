@@ -20,7 +20,7 @@ vi.mock('../components/Group/CreateGroupModal', () => ({
 const fakeOwner: User = {
   id: 1, username: 'admin', email: 'a@b.com', first_name: 'Admin',
   last_name: '', avatar_url: '', display_name: 'Admin',
-  is_site_admin: false, must_change_password: false,
+  is_site_admin: false, must_change_password: false, must_change_username: false,
 }
 
 function makeGroup(overrides: Partial<Group> = {}): Group {

@@ -34,6 +34,10 @@ vi.mock('../components/Auth/ForceChangePasswordModal', () => ({
   default: () => <div data-testid="force-password">Change Password</div>,
 }))
 
+vi.mock('../components/Auth/ForceRenameUsernameModal', () => ({
+  default: () => <div data-testid="force-username">Choose Username</div>,
+}))
+
 vi.mock('../components/Layout/Navbar', () => ({
   default: () => <div data-testid="navbar">Navbar</div>,
 }))
@@ -74,7 +78,7 @@ const mockUseBoardContext = useBoardContext as ReturnType<typeof vi.fn>
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
   last_name: 'Doe', avatar_url: '', display_name: 'Jane Doe',
-  is_site_admin: false, must_change_password: false,
+  is_site_admin: false, must_change_password: false, must_change_username: false,
 }
 
 const defaultBoardHook = {
@@ -124,11 +128,30 @@ describe('App', () => {
 
   it('shows force change password modal when must_change_password', () => {
     mockUseAuth.mockReturnValue({
-      user: { ...fakeUser, must_change_password: true },
+      user: { ...fakeUser, must_change_password: true, must_change_username: false },
       loading: false, logout: vi.fn(), updateUser: vi.fn(),
     })
     render(<MemoryRouter><App /></MemoryRouter>)
     expect(screen.getByTestId('force-password')).toBeInTheDocument()
+  })
+
+  it('shows force rename username modal when must_change_username', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, must_change_password: false, must_change_username: true },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter><App /></MemoryRouter>)
+    expect(screen.getByTestId('force-username')).toBeInTheDocument()
+  })
+
+  it('shows password modal (not username) when both flags set', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, must_change_password: true, must_change_username: true },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter><App /></MemoryRouter>)
+    expect(screen.getByTestId('force-password')).toBeInTheDocument()
+    expect(screen.queryByTestId('force-username')).not.toBeInTheDocument()
   })
 
   it('redirects unknown paths to / when authenticated', () => {

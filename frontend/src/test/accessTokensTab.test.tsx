@@ -41,7 +41,7 @@ const fakeUser: User = {
   avatar_url: '',
   display_name: 'Alice Smith',
   is_site_admin: false,
-  must_change_password: false,
+  must_change_password: false, must_change_username: false,
 }
 
 const token1: PersonalAccessToken = {

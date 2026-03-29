@@ -242,7 +242,16 @@ class BoardImportExportMixin:
                 for act in card_data.get("activities", []):
                     if act.get("actor"):
                         all_usernames.add(act["actor"])
-            user_map = {u.username: u for u in User.objects.filter(username__in=all_usernames)}
+            # Case-insensitive user resolution: imported data may contain
+            # usernames in a different casing than stored in the DB.
+            # Annotate with Lower so the __in filter matches regardless of
+            # the stored casing, and key the map by lowered username.
+            from django.db.models.functions import Lower
+            user_map = {
+                u.username.lower(): u
+                for u in User.objects.annotate(lower_username=Lower("username"))
+                .filter(lower_username__in=[n.lower() for n in all_usernames])
+            } if all_usernames else {}
 
             # Create cards
             for card_data in data.get("cards", []):
@@ -257,7 +266,7 @@ class BoardImportExportMixin:
 
                 # Resolve assignee by username if present; silently skip unknown users.
                 assignee_username = card_data.get("assignee")
-                assignee = user_map.get(assignee_username) if assignee_username else None
+                assignee = user_map.get(assignee_username.lower()) if assignee_username else None
 
                 card = Card.objects.create(
                     board=board,
@@ -312,7 +321,7 @@ class BoardImportExportMixin:
                     to_sw = swimlane_map.get(to_sw_name)
                     moved_by_username = mv_data.get("moved_by")
                     moved_by = (
-                        user_map.get(moved_by_username) if moved_by_username else None
+                        user_map.get(moved_by_username.lower()) if moved_by_username else None
                     ) or request.user
                     mv = CardMovement.objects.create(
                         card=card,
@@ -343,7 +352,7 @@ class BoardImportExportMixin:
                         continue
                     actor_username = act_data.get("actor")
                     actor = (
-                        user_map.get(actor_username) if actor_username else None
+                        user_map.get(actor_username.lower()) if actor_username else None
                     ) or request.user
                     act = CardActivity.objects.create(
                         card=card,

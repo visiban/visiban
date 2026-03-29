@@ -7,13 +7,13 @@ import type { BoardMembership, User } from '../types'
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
   last_name: 'Doe', avatar_url: '', display_name: 'Jane Doe',
-  is_site_admin: false, must_change_password: false,
+  is_site_admin: false, must_change_password: false, must_change_username: false,
 }
 
 const fakeUser2: User = {
   id: 2, username: 'alice', email: 'a@example.com', first_name: 'Alice',
   last_name: 'Smith', avatar_url: '', display_name: 'Alice Smith',
-  is_site_admin: false, must_change_password: false,
+  is_site_admin: false, must_change_password: false, must_change_username: false,
 }
 
 const members: BoardMembership[] = [

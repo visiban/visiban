@@ -119,7 +119,7 @@ describe('CardItem', () => {
         avatar_url: '',
         display_name: 'Jane Doe',
         is_site_admin: false,
-        must_change_password: false,
+        must_change_password: false, must_change_username: false,
       },
     })
     render(<CardItem card={card} />)

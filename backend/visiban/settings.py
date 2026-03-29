@@ -206,6 +206,7 @@ REST_FRAMEWORK = {
         # their own explicit permission_classes without this class. All other views
         # must NOT override permission_classes with [IsAuthenticated] alone.
         "visiban.permissions.MustNotHavePendingPasswordChange",
+        "visiban.permissions.MustNotHavePendingUsernameChange",
     ],
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -237,6 +238,8 @@ REST_FRAMEWORK = {
         "register": "9999/hour" if DEBUG else "10/min",
         # Public board share-link reads: generous but bounded to limit scraping.
         "share_link": "120/hour",
+        # Choose-username: prevents username enumeration via "already taken" probing.
+        "choose_username": "9999/hour" if DEBUG else "10/min",
     },
 }
 

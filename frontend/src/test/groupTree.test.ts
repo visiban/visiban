@@ -5,7 +5,7 @@ import type { Group, Board, User } from '../types'
 const fakeUser: User = {
   id: 1, username: 'u', email: 'u@example.com', first_name: '', last_name: '',
   avatar_url: '', display_name: 'U', is_site_admin: false,
-  must_change_password: false, has_usable_password: true,
+  must_change_password: false, must_change_username: false, has_usable_password: true,
 }
 
 function makeGroup(id: number, parent: number | null = null): Group {

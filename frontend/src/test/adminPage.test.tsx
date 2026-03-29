@@ -76,6 +76,7 @@ const adminUser: User = {
   is_site_admin: true,
   can_access_all_content: false,
   must_change_password: false,
+  must_change_username: false,
 }
 
 const regularUser: User = {

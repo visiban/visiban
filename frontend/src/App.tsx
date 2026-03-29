@@ -5,6 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import { BoardProvider, useBoardContext } from "./contexts/BoardContext";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
+import ForceRenameUsernameModal from "./components/Auth/ForceRenameUsernameModal";
 import Navbar from "./components/Layout/Navbar";
 import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
@@ -85,6 +86,9 @@ export default function App() {
     <>
     {user?.must_change_password && (
       <ForceChangePasswordModal user={user} onChanged={updateUser} />
+    )}
+    {user && !user.must_change_password && user.must_change_username && (
+      <ForceRenameUsernameModal user={user} onChanged={updateUser} />
     )}
     <Routes>
       {/* Public — accessible regardless of auth */}

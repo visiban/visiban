@@ -4,6 +4,8 @@ import secrets
 from django.contrib.auth.models import AbstractUser
 from django.core.cache import cache
 from django.db import models
+from django.db.models import UniqueConstraint
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 PAT_PREFIX = "vbn_"
@@ -102,6 +104,7 @@ class User(AbstractUser):
         help_text="Grants read/write access to all boards and groups on this instance regardless of membership. Independent of is_site_admin.",
     )
     must_change_password = models.BooleanField(default=False)
+    must_change_username = models.BooleanField(default=False)
     timezone = models.CharField(max_length=64, blank=True, default="")
     notif_card_assigned = models.BooleanField(default=True)
     notif_mentioned = models.BooleanField(default=True)
@@ -127,6 +130,9 @@ class User(AbstractUser):
 
     class Meta:
         db_table = "users"
+        constraints = [
+            UniqueConstraint(Lower("username"), name="unique_username_ci"),
+        ]
 
 
 class PersonalAccessToken(models.Model):

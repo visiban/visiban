@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    AuthProvidersView, ChangePasswordView, CurrentUserView,
+    AuthProvidersView, ChangePasswordView, ChooseUsernameView, CurrentUserView,
     PersonalAccessTokenDeleteView, PersonalAccessTokenListCreateView,
     SiteConfigView, UserSearchView,
 )
@@ -14,6 +14,7 @@ urlpatterns = [
     path("auth/providers/", AuthProvidersView.as_view()),
     path("auth/site-config/", SiteConfigView.as_view()),
     path("auth/change-password/", ChangePasswordView.as_view()),
+    path("auth/choose-username/", ChooseUsernameView.as_view()),
     path("auth/me/", CurrentUserView.as_view()),
     path("auth/tokens/", PersonalAccessTokenListCreateView.as_view()),
     path("auth/tokens/<int:pk>/", PersonalAccessTokenDeleteView.as_view()),
