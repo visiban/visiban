@@ -39,6 +39,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Admin panel includes a new "Invite Links" tab showing each token's status badge and a one-time reveal of the token value; links can be revoked inline
 - Board deletion now emits a structured `INFO` log (`board.deleted board_id=… board_name=… deleted_by=… deleted_by_username=…`) before the row is removed, providing an application-level audit trail for irreversible operations (#426)
 - Security test coverage: cross-board IDOR tests for cards, comments, and attachments (#399); unauthenticated access rejection tests for all core endpoints (#401); file size limit enforcement tests for the attachment upload endpoint (#400)
+- Tests for group ownership transfer endpoint covering success, non-member, non-owner, self-transfer, and wrong confirmation paths (#402)
+- Tests asserting `raw_token`, `token`, and `token_hash` are absent from group invite link list responses (#403)
+- Tests for ChangePasswordView PAT revocation — password change deletes all tokens, revoked tokens cannot authenticate, other users' tokens are unaffected (#406)
+- Tests for ServeMediaView non-member access (404, not 403) and path traversal rejection (#411)
+- Functional rate limit test verifying 429 response after exceeding throttle limit, plus throttle wiring assertions (#412)
 
 ### Changed
 - CI default job setting changed from `interruptible: true` to `interruptible: false` — main-branch pipelines were being silently canceled when two MRs landed in quick succession; `workflow: auto_cancel: on_new_commit: interruptible` preserves the optimisation on feature branches for any job that opts in

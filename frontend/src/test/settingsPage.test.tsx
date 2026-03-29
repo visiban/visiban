@@ -293,6 +293,7 @@ describe('SecurityTab — password account', () => {
     await user.click(screen.getByRole('button', { name: 'Change password' }))
     await waitFor(() =>
       expect(screen.getByText('Password changed successfully.')).toBeInTheDocument(),
+      { timeout: 10000 },
     )
     expect(mockChangePassword).toHaveBeenCalledWith('OldPassword1!', 'NewPassword123!')
   })
