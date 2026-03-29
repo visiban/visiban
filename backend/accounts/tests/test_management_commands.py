@@ -1,5 +1,6 @@
 """Tests for ensure_site_admin and set_site_admin management commands (#407)."""
 import os
+import tempfile
 from io import StringIO
 from unittest.mock import patch
 
@@ -61,7 +62,9 @@ class EnsureSiteAdminTests(TestCase):
 
     def test_writes_password_to_file(self):
         """The generated password is written to a file, not printed to stdout."""
-        pw_file = "/tmp/visiban_test_admin_pw"
+        pw_fd, pw_file = tempfile.mkstemp(prefix="visiban_test_admin_pw_")
+        os.close(pw_fd)
+        os.unlink(pw_file)  # remove so the command creates it fresh
         try:
             with patch("accounts.management.commands.ensure_site_admin._PASSWORD_FILE", pw_file):
                 out = StringIO()
