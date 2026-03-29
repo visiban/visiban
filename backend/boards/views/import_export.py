@@ -282,6 +282,16 @@ class BoardImportExportMixin:
                     created_by=request.user,
                 )
 
+                # Record weight change activity for non-default weights
+                if card.weight and card.weight > 1:
+                    CardActivity.objects.create(
+                        card=card,
+                        event_type=CardActivity.EventType.WEIGHT_CHANGE,
+                        from_value="1",
+                        to_value=str(card.weight),
+                        actor=request.user,
+                    )
+
                 # Assign labels
                 card_labels = []
                 for label_name in card_data.get("labels", []):
@@ -559,6 +569,16 @@ class BoardImportExportMixin:
                     position=0,
                     created_by=request.user,
                 )
+
+                # Record weight change activity for non-default weights
+                if card.weight and card.weight > 1:
+                    CardActivity.objects.create(
+                        card=card,
+                        event_type=CardActivity.EventType.WEIGHT_CHANGE,
+                        from_value="1",
+                        to_value=str(card.weight),
+                        actor=request.user,
+                    )
 
                 # Assign labels
                 labels_str = row.get("Labels", "").strip()
