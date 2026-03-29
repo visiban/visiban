@@ -295,6 +295,11 @@ ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
 ACCOUNT_LOGOUT_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
+# Explicit login rate limits — locks in brute-force protection independent of
+# allauth version defaults. 5 failed attempts per 5 minutes per IP.
+ACCOUNT_RATE_LIMITS = {
+    "login_failed": "5/300s",
+}
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
