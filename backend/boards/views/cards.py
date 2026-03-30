@@ -400,7 +400,8 @@ class CardViewSet(viewsets.ModelViewSet):
         the card saved but with a missing activity trail or notification.
         """
         _, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+        # Allow-list: same pattern as perform_create — safer than block-list.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         partial = kwargs.pop("partial", False)
         card = self.get_object()
@@ -498,7 +499,8 @@ class CardViewSet(viewsets.ModelViewSet):
     def move(self, request, board_pk=None, pk=None):
         """Move a card to a new column/swimlane/position, creating a CardMovement record."""
         board, role = self._board_and_role()
-        if role in (BoardMembership.Role.VIEWER, BoardMembership.Role.COLLABORATOR):
+        # Allow-list: same pattern as perform_create — safer than block-list.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         card = get_object_or_404(Card, pk=pk, board=board)
 
