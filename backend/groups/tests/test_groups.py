@@ -487,6 +487,41 @@ class JoinGroupViewTests(TestCase):
         # The raw token must not appear in the hash field
         self.assertNotEqual(self.link.token_hash, self.raw_token)
 
+    def test_post_join_blocked_by_must_change_username(self):
+        """A user with must_change_username=True cannot POST to join endpoint (#519)."""
+        self.joiner.must_change_username = True
+        self.joiner.save(update_fields=["must_change_username"])
+        self.client.force_authenticate(self.joiner)
+        r = self.client.post(f"/api/groups/join/{self.raw_token}/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class GetClientIPTests(TestCase):
+    """Tests for the shared get_client_ip utility (#532)."""
+
+    def test_returns_rightmost_xff_entry(self):
+        """The rightmost XFF entry is the one added by the trusted proxy."""
+        from visiban.utils import get_client_ip
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        request = factory.get("/", HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.1, 192.168.1.1")
+        self.assertEqual(get_client_ip(request), "192.168.1.1")
+
+    def test_single_xff_entry(self):
+        from visiban.utils import get_client_ip
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        request = factory.get("/", HTTP_X_FORWARDED_FOR="203.0.113.50")
+        self.assertEqual(get_client_ip(request), "203.0.113.50")
+
+    def test_falls_back_to_remote_addr(self):
+        from visiban.utils import get_client_ip
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        request = factory.get("/")
+        # RequestFactory sets REMOTE_ADDR to 127.0.0.1 by default
+        self.assertEqual(get_client_ip(request), "127.0.0.1")
+
 
 class SubgroupMemberInheritanceTests(TestCase):
     """Members endpoint returns inherited memberships from ancestor groups."""
