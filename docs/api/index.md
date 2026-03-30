@@ -14,6 +14,62 @@ Visiban exposes a REST JSON API. All endpoints require an authenticated session 
 | [Health Checks](health.md) | Liveness and readiness probes for K8s / uptime monitoring |
 | [OpenAPI Spec](openapi.md) | Machine-readable OpenAPI 3.0 spec, Swagger UI, and ReDoc |
 
+## WebSocket API
+
+Visiban provides a WebSocket endpoint for real-time board updates. Clients connect per board and receive push events whenever board state changes.
+
+### Connection
+
+**URL pattern:** `ws://<host>/ws/boards/{board_id}/` (or `wss://` for TLS)
+
+**Authentication:** session-based. The WebSocket handshake uses the existing session cookie. No `Authorization` header is required.
+
+**Error codes on connection:**
+
+| Code | Meaning |
+|------|---------|
+| `4001` | No valid session — the client is not authenticated |
+| `4003` | Not a board member — the authenticated user does not have access to this board |
+
+### Message envelope
+
+All messages from the server use the following shape:
+
+```json
+{ "event": "<event_type>", "data": { ... } }
+```
+
+The `data` object contains the serialized resource (card, column, swimlane, etc.) relevant to the event.
+
+### Event types
+
+| Event | Trigger |
+|-------|---------|
+| `card.created` | A new card is created |
+| `card.updated` | A card's fields are updated |
+| `card.deleted` | A card is deleted |
+| `card.moved` | A card is moved to a different column or swimlane |
+| `card.archived` | A card is archived |
+| `card.unarchived` | An archived card is restored |
+| `column.created` | A new column is created |
+| `column.updated` | A column's fields are updated |
+| `column.deleted` | A column is deleted |
+| `columns.reordered` | Column positions are changed |
+| `swimlane.created` | A new swimlane is created |
+| `swimlane.updated` | A swimlane's fields are updated |
+| `swimlane.deleted` | A swimlane is deleted |
+| `swimlanes.reordered` | Swimlane positions are changed |
+| `label.created` | A new label is created |
+| `label.updated` | A label's fields are updated |
+| `label.deleted` | A label is deleted |
+| `member.added` | A member is added to the board |
+| `member.updated` | A member's role is changed |
+| `member.removed` | A member is removed from the board |
+| `board.updated` | Board settings are changed |
+| `board.deleted` | The board is deleted |
+
+---
+
 ## Common conventions
 
 - All endpoints return `application/json`

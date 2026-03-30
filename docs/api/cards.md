@@ -104,14 +104,20 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 When `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board and the target column is at or above its limit, the move returns `409 Conflict`:
 
 ```json
-{ "code": "wip_limit_exceeded", "detail": "Column 'Doing' is at its WIP limit (5).", "column_id": 3, "wip_limit": 5, "current_count": 5 }
+{ "code": "wip_limit_exceeded", "column_name": "Doing", "current_count": 5, "wip_limit": 5 }
 ```
 
 ```json
-{ "code": "weight_limit_exceeded", "detail": "Column 'Doing' is at its weight limit (10).", "column_id": 3, "weight_limit": 10, "current_weight": 10, "card_weight": 2 }
+{ "code": "weight_limit_exceeded", "column_name": "Doing", "current_weight": 10, "weight_limit": 10, "card_weight": 2 }
 ```
 
-Board admins may override the limit by appending `?force=true` to the move URL:
+When `enforce_wip_hard` is enabled on the board, the limit cannot be overridden by any role — all users receive `409 Conflict` with code `wip_hard_blocked`:
+
+```json
+{ "code": "wip_hard_blocked", "column_name": "Doing", "current_count": 5, "wip_limit": 5 }
+```
+
+When `enforce_wip_hard` is not enabled, board admins may override the limit by appending `?force=true` to the move URL:
 
 ```bash
 POST /api/boards/1/cards/42/move/?force=true
@@ -151,9 +157,9 @@ Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete 
 ## Attachments
 
 ### `GET /api/boards/{board_id}/cards/{id}/attachments/`
-List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `file` (relative URL), `uploaded_by` (user object), `created_at`.
+List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `url` (relative URL), `uploaded_by` (user object), `uploaded_at`.
 
-To download an attachment file, fetch its `file` URL with the same `Authorization` header used for API requests — attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests and requests from users without board membership return `403 Forbidden`.
+To download an attachment file, fetch its `url` URL with the same `Authorization` header used for API requests — attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests and requests from users without board membership return `403 Forbidden`.
 
 ```bash
 curl -O -J http://localhost:8000/media/attachments/abc123.pdf \

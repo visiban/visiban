@@ -31,7 +31,9 @@ Get board summary. Response includes:
 | `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
 | `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed |
 | `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `true` for new boards) |
+| `enforce_wip_hard` | boolean | When `true`, WIP limits cannot be overridden by any role — all users are blocked (default: `false`) |
 | `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `true` for new boards) |
+| `stale_warning_pct` | integer | Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `share_token` | string / null | Public share token UUID, or `null` if sharing is disabled. Only returned for `admin` and `site_admin` roles; all other roles receive `null`. |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
@@ -45,7 +47,7 @@ Update board fields. Requires board admin.
 Delete board. Requires board owner or site admin.
 
 ### `GET /api/boards/{id}/full/`
-Full board state — columns, swimlanes, cards, labels, members, and `current_user_role`. All objects include their `uid` field. Also includes `share_token` (admin-only, see `GET /api/boards/{id}/` above).
+Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (admin-only, see `GET /api/boards/{id}/` above). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
 ### `POST /api/boards/{id}/star/`
 Star (favorite) a board. Returns `201 Created` on first star, `200 OK` if already starred.
@@ -207,6 +209,7 @@ When neither `moved_after` nor `moved_before` is specified, results default to t
 {
   "count": 142,
   "offset": 0,
+  "page_size": 50,
   "results": [
     {
       "id": 1089,
