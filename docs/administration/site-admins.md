@@ -9,7 +9,7 @@ The term "site admin" covers two distinct privileges that are now tracked by sep
 | `is_site_admin` | Access to the `/admin` admin panel and admin API (`/api/admin/*`). Required to manage users, settings, and instance configuration. |
 | `can_access_all_content` | Read/write access to **every board and group** on the instance, regardless of membership. This is the "omniscient" content access. |
 
-Before Visiban 1.1 (issue #247) these two were coupled — `is_site_admin` implied content access. They are now independent so operators can grant admin panel access without also granting board/group omniscience, and vice versa.
+Before Visiban 1.0.0-rc.9 (issue #247) these two were coupled — `is_site_admin` implied content access. They are now independent so operators can grant admin panel access without also granting board/group omniscience, and vice versa.
 
 !!! note
     Existing site admins are **automatically migrated**: the database migration sets `can_access_all_content=True` for every row where `is_site_admin=True`, so no access is lost on upgrade.

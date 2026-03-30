@@ -98,4 +98,6 @@ nav:
     - Django Admin: administration/django-admin.md
     - Media Storage Security: administration/media-security.md
     - Secret Rotation: administration/secret-rotation.md
+  - Security:
+    - Security Audit: security/audit-370-headless-allauth.md
   - Changelog: changelog.md

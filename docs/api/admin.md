@@ -125,13 +125,13 @@ If the target user owns one or more boards, you must supply a `transfers` list m
 |---|---|---|---|
 | `transfers` | array | Conditional | Required when the user owns boards. Each entry maps one board to a new owner. |
 | `transfers[].board_id` | integer | Yes | ID of the board to transfer. |
-| `transfers[].transfer_to_user_id` | integer | Yes | ID of the user who will become the new owner. Must be an existing board member. |
+| `transfers[].transfer_to` | integer | Yes | ID of the user who will become the new owner. Must be an existing board member. |
 
 ```json
 {
   "transfers": [
-    { "board_id": 12, "transfer_to_user_id": 7 },
-    { "board_id": 18, "transfer_to_user_id": 7 }
+    { "board_id": 12, "transfer_to": 7 },
+    { "board_id": 18, "transfer_to": 7 }
   ]
 }
 ```
@@ -158,7 +158,7 @@ If the target user owns one or more boards, you must supply a `transfers` list m
 
 | Status | Reason |
 |---|---|
-| `400 Bad Request` | A `transfer_to_user_id` is not a member of the specified board |
+| `400 Bad Request` | A `transfer_to` is not a member of the specified board |
 | `400 Bad Request` | A board in the `transfers` list does not belong to this user |
 | `409 Conflict` | User owns one or more boards and no `transfers` were provided |
 
