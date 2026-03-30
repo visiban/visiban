@@ -538,7 +538,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setShowCreateSubgroup(true)}
-                    className="text-sm text-blue-400 hover:text-blue-300 transition"
+                    className="text-sm text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     + Create subgroup
                   </button>
@@ -579,7 +579,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setImportingBoard(true)}
-                    className="text-sm text-blue-400 hover:text-blue-300 transition"
+                    className="text-sm text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     Import
                   </button>
