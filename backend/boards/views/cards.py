@@ -192,7 +192,12 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
-        ctx["board"] = self._board()
+        board = self._board()
+        ctx["board"] = board
+        # Pre-compute member IDs and board labels once per request so
+        # CardSerializer.__init__ does not re-query per card (N+1 fix — #490).
+        ctx["_member_ids"] = _get_effective_member_ids(board)
+        ctx["_board_labels_qs"] = Label.objects.filter(board=board)
         return ctx
 
     def perform_create(self, serializer):

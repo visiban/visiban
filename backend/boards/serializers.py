@@ -159,14 +159,20 @@ class CardSerializer(serializers.ModelSerializer):
         Without this, a client could assign labels from another board or assign
         a user who is not a member of the board — both are cross-board IDOR
         vulnerabilities.  The board must be passed via serializer context.
+
+        When called from BoardFullSerializer.get_cards() or CardViewSet, the
+        context may contain pre-computed _member_ids and _board_labels_qs to
+        avoid re-querying per card instance (N+1 fix — see #490).
         """
         super().__init__(*args, **kwargs)
         board = self.context.get("board")
         if board:
-            self.fields["label_ids"].child_relation.queryset = Label.objects.filter(board=board)
+            labels_qs = self.context.get("_board_labels_qs") or Label.objects.filter(board=board)
+            self.fields["label_ids"].child_relation.queryset = labels_qs
             from .utils import _get_effective_member_ids
+            member_ids = self.context.get("_member_ids") or _get_effective_member_ids(board)
             self.fields["assignee_id"].queryset = User.objects.filter(
-                pk__in=_get_effective_member_ids(board)
+                pk__in=member_ids
             )
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
@@ -310,9 +316,16 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
         Archived cards are excluded here; they are fetched separately via the
         /cards/archived/ action when the user opens the archived panel.
+
+        Member IDs and board labels are pre-computed once here and threaded
+        through context so CardSerializer.__init__ does not re-query them
+        for every card instance (N+1 fix — see #490).
         """
+        from .utils import _get_effective_member_ids
         qs = _card_queryset(obj.cards.filter(archived_at__isnull=True))
-        ctx = {**self.context, "board": obj}
+        member_ids = _get_effective_member_ids(obj)
+        board_labels_qs = Label.objects.filter(board=obj)
+        ctx = {**self.context, "board": obj, "_member_ids": member_ids, "_board_labels_qs": board_labels_qs}
         return CardSerializer(qs, many=True, context=ctx).data
 
     def get_members(self, obj):
