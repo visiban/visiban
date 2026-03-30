@@ -14,6 +14,11 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 from rest_framework import status
 from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, InviteLink, get_registration_mode
 from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer, UserSerializer
@@ -246,7 +251,11 @@ class PersonalAccessTokenListCreateView(APIView):
     automatically when the user changes their password.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def get(self, request):
         tokens = request.user.personal_access_tokens.all()
@@ -295,7 +304,11 @@ class PersonalAccessTokenDeleteView(APIView):
     user's token returns 404, not 403, to avoid confirming token existence.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def delete(self, request, pk):
         try:
