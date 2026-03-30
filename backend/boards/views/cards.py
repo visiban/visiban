@@ -704,35 +704,36 @@ class CardViewSet(viewsets.ModelViewSet):
             )
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        comment = serializer.save(card=card, author=request.user)
-        CardActivity.objects.create(
-            card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
-            from_value="", to_value="", actor=request.user,
-        )
-        card_data = _refetched_card_data(card, request, board)
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
-        # Parse @username mentions and notify each mentioned board member.
-        # Comments don't need a re-notification guard — each comment is a new event.
-        mentioned_usernames = extract_mentions(comment.body)
-        if mentioned_usernames:
-            eff_ids = _get_effective_member_ids(board)
-            member_users = User.objects.filter(
-                username__in=mentioned_usernames,
-                pk__in=eff_ids,
-                notif_mentioned=True,
-            ).exclude(pk=request.user.pk)
-            Notification.objects.bulk_create([
-                Notification(
-                    recipient=u,
-                    actor=request.user,
-                    action_type=Notification.ActionType.MENTIONED,
-                    verb=f"{request.user.username} mentioned you in \"{card.title}\"",
-                    card=card,
-                    board=board,
-                )
-                for u in member_users
-            ])
+        with transaction.atomic():
+            comment = serializer.save(card=card, author=request.user)
+            CardActivity.objects.create(
+                card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
+                from_value="", to_value="", actor=request.user,
+            )
+            card_data = _refetched_card_data(card, request, board)
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            # Parse @username mentions and notify each mentioned board member.
+            # Comments don't need a re-notification guard — each comment is a new event.
+            mentioned_usernames = extract_mentions(comment.body)
+            if mentioned_usernames:
+                eff_ids = _get_effective_member_ids(board)
+                member_users = User.objects.filter(
+                    username__in=mentioned_usernames,
+                    pk__in=eff_ids,
+                    notif_mentioned=True,
+                ).exclude(pk=request.user.pk)
+                Notification.objects.bulk_create([
+                    Notification(
+                        recipient=u,
+                        actor=request.user,
+                        action_type=Notification.ActionType.MENTIONED,
+                        verb=f"{request.user.username} mentioned you in \"{card.title}\"",
+                        card=card,
+                        board=board,
+                    )
+                    for u in member_users
+                ])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path="comments/(?P<comment_pk>[^/.]+)")
@@ -756,10 +757,11 @@ class CardViewSet(viewsets.ModelViewSet):
                     {"detail": "You can only delete your own comments."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-        comment.delete()
-        card_data = _refetched_card_data(card, request, board)
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+        with transaction.atomic():
+            comment.delete()
+            card_data = _refetched_card_data(card, request, board)
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get", "post"], url_path="attachments")
@@ -850,11 +852,12 @@ class CardViewSet(viewsets.ModelViewSet):
                     {"detail": "You can only delete your own attachments."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-        attachment.file.delete(save=False)
-        attachment.delete()
-        card_data = _refetched_card_data(card, request, board)
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+        with transaction.atomic():
+            attachment.file.delete(save=False)
+            attachment.delete()
+            card_data = _refetched_card_data(card, request, board)
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get", "post"], url_path="checklist")
@@ -875,14 +878,15 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer = CardChecklistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         position = card.checklist_items.count()
-        item = serializer.save(card=card, position=position)
-        CardActivity.objects.create(
-            card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
-            from_value="", to_value=item.text, actor=request.user,
-        )
-        card_data = _refetched_card_data(card, request, board)
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+        with transaction.atomic():
+            item = serializer.save(card=card, position=position)
+            CardActivity.objects.create(
+                card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
+                from_value="", to_value=item.text, actor=request.user,
+            )
+            card_data = _refetched_card_data(card, request, board)
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
@@ -899,30 +903,32 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
         item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
         if request.method == "DELETE":
-            CardActivity.objects.create(
-                card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DELETED,
-                from_value=item.text, to_value="", actor=request.user,
-            )
-            item.delete()
-            card_data = _refetched_card_data(card, request, board)
-            board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            with transaction.atomic():
+                CardActivity.objects.create(
+                    card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_DELETED,
+                    from_value=item.text, to_value="", actor=request.user,
+                )
+                item.delete()
+                card_data = _refetched_card_data(card, request, board)
+                board_id = board.id
+                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
             return Response(status=status.HTTP_204_NO_CONTENT)
         old_checked = item.is_checked
         serializer = CardChecklistSerializer(item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        if "is_checked" in request.data and request.data["is_checked"] != old_checked:
-            checklist_event_type = (
-                CardActivity.EventType.CHECKLIST_ITEM_CHECKED
-                if item.is_checked
-                else CardActivity.EventType.CHECKLIST_ITEM_UNCHECKED
-            )
-            CardActivity.objects.create(
-                card=card, event_type=checklist_event_type,
-                from_value="", to_value=item.text, actor=request.user,
-            )
-        card_data = _refetched_card_data(card, request, board)
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+        with transaction.atomic():
+            serializer.save()
+            if "is_checked" in request.data and request.data["is_checked"] != old_checked:
+                checklist_event_type = (
+                    CardActivity.EventType.CHECKLIST_ITEM_CHECKED
+                    if item.is_checked
+                    else CardActivity.EventType.CHECKLIST_ITEM_UNCHECKED
+                )
+                CardActivity.objects.create(
+                    card=card, event_type=checklist_event_type,
+                    from_value="", to_value=item.text, actor=request.user,
+                )
+            card_data = _refetched_card_data(card, request, board)
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
         return Response(serializer.data)
