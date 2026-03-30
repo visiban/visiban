@@ -33,6 +33,9 @@ export interface BoardContextType {
   updateSwimlane: (swimlane: Swimlane) => void;
   removeSwimlane: (swimlaneId: number) => Promise<void>;
   updateBoardSettings: (patch: Record<string, unknown>) => Promise<void>;
+  evictColumn: (columnId: number) => void;
+  evictSwimlane: (swimlaneId: number) => void;
+  mergeBoardState: (patch: Partial<BoardFull>) => void;
 }
 
 const BoardContext = createContext<BoardContextType | null>(null);

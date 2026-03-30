@@ -126,6 +126,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     applyColumnOrder: onColumnOrderApplied,
     applySwimlaneOrder: onSwimlaneOrderApplied,
     updateBoardSettings: onUpdateBoardSettings,
+    evictColumn,
+    evictSwimlane,
+    mergeBoardState,
   } = useBoardContext();
 
   // BoardView is only rendered when board is non-null (guarded by the parent).
@@ -177,7 +180,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "column.updated") {
       onColumnUpdated(d as unknown as Column);
     } else if (event.event === "column.deleted") {
-      onColumnDeleted((d as { column_id: number }).column_id);
+      // Use state-only eviction — the delete already happened on the server;
+      // calling onColumnDeleted would fire a redundant DELETE API request.
+      evictColumn((d as { column_id: number }).column_id);
     } else if (event.event === "columns.reordered") {
       onColumnOrderApplied((d as { columns: Column[] }).columns);
     } else if (event.event === "swimlane.created") {
@@ -185,7 +190,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "swimlane.updated") {
       onSwimlaneUpdated(d as unknown as Swimlane);
     } else if (event.event === "swimlane.deleted") {
-      onSwimlaneDeleted((d as { swimlane_id: number }).swimlane_id);
+      // Use state-only eviction — the delete already happened on the server;
+      // calling onSwimlaneDeleted would fire a redundant DELETE API request.
+      evictSwimlane((d as { swimlane_id: number }).swimlane_id);
     } else if (event.event === "swimlanes.reordered") {
       onSwimlaneOrderApplied((d as { swimlanes: Swimlane[] }).swimlanes);
     } else if (event.event === "label.created") {
@@ -201,13 +208,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "member.removed") {
       onMemberRemoved((d as { user_id: number }).user_id);
     } else if (event.event === "board.updated") {
-      // Another user changed board-level settings — merge the patch into local state
-      onUpdateBoardSettings?.(d as Record<string, unknown>);
+      // Another user changed board-level settings — merge the patch into local
+      // state without calling the API. The mutation already happened on the
+      // server; onUpdateBoardSettings would fire a redundant PATCH request.
+      mergeBoardState(d as Partial<typeof board>);
     } else if (event.event === "board.deleted") {
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();
     }
-  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, onColumnDeleted, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, onSwimlaneDeleted, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, onUpdateBoardSettings, onBoardDeleted]);
+  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted]);
 
   const { status: socketStatus } = useBoardSocket(board.id, handleSocketEvent);
 
