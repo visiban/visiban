@@ -1,13 +1,24 @@
 """Notification views — list, mark-read, and unread-count endpoints."""
 
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 from ..models import Notification
 
 
 class NotificationListView(APIView):
     """GET /api/notifications/ — last 50 notifications for current user"""
+
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def get(self, request):
         qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
@@ -31,6 +42,12 @@ class NotificationListView(APIView):
 class NotificationMarkReadView(APIView):
     """POST /api/notifications/mark-read/"""
 
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
+
     def post(self, request):
         if request.data.get("all"):
             Notification.objects.filter(recipient=request.user, read=False).update(read=True)
@@ -42,6 +59,12 @@ class NotificationMarkReadView(APIView):
 
 class NotificationUnreadCountView(APIView):
     """GET /api/notifications/unread-count/"""
+
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def get(self, request):
         count = Notification.objects.filter(recipient=request.user, read=False).count()
