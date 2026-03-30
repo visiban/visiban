@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, User } from "../../types";
 import { getArchivedCards, unarchiveCard } from "../../api/cards";
@@ -15,7 +15,13 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const [loading, setLoading] = useState(true);
   const [unarchivingId, setUnarchivingId] = useState<number | null>(null);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEscapeStack(onClose, 30);
+
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -54,12 +60,19 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative w-96 max-w-full h-full bg-slate-800 border-l border-slate-700 shadow-xl flex flex-col">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Archived cards"
+        tabIndex={-1}
+        className="relative w-96 max-w-full h-full bg-slate-800 border-l border-slate-700 shadow-xl flex flex-col outline-none"
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
           <h2 className="text-sm font-medium text-slate-200">Archived cards</h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white hover:bg-slate-700 rounded p-1 transition"
+            className="text-slate-400 hover:text-white hover:bg-slate-700 rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Close"
           >
             ✕
@@ -97,7 +110,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                       <button
                         onClick={() => handleUnarchive(card)}
                         disabled={unarchivingId === card.id}
-                        className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50"
+                        className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
                       </button>
