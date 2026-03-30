@@ -267,7 +267,12 @@ class CardViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         # Use the unfiltered manager so archiving an already-archived card is
         # a no-op rather than a 404.
-        card = get_object_or_404(Card, pk=pk, board=board)
+        # select_related avoids extra queries when accessing card.column.name
+        # and card.swimlane.name in the CardMovement creation below.
+        card = get_object_or_404(
+            Card.objects.select_related("column", "swimlane"),
+            pk=pk, board=board,
+        )
         # Ownership gate: members may only archive cards they created (#362).
         if card.created_by_id != request.user.id:
             if not _can_modify_others_content(board, role, request.user):
@@ -316,7 +321,12 @@ class CardViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        card = get_object_or_404(Card, pk=pk, board=board)
+        # select_related avoids extra queries when accessing card.column.name
+        # and card.swimlane.name in the CardMovement creation below.
+        card = get_object_or_404(
+            Card.objects.select_related("column", "swimlane"),
+            pk=pk, board=board,
+        )
         # Ownership gate: members may only unarchive cards they created (#362).
         if card.created_by_id != request.user.id:
             if not _can_modify_others_content(board, role, request.user):

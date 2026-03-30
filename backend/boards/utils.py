@@ -27,12 +27,22 @@ def _get_effective_member_ids(board):
     eff_ids.add(board.owner_id)
     eff_ids.update(User.objects.filter(can_access_all_content=True).values_list("id", flat=True))
     if board.group_id:
+        # Collect ancestor group IDs first, then load all memberships in a
+        # single query instead of issuing one query per ancestor level.
+        ancestor_ids = []
         node = board.group
         depth = 0
         while node and depth < 6:
-            eff_ids.update(node.memberships.values_list("user_id", flat=True))
-            node = node.parent
+            ancestor_ids.append(node.pk)
+            node = getattr(node, "parent", None)
             depth += 1
+        if ancestor_ids:
+            from groups.models import GroupMembership
+
+            eff_ids.update(
+                GroupMembership.objects.filter(group_id__in=ancestor_ids)
+                .values_list("user_id", flat=True)
+            )
     return eff_ids
 
 
