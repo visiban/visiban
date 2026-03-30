@@ -35,7 +35,6 @@ Get board summary. Response includes:
 | `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `true` for new boards) |
 | `stale_warning_pct` | integer | Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
-| `share_token` | string / null | Public share token UUID, or `null` if sharing is disabled. Only returned for `admin` and `site_admin` roles; all other roles receive `null`. |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
 ### `PUT /api/boards/{id}/`
@@ -213,7 +212,6 @@ When neither `moved_after` nor `moved_before` is specified, results default to t
   "results": [
     {
       "id": 1089,
-      "card_id": 42,
       "card_title": "Fix login bug",
       "card_uid": "a1b2c3d4e5f60001",
       "from_column": 2,
@@ -242,7 +240,6 @@ Each result object fields:
 | Field | Type | Description |
 |---|---|---|
 | `id` | integer | Movement record ID |
-| `card_id` | integer | Card database ID |
 | `card_title` | string | Card title at time of retrieval |
 | `card_uid` | string | Card stable 16-char hex UID |
 | `from_column`, `to_column` | integer / null | Column FK IDs (may be `null` if column was deleted) |

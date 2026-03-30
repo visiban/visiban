@@ -64,7 +64,6 @@ Paginated list of all accounts on the instance. Site admin only.
       "is_active": true,
       "is_site_admin": false,
       "must_change_password": false,
-      "must_change_username": false,
       "date_joined": "2026-01-15T09:00:00Z"
     }
   ]
@@ -104,7 +103,6 @@ Update a user's account flags. Site admin only.
 | `is_site_admin` | boolean | Grant or revoke admin panel access. Cannot demote yourself. Cannot demote the last active admin. |
 | `can_access_all_content` | boolean | Grant or revoke omniscient read/write access to all boards and groups. Independent of `is_site_admin` — see [Site Admins](../administration/site-admins.md). |
 | `must_change_password` | boolean | `true` forces a password reset on next login |
-| `must_change_username` | boolean | `true` forces a username change on next login (set automatically by the CI uniqueness migration) |
 
 **Request**
 ```json
