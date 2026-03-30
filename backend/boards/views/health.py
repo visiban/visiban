@@ -1,12 +1,24 @@
 """Health check and version views — liveness, readiness, and version endpoints."""
 
 from django.conf import settings as django_settings
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 
 
 class VersionView(APIView):
     """GET /api/version/ — returns the running application version."""
+
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def get(self, request):
         return Response({"version": django_settings.APP_VERSION})

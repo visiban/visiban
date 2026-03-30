@@ -41,6 +41,11 @@ class UserSearchRateThrottle(UserRateThrottle):
 class UserSearchView(APIView):
     """Search users by display name, email, or username; requires at least 2 characters."""
 
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
     throttle_classes = [UserSearchRateThrottle]
 
     def get(self, request):

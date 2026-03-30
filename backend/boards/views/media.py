@@ -2,8 +2,13 @@
 
 from django.conf import settings as django_settings
 from django.http import HttpResponse
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 from ..models import CardAttachment
 from ..permissions import get_board_role
 
@@ -21,6 +26,12 @@ class ServeMediaView(APIView):
     (deleted, never existed, or path tampered) receives 404, not 403, to avoid
     leaking whether a path is a valid attachment.
     """
+
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def get(self, request, path):
         try:
