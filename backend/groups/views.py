@@ -7,7 +7,8 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
-from visiban.permissions import MustNotHavePendingPasswordChange
+from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
+from visiban.utils import get_client_ip
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
@@ -483,14 +484,6 @@ class JoinGroupRateThrottle(AnonRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": ident}
 
 
-def _get_client_ip(request) -> str:
-    """Return the best-guess client IP address, preferring X-Forwarded-For."""
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "unknown")
-
-
 class JoinGroupView(APIView):
     """
     Invite-link join flow.
@@ -504,13 +497,13 @@ class JoinGroupView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAuthenticated(), MustNotHavePendingPasswordChange()]
+        return [IsAuthenticated(), MustNotHavePendingPasswordChange(), MustNotHavePendingUsernameChange()]
 
     def get(self, request, token):
         # Truncate token in log to avoid leaking the full value into log files
         # while still making it possible to correlate with an audit trail.
         token_hint = str(token)[:8]
-        ip = _get_client_ip(request)
+        ip = get_client_ip(request)
         link = GroupInviteLink.lookup_by_token(str(token))
         if link is None:
             return Response(
@@ -541,7 +534,7 @@ class JoinGroupView(APIView):
 
     def post(self, request, token):
         token_hint = str(token)[:8]
-        ip = _get_client_ip(request)
+        ip = get_client_ip(request)
         link = GroupInviteLink.lookup_by_token(str(token))
         if link is None:
             return Response(

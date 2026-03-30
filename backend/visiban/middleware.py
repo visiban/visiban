@@ -3,25 +3,12 @@ import os
 from django.conf import settings
 from django.http import HttpResponseForbidden
 
+from visiban.utils import get_client_ip
+
 
 # Addresses trusted by default when no DJANGO_ADMIN_ALLOWED_IPS env var is set.
 # Loopback addresses only — matches both IPv4 and the IPv6 loopback.
 _LOOPBACK_IPS = {"127.0.0.1", "::1"}
-
-
-def _get_client_ip(request):
-    """Return the originating client IP from the request.
-
-    Prefer X-Forwarded-For when set (reverse-proxy deployments), trusting the
-    rightmost entry — the one appended by the trusted reverse proxy (Nginx).
-    This matches DRF's NUM_PROXIES=1 trust model and prevents IP spoofing via
-    a client-injected X-Forwarded-For header. Fall back to REMOTE_ADDR for
-    direct connections.
-    """
-    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded_for:
-        return forwarded_for.split(",")[-1].strip()
-    return request.META.get("REMOTE_ADDR", "")
 
 
 class AdminIPRestrictionMiddleware:
@@ -48,7 +35,7 @@ class AdminIPRestrictionMiddleware:
             else:
                 allowed_ips = _LOOPBACK_IPS
 
-            client_ip = _get_client_ip(request)
+            client_ip = get_client_ip(request)
             if client_ip not in allowed_ips:
                 return HttpResponseForbidden(
                     "Access to the admin interface is restricted. "
