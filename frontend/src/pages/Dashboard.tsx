@@ -10,6 +10,7 @@ import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
+import ModalWrapper from "../components/shared/ModalWrapper";
 import type { Board, Group, User } from "../types";
 
 interface Props {
@@ -100,7 +101,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <h2 className="text-white text-lg font-semibold">Groups</h2>
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="text-sm text-blue-400 hover:text-blue-300 transition"
+              className="text-sm text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               + New top-level group
             </button>
@@ -220,27 +221,28 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         />
       )}
 
-      {joiningGroup && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div role="dialog" aria-modal="true" aria-labelledby="join-group-title" className="bg-slate-800 rounded-lg border border-slate-700 p-6 w-full max-w-sm shadow-xl">
-            <h3 id="join-group-title" className="text-white font-semibold text-lg mb-1">Join a group</h3>
-            <p className="text-slate-400 text-sm mb-4">Paste the invite link or token you received.</p>
-            <input
-              type="text"
-              value={joinToken}
-              onChange={(e) => setJoinToken(e.target.value)}
-              placeholder="https://…/join/abc123 or abc123"
-              className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 mb-4"
-              autoFocus
-              onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); if (e.key === "Escape") setJoiningGroup(false); }}
-            />
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setJoiningGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5">Cancel</button>
-              <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 rounded-lg">Join</button>
-            </div>
-          </div>
+      <ModalWrapper
+        open={joiningGroup}
+        onClose={() => setJoiningGroup(false)}
+        title="Join a group"
+        maxWidth="max-w-sm"
+        labelId="join-group-title"
+      >
+        <p className="text-slate-400 text-sm mb-4">Paste the invite link or token you received.</p>
+        <input
+          type="text"
+          value={joinToken}
+          onChange={(e) => setJoinToken(e.target.value)}
+          placeholder="https://…/join/abc123 or abc123"
+          className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 mb-4"
+          autoFocus
+          onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); }}
+        />
+        <div className="flex gap-3 justify-end">
+          <button onClick={() => setJoiningGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5">Cancel</button>
+          <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 rounded-lg">Join</button>
         </div>
-      )}
+      </ModalWrapper>
 
       {confirmDeleteId !== null && (() => {
         const board = boards.find((b) => b.id === confirmDeleteId);
@@ -248,46 +250,48 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         const nameMatches = deleteConfirmInput === board?.name;
         const canDelete = !hasCards || nameMatches;
         return (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div role="dialog" aria-modal="true" aria-labelledby="delete-board-title" className="bg-slate-800 rounded-lg border border-slate-700 p-6 w-full max-w-sm shadow-xl">
-              <h3 id="delete-board-title" className="text-white font-semibold text-lg mb-2">Delete board?</h3>
-              <p className="text-slate-400 text-sm mb-1">
-                <span className="text-white font-medium">{board?.name}</span> and all its data will be permanently deleted.
-              </p>
-              <p className="text-red-400 text-sm mb-4">This cannot be undone.</p>
-              {hasCards && (
-                <div className="mb-4">
-                  <p className="text-slate-400 text-xs mb-2">
-                    This board has <span className="text-white font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
-                  </p>
-                  <input
-                    type="text"
-                    value={deleteConfirmInput}
-                    onChange={(e) => setDeleteConfirmInput(e.target.value)}
-                    placeholder={`Type "${board?.name}" to confirm`}
-                    className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === "Escape") { setConfirmDeleteId(null); setDeleteConfirmInput(""); } }}
-                  />
-                </div>
-              )}
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                  className="text-slate-400 text-sm hover:text-white px-3 py-1.5"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDeleteBoard(confirmDeleteId)}
-                  disabled={!canDelete}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded-lg transition"
-                >
-                  Delete
-                </button>
+          <ModalWrapper
+            open={true}
+            onClose={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
+            title="Delete board?"
+            maxWidth="max-w-sm"
+            labelId="delete-board-title"
+          >
+            <p className="text-slate-400 text-sm mb-1">
+              <span className="text-white font-medium">{board?.name}</span> and all its data will be permanently deleted.
+            </p>
+            <p className="text-red-400 text-sm mb-4">This cannot be undone.</p>
+            {hasCards && (
+              <div className="mb-4">
+                <p className="text-slate-400 text-xs mb-2">
+                  This board has <span className="text-white font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmInput}
+                  onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                  placeholder={`Type "${board?.name}" to confirm`}
+                  className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                  autoFocus
+                />
               </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
+                className="text-slate-400 text-sm hover:text-white px-3 py-1.5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteBoard(confirmDeleteId)}
+                disabled={!canDelete}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded-lg transition"
+              >
+                Delete
+              </button>
             </div>
-          </div>
+          </ModalWrapper>
         );
       })()}
     </div>
