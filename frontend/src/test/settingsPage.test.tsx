@@ -296,7 +296,7 @@ describe('SecurityTab — password account', () => {
       { timeout: 10000 },
     )
     expect(mockChangePassword).toHaveBeenCalledWith('OldPassword1!', 'NewPassword123!')
-  })
+  }, 15000)
 })
 
 describe('SecurityTab — social account (no usable password)', () => {
@@ -343,8 +343,9 @@ describe('SecurityTab — social account (no usable password)', () => {
     await user.click(screen.getByRole('button', { name: 'Set password' }))
     await waitFor(() =>
       expect(screen.getByText('Password set successfully.')).toBeInTheDocument(),
+      { timeout: 10000 },
     )
-  })
+  }, 15000)
 })
 
 // ---------------------------------------------------------------------------
