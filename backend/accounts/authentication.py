@@ -50,6 +50,9 @@ class PATAuthentication(BaseAuthentication):
         if pat.expires_at and pat.expires_at < timezone.now():
             raise AuthenticationFailed("Token has expired.")
 
+        if not pat.user.is_active:
+            raise AuthenticationFailed("User account is disabled.")
+
         pat.last_used_at = timezone.now()
         pat.save(update_fields=["last_used_at"])
 

@@ -674,3 +674,141 @@ class AdminMustChangePwdBlocksTests(TestCase):
         target = make_user(username="pwdblock_target")
         r = self.client.post(f"/api/admin/users/{target.pk}/deactivate/", {})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# ---------------------------------------------------------------------------
+# AdminCreateUserSerializer — password validator integration (Fix 3)
+# ---------------------------------------------------------------------------
+
+class AdminCreateUserPasswordValidatorTests(TestCase):
+    """AdminCreateUserSerializer.validate_password() must run AUTH_PASSWORD_VALIDATORS.
+
+    The serializer min_length=12 is a pre-check; these tests confirm that the
+    validate_password() call added to admin_views.py correctly delegates to
+    Django's CommonPasswordValidator and NumericPasswordValidator for passwords
+    that are long enough to pass the length check.
+    """
+
+    def setUp(self):
+        self.admin = make_admin(username="createpw_admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def _create(self, password, username="newcreateuser", email="newcreate@example.com"):
+        return self.client.post("/api/admin/users/", {
+            "username": username,
+            "email": email,
+            "password": password,
+        })
+
+    # ------------------------------------------------------------------
+    # CommonPasswordValidator
+    # ------------------------------------------------------------------
+
+    def test_common_password_rejected(self):
+        # "123456789012" is >= 12 chars so it passes the length check, but
+        # CommonPasswordValidator must reject it.
+        r = self._create("123456789012")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_common_password_user_not_created(self):
+        self._create("123456789012")
+        self.assertFalse(User.objects.filter(username="newcreateuser").exists())
+
+    # ------------------------------------------------------------------
+    # NumericPasswordValidator
+    # ------------------------------------------------------------------
+
+    def test_all_numeric_password_rejected(self):
+        # A random-looking digit-only string that is not on the common list
+        # but still fails NumericPasswordValidator.
+        r = self._create("934857263849", username="numericpwuser", email="numericpw@example.com")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # ------------------------------------------------------------------
+    # Strong password: must succeed end-to-end
+    # ------------------------------------------------------------------
+
+    def test_strong_password_creates_user(self):
+        r = self._create(
+            "Tr0ub4dor&3xtra!",
+            username="strongpwuser",
+            email="strongpw@example.com",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(User.objects.filter(username="strongpwuser").exists())
+
+
+# ---------------------------------------------------------------------------
+# AdminUserDeactivateView — PATs deleted on deactivation (Fix 4)
+# ---------------------------------------------------------------------------
+
+class AdminDeactivatePATRevocationTests(TestCase):
+    """Deactivating a user via POST /api/admin/users/{pk}/deactivate/ must delete
+    all their personal access tokens.
+
+    Covers the target.personal_access_tokens.all().delete() line added to
+    AdminUserDeactivateView in admin_views.py.
+    """
+
+    def setUp(self):
+        from accounts.models import PersonalAccessToken
+        self.PersonalAccessToken = PersonalAccessToken
+
+        self.admin = make_admin(username="deactpat_admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def _deactivate(self, pk, payload=None):
+        return self.client.post(
+            f"/api/admin/users/{pk}/deactivate/", payload or {}, format="json"
+        )
+
+    def test_deactivating_user_deletes_all_their_pats(self):
+        target = make_user(username="patowner")
+        self.PersonalAccessToken.generate(target, "ci-token-1")
+        self.PersonalAccessToken.generate(target, "ci-token-2")
+        self.assertEqual(target.personal_access_tokens.count(), 2)
+
+        r = self._deactivate(target.pk)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(
+            self.PersonalAccessToken.objects.filter(user=target).count(),
+            0,
+            "All PATs belonging to the deactivated user must be deleted.",
+        )
+
+    def test_deactivated_user_pat_cannot_authenticate(self):
+        """A PAT issued before deactivation must not work after the user is deactivated."""
+        from rest_framework.test import APIClient as FreshClient
+        target = make_user(username="patownerauth")
+        _, raw = self.PersonalAccessToken.generate(target, "ci")
+
+        self._deactivate(target.pk)
+
+        unauthenticated = FreshClient()
+        r = unauthenticated.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Token {raw}")
+        # Token record is gone — PATAuthentication raises "Invalid or revoked token."
+        self.assertEqual(r.status_code, 401)
+
+    def test_deactivation_with_no_pats_still_succeeds(self):
+        """Deactivating a user who has no PATs must not raise an error."""
+        target = make_user(username="nopats")
+        self.assertEqual(target.personal_access_tokens.count(), 0)
+        r = self._deactivate(target.pk)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_other_users_pats_are_not_deleted(self):
+        """Only the deactivated user's PATs are removed; other users' tokens stay intact."""
+        target = make_user(username="patdeact_target")
+        bystander = make_user(username="patdeact_bystander")
+        self.PersonalAccessToken.generate(bystander, "safe-token")
+
+        self._deactivate(target.pk)
+
+        self.assertEqual(
+            self.PersonalAccessToken.objects.filter(user=bystander).count(),
+            1,
+            "PATs belonging to other users must not be deleted.",
+        )

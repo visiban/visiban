@@ -54,21 +54,28 @@ class AdminIPRestrictionMiddlewareTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     @override_settings(DEBUG=False)
-    def test_forwarded_for_header_used_when_present(self):
-        """X-Forwarded-For client IP takes precedence over REMOTE_ADDR."""
+    def test_forwarded_for_rightmost_entry_used(self):
+        """Middleware trusts the rightmost X-Forwarded-For entry (proxy-appended).
+
+        The leftmost entry is client-supplied and cannot be trusted. With
+        NUM_PROXIES=1, the rightmost entry is the one appended by the
+        trusted reverse proxy (Nginx).
+        """
         request = self.factory.get("/admin/")
-        # REMOTE_ADDR is the proxy; client is an external IP
         request.META["REMOTE_ADDR"] = "10.0.0.1"
-        request.META["HTTP_X_FORWARDED_FOR"] = "203.0.113.99, 10.0.0.1"
+        # Client spoofs loopback as leftmost; proxy appends real IP as rightmost
+        request.META["HTTP_X_FORWARDED_FOR"] = "127.0.0.1, 203.0.113.99"
         response = self.middleware(request)
+        # Rightmost is 203.0.113.99 (non-loopback) — must be blocked
         self.assertEqual(response.status_code, 403)
 
     @override_settings(DEBUG=False)
-    def test_forwarded_for_loopback_allowed(self):
-        """X-Forwarded-For with loopback client is allowed."""
+    def test_forwarded_for_rightmost_loopback_allowed(self):
+        """X-Forwarded-For with loopback as rightmost entry is allowed."""
         request = self.factory.get("/admin/")
         request.META["REMOTE_ADDR"] = "10.0.0.1"
-        request.META["HTTP_X_FORWARDED_FOR"] = "127.0.0.1"
+        # Proxy appends loopback as the rightmost entry
+        request.META["HTTP_X_FORWARDED_FOR"] = "203.0.113.99, 127.0.0.1"
         response = self.middleware(request)
         self.assertEqual(response.status_code, 200)
 

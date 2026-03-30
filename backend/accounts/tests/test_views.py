@@ -105,6 +105,63 @@ class ChangePasswordViewTests(TestCase):
         self.assertEqual(r2.status_code, status.HTTP_200_OK)
 
 
+class ChangePasswordValidatorTests(TestCase):
+    """ChangePasswordView must run AUTH_PASSWORD_VALIDATORS after the length check.
+
+    Covers the validate_password() call added to accounts/views.py. All
+    passwords used here are at least 12 characters so they pass the length
+    pre-check and reach the Django validator pipeline.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="pwval_user", password="OldPassword123!")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _change(self, new_password):
+        return self.client.post("/api/auth/change-password/", {
+            "current_password": "OldPassword123!",
+            "new_password": new_password,
+        })
+
+    # ------------------------------------------------------------------
+    # CommonPasswordValidator
+    # ------------------------------------------------------------------
+
+    def test_common_password_rejected(self):
+        # "123456789012" is 12 chars (passes length check) but is on Django's
+        # common-password list, so CommonPasswordValidator must reject it.
+        r = self._change("123456789012")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_common_password_error_is_string(self):
+        """validate_password() messages are joined into a single string for API compat."""
+        r = self._change("123456789012")
+        detail = r.json()["detail"]
+        self.assertIsInstance(detail, str)
+        self.assertTrue(len(detail) > 0)
+
+    # ------------------------------------------------------------------
+    # NumericPasswordValidator
+    # ------------------------------------------------------------------
+
+    def test_all_numeric_password_rejected(self):
+        # A random-looking all-digit string that is not on the common list
+        # but still fails NumericPasswordValidator.
+        r = self._change("934857263849")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # ------------------------------------------------------------------
+    # Strong password passes all validators
+    # ------------------------------------------------------------------
+
+    def test_strong_password_accepted(self):
+        r = self._change("Tr0ub4dor&3xtra!")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Tr0ub4dor&3xtra!"))
+
+
 class AuthProvidersViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()

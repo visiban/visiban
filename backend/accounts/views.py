@@ -3,7 +3,8 @@ import re
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth import get_user_model, update_session_auth_hash
+from django.contrib.auth import get_user_model, password_validation, update_session_auth_hash
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -13,6 +14,11 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 from rest_framework import status
 from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, InviteLink, get_registration_mode
 from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer, UserSerializer
@@ -117,6 +123,14 @@ class ChangePasswordView(APIView):
         if not new_password or len(new_password) < 12:
             return Response(
                 {"detail": "New password must be at least 12 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            password_validation.validate_password(new_password, request.user)
+        except ValidationError as exc:
+            return Response(
+                {"detail": " ".join(exc.messages)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -237,6 +251,11 @@ class PersonalAccessTokenListCreateView(APIView):
     automatically when the user changes their password.
     """
 
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def get(self, request):
         tokens = request.user.personal_access_tokens.all()
@@ -285,6 +304,11 @@ class PersonalAccessTokenDeleteView(APIView):
     user's token returns 404, not 403, to avoid confirming token existence.
     """
 
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def delete(self, request, pk):
         try:

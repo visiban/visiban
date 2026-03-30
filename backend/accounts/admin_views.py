@@ -2,7 +2,7 @@
 import logging
 from datetime import timedelta
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, password_validation
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -94,6 +94,10 @@ class AdminCreateUserSerializer(drf_serializers.Serializer):
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise drf_serializers.ValidationError("A user with that email already exists.")
+        return value
+
+    def validate_password(self, value):
+        password_validation.validate_password(value)
         return value
 
 
@@ -506,6 +510,10 @@ class AdminUserDeactivateView(APIView):
 
         target.is_active = False
         target.save(update_fields=["is_active"])
+
+        # Security: revoke all personal access tokens so a deactivated user
+        # cannot retain API access via previously issued tokens.
+        target.personal_access_tokens.all().delete()
 
         # Security: a departing admin's unused invite links must not remain valid.
         InviteLink.objects.filter(

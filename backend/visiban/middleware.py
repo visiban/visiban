@@ -12,13 +12,15 @@ _LOOPBACK_IPS = {"127.0.0.1", "::1"}
 def _get_client_ip(request):
     """Return the originating client IP from the request.
 
-    Prefer X-Forwarded-For when set (reverse-proxy deployments) but only trust
-    the first (leftmost) entry, which is the client address appended by the
-    outermost proxy. Fall back to REMOTE_ADDR for direct connections.
+    Prefer X-Forwarded-For when set (reverse-proxy deployments), trusting the
+    rightmost entry — the one appended by the trusted reverse proxy (Nginx).
+    This matches DRF's NUM_PROXIES=1 trust model and prevents IP spoofing via
+    a client-injected X-Forwarded-For header. Fall back to REMOTE_ADDR for
+    direct connections.
     """
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+        return forwarded_for.split(",")[-1].strip()
     return request.META.get("REMOTE_ADDR", "")
 
 
