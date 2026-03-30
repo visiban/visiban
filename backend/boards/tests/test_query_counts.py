@@ -169,6 +169,93 @@ class BoardFullQueryCountTests(TestCase):
         )
 
 
+class BoardFullGroupInheritedQueryCountTests(TestCase):
+    """GET /api/boards/{id}/full/ must not issue per-card queries even when
+    the board belongs to a group with inherited memberships.
+
+    This catches the N+1 in CardSerializer.__init__ where
+    _get_effective_member_ids() was called once per card instance, each
+    triggering 2-8 DB queries to walk the group ancestor chain (#490).
+    """
+
+    BUDGET = 25  # group-inherited membership adds a few queries; 25 is generous headroom
+
+    def setUp(self):
+        from groups.models import Group, GroupMembership
+
+        self.owner = User.objects.create_user(username="g_owner", password="x")
+        # Create a two-level group hierarchy with members at each level.
+        self.parent_group = Group.objects.create(name="Parent", owner=self.owner)
+        self.child_group = Group.objects.create(name="Child", owner=self.owner, parent=self.parent_group)
+
+        self.group_user1 = User.objects.create_user(username="g_u1", password="x")
+        self.group_user2 = User.objects.create_user(username="g_u2", password="x")
+        GroupMembership.objects.create(group=self.parent_group, user=self.group_user1, role="member")
+        GroupMembership.objects.create(group=self.child_group, user=self.group_user2, role="member")
+
+        # Board belongs to the child group — effective members come from both levels.
+        self.board = Board.objects.create(name="GroupBoard", owner=self.owner, group=self.child_group)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role="admin")
+
+        # Seed cards
+        label = Label.objects.create(board=self.board, name="l", color="#000")
+        cols = [Column.objects.create(board=self.board, name=f"C{i}", position=i) for i in range(3)]
+        lanes = [Swimlane.objects.create(board=self.board, name=f"L{i}", position=i) for i in range(3)]
+        self.cols = cols
+        self.lanes = lanes
+        for col in cols:
+            for lane in lanes:
+                for n in range(2):
+                    card = Card.objects.create(
+                        board=self.board, column=col, swimlane=lane,
+                        title=f"Card {n}", created_by=self.owner, position=n,
+                    )
+                    card.labels.add(label)
+                    CardMovement.objects.create(
+                        card=card,
+                        to_column=col, to_column_name=col.name, to_column_uid=col.uid,
+                        to_swimlane=lane, to_swimlane_name=lane.name, to_swimlane_uid=lane.uid,
+                        from_column=None, from_column_name="", from_column_uid="",
+                        from_swimlane=None, from_swimlane_name="", from_swimlane_uid="",
+                        moved_by=self.owner,
+                    )
+
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _get_full(self):
+        return self.client.get(f"/api/boards/{self.board.id}/full/")
+
+    def test_full_with_group_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_full()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.data["cards"]), 18)  # 3 cols × 3 lanes × 2 cards
+        self.assertLessEqual(
+            len(ctx), self.BUDGET,
+            f"full/ (group board) used {len(ctx)} queries — budget is {self.BUDGET}. "
+            "Member/label lookups may still be running per-card (#490).",
+        )
+
+    def test_full_with_group_budget_scales_with_cards(self):
+        """Adding more cards must not increase the query count."""
+        baseline = _query_count(self._get_full)
+
+        for col in self.cols:
+            for lane in self.lanes:
+                Card.objects.create(
+                    board=self.board, column=col, swimlane=lane,
+                    title="extra", created_by=self.owner, position=99,
+                )
+
+        doubled = _query_count(self._get_full)
+        self.assertEqual(
+            baseline, doubled,
+            f"full/ (group board) query count grew from {baseline} to {doubled} "
+            "when cards were added — N+1 regression detected (#490).",
+        )
+
+
 class SummaryQueryCountTests(TestCase):
     """GET /api/boards/{id}/summary/ must use aggregate queries, not per-swimlane loops."""
 
