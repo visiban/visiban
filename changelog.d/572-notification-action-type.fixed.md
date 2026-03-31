@@ -1,0 +1,1 @@
+`Notification.action_type` no longer allows blank strings: a data migration backfills existing empty rows from verb content, the field constraint is tightened, and the TypeScript type is narrowed to a union of valid values.
