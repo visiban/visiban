@@ -73,10 +73,16 @@ class GroupSerializer(serializers.ModelSerializer):
 
 class GroupMembershipSerializer(serializers.ModelSerializer):
     user = BoardUserSerializer(read_only=True)
+    # is_inherited and inherited_from are not model fields — they are set
+    # dynamically by the members action in GroupViewSet when building the
+    # combined direct + inherited membership list. Declared here so that
+    # drf-spectacular generates an accurate schema for the members endpoint.
+    is_inherited = serializers.BooleanField(read_only=True, required=False)
+    inherited_from = serializers.CharField(read_only=True, required=False, allow_null=True)
 
     class Meta:
         model = GroupMembership
-        fields = ["id", "user", "role", "joined_at"]
+        fields = ["id", "user", "role", "joined_at", "is_inherited", "inherited_from"]
 
 
 class GroupDetailSerializer(GroupSerializer):
