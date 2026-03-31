@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from accounts.serializers import UserSerializer
+from accounts.serializers import BoardUserSerializer
 from .models import Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite
 
 
@@ -10,7 +10,7 @@ class GroupLabelSerializer(serializers.ModelSerializer):
 
 
 class GroupSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+    owner = BoardUserSerializer(read_only=True)
     parent_name = serializers.CharField(source="parent.name", default=None, read_only=True)
     member_count = serializers.SerializerMethodField()
     board_count = serializers.SerializerMethodField()
@@ -72,7 +72,7 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class GroupMembershipSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = BoardUserSerializer(read_only=True)
 
     class Meta:
         model = GroupMembership

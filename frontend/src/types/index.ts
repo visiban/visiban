@@ -1,3 +1,18 @@
+/**
+ * Slim user shape embedded in board resources (cards, movements, comments, etc.).
+ * Only fields that are safe to expose to all board members are included.
+ * Matches BoardUserSerializer on the backend.
+ *
+ * For the full authenticated-user profile shape (notification prefs, UI prefs, etc.)
+ * see the User interface below — that shape is returned exclusively by /api/auth/me/.
+ */
+export interface BoardUser {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -61,13 +76,13 @@ export interface BoardTemplate {
   sort_order: number;
 }
 
-export function userDisplayName(user: Pick<User, "display_name" | "first_name" | "username">): string {
+export function userDisplayName(user: Pick<User, "display_name" | "username"> & { first_name?: string }): string {
   return user.display_name || user.first_name || user.username;
 }
 
 export interface BoardMembership {
   id: number | null;
-  user: User;
+  user: BoardUser;
   role: "admin" | "member" | "collaborator" | "viewer";
   is_moderator: boolean;
   joined_at: string;
@@ -120,7 +135,7 @@ export interface CardAttachment {
   filename: string;
   size: number;
   url: string;
-  uploaded_by: User | null;
+  uploaded_by: BoardUser | null;
   uploaded_at: string;
 }
 
@@ -132,7 +147,7 @@ export interface Card {
   title: string;
   description: string;
   priority: Priority;
-  assignee: User | null;
+  assignee: BoardUser | null;
   labels: Label[];
   due_date: string | null;
   weight: number;
@@ -177,7 +192,7 @@ export interface CardMovement {
   to_swimlane: number | null;
   to_swimlane_name: string | null;
   to_swimlane_uid: string;
-  moved_by: User | null;
+  moved_by: BoardUser | null;
   moved_at: string;
   notes: string;
   movement_type: "move" | "archived" | "unarchived";
@@ -201,7 +216,7 @@ export interface BoardMovement {
   to_swimlane: number | null;
   to_swimlane_name: string;
   to_swimlane_uid: string;
-  moved_by: User | null;
+  moved_by: BoardUser | null;
   moved_at: string;
   notes: string;
   movement_type: "move" | "archived" | "unarchived";
@@ -228,13 +243,13 @@ export interface CardActivity {
   event_type: CardActivityEventType;
   from_value: string;
   to_value: string;
-  actor: User | null;
+  actor: BoardUser | null;
   created_at: string;
 }
 
 export interface CardComment {
   id: number;
-  author: User | null;
+  author: BoardUser | null;
   body: string;
   created_at: string;
   updated_at: string;
@@ -245,7 +260,7 @@ export interface Board {
   uid: string;
   name: string;
   description: string;
-  owner: User;
+  owner: BoardUser;
   group: number | null;
   group_name: string | null;
   member_count: number;
@@ -297,7 +312,7 @@ export interface Group {
   id: number;
   name: string;
   description: string;
-  owner: User;
+  owner: BoardUser;
   parent: number | null;
   parent_name: string | null;
   member_count: number;
@@ -314,8 +329,8 @@ export interface Group {
 
 export interface GroupMembership {
   id: number | null;
-  user: User;
-  role: "admin" | "member" | "collaborator" | "viewer";
+  user: BoardUser;
+  role: "admin" | "member" | "collaborator" | "viewer" | "site_admin";
   joined_at: string;
   is_inherited: boolean;
   inherited_from: string | null;
