@@ -289,7 +289,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <Avatar user={m.user} size="sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white truncate">{userDisplayName(m.user)}</p>
-                          <p className="text-xs text-slate-500 truncate">{m.user.email}</p>
                         </div>
                       </div>
 

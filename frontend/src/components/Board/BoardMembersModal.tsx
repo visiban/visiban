@@ -77,7 +77,6 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
             <div key={m.user.id} className="flex items-center justify-between gap-3 py-2 border-b border-slate-700 last:border-0">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white truncate">{userDisplayName(m.user)}</p>
-                <p className="text-xs text-slate-500 truncate">{m.user.email}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <SelectDropdown

@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.models import User
-from accounts.serializers import UserSerializer
+from accounts.serializers import BoardUserSerializer, UserSerializer
 
 from .models import (
     Board, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card, CardMovement,
@@ -24,7 +24,7 @@ class BoardTemplateSerializer(serializers.ModelSerializer):
 
 
 class BoardMembershipSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = BoardUserSerializer(read_only=True)
 
     class Meta:
         model = BoardMembership
@@ -70,7 +70,7 @@ class LabelSerializer(serializers.ModelSerializer):
 
 
 class CardMovementSerializer(serializers.ModelSerializer):
-    moved_by = UserSerializer(read_only=True)
+    moved_by = BoardUserSerializer(read_only=True)
     # card_uid / card_title allow board-level history consumers to identify
     # which card a movement belongs to without a secondary fetch.
     # source="card.*" is safe because the board-level movements queryset
@@ -93,7 +93,7 @@ class CardMovementSerializer(serializers.ModelSerializer):
 
 
 class CardCommentSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
+    author = BoardUserSerializer(read_only=True)
 
     class Meta:
         model = CardComment
@@ -101,7 +101,7 @@ class CardCommentSerializer(serializers.ModelSerializer):
 
 
 class CardActivitySerializer(serializers.ModelSerializer):
-    actor = UserSerializer(read_only=True)
+    actor = BoardUserSerializer(read_only=True)
 
     class Meta:
         model = CardActivity
@@ -147,7 +147,7 @@ class CardSerializer(serializers.ModelSerializer):
     label_ids = serializers.PrimaryKeyRelatedField(
         many=True, write_only=True, queryset=Label.objects.all(), source="labels", required=False
     )
-    assignee = UserSerializer(read_only=True)
+    assignee = BoardUserSerializer(read_only=True)
     assignee_id = serializers.PrimaryKeyRelatedField(
         write_only=True, read_only=False, queryset=User.objects.all(), source="assignee", required=False, allow_null=True
     )
@@ -218,7 +218,7 @@ class CardSerializer(serializers.ModelSerializer):
 
 
 class CardAttachmentSerializer(serializers.ModelSerializer):
-    uploaded_by = UserSerializer(read_only=True)
+    uploaded_by = BoardUserSerializer(read_only=True)
     url = serializers.SerializerMethodField()
 
     class Meta:
@@ -233,7 +233,7 @@ class CardAttachmentSerializer(serializers.ModelSerializer):
 
 
 class BoardSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+    owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
@@ -381,11 +381,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
         result = []
         for entry in seen.values():
-            # Delegate to UserSerializer so inherited/implicit member rows stay
-            # in sync with direct member rows if new User fields are added post-1.0.
+            # Use BoardUserSerializer so private per-user fields (notification prefs,
+            # UI prefs, can_access_all_content) are not exposed to other board members.
             result.append({
                 "id": entry["id"],
-                "user": UserSerializer(entry["user"], context=self.context).data,
+                "user": BoardUserSerializer(entry["user"], context=self.context).data,
                 "role": entry["role"],
                 "is_moderator": entry["is_moderator"],
                 "joined_at": entry["joined_at"],

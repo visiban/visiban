@@ -688,7 +688,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ↑ {m.inherited_from}
                         </span>
                       </div>
-                    ) : isAdmin && m.user.id !== user.id && !m.user.is_site_admin ? (
+                    ) : isAdmin && m.user.id !== user.id && m.role !== "site_admin" ? (
                       <div className="flex items-center gap-2 shrink-0">
                         <SelectDropdown
                           value={m.role}
@@ -725,7 +725,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     ) : (
                       <div className="flex items-center gap-2 shrink-0">
                         <p className="text-slate-500 text-xs capitalize">{m.role}</p>
-                        {m.user.is_site_admin && (
+                        {m.role === "site_admin" && (
                           <span className="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">site admin</span>
                         )}
                       </div>

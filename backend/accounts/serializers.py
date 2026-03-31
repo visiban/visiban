@@ -29,6 +29,22 @@ class PublicUserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "display_name", "avatar_url"]
 
 
+class BoardUserSerializer(serializers.ModelSerializer):
+    """Slim user representation for embedding in board resources.
+
+    Exposes only the fields that are safe to share with all board members.
+    UserSerializer (full shape) is reserved for /api/auth/me/ only.
+
+    This keeps notification preferences, UI preferences, and the
+    can_access_all_content privilege flag private — board members must not
+    be able to read these fields for other users via the board API.
+    """
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "display_name", "avatar_url"]
+
+
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
     # default_board_id is injected as a writable PrimaryKeyRelatedField in
