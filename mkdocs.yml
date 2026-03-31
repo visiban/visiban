@@ -80,6 +80,7 @@ nav:
     - Groups: api/groups.md
     - Notifications: api/notifications.md
     - Admin: api/admin.md
+    - WebSockets: api/websockets.md
     - Health Checks: api/health.md
     - OpenAPI Spec: api/openapi.md
   - Architecture:

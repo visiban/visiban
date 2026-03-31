@@ -167,9 +167,12 @@ If the target user owns one or more boards, you must supply a `transfers` list m
   "is_active": false,
   "is_site_admin": false,
   "must_change_password": false,
-  "date_joined": "2025-11-02T08:00:00Z"
+  "date_joined": "2025-11-02T08:00:00Z",
+  "owned_boards": []
 }
 ```
+
+After a successful deactivation with transfers, `owned_boards` will be `[]` — all boards have been transferred to their new owners.
 
 **Errors**
 
