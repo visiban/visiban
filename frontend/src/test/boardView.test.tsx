@@ -210,6 +210,9 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
     updateSwimlane: vi.fn(),
     removeSwimlane: vi.fn(),
     updateBoardSettings: vi.fn(),
+    evictColumn: vi.fn(),
+    evictSwimlane: vi.fn(),
+    mergeBoardState: vi.fn(),
     ...overrides,
   }
 }
