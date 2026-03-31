@@ -390,7 +390,16 @@ class CardViewSet(viewsets.ModelViewSet):
         """
         board = self._board()
         qs = _card_queryset(Card.objects.filter(board=board, archived_at__isnull=False)).order_by("-archived_at")
-        serializer = CardSerializer(qs, many=True, context={"request": request, "board": board})
+        # Pre-compute shared context values so CardSerializer does not call
+        # _get_effective_member_ids() once per card instance (O(n) queries).
+        member_ids = _get_effective_member_ids(board)
+        board_labels_qs = Label.objects.filter(board=board)
+        serializer = CardSerializer(qs, many=True, context={
+            "request": request,
+            "board": board,
+            "_member_ids": member_ids,
+            "_board_labels_qs": board_labels_qs,
+        })
         return Response(serializer.data)
 
     def update(self, request, *args, **kwargs):
