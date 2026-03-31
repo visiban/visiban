@@ -412,6 +412,12 @@ Revoke the public share token for the board. Requires board admin. All existing 
 
 Column objects include a `uid` field — a stable 16-character hex identifier that does not change when the column is renamed or reordered. The `uid` is read-only; any `uid` value sent in a request body is ignored.
 
+### `GET /api/boards/{id}/columns/`
+List all columns on the board in position order. Available to all board members.
+
+### `GET /api/boards/{id}/columns/{col_id}/`
+Get a single column. Available to all board members.
+
 ### `POST /api/boards/{id}/columns/`
 Create a column. Requires board admin.
 
@@ -455,6 +461,12 @@ Swimlane objects include a `uid` field — stable across renames, read-only.
 
 **Role-gated fields:** `contact_email` and `notes` are only included in responses for `admin` and `site_admin` role members. `member`, `collaborator`, and `viewer` roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, `GET /api/boards/{id}/full/`, and WebSocket broadcast events.
 
+### `GET /api/boards/{id}/swimlanes/`
+List all swimlanes on the board in position order. Available to all board members. `admin` and `site_admin` roles see `contact_email` and `notes`; all other roles receive swimlane objects without those fields.
+
+### `GET /api/boards/{id}/swimlanes/{swimlane_id}/`
+Get a single swimlane. Same role-gated field rules as the list endpoint.
+
 ### `POST /api/boards/{id}/swimlanes/`
 Create a swimlane. Requires board admin.
 
@@ -482,7 +494,10 @@ Reorder swimlanes. Requires board admin.
 Label objects include a `uid` field — stable across renames, read-only.
 
 ### `GET /api/boards/{id}/labels/`
-List board labels.
+List board labels. Available to all board members.
+
+### `GET /api/boards/{id}/labels/{label_id}/`
+Get a single label. Available to all board members.
 
 ### `POST /api/boards/{id}/labels/`
 Create a label. Requires board admin.

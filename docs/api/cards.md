@@ -164,7 +164,7 @@ Add a comment. **Minimum role: Collaborator.**
 **Request** `{ "body": "Looking into this now." }`
 
 ### `DELETE /api/boards/{board_id}/cards/{id}/comments/{comment_id}/`
-Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete their own comments; members and above may delete any comment.
+Delete a comment. **Minimum role: Collaborator.** Collaborators and members may only delete their own comments. Admins and members/collaborators with the `is_moderator` entitlement may delete any comment.
 
 ---
 
@@ -208,7 +208,7 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 ```
 
 ### `DELETE /api/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
-Delete an attachment. **Minimum role: Collaborator.**
+Delete an attachment. **Minimum role: Collaborator.** Collaborators and members may only delete their own attachments. Members/collaborators with the `is_moderator` entitlement may delete any attachment.
 
 ---
 
