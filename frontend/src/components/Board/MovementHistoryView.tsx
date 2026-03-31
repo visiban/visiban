@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getBoardMovements } from "../../api/boards";
-import type { BoardFull, BoardMovement } from "../../types";
+import type { BoardFull, CardMovement } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 
@@ -50,9 +50,9 @@ function hasFilters(f: HistoryFilters): boolean {
 // ---------------------------------------------------------------------------
 
 interface SlideInPanelProps {
-  movement: BoardMovement;
+  movement: CardMovement;
   /** All movements for the same card visible on the current page — for context. */
-  relatedMovements: BoardMovement[];
+  relatedMovements: CardMovement[];
   onClose: () => void;
 }
 
@@ -178,10 +178,10 @@ export default function MovementHistoryView({ board }: Props) {
     return { ...EMPTY_FILTERS, columnId: columnId ? Number(columnId) : null };
   });
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<{ results: BoardMovement[]; count: number } | null>(null);
+  const [data, setData] = useState<{ results: CardMovement[]; count: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [selectedMovement, setSelectedMovement] = useState<BoardMovement | null>(null);
+  const [selectedMovement, setSelectedMovement] = useState<CardMovement | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1;

@@ -182,6 +182,7 @@ export interface CardMovement {
   card_title: string;
   from_column: number | null;
   from_column_name: string | null;
+  // Backend CardMovementSerializer returns "" (not null) for missing FK UIDs.
   from_column_uid: string;
   to_column: number | null;
   to_column_name: string | null;
@@ -191,30 +192,6 @@ export interface CardMovement {
   from_swimlane_uid: string;
   to_swimlane: number | null;
   to_swimlane_name: string | null;
-  to_swimlane_uid: string;
-  moved_by: BoardUser | null;
-  moved_at: string;
-  notes: string;
-  movement_type: "move" | "archived" | "unarchived";
-}
-
-/** Board-level movement record returned by GET /api/boards/{id}/movements/ */
-export interface BoardMovement {
-  id: number;
-  card_id: number;
-  card_title: string;
-  card_uid: string;
-  from_column: number | null;
-  from_column_name: string;
-  from_column_uid: string;
-  to_column: number | null;
-  to_column_name: string;
-  to_column_uid: string;
-  from_swimlane: number | null;
-  from_swimlane_name: string;
-  from_swimlane_uid: string;
-  to_swimlane: number | null;
-  to_swimlane_name: string;
   to_swimlane_uid: string;
   moved_by: BoardUser | null;
   moved_at: string;

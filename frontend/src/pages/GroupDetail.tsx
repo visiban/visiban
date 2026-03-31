@@ -18,6 +18,7 @@ import { importBoard } from "../api/boards";
 import type { Board, Group, GroupMembership, Priority, User } from "../types";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
+import ModalWrapper from "../components/shared/ModalWrapper";
 
 interface Props {
   user: User;
@@ -918,86 +919,86 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         />
       )}
 
-      {showTransferModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-white font-semibold text-lg mb-1">Transfer ownership</h2>
-            <p className="text-slate-400 text-sm mb-5">
-              Transfer ownership of <span className="text-white font-medium">{group.name}</span> to another admin.
-              You will remain as an admin after the transfer.
-            </p>
+      <ModalWrapper
+        open={showTransferModal}
+        onClose={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
+        title="Transfer ownership"
+        maxWidth="max-w-md"
+      >
+        <p className="text-slate-400 text-sm mb-5">
+          Transfer ownership of <span className="text-white font-medium">{group?.name}</span> to another admin.
+          You will remain as an admin after the transfer.
+        </p>
 
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="text-slate-400 text-sm block mb-1">New owner</label>
-                {adminMembers.length === 0 ? (
-                  <p className="text-slate-500 text-sm">No other admins found. Promote a member to admin first.</p>
-                ) : (
-                  <SelectDropdown
-                    value={String(transferNewOwnerId)}
-                    onChange={(v) => setTransferNewOwnerId(v === "" ? "" : Number(v))}
-                    options={[
-                      { value: "", label: "Select an admin…" },
-                      ...adminMembers.map((m) => ({
-                        value: String(m.user.id),
-                        label: m.user.display_name || m.user.username,
-                      })),
-                    ]}
-                    className="w-full"
-                  />
-                )}
-              </div>
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="text-slate-400 text-sm block mb-1">New owner</label>
+            {adminMembers.length === 0 ? (
+              <p className="text-slate-500 text-sm">No other admins found. Promote a member to admin first.</p>
+            ) : (
+              <SelectDropdown
+                value={String(transferNewOwnerId)}
+                onChange={(v) => setTransferNewOwnerId(v === "" ? "" : Number(v))}
+                options={[
+                  { value: "", label: "Select an admin…" },
+                  ...adminMembers.map((m) => ({
+                    value: String(m.user.id),
+                    label: m.user.display_name || m.user.username,
+                  })),
+                ]}
+                className="w-full"
+              />
+            )}
+          </div>
 
-              <div>
-                <label className="text-slate-400 text-sm block mb-1">
-                  Type the group name to confirm: <span className="text-white font-medium">{group.name}</span>
-                </label>
-                <input
-                  type="text"
-                  value={transferConfirmation}
-                  onChange={(e) => setTransferConfirmation(e.target.value)}
-                  placeholder={group.name}
-                  className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
-                />
-              </div>
+          <div>
+            <label className="text-slate-400 text-sm block mb-1">
+              Type the group name to confirm: <span className="text-white font-medium">{group?.name}</span>
+            </label>
+            <input
+              type="text"
+              value={transferConfirmation}
+              onChange={(e) => setTransferConfirmation(e.target.value)}
+              placeholder={group?.name}
+              className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            />
+          </div>
 
-              {transferError && (
-                <p className="text-red-400 text-sm">{transferError}</p>
-              )}
+          {transferError && (
+            <p className="text-red-400 text-sm">{transferError}</p>
+          )}
 
-              <div className="flex gap-3 justify-end pt-1">
-                <button
-                  onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-                  className="text-sm text-slate-400 hover:text-white px-4 py-2 rounded-lg transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleTransferOwnership}
-                  disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group.name}
-                  className="text-sm text-white bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition"
-                >
-                  {transferring ? "Transferring…" : "Transfer ownership"}
-                </button>
-              </div>
-            </div>
+          <div className="flex gap-3 justify-end pt-1">
+            <button
+              onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
+              className="text-sm text-slate-400 hover:text-white px-4 py-2 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleTransferOwnership}
+              disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name}
+              className="text-sm text-white bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition"
+            >
+              {transferring ? "Transferring…" : "Transfer ownership"}
+            </button>
           </div>
         </div>
-      )}
+      </ModalWrapper>
 
       {/* Delete group confirmation modal */}
-      {confirmDeleteGroup && group && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl border border-slate-700">
-            <h3 className="text-white font-semibold text-base mb-2">Delete &ldquo;{group.name}&rdquo;?</h3>
-            <p className="text-slate-400 text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDeleteGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-              <button onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete group</button>
-            </div>
-          </div>
+      <ModalWrapper
+        open={confirmDeleteGroup && group !== null}
+        onClose={() => setConfirmDeleteGroup(false)}
+        title={`Delete "${group?.name}"?`}
+        maxWidth="max-w-sm"
+      >
+        <p className="text-slate-400 text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={() => setConfirmDeleteGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+          <button onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete group</button>
         </div>
-      )}
+      </ModalWrapper>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import MovementHistoryView from '../components/Board/MovementHistoryView'
-import type { BoardFull, BoardMovement } from '../types'
+import type { BoardFull, CardMovement } from '../types'
 
 vi.mock('../api/boards', () => ({
   getBoardMovements: vi.fn(),
@@ -52,10 +52,9 @@ const mockBoard: BoardFull = {
   share_token: null,
 }
 
-function makeMv(overrides: Partial<BoardMovement> = {}): BoardMovement {
+function makeMv(overrides: Partial<CardMovement> = {}): CardMovement {
   return {
     id: 1,
-    card_id: 100,
     card_title: 'Test Card',
     card_uid: 'card-uid-1',
     from_column: 1,
