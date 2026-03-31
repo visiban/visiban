@@ -319,3 +319,115 @@ class MentionNotificationEdgeCaseTests(TestCase):
         resp = self._post_comment("Hey @ghost_user_12345 what do you think?")
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(Notification.objects.count(), 0)
+
+
+# ---------------------------------------------------------------------------
+# #572 — Notification.action_type backfill migration + constraint
+# ---------------------------------------------------------------------------
+
+class NotificationActionTypeBackfillTests(TestCase):
+    """Verify the 0040 backfill migration correctly infers action_type from verb.
+
+    The backfill function is imported directly from the migration module so the
+    test exercises the real logic without running the full migration framework.
+    """
+
+    def setUp(self):
+        import importlib
+        from django.apps import apps as django_apps
+        self.user = User.objects.create_user(username="u", password="pass")
+        self.board = Board.objects.create(name="B", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+        mod = importlib.import_module("boards.migrations.0040_backfill_notification_action_type")
+        # Bind the real apps registry so get_model() resolves correctly outside
+        # the migration framework.
+        raw_fn = mod.backfill_action_type
+        self.backfill = lambda *_: raw_fn(django_apps, None)
+
+    def _make_blank(self, verb):
+        # Use update() to bypass model-level validation and write an empty
+        # action_type as legacy rows would have had.
+        n = Notification.objects.create(
+            recipient=self.user, verb=verb, board=self.board,
+            action_type=Notification.ActionType.ASSIGNED,
+        )
+        Notification.objects.filter(pk=n.pk).update(action_type="")
+        n.refresh_from_db()
+        return n
+
+    def test_mentioned_verb_inferred(self):
+        n = self._make_blank('alice mentioned you in "Fix login"')
+        self.backfill(None, None)
+        n.refresh_from_db()
+        self.assertEqual(n.action_type, "mentioned")
+
+    def test_assigned_verb_inferred(self):
+        n = self._make_blank('You were assigned to "Fix login"')
+        self.backfill(None, None)
+        n.refresh_from_db()
+        self.assertEqual(n.action_type, "assigned")
+
+    def test_board_invite_verb_inferred(self):
+        n = self._make_blank('alice added you to "My Board"')
+        self.backfill(None, None)
+        n.refresh_from_db()
+        self.assertEqual(n.action_type, "board_invite")
+
+    def test_stale_verb_inferred(self):
+        n = self._make_blank('"Fix login" hasn\'t moved in 14 days (board: My Board)')
+        self.backfill(None, None)
+        n.refresh_from_db()
+        self.assertEqual(n.action_type, "stale")
+
+    def test_card_moved_verb_inferred(self):
+        n = self._make_blank('alice moved "Fix login" to Done')
+        self.backfill(None, None)
+        n.refresh_from_db()
+        self.assertEqual(n.action_type, "card_moved")
+
+    def test_rows_with_existing_action_type_are_untouched(self):
+        n = Notification.objects.create(
+            recipient=self.user, verb="You were assigned to X", board=self.board,
+            action_type=Notification.ActionType.BOARD_INVITE,
+        )
+        self.backfill(None, None)
+        n.refresh_from_db()
+        # Non-blank row must not be overwritten
+        self.assertEqual(n.action_type, "board_invite")
+
+
+# ---------------------------------------------------------------------------
+# #572 — Notification.action_type blank=False constraint
+# ---------------------------------------------------------------------------
+
+class NotificationActionTypeConstraintTests(TestCase):
+    """Verify that Notification.action_type rejects blank values at the model level."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="ctest", password="pass")
+        self.board = Board.objects.create(name="B", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+
+    def test_blank_action_type_fails_full_clean(self):
+        """A Notification with an empty action_type must fail model validation."""
+        from django.core.exceptions import ValidationError
+        n = Notification(
+            recipient=self.user,
+            verb="some verb",
+            board=self.board,
+            action_type="",
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            n.full_clean()
+        self.assertIn("action_type", ctx.exception.message_dict)
+
+    def test_valid_action_type_passes_full_clean(self):
+        """A Notification with a valid action_type must pass model validation."""
+        n = Notification(
+            recipient=self.user,
+            verb="You were assigned to X",
+            board=self.board,
+            action_type=Notification.ActionType.ASSIGNED,
+        )
+        # Should not raise
+        n.full_clean()

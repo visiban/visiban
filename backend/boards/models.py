@@ -455,8 +455,7 @@ class Notification(models.Model):
     action_type = models.CharField(
         max_length=32,
         choices=ActionType.choices,
-        blank=True,
-        default="",
+        blank=False,
     )
     verb = models.CharField(max_length=500)
     card = models.ForeignKey(Card, on_delete=models.CASCADE, null=True, blank=True)

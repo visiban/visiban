@@ -170,7 +170,7 @@ export interface Notification {
   card_title: string | null;
   board_id: number | null;
   board_name: string | null;
-  action_type: string;
+  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | '';
   read: boolean;
   created_at: string;
 }
