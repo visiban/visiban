@@ -22,7 +22,7 @@ export interface BoardContextType {
   updateColumn: (column: Column) => void;
   addLabel: (label: Label) => void;
   updateLabel: (label: Label) => void;
-  removeLabel: (labelId: number) => void;
+  removeLabel: (labelUid: string) => void;
   addMember: (membership: BoardMembership) => void;
   updateMember: (membership: BoardMembership) => void;
   removeMember: (userId: number) => void;
@@ -33,8 +33,9 @@ export interface BoardContextType {
   updateSwimlane: (swimlane: Swimlane) => void;
   removeSwimlane: (swimlaneId: number) => Promise<void>;
   updateBoardSettings: (patch: Record<string, unknown>) => Promise<void>;
-  evictColumn: (columnId: number) => void;
-  evictSwimlane: (swimlaneId: number) => void;
+  evictColumn: (columnUid: string) => void;
+  evictSwimlane: (swimlaneUid: string) => void;
+  evictCardByUid: (cardUid: string) => void;
   mergeBoardState: (patch: Partial<BoardFull>) => void;
 }
 

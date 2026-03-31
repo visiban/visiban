@@ -209,8 +209,8 @@ export function useBoard() {
     setBoard((b) => b ? { ...b, labels: b.labels.map((l) => l.id === label.id ? label : l) } : b);
   }, []);
 
-  const removeLabel = useCallback((labelId: number) => {
-    setBoard((b) => b ? { ...b, labels: b.labels.filter((l) => l.id !== labelId) } : b);
+  const removeLabel = useCallback((labelUid: string) => {
+    setBoard((b) => b ? { ...b, labels: b.labels.filter((l) => l.uid !== labelUid) } : b);
   }, []);
 
   const addMember = useCallback((membership: BoardMembership) => {
@@ -290,20 +290,32 @@ export function useBoard() {
   // Pure state-only helpers for WebSocket receive path — these update local
   // state without firing API calls, preventing redundant round-trips when
   // another client's mutation is broadcast to all connected clients.
-  const evictColumn = useCallback((columnId: number) => {
-    setBoard((b) => b ? {
-      ...b,
-      columns: b.columns.filter((c) => c.id !== columnId),
-      cards: b.cards.filter((c) => c.column !== columnId),
-    } : b);
+  const evictColumn = useCallback((columnUid: string) => {
+    setBoard((b) => {
+      if (!b) return b;
+      const col = b.columns.find((c) => c.uid === columnUid);
+      return {
+        ...b,
+        columns: b.columns.filter((c) => c.uid !== columnUid),
+        cards: col ? b.cards.filter((c) => c.column !== col.id) : b.cards,
+      };
+    });
   }, []);
 
-  const evictSwimlane = useCallback((swimlaneId: number) => {
-    setBoard((b) => b ? {
-      ...b,
-      swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId),
-      cards: b.cards.filter((c) => c.swimlane !== swimlaneId),
-    } : b);
+  const evictSwimlane = useCallback((swimlaneUid: string) => {
+    setBoard((b) => {
+      if (!b) return b;
+      const sl = b.swimlanes.find((s) => s.uid === swimlaneUid);
+      return {
+        ...b,
+        swimlanes: b.swimlanes.filter((s) => s.uid !== swimlaneUid),
+        cards: sl ? b.cards.filter((c) => c.swimlane !== sl.id) : b.cards,
+      };
+    });
+  }, []);
+
+  const evictCardByUid = useCallback((cardUid: string) => {
+    setBoard((b) => b ? { ...b, cards: b.cards.filter((c) => c.uid !== cardUid) } : b);
   }, []);
 
   const mergeBoardState = useCallback((patch: Partial<BoardFull>) => {
@@ -321,5 +333,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, reload: load, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, mergeBoardState };
+  return { board, loading, error, reload: load, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }

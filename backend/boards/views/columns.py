@@ -67,10 +67,10 @@ class ColumnViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         board_id = instance.board_id
-        column_id = instance.id
+        column_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.deleted", {"column_id": column_id}))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.deleted", {"column_uid": column_uid}))
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):

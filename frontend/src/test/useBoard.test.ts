@@ -461,4 +461,104 @@ describe('useBoard', () => {
 
     expect(mockMoveCard).not.toHaveBeenCalled()
   })
+
+  // -------------------------------------------------------------------------
+  // #571 — UID-based WebSocket eviction helpers
+  // -------------------------------------------------------------------------
+
+  it('evictCardByUid removes the card with the matching uid', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictCardByUid('carduid00001') })
+    expect(result.current.board!.cards).toHaveLength(0)
+  })
+
+  it('evictCardByUid is a no-op for an unknown uid', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictCardByUid('does-not-exist') })
+    expect(result.current.board!.cards).toHaveLength(1)
+  })
+
+  it('evictColumn removes the column and its cards from state', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    // card[0] belongs to column id=10, uid='coluid000001'
+    act(() => { result.current.evictColumn('coluid000001') })
+    expect(result.current.board!.columns).toHaveLength(0)
+    expect(result.current.board!.cards).toHaveLength(0)
+  })
+
+  it('evictColumn leaves cards in other columns intact', async () => {
+    const board = makeBoard({
+      columns: [
+        { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+        { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+      ],
+      cards: [
+        { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null },
+        { id: 101, uid: 'carduid00002', column: 11, swimlane: 20, title: 'Card B', description: '', priority: 'low',    assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null },
+      ],
+    })
+    mockGetBoardFull.mockResolvedValue(board)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictColumn('coluid000001') })
+    expect(result.current.board!.columns).toHaveLength(1)
+    expect(result.current.board!.columns[0].uid).toBe('coluid000002')
+    expect(result.current.board!.cards).toHaveLength(1)
+    expect(result.current.board!.cards[0].uid).toBe('carduid00002')
+  })
+
+  it('evictSwimlane removes the swimlane and its cards from state', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    // card[0] belongs to swimlane id=20, uid='laneuid00001'
+    act(() => { result.current.evictSwimlane('laneuid00001') })
+    expect(result.current.board!.swimlanes).toHaveLength(0)
+    expect(result.current.board!.cards).toHaveLength(0)
+  })
+
+  it('evictSwimlane leaves cards in other swimlanes intact', async () => {
+    const board = makeBoard({
+      swimlanes: [
+        { id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
+        { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '' },
+      ],
+      cards: [
+        { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null },
+        { id: 101, uid: 'carduid00002', column: 10, swimlane: 21, title: 'Card B', description: '', priority: 'low',    assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null },
+      ],
+    })
+    mockGetBoardFull.mockResolvedValue(board)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.evictSwimlane('laneuid00001') })
+    expect(result.current.board!.swimlanes).toHaveLength(1)
+    expect(result.current.board!.swimlanes[0].uid).toBe('laneuid00002')
+    expect(result.current.board!.cards).toHaveLength(1)
+    expect(result.current.board!.cards[0].uid).toBe('carduid00002')
+  })
+
+  it('removeLabel removes the label with the matching uid', async () => {
+    const board = makeBoard({
+      labels: [{ id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
+    })
+    mockGetBoardFull.mockResolvedValue(board)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    act(() => { result.current.removeLabel('lbluid000001') })
+    expect(result.current.board!.labels).toHaveLength(0)
+  })
 })

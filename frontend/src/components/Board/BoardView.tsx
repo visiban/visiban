@@ -128,6 +128,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     updateBoardSettings: onUpdateBoardSettings,
     evictColumn,
     evictSwimlane,
+    evictCardByUid,
     mergeBoardState,
   } = useBoardContext();
 
@@ -170,7 +171,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "card.updated") {
       onCardUpdated(d as unknown as Card);
     } else if (event.event === "card.deleted") {
-      onCardDeleted((d as { card_id: number }).card_id);
+      evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
       onCardArchived((d as { card_id: number }).card_id);
     } else if (event.event === "card.unarchived") {
@@ -182,7 +183,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "column.deleted") {
       // Use state-only eviction — the delete already happened on the server;
       // calling onColumnDeleted would fire a redundant DELETE API request.
-      evictColumn((d as { column_id: number }).column_id);
+      evictColumn((d as { column_uid: string }).column_uid);
     } else if (event.event === "columns.reordered") {
       onColumnOrderApplied((d as { columns: Column[] }).columns);
     } else if (event.event === "swimlane.created") {
@@ -192,7 +193,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "swimlane.deleted") {
       // Use state-only eviction — the delete already happened on the server;
       // calling onSwimlaneDeleted would fire a redundant DELETE API request.
-      evictSwimlane((d as { swimlane_id: number }).swimlane_id);
+      evictSwimlane((d as { swimlane_uid: string }).swimlane_uid);
     } else if (event.event === "swimlanes.reordered") {
       onSwimlaneOrderApplied((d as { swimlanes: Swimlane[] }).swimlanes);
     } else if (event.event === "label.created") {
@@ -200,7 +201,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "label.updated") {
       onLabelUpdated(d as unknown as Label);
     } else if (event.event === "label.deleted") {
-      onLabelDeleted((d as { label_id: number }).label_id);
+      onLabelDeleted((d as { label_uid: string }).label_uid);
     } else if (event.event === "member.added") {
       onMemberAdded(d as unknown as BoardMembership);
     } else if (event.event === "member.updated") {
@@ -216,7 +217,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();
     }
-  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted]);
+  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted]);
 
   const { status: socketStatus } = useBoardSocket(board.id, handleSocketEvent);
 

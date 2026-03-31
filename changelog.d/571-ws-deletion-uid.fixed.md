@@ -1,0 +1,1 @@
+WebSocket deletion events (`card.deleted`, `column.deleted`, `swimlane.deleted`, `label.deleted`) now broadcast stable UIDs instead of integer PKs, locking in a consistent event schema before the 1.0 public contract.

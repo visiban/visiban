@@ -212,6 +212,7 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
     updateBoardSettings: vi.fn(),
     evictColumn: vi.fn(),
     evictSwimlane: vi.fn(),
+    evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
     ...overrides,
   }

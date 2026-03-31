@@ -250,10 +250,10 @@ class CardViewSet(viewsets.ModelViewSet):
             if not _can_modify_others_content(board, role, self.request.user):
                 raise PermissionDenied("You can only delete cards you created.")
         board_id = instance.board_id
-        card_id = instance.id
+        card_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.deleted", {"card_id": card_id}))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.deleted", {"card_uid": card_uid}))
 
     @action(detail=True, methods=["post"])
     def archive(self, request, board_pk=None, pk=None):

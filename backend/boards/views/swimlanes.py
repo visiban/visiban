@@ -75,10 +75,10 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         board_id = instance.board_id
-        swimlane_id = instance.id
+        swimlane_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_id": swimlane_id}))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_uid": swimlane_uid}))
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
