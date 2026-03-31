@@ -279,7 +279,7 @@ Click any row to open a slide-in detail panel showing the full movement record: 
 
 #### Archive and restore events
 
-Archive and restore events are excluded from the History view by default. They continue to appear on the individual card's **History** tab. Use `exclude_type=archived,restored` in the API to control this behavior explicitly.
+Archive and restore events are excluded from the History view by default. They continue to appear on the individual card's **History** tab. Use `exclude_type=archived,unarchived` in the API to control this behavior explicitly.
 
 ## Export & import
 

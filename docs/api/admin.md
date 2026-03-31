@@ -63,12 +63,30 @@ Paginated list of all accounts on the instance. Site admin only.
       "avatar_url": null,
       "is_active": true,
       "is_site_admin": false,
+      "can_access_all_content": false,
+      "has_completed_tour": true,
       "must_change_password": false,
-      "date_joined": "2026-01-15T09:00:00Z"
+      "date_joined": "2026-01-15T09:00:00Z",
+      "owned_boards": [
+        { "id": 3, "uid": "a1b2c3d4e5f60718", "name": "Acme Pipeline" }
+      ]
     }
   ]
 }
 ```
+
+| Field | Type | Description |
+|---|---|---|
+| `id`, `username`, `email` | — | Account identifiers |
+| `display_name`, `first_name`, `last_name` | string | Name fields |
+| `avatar_url` | string\|null | URL to the user's avatar image |
+| `is_active` | boolean | `false` means the account is deactivated (login blocked) |
+| `is_site_admin` | boolean | Whether this user has access to the admin panel |
+| `can_access_all_content` | boolean | Whether this user has super-admin access to all boards and groups, independent of membership |
+| `has_completed_tour` | boolean | Whether the onboarding tour has been dismissed |
+| `must_change_password` | boolean | `true` means the user will be forced to set a new password on next login |
+| `date_joined` | ISO 8601 | Account creation timestamp |
+| `owned_boards` | array | Boards owned by this user — each entry has `id`, `uid`, and `name`. Critical for determining what must be transferred before deactivation. |
 
 ### `POST /api/admin/users/`
 Create a new local account. Site admin only.
@@ -102,6 +120,7 @@ Update a user's account flags. Site admin only.
 | `is_active` | boolean | `false` deactivates the account (blocks login without deleting data). Cannot deactivate your own account. |
 | `is_site_admin` | boolean | Grant or revoke admin panel access. Cannot demote yourself. Cannot demote the last active admin. |
 | `can_access_all_content` | boolean | Grant or revoke omniscient read/write access to all boards and groups. Independent of `is_site_admin` — see [Site Admins](../administration/site-admins.md). |
+| `has_completed_tour` | boolean | Reset (`false`) to re-show the onboarding tour to this user on next login |
 | `must_change_password` | boolean | `true` forces a password reset on next login |
 
 **Request**
@@ -115,7 +134,7 @@ Deactivate a user account and transfer ownership of any boards they own to other
 
 **Permission:** `IsSiteAdmin`. Cannot deactivate your own account.
 
-If the target user owns one or more boards, you must supply a `transfers` list mapping each owned board to an eligible recipient. The recipient must already be a member of that board. If any owned board has no eligible transfer targets (i.e. the user is the sole member), the request returns `400 Bad Request` with details.
+If the target user owns one or more boards, you must supply a `transfers` list mapping each owned board to an eligible recipient. The recipient must have access to the board — either as a direct board member or through group membership. Group-inherited access is accepted. If any owned board has no eligible transfer targets (i.e. the user is the sole member with no group-inherited members either), the request returns `400 Bad Request` with details.
 
 **Request body**
 
@@ -156,7 +175,7 @@ If the target user owns one or more boards, you must supply a `transfers` list m
 
 | Status | Reason |
 |---|---|
-| `400 Bad Request` | A `transfer_to` is not a member of the specified board |
+| `400 Bad Request` | A `transfer_to` does not have access to the specified board (neither direct membership nor group-inherited access) |
 | `400 Bad Request` | A board in the `transfers` list does not belong to this user |
 | `409 Conflict` | User owns one or more boards and no `transfers` were provided |
 

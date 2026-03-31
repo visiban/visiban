@@ -298,10 +298,18 @@ Returns the list of configured OAuth providers. No authentication required. Used
 
 **Response**
 ```json
-{ "google": true, "github": false, "gitlab": true }
+{
+  "google": true,
+  "github": false,
+  "gitlab": true,
+  "oidc": true,
+  "oidc_name": "Okta"
+}
 ```
 
-Each key is `true` if the provider is configured on this instance, `false` otherwise.
+- `google`, `github`, `gitlab` — `true` if the respective OAuth provider is configured on this instance, `false` otherwise.
+- `oidc` — `true` if a generic OIDC provider is configured.
+- `oidc_name` — display name for the SSO button (e.g. `"Okta"`), or `null` when `oidc` is `false`.
 
 ---
 

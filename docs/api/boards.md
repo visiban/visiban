@@ -109,21 +109,29 @@ Board health summary — per-swimlane card counts, stage distribution, and veloc
       "name": "Acme Corp",
       "color": "#3B82F6",
       "total_cards": 5,
+      "active_cards": 3,
+      "done_30d": 4,
+      "avg_cycle_days": 6.5,
       "stage_distribution": { "Backlog": 2, "In Progress": 3, "Done": 0 },
       "velocity_7d": 1,
       "velocity_30d": 4
     }
-  ]
+  ],
+  "extension_panels": []
 }
 ```
 
-| Field | Description |
-|---|---|
-| `id`, `name`, `color` | Swimlane identifier, name, and color |
-| `total_cards` | Total active (non-archived) cards in this swimlane |
-| `stage_distribution` | Card count per column for this swimlane (all columns, including zero counts) |
-| `velocity_7d` | Cards that moved into the board's last column in the last 7 days |
-| `velocity_30d` | Cards that moved into the board's last column in the last 30 days |
+| Field | Type | Description |
+|---|---|---|
+| `id`, `name`, `color` | — | Swimlane identifier, name, and color |
+| `total_cards` | integer | Total active (non-archived) cards in this swimlane |
+| `active_cards` | integer | Cards in this swimlane that are not in a done column |
+| `done_30d` | integer | Cards completed in the last 30 days (cards moved into any column with `is_done: true`) |
+| `avg_cycle_days` | float\|null | Average number of days from a card's first movement to its done-column entry; `null` if no completed cards |
+| `stage_distribution` | object | Card count per column for this swimlane (all columns, including zero counts) |
+| `velocity_7d` | integer | Cards moved into any column with `is_done: true` in the last 7 days |
+| `velocity_30d` | integer | Cards moved into any column with `is_done: true` in the last 30 days |
+| `extension_panels` | array | Always `[]` in OSS — reserved slot for enterprise analytics panel extensions |
 
 ---
 

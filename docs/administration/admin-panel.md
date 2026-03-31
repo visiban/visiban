@@ -11,7 +11,7 @@ Controls instance-wide registration behavior and feature availability.
 | Mode | Who can create an account |
 |---|---|
 | **Open** | Anyone — no restriction |
-| **Invite-only** | Only accounts created directly by a site admin via the Users tab |
+| **Invite-only** | Only users with a valid invite link can register |
 | **Closed** | Nobody — all self-registration disabled |
 
 Changes take effect immediately with no restart required. Existing user sessions and OAuth-linked accounts are never affected — only new sign-ups are gated.
