@@ -290,7 +290,7 @@ Click **Export** in the board toolbar to download the board data:
 - **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.
 
-Export is available to all board members (viewer and above). The export endpoints are:
+Export requires **Member** role or above. Viewers and collaborators cannot export. The export endpoints are:
 
 - `GET /api/boards/{id}/export/` — CSV
 - `GET /api/boards/{id}/export/?format=json` — JSON
@@ -367,7 +367,7 @@ Toggle **Enable public share link** off to revoke the current token immediately.
 
 ### Rate limiting
 
-The public board endpoint is rate-limited to **60 requests per minute per IP address** to prevent token enumeration.
+The public board endpoint is rate-limited to **120 requests per hour per IP address** to prevent token enumeration.
 
 ### API
 
