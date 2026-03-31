@@ -161,6 +161,9 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     updateSwimlane: vi.fn(),
     removeSwimlane: vi.fn(),
     updateBoardSettings: vi.fn(),
+    evictColumn: vi.fn(),
+    evictSwimlane: vi.fn(),
+    mergeBoardState: vi.fn(),
     ...overrides,
   }
 }
@@ -258,17 +261,20 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)
   })
 
-  it('board.updated routes to updateBoardSettings via context', async () => {
+  it('board.updated routes to mergeBoardState (no API call)', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
     await act(async () => {})
     const patch = { name: 'Renamed Board', enforce_wip_limits: true }
     act(() => { getOnEvent.dispatch({ event: 'board.updated', data: patch }) })
-    expect(ctx.updateBoardSettings).toHaveBeenCalledWith(patch)
+    // Must use the state-only mergeBoardState, not updateBoardSettings which
+    // would fire a redundant PATCH API call on the receiving client.
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
+    expect(ctx.updateBoardSettings).not.toHaveBeenCalled()
   })
 
-  it('board.updated is a no-op when updateBoardSettings is not provided', async () => {
+  it('board.updated does not throw when mergeBoardState is provided', async () => {
     mockBoardContextValue = makeContext()
     render(<BoardView />)
     await act(async () => {})

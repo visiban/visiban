@@ -287,6 +287,29 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
+  // Pure state-only helpers for WebSocket receive path — these update local
+  // state without firing API calls, preventing redundant round-trips when
+  // another client's mutation is broadcast to all connected clients.
+  const evictColumn = useCallback((columnId: number) => {
+    setBoard((b) => b ? {
+      ...b,
+      columns: b.columns.filter((c) => c.id !== columnId),
+      cards: b.cards.filter((c) => c.column !== columnId),
+    } : b);
+  }, []);
+
+  const evictSwimlane = useCallback((swimlaneId: number) => {
+    setBoard((b) => b ? {
+      ...b,
+      swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId),
+      cards: b.cards.filter((c) => c.swimlane !== swimlaneId),
+    } : b);
+  }, []);
+
+  const mergeBoardState = useCallback((patch: Partial<BoardFull>) => {
+    setBoard((b) => b ? { ...b, ...patch } : b);
+  }, []);
+
   const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
     if (!boardRef.current) return;
     setBoard((b) => b ? { ...b, ...patch } : b);
@@ -298,5 +321,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, reload: load, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings };
+  return { board, loading, error, reload: load, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, mergeBoardState };
 }

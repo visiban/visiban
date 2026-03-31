@@ -33,6 +33,9 @@ export interface BoardContextType {
   updateSwimlane: (swimlane: Swimlane) => void;
   removeSwimlane: (swimlaneId: number) => Promise<void>;
   updateBoardSettings: (patch: Record<string, unknown>) => Promise<void>;
+  evictColumn: (columnId: number) => void;
+  evictSwimlane: (swimlaneId: number) => void;
+  mergeBoardState: (patch: Partial<BoardFull>) => void;
 }
 
 const BoardContext = createContext<BoardContextType | null>(null);
@@ -46,7 +49,14 @@ export function BoardProvider({ children }: { children: ReactNode }) {
  * Consume the board context provided by BoardProvider. Throws if used
  * outside a provider — this is intentional because every consumer must
  * be rendered within a board route that wraps with BoardProvider.
+ *
+ * The eslint-disable below is intentional: co-locating useBoardContext with
+ * BoardProvider keeps the context contract (interface + provider + hook) in
+ * one file and avoids a circular import chain. React Fast Refresh still works
+ * correctly because BoardProvider is a component and useBoardContext is a
+ * hook — Vite treats the file as HMR-safe.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useBoardContext(): BoardContextType {
   const ctx = useContext(BoardContext);
   if (!ctx) {
