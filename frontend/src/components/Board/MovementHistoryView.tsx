@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getCardMovements } from "../../api/boards";
+import { getBoardMovements } from "../../api/boards";
 import type { BoardFull, CardMovement } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -191,7 +191,7 @@ export default function MovementHistoryView({ board }: Props) {
     let cancelled = false;
     setLoading(true);
     setError(false);
-    getCardMovements(board.id, filtersToParams(filters, page))
+    getBoardMovements(board.id, filtersToParams(filters, page))
       .then((d) => { if (!cancelled) { setData(d); setFocusedIndex(null); } })
       .catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
