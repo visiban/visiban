@@ -246,8 +246,21 @@ class GroupViewSet(viewsets.ModelViewSet):
         if request.method == "GET":
             # Group membership implies access to all boards in the group —
             # no separate BoardMembership required.
-            boards = Board.objects.filter(group=group).select_related("owner")
-            return Response(BoardSerializer(boards, many=True).data)
+            # Annotations mirror BoardViewSet.get_queryset() so BoardSerializer
+            # can use the cached values instead of issuing 3 extra queries per board.
+            from boards.models import BoardFavorite
+            boards = (
+                Board.objects.filter(group=group)
+                .select_related("owner")
+                .annotate(
+                    _member_count=Count("memberships", distinct=True),
+                    _card_count=Count("cards", distinct=True),
+                    _is_starred=Exists(
+                        BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)
+                    ),
+                )
+            )
+            return Response(BoardSerializer(boards, many=True, context={"request": request}).data)
 
         # POST — create a new board inside this group
         _require_group_admin(request.user, group)
