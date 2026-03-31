@@ -78,6 +78,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [checklistOpen, setChecklistOpen] = useState(true);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Focus the panel on open so screen readers announce it as a dialog.
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
   // Debounce weight saves: rapid +/- clicks coalesce into one PATCH so the
   // activity feed shows a single net change (e.g. "Weight: 3 → 8") rather
   // than an entry per click.
@@ -344,11 +349,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
 
-      <div ref={panelRef} role="complementary" className="w-[540px] bg-slate-800 shadow-2xl flex flex-col overflow-hidden">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" tabIndex={-1} className="w-[540px] bg-slate-800 shadow-2xl flex flex-col overflow-hidden outline-none">
         {/* Header */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-700">
           <div className="flex-1 min-w-0">
             <input
+              id="card-detail-title"
               value={localCard.title}
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}

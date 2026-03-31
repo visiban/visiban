@@ -121,6 +121,20 @@ describe('CardDetail', () => {
     expect(screen.getByDisplayValue('Test Card')).toBeInTheDocument()
   })
 
+  it('uses role="dialog" with proper ARIA attributes', () => {
+    render(<CardDetail {...defaultProps()} />)
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'card-detail-title')
+    expect(dialog).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('labels the dialog with the card title input', () => {
+    render(<CardDetail {...defaultProps()} />)
+    const titleInput = screen.getByDisplayValue('Test Card')
+    expect(titleInput).toHaveAttribute('id', 'card-detail-title')
+  })
+
   it('renders swimlane and column names', () => {
     render(<CardDetail {...defaultProps()} />)
     // Swimlane and column names are in the same <p> split by a span
