@@ -55,7 +55,6 @@ import json
 import random
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.utils import timezone
 
 from accounts.models import User
 from boards.models import (

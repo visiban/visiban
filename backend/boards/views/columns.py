@@ -48,18 +48,19 @@ class ColumnViewSet(viewsets.ModelViewSet):
             _max = board.columns.aggregate(m=Max("position"))["m"]
             max_pos = 0 if _max is None else _max + 1
             column = serializer.save(board=board, position=max_pos)
-        column_data = ColumnSerializer(column).data
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.created", column_data))
+            column_data = ColumnSerializer(column).data
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.created", column_data))
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        column = serializer.save()
-        column_data = ColumnSerializer(column).data
-        board_id = column.board_id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.updated", column_data))
+        with transaction.atomic():
+            column = serializer.save()
+            column_data = ColumnSerializer(column).data
+            board_id = column.board_id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.updated", column_data))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -67,8 +68,9 @@ class ColumnViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         board_id = instance.board_id
         column_id = instance.id
-        instance.delete()
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.deleted", {"column_id": column_id}))
+        with transaction.atomic():
+            instance.delete()
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.deleted", {"column_id": column_id}))
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
@@ -86,7 +88,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # Second pass: assign final positions.
             for pos, col_id in enumerate(order):
                 Column.objects.filter(board=board, pk=col_id).update(position=pos)
-        cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "columns.reordered", {"columns": list(cols_data)}))
+            cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "columns.reordered", {"columns": list(cols_data)}))
         return Response(cols_data)

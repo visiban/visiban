@@ -231,13 +231,13 @@ class CardViewSet(viewsets.ModelViewSet):
                 moved_by=self.request.user,
                 notes="Card created",
             )
-        card_data = _refetched_card_data(card, self.request, board)
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board.id, "card.created", card_data))
-        if card.description:
-            # Notify any @mentioned board members in the initial description.
-            # Captured in local vars to avoid closure mutation after the lambda is registered.
-            _card, _actor, _desc = card, self.request.user, card.description
-            transaction.on_commit(lambda: notify_new_mentions(_card, _actor, "", _desc))
+            card_data = _refetched_card_data(card, self.request, board)
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board.id, "card.created", card_data))
+            if card.description:
+                # Notify any @mentioned board members in the initial description.
+                # Captured in local vars to avoid closure mutation after the lambda is registered.
+                _card, _actor, _desc = card, self.request.user, card.description
+                transaction.on_commit(lambda: notify_new_mentions(_card, _actor, "", _desc))
 
     def perform_destroy(self, instance):
         board, role = self._board_and_role()
@@ -251,8 +251,9 @@ class CardViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You can only delete cards you created.")
         board_id = instance.board_id
         card_id = instance.id
-        instance.delete()
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.deleted", {"card_id": card_id}))
+        with transaction.atomic():
+            instance.delete()
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.deleted", {"card_id": card_id}))
 
     @action(detail=True, methods=["post"])
     def archive(self, request, board_pk=None, pk=None):
@@ -304,7 +305,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     moved_by=request.user,
                     movement_type=CardMovement.MovementType.ARCHIVED,
                 )
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.archived", {"card_id": card_id}))
+                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.archived", {"card_id": card_id}))
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
             context={"request": request, "board": card.board},
@@ -373,7 +374,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     moved_by=request.user,
                     movement_type=CardMovement.MovementType.UNARCHIVED,
                 )
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
+                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
             context={"request": request, "board": card.board},
