@@ -198,16 +198,16 @@ class LabelBroadcastTests(BroadcastGapsMixin, TestCase):
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
             self.assertIn("label.deleted", event_types)
 
-    def test_label_deleted_payload_contains_label_id(self):
+    def test_label_deleted_payload_contains_label_uid(self):
         label = Label.objects.create(board=self.board, name="Bug", color="#EF4444")
-        label_id = label.pk
+        label_uid = label.uid
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.delete(self._detail_url(label.pk))
             delete_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "label.deleted"]
             self.assertEqual(len(delete_calls), 1)
             payload = delete_calls[0][0][2]
-            self.assertEqual(payload["label_id"], label_id)
+            self.assertEqual(payload["label_uid"], label_uid)
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +351,47 @@ class CardDeletedOnCommitTests(BroadcastGapsMixin, TestCase):
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.delete(f"/api/boards/{self.board.pk}/cards/{self.card.pk}/")
                 mock_broadcast.assert_not_called()
+
+    def test_card_deleted_payload_contains_card_uid(self):
+        card_uid = self.card.uid
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.delete(f"/api/boards/{self.board.pk}/cards/{self.card.pk}/")
+            delete_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "card.deleted"]
+            self.assertEqual(len(delete_calls), 1)
+            payload = delete_calls[0][0][2]
+            self.assertEqual(payload["card_uid"], card_uid)
+            self.assertNotIn("card_id", payload)
+
+
+class ColumnDeletedPayloadTests(BroadcastGapsMixin, TestCase):
+
+    def test_column_deleted_payload_contains_column_uid(self):
+        col2 = Column.objects.create(board=self.board, name="Done", position=1, allow_card_creation=True)
+        col_uid = col2.uid
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.delete(f"/api/boards/{self.board.pk}/columns/{col2.pk}/")
+            delete_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "column.deleted"]
+            self.assertEqual(len(delete_calls), 1)
+            payload = delete_calls[0][0][2]
+            self.assertEqual(payload["column_uid"], col_uid)
+            self.assertNotIn("column_id", payload)
+
+
+class SwimlaneDeletedPayloadTests(BroadcastGapsMixin, TestCase):
+
+    def test_swimlane_deleted_payload_contains_swimlane_uid(self):
+        swim2 = Swimlane.objects.create(board=self.board, name="Beta Corp", position=1)
+        swim_uid = swim2.uid
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.delete(f"/api/boards/{self.board.pk}/swimlanes/{swim2.pk}/")
+            delete_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "swimlane.deleted"]
+            self.assertEqual(len(delete_calls), 1)
+            payload = delete_calls[0][0][2]
+            self.assertEqual(payload["swimlane_uid"], swim_uid)
+            self.assertNotIn("swimlane_id", payload)
 
 
 class CardUpdatedOnCommitTests(BroadcastGapsMixin, TestCase):

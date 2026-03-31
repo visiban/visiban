@@ -50,7 +50,7 @@ class LabelViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         board_id = instance.board_id
-        label_id = instance.id
+        label_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.deleted", {"label_id": label_id}))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.deleted", {"label_uid": label_uid}))

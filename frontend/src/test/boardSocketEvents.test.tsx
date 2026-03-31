@@ -163,6 +163,7 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     updateBoardSettings: vi.fn(),
     evictColumn: vi.fn(),
     evictSwimlane: vi.fn(),
+    evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
     ...overrides,
   }
@@ -198,13 +199,40 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.updateLabel).toHaveBeenCalledWith(expect.objectContaining({ id: 100, name: 'Bug (renamed)' }))
   })
 
-  it('label.deleted routes to removeLabel with label_id', async () => {
+  it('label.deleted routes to removeLabel with label_uid', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
     await act(async () => {})
-    act(() => { getOnEvent.dispatch({ event: 'label.deleted', data: { label_id: 100 } }) })
-    expect(ctx.removeLabel).toHaveBeenCalledWith(100)
+    act(() => { getOnEvent.dispatch({ event: 'label.deleted', data: { label_uid: 'lbl001' } }) })
+    expect(ctx.removeLabel).toHaveBeenCalledWith('lbl001')
+  })
+
+  it('card.deleted routes to evictCardByUid with card_uid', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'card.deleted', data: { card_uid: 'crd001' } }) })
+    expect(ctx.evictCardByUid).toHaveBeenCalledWith('crd001')
+  })
+
+  it('column.deleted routes to evictColumn with column_uid', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'column.deleted', data: { column_uid: 'col001' } }) })
+    expect(ctx.evictColumn).toHaveBeenCalledWith('col001')
+  })
+
+  it('swimlane.deleted routes to evictSwimlane with swimlane_uid', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'swimlane.deleted', data: { swimlane_uid: 'lane001' } }) })
+    expect(ctx.evictSwimlane).toHaveBeenCalledWith('lane001')
   })
 
   it('member.added routes to addMember', async () => {
