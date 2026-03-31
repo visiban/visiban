@@ -4,14 +4,14 @@ You are running a pre-release audit of the full Visiban codebase. Unlike day-to-
 
 ## Step 0 — Determine audit type
 
-Read `$ARGUMENTS`. Valid types: `full`, `security`, `performance`, `frontend`, `docs`, `contracts`, `deps`, `enterprise`.
+Read `$ARGUMENTS`. Valid types: `full`, `security`, `performance`, `frontend`, `docs`, `contracts`, `deps`, `enterprise`, `tests`.
 
 If `$ARGUMENTS` is empty or not one of the above, present this menu and ask the user to choose:
 
 ```
 Which pre-release audit would you like to run?
 
-  full         All 13 agents in 3 parallel waves
+  full         All 14 agents in 3 parallel waves
   security     security-review + rbac-check
   performance  perf-check + perf-bench
   frontend     ux-review + broadcast-check
@@ -19,6 +19,7 @@ Which pre-release audit would you like to run?
   contracts    architect (full codebase) + migration-check
   deps         dependency
   enterprise   enterprise-check
+  tests        test-scaffold (coverage gaps across all apps)
 ```
 
 Wait for the user's choice before proceeding.
@@ -60,6 +61,9 @@ Run in parallel:
 ### `enterprise`
 1. **enterprise-check** — Full OSS/enterprise boundary audit. Verify the OSS core is fully functional without the enterprise repo. Check that all extension points (settings includes, URL patterns, signal hooks) are stable and that no enterprise logic has leaked into OSS files.
 
+### `tests`
+1. **test-scaffold** — Full test coverage audit across all backend apps and frontend modules. For each app in `backend/` and each module in `frontend/src/`, identify: (a) public functions/methods/endpoints with no test, (b) edge cases (empty state, permission boundary, error path) that are exercised in code but not in tests, (c) any `SerializerMethodField`, custom model method, or `useCallback` hook that has only routing tests (asserting the right function is called) and lacks state/behaviour tests (asserting the result is correct). Do NOT generate scaffold files — return a structured findings report only, grouped by app/module, severity-rated as 🔴 (no coverage at all) or 🟡 (routing-only / missing edge cases).
+
 ### `full`
 Run all agents above in 3 parallel waves:
 
@@ -70,7 +74,7 @@ Run all agents above in 3 parallel waves:
 - ux-review, broadcast-check, architect (full codebase mode), migration-check
 
 **Wave 3** (docs + ecosystem):
-- api-docs, docs, dependency, enterprise-check, regression-check
+- api-docs, docs, dependency, enterprise-check, regression-check, test-scaffold (coverage audit mode — report only, no scaffold generation)
 
 ---
 

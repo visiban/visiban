@@ -30,12 +30,27 @@ Launch **2 sub-agents in parallel** (both with `model: "sonnet"`). Wait for both
 >
 > Return: a checklist of pass/fail for each pre-flight item, and any blockers that must be fixed before the MR can be created.
 
-### Steps 2–4 — MR creation (you do this — do NOT delegate)
+### Step 2 — Test coverage check (you do this — do NOT delegate)
 
-#### 2. Fix any blockers
+Before creating the MR, verify that every new or modified code path has test coverage:
+
+1. From the diff analysis, identify all new/modified functions, methods, hooks, and components.
+2. Check whether the relevant test files cover them:
+   - Backend functions → `backend/*/tests/`
+   - Frontend hooks/utils → `frontend/src/test/`
+   - Frontend components → `frontend/src/test/`
+3. **If any changed code lacks a test**, use the `test-scaffold` agent to generate the missing tests, then run the suite locally to confirm they pass before proceeding.
+   - Exempt: pure documentation changes, migration-only changes with no logic, config/chore changes with no behaviour impact
+4. If test coverage is complete, proceed to Step 3.
+
+**Do not skip this step.** A routing test (asserting the right function is called) does not substitute for a state/behaviour test (asserting the result is correct).
+
+### Steps 3–5 — MR creation (you do this — do NOT delegate)
+
+#### 3. Fix any blockers
 If pre-flight checks found issues (e.g. CHANGELOG not updated, uncommitted changes, not pushed), fix them or stop and report to the user.
 
-#### 3. Draft the MR
+#### 4. Draft the MR
 
 **Title format:** `<type>: <short description>` (matches the primary commit)
 - `feat:` new feature
@@ -48,7 +63,7 @@ If pre-flight checks found issues (e.g. CHANGELOG not updated, uncommitted chang
 - **Test plan** — checklist of how to verify the change works; include both happy path and edge cases
 - **Closes #N** — if this MR resolves a GitLab issue
 
-#### 4. Create the MR
+#### 5. Create the MR
 
 Always use heredoc syntax — never inline `\n` literals:
 
@@ -71,7 +86,7 @@ EOF
   --yes
 ```
 
-### 5. Run local tests and post results as an MR comment
+### 6. Run local tests and post results as an MR comment
 
 Immediately after the MR is created, run the relevant local test suites and post the results as a comment on the MR. Do this whether tests pass or fail — both outcomes must be documented.
 
@@ -116,7 +131,7 @@ Immediately after the MR is created, run the relevant local test suites and post
 
 After posting the test comment, **fix any failures** before proceeding. Re-run and re-comment until all tests pass. Each re-run must be posted as a new comment — do not edit previous comments.
 
-### 6. Watch the CI pipeline and post its result as an MR comment
+### 7. Watch the CI pipeline and post its result as an MR comment
 
 After the local test comment is posted, poll the GitLab pipeline until it completes, then post the result.
 
