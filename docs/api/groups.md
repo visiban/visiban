@@ -22,12 +22,25 @@ Create a group. Any authenticated user may create a top-level group. Creating a 
 ### `GET /api/groups/{id}/`
 Get group details.
 
-**Response includes** `id`, `name`, `description`, `parent`, `owner`, `created_at`, and:
+**Response fields:**
 
 | Field | Type | Description |
 |---|---|---|
-| `description` | string | Optional free-text summary of the group. Empty string if not set. |
-| `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty array for top-level groups. |
+| `id` | integer | Group ID |
+| `name` | string | Display name |
+| `description` | string | Optional free-text summary. Empty string if not set. |
+| `parent` | integer\|null | Parent group ID, or `null` for top-level groups |
+| `parent_name` | string\|null | Parent group display name (convenience field), or `null` |
+| `owner` | object | `{ "id", "username", "display_name", "avatar_url" }` |
+| `member_count` | integer | Total number of direct members (does not include inherited) |
+| `board_count` | integer | Number of boards directly in this group |
+| `subgroup_count` | integer | Number of direct subgroups |
+| `is_starred` | boolean | Whether the requesting user has starred this group |
+| `shared_labels` | array | Labels shared across all boards in this group |
+| `default_board_member_role` | string | Role assigned to group members on new boards |
+| `allowed_priorities` | array | Priority values permitted on boards in this group. Empty array means all priorities allowed. |
+| `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. |
+| `created_at` | string | ISO 8601 timestamp |
 
 ### `PUT /api/groups/{id}/`
 Update group name, description, or parent. Requires group admin.
@@ -69,9 +82,16 @@ List direct subgroups. Requires group membership.
 List boards in this group. Requires group membership.
 
 ### `POST /api/groups/{id}/boards/`
-Create a board in this group. Requires group admin.
+Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically.
 
-**Request** `{ "name": "Sprint 12", "description": "" }`
+**Request**
+
+| Field | Required | Notes |
+|---|---|---|
+| `name` | Yes | Board display name |
+| `description` | No | Optional free-text description |
+| `template` | No | Template name to pre-populate columns/swimlanes. Valid values: `kanban`, `scrum`, `crm` |
+| `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"Swimlane"` |
 
 ---
 
@@ -94,7 +114,15 @@ All fields are optional. `role` defaults to `member`; `expiry_days` may be `1`, 
 
 Valid roles: `admin`, `member`, `collaborator`, `viewer`
 
-**Response** `{ "id": 1, "token": "abc123", "name": "Team link", "role": "member", "is_active": true, "expires_at": "...", "created_at": "..." }`
+**Response (create only)** — the raw `token` is returned once and never again:
+```json
+{ "id": 1, "token": "abc123raw", "prefix": "abc123ra", "name": "Team link", "role": "member", "is_active": true, "is_expired": false, "expires_at": "2026-04-07T00:00:00Z", "created_at": "2026-03-31T00:00:00Z" }
+```
+
+**List response** — `token` is absent; `prefix` (first 8 chars) is shown for identification:
+```json
+{ "id": 1, "prefix": "abc123ra", "name": "Team link", "role": "member", "is_active": true, "is_expired": false, "expires_at": "2026-04-07T00:00:00Z", "created_at": "2026-03-31T00:00:00Z" }
+```
 
 ### `DELETE /api/groups/{id}/invite-links/{link_id}/`
 Revoke a single invite link. Requires group admin.
@@ -181,11 +209,17 @@ Returns the updated group object.
 ## Join (public)
 
 ### `GET /api/groups/join/{token}/`
-Resolve an invite token to a group name. No authentication required.
+Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP.
 
-**Response** `{ "group_id": 5, "group_name": "Engineering" }`
+**Response** `{ "group_id": 5, "group_name": "Engineering", "role": "member" }`
+
+**Errors:** `404 Not Found` (invalid token), `410 Gone` (link expired or deactivated)
 
 ### `POST /api/groups/join/{token}/`
-Join the group with the role configured on the invite link. Requires authentication.
+Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.
 
-**Response** `201 Created` (first join) or `200 OK` (already a member).
+**Response** `201 Created` (first join) or `200 OK` (already a member at the same or higher role).
+
+**Note:** Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.
+
+**Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid token), `410 Gone` (link expired or deactivated)

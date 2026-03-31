@@ -1,6 +1,6 @@
 # Card Archiving
 
-Archiving is a soft-delete for cards — an archived card is hidden from the active board but its history is preserved and it can be restored at any time.
+Archiving is a soft-delete for cards — an archived card is hidden from the active board but its history is preserved and it can be unarchived at any time.
 
 ## Archiving a card
 
@@ -12,15 +12,15 @@ Open the card detail panel and click **Archive card** in the footer. A confirmat
 
 Click **Archived** in the board toolbar to open the archived cards panel. The panel lists all archived cards for the board, showing the card title, column and swimlane it was in, and the date it was archived.
 
-## Restoring a card
+## Unarchiving a card
 
-In the archived cards panel, click **Restore** next to a card. The card returns to its original column and swimlane position and becomes active again on the board.
+In the archived cards panel, click **Unarchive** next to a card. The card returns to its original column and swimlane position and becomes active again on the board.
 
-**Permission:** member role or higher. Viewers and collaborators cannot restore cards.
+**Permission:** member role or higher. Viewers and collaborators cannot unarchive cards.
 
 ## Real-time sync
 
-Archive and restore events are broadcast to all board members over WebSockets:
+Archive and unarchive events are broadcast to all board members over WebSockets:
 
 | Event | Effect on other sessions |
 |---|---|

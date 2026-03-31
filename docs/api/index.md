@@ -70,6 +70,14 @@ The `data` object contains the serialized resource (card, column, swimlane, etc.
 
 ---
 
+## Versioning policy
+
+The `/api/` URL prefix is the stable 1.x surface. Breaking changes (field removals, type changes, endpoint removals) will be introduced under `/api/v2/` with at least one minor-release deprecation notice. Additive changes (new optional response fields, new optional request parameters, new endpoints) are non-breaking and may appear in any 1.x patch or minor release.
+
+Operators and integrators may treat the `/api/` surface as stable for the lifetime of all Visiban 1.x releases.
+
+---
+
 ## Common conventions
 
 - All endpoints return `application/json`

@@ -12,7 +12,7 @@ List all cards on the board. Pagination is disabled — all cards are returned i
 | `?search=<q>` | Filter by title and description (partial, case-insensitive) |
 | `?assignee=<id>` | Filter by assignee user ID |
 | `?unassigned=true` | Return only cards with no assignee |
-| `?priority=<value>` | Filter by priority (`low`, `medium`, `high`, `critical`) |
+| `?priority=<value>` | Filter by priority (`low`, `medium`, `high`, `urgent`) |
 | `?column=<id>` | Filter by column ID |
 | `?swimlane=<id>` | Filter by swimlane ID |
 | `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
@@ -63,7 +63,7 @@ If the card is already archived this is a no-op — `200 OK` is returned with th
 Broadcasts `card.archived` to all board WebSocket subscribers.
 
 ### `POST /api/boards/{board_id}/cards/{id}/unarchive/`
-Restore an archived card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
+Unarchive a card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
 
 **Response** — full card object with `archived_at: null`.
 
