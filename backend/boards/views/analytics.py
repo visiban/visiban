@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from ..models import CardMovement
+from .. import hooks
 from ._helpers import get_board_for_user
 
 
@@ -117,7 +118,8 @@ class BoardAnalyticsMixin:
                 "avg_cycle_days": avg_cycle_by_swimlane.get(swimlane.id),
             })
 
-        return Response({"swimlanes": result, "extension_panels": []})
+        extension_panels = [fn(board, request) for fn in hooks.ANALYTICS_EXTENSIONS]
+        return Response({"swimlanes": result, "extension_panels": extension_panels})
 
     @action(detail=True, methods=["get"])
     def analytics(self, request, pk=None):
