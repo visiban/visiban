@@ -11,6 +11,7 @@ from boards.models import (
     Board, BoardMembership, Column, Swimlane, Label, Card,
     CardComment, CardChecklist, CardMovement, CardActivity,
 )
+from django.utils import timezone
 
 
 class BoardImportJSONTests(TestCase):
@@ -173,6 +174,101 @@ class BoardImportJSONTests(TestCase):
         self.assertEqual(len(activities), 2)
         self.assertIn("Reproduce issue", activities)
         self.assertIn("Write fix", activities)
+
+    def test_json_import_archived_at_preserved(self):
+        """An archived card in the export must be restored as archived, not re-activated."""
+        data = self._valid_json_data()
+        data["cards"][0]["archived_at"] = "2026-01-15T10:00:00Z"
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        self.assertIsNotNone(card.archived_at)
+
+    def test_json_import_active_card_not_archived(self):
+        """A card with no archived_at must remain active after import."""
+        data = self._valid_json_data()
+        data["cards"][0]["archived_at"] = None
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        self.assertIsNone(card.archived_at)
+
+    def test_json_import_movement_type_and_notes_preserved(self):
+        """movement_type and notes must be restored on import, not defaulted to 'move'/''."""
+        data = self._valid_json_data()
+        data["cards"][0]["movements"] = [
+            {
+                "from_column": "To Do",
+                "to_column": "Done",
+                "from_swimlane": "General",
+                "to_swimlane": "General",
+                "moved_by": None,
+                "moved_at": "2026-01-10T12:00:00Z",
+                "notes": "Blocked by external dep",
+                "movement_type": "archived",
+            }
+        ]
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        mv = CardMovement.objects.get(card=card)
+        self.assertEqual(mv.movement_type, "archived")
+        self.assertEqual(mv.notes, "Blocked by external dep")
+
+    def test_json_import_comment_created_at_backfilled(self):
+        """Comment timestamps from the export must be restored so the timeline is accurate."""
+        data = self._valid_json_data()
+        data["cards"][0]["comments"] = [
+            {"author": "someone", "body": "Original comment", "created_at": "2026-01-05T08:30:00Z"}
+        ]
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        comment = CardComment.objects.get(card=card)
+        self.assertEqual(comment.created_at.isoformat(), "2026-01-05T08:30:00+00:00")
+
+    def test_json_export_includes_archived_at_and_schema_version(self):
+        """JSON export must include archived_at on each card and schema_version: 2."""
+        board = Board.objects.create(name="Export Test", owner=self.user)
+        BoardMembership.objects.create(board=board, user=self.user, role=BoardMembership.Role.ADMIN)
+        col = Column.objects.create(board=board, name="Done", position=0)
+        sw = Swimlane.objects.create(board=board, name="General", position=0)
+        archived_time = timezone.now()
+        Card.objects.create(
+            board=board, column=col, swimlane=sw,
+            title="Archived card", archived_at=archived_time,
+        )
+        Card.objects.create(
+            board=board, column=col, swimlane=sw,
+            title="Active card",
+        )
+        resp = self.client.get(f"/api/boards/{board.id}/export/?format=json")
+        self.assertEqual(resp.status_code, 200)
+        payload = json.loads(resp.content)
+        self.assertEqual(payload["schema_version"], 2)
+        cards_by_title = {c["title"]: c for c in payload["cards"]}
+        self.assertIsNotNone(cards_by_title["Archived card"]["archived_at"])
+        self.assertIsNone(cards_by_title["Active card"]["archived_at"])
 
     def test_json_import_name_override(self):
         data = self._valid_json_data()

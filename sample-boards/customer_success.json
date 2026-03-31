@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Template: Customer Success",
   "description": "Track account health from onboarding through expansion and renewal. Each swimlane represents a customer segment.",
   "columns": [
@@ -182,7 +182,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -190,7 +192,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -198,7 +202,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -223,7 +229,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "RocketOps LLC -- Adoption review at 30 days",
@@ -276,7 +283,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -284,7 +293,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -292,7 +303,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -300,7 +313,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -381,7 +396,8 @@
           "actor": "demo5",
           "created_at": "2026-01-26T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cirrus Analytics -- Healthy: 80% DAU, champion VP Product",
@@ -413,7 +429,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -421,7 +439,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -453,7 +473,8 @@
           "actor": "demo2",
           "created_at": "2025-12-20T18:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vertex Media -- Expansion proposal 80 to 150 seats",
@@ -474,7 +495,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -482,7 +505,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -500,7 +525,8 @@
           "actor": "demo4",
           "created_at": "2025-12-27T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "GreenLeaf Energy -- QBR preparation Q2",
@@ -554,7 +580,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -635,7 +663,8 @@
           "actor": "demo1",
           "created_at": "2025-12-19T06:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Maple Creek Software -- Onboarding technical training",
@@ -664,7 +693,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -672,7 +703,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -704,7 +737,8 @@
           "actor": "demo4",
           "created_at": "2026-01-11T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Ironclad Legal -- Renewal negotiation 2-year deal",
@@ -746,7 +780,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -754,7 +790,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -762,7 +800,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -770,7 +810,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -830,7 +872,8 @@
           "actor": "demo5",
           "created_at": "2025-12-22T17:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cascade Consulting -- At-risk: 22% DAU at day 60",
@@ -856,7 +899,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -864,7 +909,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -872,7 +919,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -904,7 +953,8 @@
           "actor": "demo2",
           "created_at": "2026-01-01T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Frontier Retail -- Expansion to 5 new store regions",
@@ -925,7 +975,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -933,7 +985,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -941,7 +995,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -959,7 +1015,8 @@
           "actor": "demo4",
           "created_at": "2026-01-08T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Silver Ridge Analytics -- Healthy: NPS 9, reference candidate",
@@ -988,7 +1045,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -996,7 +1055,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1021,7 +1082,8 @@
           "actor": "demo1",
           "created_at": "2026-01-26T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Horizon Aerospace -- Onboarding ITAR-compliant environment",
@@ -1042,7 +1104,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1050,7 +1114,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1058,7 +1124,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -1066,7 +1134,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1074,7 +1144,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -1082,7 +1154,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -1090,7 +1164,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1115,7 +1191,8 @@
           "actor": "demo3",
           "created_at": "2026-01-24T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Lakewood Media Group -- Adoption enablement session",
@@ -1162,7 +1239,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1170,7 +1249,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1244,7 +1325,8 @@
           "actor": "demo2",
           "created_at": "2026-01-29T16:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Polaris Engineering GmbH -- Onboarding SSO and DPA",
@@ -1273,7 +1355,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1281,7 +1365,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1289,7 +1375,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1321,7 +1409,8 @@
           "actor": "demo2",
           "created_at": "2025-12-30T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Meridian Consulting UK -- At-risk: 35% DAU at day 60",
@@ -1361,7 +1450,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1369,7 +1460,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1377,7 +1470,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -1385,7 +1480,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1459,7 +1556,8 @@
           "actor": "demo4",
           "created_at": "2025-12-31T21:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Solaris Digital -- Healthy: self-service, 85% utilization",
@@ -1489,7 +1587,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1497,7 +1597,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1505,7 +1607,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1544,7 +1648,8 @@
           "actor": "demo4",
           "created_at": "2026-01-26T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Atlas Logistics BV -- Renewal + 30-seat expansion",
@@ -1572,7 +1677,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1597,7 +1704,8 @@
           "actor": "demo3",
           "created_at": "2026-01-16T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Nordic Ventures -- QBR with board of directors",
@@ -1629,7 +1737,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1637,7 +1747,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1645,7 +1757,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -1653,7 +1767,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1692,7 +1808,8 @@
           "actor": "demo4",
           "created_at": "2025-12-15T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rhine Pharma AG -- Adoption across clinical teams",
@@ -1728,7 +1845,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1736,7 +1855,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1744,7 +1865,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -1752,7 +1875,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1812,7 +1937,8 @@
           "actor": "demo2",
           "created_at": "2026-01-06T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Celtic Insurance Group -- Renewal due end of quarter",
@@ -1836,7 +1962,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1844,7 +1972,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -1852,7 +1982,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -1860,7 +1992,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1892,7 +2026,8 @@
           "actor": "demo4",
           "created_at": "2026-01-03T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Aegean Maritime -- Onboarding 200-seat fleet ops",
@@ -1920,7 +2055,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -1928,7 +2065,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -1936,7 +2075,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1968,7 +2109,8 @@
           "actor": "demo1",
           "created_at": "2026-01-12T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Danube Fintech -- Expansion from 40 to 100 seats",
@@ -2010,7 +2152,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2018,7 +2162,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2026,7 +2172,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -2034,7 +2182,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2094,7 +2244,8 @@
           "actor": "demo2",
           "created_at": "2025-12-16T21:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Alpine Retail GmbH -- Healthy: champion is VP Operations",
@@ -2132,7 +2283,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2140,7 +2293,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2148,7 +2303,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -2156,7 +2313,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2209,7 +2368,8 @@
           "actor": "demo5",
           "created_at": "2025-12-19T15:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Baltic Shipping Corp -- Adoption: logistics teams lagging",
@@ -2239,7 +2399,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2247,7 +2409,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2255,7 +2419,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -2263,7 +2429,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2302,7 +2470,8 @@
           "actor": "demo5",
           "created_at": "2025-12-17T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Iberian Software SL -- Churned: migrated to competitor",
@@ -2353,7 +2522,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2361,7 +2532,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2435,7 +2608,8 @@
           "actor": "demo1",
           "created_at": "2026-01-27T22:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Nexus Software -- Onboarding 50-seat Singapore firm",
@@ -2467,7 +2641,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2475,7 +2651,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2483,7 +2661,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2491,7 +2671,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2499,7 +2681,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2545,7 +2729,8 @@
           "actor": "demo4",
           "created_at": "2025-12-28T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Harbor Tech -- Adoption review: advanced features underused",
@@ -2595,7 +2780,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2603,7 +2790,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2691,7 +2880,8 @@
           "actor": "demo5",
           "created_at": "2025-12-17T20:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pacific Ventures -- Healthy: NPS 9, Head of Product champion",
@@ -2715,7 +2905,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2723,7 +2915,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2731,7 +2925,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2739,7 +2935,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2747,7 +2945,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -2755,7 +2955,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -2763,7 +2965,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -2771,7 +2975,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2796,7 +3002,8 @@
           "actor": "demo5",
           "created_at": "2026-01-31T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Koala Systems -- Churned: price sensitivity, low adoption",
@@ -2828,7 +3035,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2836,7 +3045,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -2844,7 +3055,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -2852,7 +3065,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -2860,7 +3075,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2899,7 +3116,8 @@
           "actor": "demo5",
           "created_at": "2025-12-11T05:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sakura Robotics -- Expansion from 60 to 120 seats",
@@ -2932,7 +3150,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -2940,7 +3160,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2986,7 +3208,8 @@
           "actor": "demo3",
           "created_at": "2026-01-28T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Coral Bay Hotels -- Onboarding property management boards",
@@ -3015,7 +3238,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3047,7 +3272,8 @@
           "actor": "demo4",
           "created_at": "2025-12-13T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dragon Fintech -- QBR preparation quarterly review",
@@ -3087,7 +3313,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3095,7 +3323,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -3103,7 +3333,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -3111,7 +3343,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3164,7 +3398,8 @@
           "actor": "demo3",
           "created_at": "2026-01-30T19:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Jade Capital Partners -- Healthy: 90% utilization",
@@ -3190,7 +3425,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3198,7 +3435,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3206,7 +3445,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3214,7 +3455,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3222,7 +3465,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3240,7 +3485,8 @@
           "actor": "demo2",
           "created_at": "2026-01-18T14:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Orient Express Travel -- Adoption: ops team training needed",
@@ -3273,7 +3519,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3281,7 +3529,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3289,7 +3539,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -3297,7 +3549,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3336,7 +3590,8 @@
           "actor": "demo4",
           "created_at": "2025-12-15T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bamboo Health Systems -- Renewal 1-year extension",
@@ -3372,7 +3627,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3380,7 +3637,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -3388,7 +3647,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3448,7 +3709,8 @@
           "actor": "demo4",
           "created_at": "2026-02-11T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Phoenix Manufacturing -- At-risk: champion departed",
@@ -3481,7 +3743,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3527,7 +3791,8 @@
           "actor": "demo5",
           "created_at": "2026-01-20T06:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Tidal Wave Media -- Expansion: content team growing",
@@ -3548,7 +3813,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3573,7 +3840,8 @@
           "actor": "demo3",
           "created_at": "2026-01-07T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TechNova Inc -- Healthy: 500 seats, CTO sponsor",
@@ -3596,7 +3864,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3604,7 +3874,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3612,7 +3884,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -3620,7 +3894,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3638,7 +3914,8 @@
           "actor": "demo5",
           "created_at": "2026-01-07T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "BlueSky Health -- Adoption across clinical teams",
@@ -3679,7 +3956,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3732,7 +4011,8 @@
           "actor": "demo2",
           "created_at": "2025-12-25T19:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Global Freight Co -- Expansion 300 to 500 seats",
@@ -3761,7 +4041,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3769,7 +4051,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3777,7 +4061,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -3785,7 +4071,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3824,7 +4112,8 @@
           "actor": "demo5",
           "created_at": "2025-12-26T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pinnacle Finance -- Renewal 3-year deal with locked pricing",
@@ -3848,7 +4137,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3856,7 +4147,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3864,7 +4157,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3872,7 +4167,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3880,7 +4177,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3912,7 +4211,8 @@
           "actor": "demo1",
           "created_at": "2026-01-26T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Acme Corp -- QBR Q2 executive review",
@@ -3940,7 +4240,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -3948,7 +4250,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -3956,7 +4260,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -3964,7 +4270,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -3972,7 +4280,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4011,7 +4321,8 @@
           "actor": "demo3",
           "created_at": "2026-01-06T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Summit Financial -- Onboarding compliance workflow",
@@ -4053,7 +4364,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4061,7 +4374,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -4069,7 +4384,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4122,7 +4439,8 @@
           "actor": "demo1",
           "created_at": "2026-02-12T18:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Brightwave Systems -- Healthy: 95% seat utilization",
@@ -4169,7 +4487,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4177,7 +4497,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4258,7 +4580,8 @@
           "actor": "demo4",
           "created_at": "2025-12-31T19:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Redwood Therapeutics -- Expansion into lab division",
@@ -4290,7 +4613,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4298,7 +4623,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4351,7 +4678,8 @@
           "actor": "demo4",
           "created_at": "2026-01-22T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Forge Analytics -- At-risk: stakeholder turnover",
@@ -4380,7 +4708,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4419,7 +4749,8 @@
           "actor": "demo2",
           "created_at": "2025-12-17T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "NovaGen Biotech -- Renewal discussion started",
@@ -4462,7 +4793,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4522,7 +4855,8 @@
           "actor": "demo3",
           "created_at": "2026-01-09T16:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vanguard Logistics -- Adoption: warehouse teams onboarding",
@@ -4550,7 +4884,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4558,7 +4894,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4583,7 +4921,8 @@
           "actor": "demo5",
           "created_at": "2025-12-25T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Apex Manufacturing -- Healthy: factory floor adoption strong",
@@ -4611,7 +4950,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4619,7 +4960,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -4627,7 +4970,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -4635,7 +4980,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -4643,7 +4990,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4675,7 +5024,8 @@
           "actor": "demo5",
           "created_at": "2026-01-21T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Redwood Agency -- Onboarding 25-seat creative agency",
@@ -4728,7 +5078,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4736,7 +5088,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -4744,7 +5098,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4752,7 +5108,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -4760,7 +5118,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4869,7 +5229,8 @@
           "actor": "demo3",
           "created_at": "2025-12-25T06:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Ironside Manufacturing -- Adoption: no champion identified",
@@ -4909,7 +5270,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -4917,7 +5280,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -4925,7 +5290,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -4933,7 +5300,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -4941,7 +5310,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4994,7 +5365,8 @@
           "actor": "demo1",
           "created_at": "2026-01-03T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Skyline Retail -- Healthy: 60% DAU, Ops Manager champion",
@@ -5024,7 +5396,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5032,7 +5406,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5040,7 +5416,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5079,7 +5457,8 @@
           "actor": "demo4",
           "created_at": "2026-02-06T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Fusion Labs -- Churned: consolidated to Notion",
@@ -5116,7 +5495,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5124,7 +5505,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5177,7 +5560,8 @@
           "actor": "demo4",
           "created_at": "2026-02-10T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Prism Design Studio -- Onboarding: 30-seat design team",
@@ -5210,7 +5594,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5218,7 +5604,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5226,7 +5614,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -5234,7 +5624,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -5242,7 +5634,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5288,7 +5682,8 @@
           "actor": "demo1",
           "created_at": "2025-12-28T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cobalt Engineering -- Expansion from 50 to 80 seats",
@@ -5327,7 +5722,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5387,7 +5784,8 @@
           "actor": "demo4",
           "created_at": "2026-01-19T19:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Ember Analytics -- Renewal: annual contract due",
@@ -5424,7 +5822,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5432,7 +5832,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5499,7 +5901,8 @@
           "actor": "demo2",
           "created_at": "2025-12-20T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Driftwood Hospitality -- Adoption: restaurant teams training",
@@ -5528,7 +5931,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5536,7 +5941,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5544,7 +5951,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5552,7 +5961,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5560,7 +5971,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5585,7 +5998,8 @@
           "actor": "demo2",
           "created_at": "2026-02-01T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Granite Construction -- At-risk: low engagement after onboarding",
@@ -5619,7 +6033,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5627,7 +6043,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5635,7 +6053,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5643,7 +6063,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5651,7 +6073,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5690,7 +6114,8 @@
           "actor": "demo5",
           "created_at": "2026-01-01T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Velvet Media -- Healthy: strong board activity metrics",
@@ -5744,7 +6169,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5752,7 +6179,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5760,7 +6189,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5768,7 +6199,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5776,7 +6209,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -5784,7 +6219,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5858,7 +6295,8 @@
           "actor": "demo1",
           "created_at": "2025-12-30T23:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sapphire Tech -- QBR: discuss product roadmap alignment",
@@ -5884,7 +6322,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5892,7 +6332,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5917,7 +6359,8 @@
           "actor": "demo5",
           "created_at": "2026-01-06T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Copper Hill Logistics -- Expansion: 3 new warehouses",
@@ -5938,7 +6381,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -5946,7 +6391,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -5954,7 +6401,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5979,7 +6428,8 @@
           "actor": "demo1",
           "created_at": "2026-01-02T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Zenith Consulting Partners -- Joint success plan review",
@@ -6003,7 +6453,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6011,7 +6463,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6019,7 +6473,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6037,7 +6493,8 @@
           "actor": "demo3",
           "created_at": "2026-02-05T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Orbit Technology Alliance -- Partner enablement training",
@@ -6081,7 +6538,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6089,7 +6548,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6097,7 +6558,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -6105,7 +6568,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6179,7 +6644,8 @@
           "actor": "demo5",
           "created_at": "2026-01-14T20:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Catalyst Integration Partners -- Co-sell pipeline review",
@@ -6203,7 +6669,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6211,7 +6679,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6236,7 +6706,8 @@
           "actor": "demo2",
           "created_at": "2026-01-30T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Nexus Reseller Network -- QBR partner performance metrics",
@@ -6260,7 +6731,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6268,7 +6741,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6276,7 +6751,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6284,7 +6761,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6292,7 +6771,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6317,7 +6798,8 @@
           "actor": "demo4",
           "created_at": "2026-02-10T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Prism SI Partners -- Onboarding partner technical team",
@@ -6367,7 +6849,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6375,7 +6859,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6383,7 +6869,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6464,7 +6952,8 @@
           "actor": "demo2",
           "created_at": "2026-01-18T20:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Keystone Channel Partners -- Renewal: 2-year agreement",
@@ -6488,7 +6977,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6496,7 +6987,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6528,7 +7021,8 @@
           "actor": "demo3",
           "created_at": "2026-01-14T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Beacon Advisory Group -- Expansion into new vertical",
@@ -6569,7 +7063,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6577,7 +7073,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6585,7 +7083,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -6593,7 +7093,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6639,7 +7141,8 @@
           "actor": "demo4",
           "created_at": "2026-02-04T23:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Compass Technology Partners -- At-risk: low co-sell activity",
@@ -6685,7 +7188,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6693,7 +7198,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6701,7 +7208,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6709,7 +7218,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6717,7 +7228,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6805,7 +7318,8 @@
           "actor": "demo3",
           "created_at": "2026-02-01T00:45:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pinnacle Resellers -- Healthy: 12 joint deals closed",
@@ -6829,7 +7343,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6837,7 +7353,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6845,7 +7363,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -6853,7 +7373,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -6861,7 +7383,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6886,7 +7410,8 @@
           "actor": "demo4",
           "created_at": "2026-02-10T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Summit Integration Co -- Adoption: partner portal underused",
@@ -6910,7 +7435,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -6918,7 +7445,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -6926,7 +7455,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -6934,7 +7465,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -6942,7 +7475,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -6950,7 +7485,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6975,7 +7512,8 @@
           "actor": "demo1",
           "created_at": "2025-12-26T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Lighthouse Consulting -- Joint roadmap alignment session",
@@ -7005,7 +7543,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7013,7 +7553,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -7021,7 +7563,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7046,7 +7590,8 @@
           "actor": "demo4",
           "created_at": "2025-12-19T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Meridian MSP Partners -- Partner certification program launch",
@@ -7088,7 +7633,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7096,7 +7643,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -7104,7 +7653,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7164,7 +7715,8 @@
           "actor": "demo3",
           "created_at": "2026-01-14T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "State DOT Highway Division -- Onboarding project boards",
@@ -7209,7 +7761,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7290,7 +7844,8 @@
           "actor": "demo4",
           "created_at": "2026-02-08T22:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Metro School District -- Adoption: curriculum planning boards",
@@ -7316,7 +7871,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7324,7 +7881,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -7332,7 +7891,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7364,7 +7925,8 @@
           "actor": "demo5",
           "created_at": "2026-01-13T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Federal Research Lab -- Renewal: FedRAMP compliance review",
@@ -7405,7 +7967,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7413,7 +7977,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -7421,7 +7987,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7429,7 +7997,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -7437,7 +8007,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7525,7 +8097,8 @@
           "actor": "demo1",
           "created_at": "2026-01-21T23:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "County Public Health -- Expansion: 3 additional departments",
@@ -7546,7 +8119,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7554,7 +8129,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7572,7 +8149,8 @@
           "actor": "demo3",
           "created_at": "2026-01-28T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "University of Westfield -- Healthy: IT and admissions boards",
@@ -7604,7 +8182,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7612,7 +8192,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -7620,7 +8202,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -7628,7 +8212,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7667,7 +8253,8 @@
           "actor": "demo3",
           "created_at": "2026-01-30T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "City Transit Authority -- At-risk: procurement delays",
@@ -7712,7 +8299,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7720,7 +8309,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -7728,7 +8319,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -7736,7 +8329,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7810,7 +8405,8 @@
           "actor": "demo1",
           "created_at": "2025-12-19T20:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "National Parks Service -- Onboarding: maintenance tracking",
@@ -7863,7 +8459,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7871,7 +8469,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7952,7 +8552,8 @@
           "actor": "demo3",
           "created_at": "2025-12-12T05:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "State Education Board -- QBR: academic year planning review",
@@ -7981,7 +8582,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -7989,7 +8592,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8021,7 +8626,8 @@
           "actor": "demo2",
           "created_at": "2026-01-09T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Military Base Operations -- Adoption: security clearance bottleneck",
@@ -8066,7 +8672,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8074,7 +8682,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -8082,7 +8692,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -8090,7 +8702,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8164,7 +8778,8 @@
           "actor": "demo3",
           "created_at": "2026-01-05T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Public Library System -- Healthy: cataloging workflow active",
@@ -8196,7 +8811,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8204,7 +8821,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -8212,7 +8831,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8220,7 +8841,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -8228,7 +8851,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8260,7 +8885,8 @@
           "actor": "demo5",
           "created_at": "2026-01-26T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Community College Network -- Expansion: 12 new campuses",
@@ -8284,7 +8910,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8292,7 +8920,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -8300,7 +8930,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -8308,7 +8940,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -8316,7 +8950,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -8324,7 +8960,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -8332,7 +8970,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -8340,7 +8980,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-03-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8372,7 +9014,8 @@
           "actor": "demo2",
           "created_at": "2026-02-09T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Municipal Water Authority -- Renewal: annual contract due",
@@ -8414,7 +9057,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8422,7 +9067,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8475,7 +9122,8 @@
           "actor": "demo4",
           "created_at": "2025-12-27T03:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sunrise Medical Center -- Onboarding patient flow boards",
@@ -8504,7 +9152,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8512,7 +9162,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8551,7 +9203,8 @@
           "actor": "demo4",
           "created_at": "2025-12-20T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Coastal Clinic Network -- Adoption: nurse scheduling boards",
@@ -8575,7 +9228,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8583,7 +9238,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -8591,7 +9248,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -8599,7 +9258,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8624,7 +9285,8 @@
           "actor": "demo3",
           "created_at": "2025-12-31T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Valley Health System -- Healthy: 88% utilization, HIPAA compliant",
@@ -8666,7 +9328,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8674,7 +9338,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8734,7 +9400,8 @@
           "actor": "demo1",
           "created_at": "2026-01-18T02:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Metro Hospital Group -- Expansion: add 3 new facilities",
@@ -8763,7 +9430,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8795,7 +9464,8 @@
           "actor": "demo1",
           "created_at": "2026-01-31T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Lakeside Urgent Care -- Renewal: 2-year deal discussion",
@@ -8832,7 +9502,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8840,7 +9512,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8900,7 +9574,8 @@
           "actor": "demo4",
           "created_at": "2025-12-26T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Mountain View Rehab -- At-risk: HIPAA audit finding open",
@@ -8932,7 +9607,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -8940,7 +9617,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -8948,7 +9627,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8987,7 +9668,8 @@
           "actor": "demo2",
           "created_at": "2025-12-17T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bayshore Pediatrics -- Onboarding: intake workflow boards",
@@ -9033,7 +9715,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9041,7 +9725,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9049,7 +9735,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -9057,7 +9745,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -9065,7 +9755,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -9073,7 +9765,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9140,7 +9834,8 @@
           "actor": "demo1",
           "created_at": "2026-01-29T03:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Prairie Home Health -- Adoption: field nurse team training",
@@ -9163,7 +9858,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9188,7 +9885,8 @@
           "actor": "demo5",
           "created_at": "2026-02-09T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Riverdale Oncology -- QBR: treatment pathway board review",
@@ -9226,7 +9924,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9234,7 +9934,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9242,7 +9944,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -9250,7 +9954,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9258,7 +9964,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -9266,7 +9974,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9312,7 +10022,8 @@
           "actor": "demo3",
           "created_at": "2026-01-09T20:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Harbor Dental Group -- Healthy: appointment scheduling active",
@@ -9352,7 +10063,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9360,7 +10073,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9413,7 +10128,8 @@
           "actor": "demo4",
           "created_at": "2025-12-16T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Westside Cardiology -- Expansion: research division onboarding",
@@ -9446,7 +10162,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9454,7 +10172,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9500,7 +10220,8 @@
           "actor": "demo1",
           "created_at": "2026-02-10T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Northshore Elder Care -- Churned: switched to EMR-integrated tool",
@@ -9544,7 +10265,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9618,7 +10341,8 @@
           "actor": "demo3",
           "created_at": "2026-02-06T20:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Continental Bank -- Onboarding: compliance workflow boards",
@@ -9647,7 +10371,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9655,7 +10381,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9663,7 +10391,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -9671,7 +10401,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9679,7 +10411,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -9687,7 +10421,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9705,7 +10441,8 @@
           "actor": "demo1",
           "created_at": "2026-02-03T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pacific Credit Union -- Adoption: loan processing boards",
@@ -9741,7 +10478,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9749,7 +10488,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -9757,7 +10498,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -9765,7 +10508,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9811,7 +10556,8 @@
           "actor": "demo2",
           "created_at": "2026-01-28T20:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Apex Wealth Management -- Healthy: portfolio review boards active",
@@ -9839,7 +10585,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9847,7 +10595,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9855,7 +10605,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9863,7 +10615,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9871,7 +10625,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9910,7 +10666,8 @@
           "actor": "demo5",
           "created_at": "2026-02-09T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Northern Trust Services -- Expansion: add private banking division",
@@ -9931,7 +10688,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9939,7 +10698,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -9947,7 +10708,9 @@
           "from_swimlane": "Americas",
           "to_swimlane": "Americas",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9958,7 +10721,8 @@
           "actor": "demo1",
           "created_at": "2026-02-11T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Coastal Insurance Group -- Renewal: SOC 2 audit passed",
@@ -9987,7 +10751,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -9995,7 +10761,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10003,7 +10771,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -10011,7 +10781,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10043,7 +10815,8 @@
           "actor": "demo5",
           "created_at": "2026-02-08T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Metro Mortgage Lending -- At-risk: key stakeholder departed",
@@ -10075,7 +10848,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10100,7 +10875,8 @@
           "actor": "demo5",
           "created_at": "2026-01-31T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Summit Investment Partners -- QBR: regulatory change impact review",
@@ -10141,7 +10917,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10149,7 +10927,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10157,7 +10937,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -10165,7 +10947,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -10173,7 +10957,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10254,7 +11040,8 @@
           "actor": "demo2",
           "created_at": "2026-01-14T21:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Valley Savings Bank -- Adoption: branch operations lagging",
@@ -10287,7 +11074,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10295,7 +11084,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10303,7 +11094,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -10311,7 +11104,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10319,7 +11114,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -10327,7 +11124,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10366,7 +11165,8 @@
           "actor": "demo5",
           "created_at": "2026-02-10T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Harborview Financial -- Healthy: 92% utilization, strong champion",
@@ -10394,7 +11194,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10402,7 +11204,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10410,7 +11214,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -10418,7 +11224,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -10426,7 +11234,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10458,7 +11268,8 @@
           "actor": "demo1",
           "created_at": "2025-12-28T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Redwood Capital Group -- Expansion: M&A integration boards",
@@ -10500,7 +11311,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10508,7 +11321,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10516,7 +11331,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -10524,7 +11341,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10577,7 +11396,8 @@
           "actor": "demo4",
           "created_at": "2025-12-10T22:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Evergreen Insurance -- Renewal: multi-year proposal sent",
@@ -10630,7 +11450,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10638,7 +11460,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10646,7 +11470,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10741,7 +11567,8 @@
           "actor": "demo2",
           "created_at": "2026-02-04T03:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Crestview Advisors -- Churned: acquired by larger firm",
@@ -10769,7 +11596,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10777,7 +11606,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -10785,7 +11616,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10824,7 +11657,8 @@
           "actor": "demo1",
           "created_at": "2026-01-29T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "ByteForge -- Onboarding: 8-seat engineering team",
@@ -10869,7 +11703,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10877,7 +11713,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10951,7 +11789,8 @@
           "actor": "demo3",
           "created_at": "2025-12-19T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "PixelCraft Studios -- Adoption: sprint board underused",
@@ -10991,7 +11830,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -10999,7 +11840,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11073,7 +11916,8 @@
           "actor": "demo1",
           "created_at": "2026-01-13T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CloudNine SaaS -- Healthy: 95% DAU, founder is champion",
@@ -11123,7 +11967,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11211,7 +12057,8 @@
           "actor": "demo1",
           "created_at": "2025-12-18T04:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "GigaStack -- Expansion from 10 to 20 seats",
@@ -11234,7 +12081,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11242,7 +12091,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11250,7 +12101,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -11258,7 +12111,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -11266,7 +12121,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -11274,7 +12131,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11292,7 +12151,8 @@
           "actor": "demo5",
           "created_at": "2026-01-14T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "NanoTech Labs -- Churned: team dissolved after pivot",
@@ -11321,7 +12181,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11329,7 +12191,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11337,7 +12201,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -11345,7 +12211,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -11353,7 +12221,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11392,7 +12262,8 @@
           "actor": "demo5",
           "created_at": "2026-02-04T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "QuickShip Logistics -- Onboarding: 15-seat ops team",
@@ -11415,7 +12286,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11423,7 +12296,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11431,7 +12306,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -11439,7 +12316,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11457,7 +12336,8 @@
           "actor": "demo4",
           "created_at": "2026-01-28T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DataSpark Analytics -- Healthy: power user in every department",
@@ -11493,7 +12373,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11546,7 +12428,8 @@
           "actor": "demo1",
           "created_at": "2026-01-08T20:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "MicroBrew Software -- Adoption: only founder is active",
@@ -11569,7 +12452,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11577,7 +12462,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11585,7 +12472,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11593,7 +12482,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11601,7 +12492,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -11609,7 +12502,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11641,7 +12536,8 @@
           "actor": "demo3",
           "created_at": "2026-01-01T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "RapidForm Inc -- QBR: discuss upgrade to mid-market tier",
@@ -11674,7 +12570,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11682,7 +12580,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11690,7 +12590,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -11698,7 +12600,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11737,7 +12641,8 @@
           "actor": "demo2",
           "created_at": "2026-01-22T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TinyCloud Hosting -- Renewal: annual plan due",
@@ -11780,7 +12685,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11788,7 +12695,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11848,7 +12757,8 @@
           "actor": "demo4",
           "created_at": "2025-12-15T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SwiftCode Dev -- At-risk: switched to free tier competitor",
@@ -11877,7 +12787,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11885,7 +12797,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11893,7 +12807,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -11901,7 +12817,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11933,7 +12851,8 @@
           "actor": "demo5",
           "created_at": "2026-02-10T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "BrightNode AI -- Expansion: ML team wants dedicated boards",
@@ -11962,7 +12881,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11970,7 +12891,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11978,7 +12901,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -11986,7 +12911,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -11994,7 +12921,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12033,7 +12962,8 @@
           "actor": "demo3",
           "created_at": "2025-12-21T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Wildfire Creative -- Onboarding: campaign sprint boards",
@@ -12054,7 +12984,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12062,7 +12994,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12070,7 +13004,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -12078,7 +13014,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12103,7 +13041,8 @@
           "actor": "demo3",
           "created_at": "2026-01-31T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Neon Studios -- Adoption: design team training session",
@@ -12145,7 +13084,9 @@
           "from_swimlane": null,
           "to_swimlane": "Americas",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12205,7 +13146,8 @@
           "actor": "demo1",
           "created_at": "2025-12-18T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Ember & Oak Design -- Healthy: 15 active boards, strong usage",
@@ -12233,7 +13175,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12241,7 +13185,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12249,7 +13195,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -12257,7 +13205,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12296,7 +13246,8 @@
           "actor": "demo5",
           "created_at": "2025-12-18T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Prism Motion Graphics -- Expansion: add video production team",
@@ -12340,7 +13291,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12348,7 +13301,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Healthy",
@@ -12356,7 +13311,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -12364,7 +13321,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12459,7 +13418,8 @@
           "actor": "demo4",
           "created_at": "2025-12-10T23:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cobalt Content Agency -- Renewal: 1-year extension discussion",
@@ -12509,7 +13469,9 @@
           "from_swimlane": null,
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12517,7 +13479,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12525,7 +13489,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12533,7 +13499,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12541,7 +13509,9 @@
           "from_swimlane": "Enterprise Accounts",
           "to_swimlane": "Enterprise Accounts",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12636,7 +13606,8 @@
           "actor": "demo1",
           "created_at": "2025-12-19T23:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Driftwood Branding -- At-risk: CEO questioning ROI",
@@ -12662,7 +13633,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mid-Market",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12670,7 +13643,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12678,7 +13653,9 @@
           "from_swimlane": "Mid-Market",
           "to_swimlane": "Mid-Market",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12703,7 +13680,8 @@
           "actor": "demo3",
           "created_at": "2025-12-10T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sapphire Social Media -- Onboarding: content calendar boards",
@@ -12745,7 +13723,9 @@
           "from_swimlane": null,
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12753,7 +13733,9 @@
           "from_swimlane": "Strategic Partners",
           "to_swimlane": "Strategic Partners",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12820,7 +13802,8 @@
           "actor": "demo5",
           "created_at": "2026-01-04T15:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Granite Publishing -- Adoption: editorial workflow underused",
@@ -12844,7 +13827,9 @@
           "from_swimlane": null,
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12852,7 +13837,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12860,7 +13847,9 @@
           "from_swimlane": "Government & Edu",
           "to_swimlane": "Government & Edu",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12892,7 +13881,8 @@
           "actor": "demo2",
           "created_at": "2026-01-18T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Velvet Photography -- Healthy: client project boards active",
@@ -12930,7 +13920,9 @@
           "from_swimlane": null,
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12938,7 +13930,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12946,7 +13940,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -12954,7 +13950,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -12962,7 +13960,9 @@
           "from_swimlane": "Healthcare",
           "to_swimlane": "Healthcare",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -13029,7 +14029,8 @@
           "actor": "demo4",
           "created_at": "2026-01-04T19:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Copper Ink Creative -- QBR: discuss board template needs",
@@ -13070,7 +14071,9 @@
           "from_swimlane": null,
           "to_swimlane": "Financial Services",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -13078,7 +14081,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -13086,7 +14091,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -13094,7 +14101,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -13102,7 +14111,9 @@
           "from_swimlane": "Financial Services",
           "to_swimlane": "Financial Services",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -13169,7 +14180,8 @@
           "actor": "demo5",
           "created_at": "2025-12-20T02:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sterling Advertising -- Expansion: 2 new client teams",
@@ -13195,7 +14207,9 @@
           "from_swimlane": null,
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -13203,7 +14217,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -13211,7 +14227,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Expansion",
@@ -13219,7 +14237,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Renewal",
@@ -13227,7 +14247,9 @@
           "from_swimlane": "Startup & SMB",
           "to_swimlane": "Startup & SMB",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -13259,7 +14281,8 @@
           "actor": "demo2",
           "created_at": "2026-01-26T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Jade Marketing Group -- Churned: consolidated to project management suite",
@@ -13283,7 +14306,9 @@
           "from_swimlane": null,
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Onboarding",
@@ -13291,7 +14316,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Adoption",
@@ -13299,7 +14326,9 @@
           "from_swimlane": "Agency & Creative",
           "to_swimlane": "Agency & Creative",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -13324,7 +14353,8 @@
           "actor": "demo5",
           "created_at": "2026-02-13T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     }
   ]
 }

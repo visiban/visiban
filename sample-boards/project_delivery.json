@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Template: Project Delivery",
   "description": "Track cross-functional projects from planning through retrospective. Each swimlane is a project; each card is a deliverable or milestone.",
   "columns": [
@@ -168,7 +168,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -200,7 +202,8 @@
           "actor": "demo4",
           "created_at": "2026-01-09T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Kickoff stakeholder alignment meeting",
@@ -223,7 +226,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -255,7 +260,8 @@
           "actor": "demo1",
           "created_at": "2026-01-03T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "UX research synthesis — navigation patterns",
@@ -279,7 +285,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -304,7 +312,8 @@
           "actor": "demo3",
           "created_at": "2026-02-08T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Beta release to 500 internal testers",
@@ -328,7 +337,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -336,7 +347,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -344,7 +357,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -369,7 +384,8 @@
           "actor": "demo5",
           "created_at": "2026-01-26T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "App store submission and release notes",
@@ -402,7 +418,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -410,7 +428,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -418,7 +438,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -426,7 +448,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -472,7 +496,8 @@
           "actor": "demo5",
           "created_at": "2026-01-29T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Performance profiling — cold start under 2s",
@@ -505,7 +530,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -513,7 +540,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -521,7 +550,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -560,7 +591,8 @@
           "actor": "demo4",
           "created_at": "2025-12-28T19:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Accessibility audit — WCAG 2.1 AA compliance",
@@ -588,7 +620,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -613,7 +647,8 @@
           "actor": "demo5",
           "created_at": "2026-01-22T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Push notification integration with Firebase",
@@ -636,7 +671,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -644,7 +681,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -652,7 +691,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -660,7 +701,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -668,7 +711,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -676,7 +721,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -701,7 +748,8 @@
           "actor": "demo3",
           "created_at": "2026-01-25T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Offline mode — sync queue architecture",
@@ -733,7 +781,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -741,7 +791,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -749,7 +801,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -757,7 +811,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -765,7 +821,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -773,7 +831,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -798,7 +858,8 @@
           "actor": "demo1",
           "created_at": "2026-01-18T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Analytics SDK integration — Mixpanel events",
@@ -837,7 +898,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -845,7 +908,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -853,7 +918,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -861,7 +928,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -869,7 +938,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -929,7 +1000,8 @@
           "actor": "demo1",
           "created_at": "2025-12-16T03:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Deep linking implementation for marketing URLs",
@@ -967,7 +1039,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -975,7 +1049,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -983,7 +1059,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -991,7 +1069,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -999,7 +1079,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1059,7 +1141,8 @@
           "actor": "demo5",
           "created_at": "2026-01-24T21:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Crash reporting setup — Sentry for mobile",
@@ -1109,7 +1192,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1117,7 +1202,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -1125,7 +1212,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1206,7 +1295,8 @@
           "actor": "demo3",
           "created_at": "2025-12-16T22:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Schema mapping: Redshift to Snowflake",
@@ -1235,7 +1325,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1243,7 +1335,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -1251,7 +1345,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -1259,7 +1355,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -1267,7 +1365,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1306,7 +1406,8 @@
           "actor": "demo3",
           "created_at": "2025-12-15T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "ELT pipeline cutover — dbt models",
@@ -1339,7 +1440,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1378,7 +1481,8 @@
           "actor": "demo5",
           "created_at": "2026-02-01T17:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Historical data validation — row counts and checksums",
@@ -1408,7 +1512,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1416,7 +1522,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1448,7 +1556,8 @@
           "actor": "demo4",
           "created_at": "2025-12-14T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Decommission Redshift cluster",
@@ -1480,7 +1589,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1488,7 +1599,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1520,7 +1633,8 @@
           "actor": "demo5",
           "created_at": "2026-01-28T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Snowflake role-based access control setup",
@@ -1565,7 +1679,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1573,7 +1689,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -1581,7 +1699,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1589,7 +1709,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -1597,7 +1719,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1664,7 +1788,8 @@
           "actor": "demo3",
           "created_at": "2025-12-25T01:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cost monitoring dashboard for Snowflake credits",
@@ -1693,7 +1818,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1701,7 +1828,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -1709,7 +1838,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1748,7 +1879,8 @@
           "actor": "demo1",
           "created_at": "2025-12-16T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data quality framework — Great Expectations suite",
@@ -1781,7 +1913,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1813,7 +1947,8 @@
           "actor": "demo1",
           "created_at": "2025-12-28T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Reverse ETL pipeline for Salesforce sync",
@@ -1854,7 +1989,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1928,7 +2065,8 @@
           "actor": "demo2",
           "created_at": "2025-12-26T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Migration runbook and rollback procedure",
@@ -1957,7 +2095,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -1965,7 +2105,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -1973,7 +2115,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -1981,7 +2125,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2013,7 +2159,8 @@
           "actor": "demo2",
           "created_at": "2026-02-07T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Stakeholder training sessions — Snowflake UI",
@@ -2034,7 +2181,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2042,7 +2191,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2060,7 +2211,8 @@
           "actor": "demo1",
           "created_at": "2026-01-14T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Snowflake Streams for real-time CDC",
@@ -2098,7 +2250,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2106,7 +2260,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -2114,7 +2270,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -2122,7 +2280,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -2130,7 +2290,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2190,7 +2352,8 @@
           "actor": "demo4",
           "created_at": "2025-12-14T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Archive cold data to S3 Glacier",
@@ -2226,7 +2389,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2234,7 +2399,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -2242,7 +2409,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -2250,7 +2419,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2296,7 +2467,8 @@
           "actor": "demo5",
           "created_at": "2025-12-18T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Access control evidence collection",
@@ -2332,7 +2504,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2340,7 +2514,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2393,7 +2569,8 @@
           "actor": "demo2",
           "created_at": "2026-01-09T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Penetration test — external perimeter",
@@ -2422,7 +2599,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2430,7 +2609,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2469,7 +2650,8 @@
           "actor": "demo1",
           "created_at": "2026-01-21T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Incident response plan — tabletop exercise",
@@ -2492,7 +2674,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2500,7 +2684,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -2508,7 +2694,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -2516,7 +2704,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2534,7 +2724,8 @@
           "actor": "demo1",
           "created_at": "2026-01-01T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vendor risk assessments — top 10 vendors",
@@ -2564,7 +2755,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2572,7 +2765,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -2580,7 +2775,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -2588,7 +2785,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -2596,7 +2795,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -2604,7 +2805,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2643,7 +2846,8 @@
           "actor": "demo2",
           "created_at": "2025-12-22T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SOC 2 evidence package assembly",
@@ -2696,7 +2900,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2704,7 +2910,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -2712,7 +2920,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2793,7 +3003,8 @@
           "actor": "demo5",
           "created_at": "2026-01-29T06:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Security awareness training — all hands",
@@ -2819,7 +3030,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2827,7 +3040,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2852,7 +3067,8 @@
           "actor": "demo1",
           "created_at": "2025-12-11T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Encryption at rest audit — all data stores",
@@ -2884,7 +3100,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2892,7 +3110,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -2900,7 +3120,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -2908,7 +3130,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -2916,7 +3140,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2955,7 +3181,8 @@
           "actor": "demo4",
           "created_at": "2026-02-11T19:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Network segmentation review with diagrams",
@@ -2988,7 +3215,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3034,7 +3263,8 @@
           "actor": "demo5",
           "created_at": "2025-12-29T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Business continuity plan — annual update",
@@ -3071,7 +3301,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3079,7 +3311,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -3087,7 +3321,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -3095,7 +3331,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3169,7 +3407,8 @@
           "actor": "demo3",
           "created_at": "2026-01-23T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Third-party code audit — open-source components",
@@ -3218,7 +3457,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3226,7 +3467,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -3234,7 +3477,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -3242,7 +3487,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -3250,7 +3497,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -3258,7 +3507,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3339,7 +3590,8 @@
           "actor": "demo2",
           "created_at": "2026-01-20T03:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Multi-factor authentication enrollment push",
@@ -3393,7 +3645,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3401,7 +3655,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -3409,7 +3665,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3490,7 +3748,8 @@
           "actor": "demo4",
           "created_at": "2026-01-06T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vulnerability scanning — OWASP ZAP automated run",
@@ -3523,7 +3782,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3531,7 +3792,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -3539,7 +3802,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -3547,7 +3812,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -3555,7 +3822,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3594,7 +3863,8 @@
           "actor": "demo2",
           "created_at": "2026-01-28T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Invoice download and history UI",
@@ -3638,7 +3908,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3646,7 +3918,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3727,7 +4001,8 @@
           "actor": "demo1",
           "created_at": "2026-01-13T22:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Usage dashboard — seats and API calls",
@@ -3756,7 +4031,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3788,7 +4065,8 @@
           "actor": "demo2",
           "created_at": "2026-01-09T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Support ticket submission flow",
@@ -3824,7 +4102,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3832,7 +4112,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3899,7 +4181,8 @@
           "actor": "demo5",
           "created_at": "2025-12-24T20:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SSO deep-link for portal (SAML assertions)",
@@ -3936,7 +4219,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3944,7 +4229,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -3952,7 +4239,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -3960,7 +4249,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -3968,7 +4259,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4028,7 +4321,8 @@
           "actor": "demo2",
           "created_at": "2025-12-19T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Knowledge base search integration",
@@ -4049,7 +4343,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4057,7 +4353,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4065,7 +4363,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -4073,7 +4373,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -4081,7 +4383,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4099,7 +4403,8 @@
           "actor": "demo4",
           "created_at": "2026-01-05T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Account settings and billing management",
@@ -4133,7 +4438,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4141,7 +4448,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4149,7 +4458,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4157,7 +4468,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4165,7 +4478,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4211,7 +4526,8 @@
           "actor": "demo1",
           "created_at": "2025-12-17T16:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Role-based portal access — admin vs viewer",
@@ -4254,7 +4570,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4335,7 +4653,8 @@
           "actor": "demo1",
           "created_at": "2025-12-16T20:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Notification preferences center",
@@ -4367,7 +4686,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4420,7 +4741,8 @@
           "actor": "demo5",
           "created_at": "2026-01-23T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API key management self-service",
@@ -4444,7 +4766,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4462,7 +4786,8 @@
           "actor": "demo2",
           "created_at": "2025-12-13T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Customer feedback widget embedded in portal",
@@ -4490,7 +4815,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4515,7 +4842,8 @@
           "actor": "demo2",
           "created_at": "2026-01-07T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data export — CSV and JSON download",
@@ -4536,7 +4864,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4554,7 +4884,8 @@
           "actor": "demo1",
           "created_at": "2026-01-31T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "White-label portal theming for enterprise",
@@ -4607,7 +4938,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4615,7 +4948,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4623,7 +4958,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -4631,7 +4968,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4705,7 +5044,8 @@
           "actor": "demo1",
           "created_at": "2026-02-03T04:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Deletion request intake API",
@@ -4750,7 +5090,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4758,7 +5100,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4766,7 +5110,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4774,7 +5120,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4782,7 +5130,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4849,7 +5199,8 @@
           "actor": "demo5",
           "created_at": "2025-12-22T18:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cross-service deletion orchestrator",
@@ -4882,7 +5233,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4890,7 +5243,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4898,7 +5253,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -4906,7 +5263,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -4914,7 +5273,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4960,7 +5321,8 @@
           "actor": "demo1",
           "created_at": "2025-12-11T06:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Deletion audit report — per-request evidence",
@@ -5009,7 +5371,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5017,7 +5381,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5025,7 +5391,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5106,7 +5474,8 @@
           "actor": "demo1",
           "created_at": "2025-12-12T21:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Suppression list for marketing after deletion",
@@ -5159,7 +5528,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5167,7 +5538,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5175,7 +5548,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -5183,7 +5558,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -5191,7 +5568,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5286,7 +5665,8 @@
           "actor": "demo4",
           "created_at": "2025-12-27T23:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Automated identity verification step",
@@ -5331,7 +5711,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5339,7 +5721,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5392,7 +5776,8 @@
           "actor": "demo4",
           "created_at": "2026-01-29T19:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Analytics service — S3 event log purge job",
@@ -5418,7 +5803,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5426,7 +5813,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5451,7 +5840,8 @@
           "actor": "demo4",
           "created_at": "2025-12-25T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Billing service — invoice data anonymization",
@@ -5474,7 +5864,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5482,7 +5874,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5514,7 +5908,8 @@
           "actor": "demo2",
           "created_at": "2025-12-17T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Email service — unsubscribe and purge flow",
@@ -5547,7 +5942,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5555,7 +5952,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5563,7 +5962,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -5571,7 +5972,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5610,7 +6013,8 @@
           "actor": "demo4",
           "created_at": "2025-12-21T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Auth service — account deactivation handler",
@@ -5633,7 +6037,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5641,7 +6047,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5649,7 +6057,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -5657,7 +6067,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -5665,7 +6077,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -5673,7 +6087,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5705,7 +6121,8 @@
           "actor": "demo1",
           "created_at": "2026-01-07T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "90-day SLA timer and escalation alerts",
@@ -5734,7 +6151,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5742,7 +6161,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5750,7 +6171,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5758,7 +6181,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5766,7 +6191,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5798,7 +6225,8 @@
           "actor": "demo4",
           "created_at": "2026-01-13T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DPA-facing deletion status dashboard",
@@ -5819,7 +6247,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5827,7 +6257,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5835,7 +6267,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -5843,7 +6277,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5854,7 +6290,8 @@
           "actor": "demo5",
           "created_at": "2026-01-03T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Deletion dry-run mode for testing",
@@ -5886,7 +6323,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5894,7 +6333,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5933,7 +6374,8 @@
           "actor": "demo1",
           "created_at": "2026-02-03T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cloud readiness assessment — all services",
@@ -5957,7 +6399,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -5965,7 +6409,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -5973,7 +6419,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -5981,7 +6429,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -5989,7 +6439,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -5997,7 +6449,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6022,7 +6476,8 @@
           "actor": "demo4",
           "created_at": "2026-02-02T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Terraform state migration to Terraform Cloud",
@@ -6051,7 +6506,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6059,7 +6516,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6067,7 +6526,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6075,7 +6536,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6083,7 +6546,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6122,7 +6587,8 @@
           "actor": "demo4",
           "created_at": "2025-12-13T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Containerize legacy monolith services",
@@ -6155,7 +6621,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6163,7 +6631,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6171,7 +6641,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -6179,7 +6651,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -6187,7 +6661,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6219,7 +6695,8 @@
           "actor": "demo4",
           "created_at": "2026-01-30T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Database migration — on-prem PostgreSQL to RDS",
@@ -6242,7 +6719,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6250,7 +6729,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6258,7 +6739,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6276,7 +6759,8 @@
           "actor": "demo5",
           "created_at": "2026-02-02T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "VPN to cloud interconnect setup",
@@ -6306,7 +6790,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6314,7 +6800,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6322,7 +6810,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6330,7 +6820,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6338,7 +6830,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6377,7 +6871,8 @@
           "actor": "demo1",
           "created_at": "2025-12-31T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CI/CD pipeline migration to GitHub Actions",
@@ -6406,7 +6901,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6414,7 +6911,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6422,7 +6921,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -6430,7 +6931,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6469,7 +6972,8 @@
           "actor": "demo1",
           "created_at": "2025-12-19T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Secret management — migrate to Vault",
@@ -6504,7 +7008,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6512,7 +7018,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6520,7 +7028,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -6528,7 +7038,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6581,7 +7093,8 @@
           "actor": "demo4",
           "created_at": "2026-01-16T18:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Load balancer migration — ALB configuration",
@@ -6617,7 +7130,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6677,7 +7192,8 @@
           "actor": "demo3",
           "created_at": "2026-01-26T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DNS cutover plan — zero-downtime",
@@ -6727,7 +7243,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6735,7 +7253,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6743,7 +7263,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6751,7 +7273,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6759,7 +7283,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-03-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6840,7 +7366,8 @@
           "actor": "demo2",
           "created_at": "2026-02-13T00:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cost estimation and budget approval",
@@ -6869,7 +7396,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6877,7 +7406,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6909,7 +7440,8 @@
           "actor": "demo5",
           "created_at": "2025-12-24T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Legacy service decommission plan",
@@ -6937,7 +7469,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -6945,7 +7479,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -6953,7 +7489,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -6961,7 +7499,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7000,7 +7540,8 @@
           "actor": "demo3",
           "created_at": "2025-12-29T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cloud security posture review — CIS benchmarks",
@@ -7041,7 +7582,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7108,7 +7651,8 @@
           "actor": "demo1",
           "created_at": "2026-01-04T21:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Brand audit — competitive positioning analysis",
@@ -7140,7 +7684,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -7148,7 +7694,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -7156,7 +7704,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7195,7 +7745,8 @@
           "actor": "demo5",
           "created_at": "2025-12-30T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Logo design exploration — 3 concept directions",
@@ -7248,7 +7799,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -7256,7 +7809,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7351,7 +7906,8 @@
           "actor": "demo1",
           "created_at": "2025-12-16T00:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Typography system — font selection and scale",
@@ -7388,7 +7944,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7441,7 +7999,8 @@
           "actor": "demo2",
           "created_at": "2026-01-16T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Color palette definition — primary and extended",
@@ -7483,7 +8042,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -7491,7 +8052,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -7499,7 +8062,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -7507,7 +8072,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -7515,7 +8082,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -7523,7 +8092,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7590,7 +8161,8 @@
           "actor": "demo5",
           "created_at": "2025-12-17T00:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Brand guidelines document — v1 draft",
@@ -7641,7 +8213,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -7649,7 +8223,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7751,7 +8327,8 @@
           "actor": "demo3",
           "created_at": "2026-02-12T05:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Marketing site redesign — homepage wireframes",
@@ -7781,7 +8358,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -7789,7 +8368,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -7797,7 +8378,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7836,7 +8419,8 @@
           "actor": "demo2",
           "created_at": "2026-02-05T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Email template refresh — match new brand",
@@ -7859,7 +8443,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7884,7 +8470,8 @@
           "actor": "demo5",
           "created_at": "2025-12-20T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Social media kit — templates and guidelines",
@@ -7933,7 +8520,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -7941,7 +8530,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -7949,7 +8540,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -7957,7 +8550,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8038,7 +8633,8 @@
           "actor": "demo2",
           "created_at": "2026-01-28T04:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Internal brand launch — all-hands presentation",
@@ -8070,7 +8666,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -8078,7 +8676,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -8086,7 +8686,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -8094,7 +8696,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8133,7 +8737,8 @@
           "actor": "demo2",
           "created_at": "2025-12-10T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Swag and merchandise design — new logo",
@@ -8165,7 +8770,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8211,7 +8818,8 @@
           "actor": "demo2",
           "created_at": "2026-01-30T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Slide deck template — new brand",
@@ -8235,7 +8843,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -8243,7 +8853,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -8251,7 +8863,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8276,7 +8890,8 @@
           "actor": "demo3",
           "created_at": "2025-12-23T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Brand voice and tone guidelines document",
@@ -8306,7 +8921,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8331,7 +8948,8 @@
           "actor": "demo4",
           "created_at": "2026-01-21T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vendor onboarding workflow design",
@@ -8384,7 +9002,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8472,7 +9092,8 @@
           "actor": "demo3",
           "created_at": "2026-01-30T03:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Contract repository — schema and migration",
@@ -8514,7 +9135,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8581,7 +9204,8 @@
           "actor": "demo1",
           "created_at": "2026-02-01T20:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Spend tracking dashboard — by vendor and category",
@@ -8623,7 +9247,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8697,7 +9323,8 @@
           "actor": "demo1",
           "created_at": "2025-12-27T06:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vendor risk scoring model",
@@ -8729,7 +9356,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8782,7 +9411,8 @@
           "actor": "demo3",
           "created_at": "2025-12-15T20:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Automated renewal reminders — 60-day notice",
@@ -8817,7 +9447,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -8825,7 +9457,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -8833,7 +9467,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -8841,7 +9477,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8873,7 +9511,8 @@
           "actor": "demo1",
           "created_at": "2026-01-27T14:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Procurement approval workflow — multi-tier",
@@ -8905,7 +9544,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8951,7 +9592,8 @@
           "actor": "demo5",
           "created_at": "2025-12-21T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vendor performance review template",
@@ -8989,7 +9631,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -8997,7 +9641,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9050,7 +9696,8 @@
           "actor": "demo4",
           "created_at": "2026-02-02T17:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Integration with accounting system — AP sync",
@@ -9083,7 +9730,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9091,7 +9740,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9099,7 +9750,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9107,7 +9760,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9115,7 +9770,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -9123,7 +9780,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9162,7 +9821,8 @@
           "actor": "demo5",
           "created_at": "2026-01-15T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vendor portal — self-service document upload",
@@ -9186,7 +9846,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9194,7 +9856,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9202,7 +9866,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -9210,7 +9876,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -9218,7 +9886,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9236,7 +9906,8 @@
           "actor": "demo3",
           "created_at": "2026-02-06T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Compliance certificate tracking — SOC 2, ISO",
@@ -9278,7 +9949,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9286,7 +9959,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9353,7 +10028,8 @@
           "actor": "demo5",
           "created_at": "2026-02-13T16:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Budget vs actuals report — quarterly",
@@ -9385,7 +10061,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9393,7 +10071,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9401,7 +10081,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -9409,7 +10091,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9462,7 +10146,8 @@
           "actor": "demo2",
           "created_at": "2025-12-28T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Historical spend data import — 3 years",
@@ -9488,7 +10173,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9513,7 +10200,8 @@
           "actor": "demo5",
           "created_at": "2025-12-12T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Onboarding checklist builder — role-based templates",
@@ -9546,7 +10234,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9554,7 +10244,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9562,7 +10254,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -9570,7 +10264,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -9578,7 +10274,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9617,7 +10315,8 @@
           "actor": "demo2",
           "created_at": "2026-01-17T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "IT provisioning automation — laptop and accounts",
@@ -9662,7 +10361,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9670,7 +10371,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9678,7 +10381,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9752,7 +10457,8 @@
           "actor": "demo4",
           "created_at": "2026-01-25T23:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "HR paperwork — e-signature integration",
@@ -9781,7 +10487,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9789,7 +10497,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9797,7 +10507,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -9805,7 +10517,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9830,7 +10544,8 @@
           "actor": "demo1",
           "created_at": "2026-01-29T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Team introduction scheduling — calendar sync",
@@ -9880,7 +10595,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -9888,7 +10605,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -9896,7 +10615,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -9904,7 +10625,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9992,7 +10715,8 @@
           "actor": "demo5",
           "created_at": "2026-01-23T22:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "First-week schedule generator",
@@ -10024,7 +10748,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10032,7 +10758,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10040,7 +10768,9 @@
           "from_swimlane": "Mobile App Relaunch",
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10072,7 +10802,8 @@
           "actor": "demo3",
           "created_at": "2025-12-27T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Buddy program matching algorithm",
@@ -10098,7 +10829,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10106,7 +10839,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10114,7 +10849,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10139,7 +10876,8 @@
           "actor": "demo2",
           "created_at": "2025-12-29T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Onboarding feedback survey — Day 30 and Day 90",
@@ -10167,7 +10905,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10175,7 +10915,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10183,7 +10925,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10222,7 +10966,8 @@
           "actor": "demo4",
           "created_at": "2026-02-06T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Equipment inventory tracking integration",
@@ -10243,7 +10988,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10251,7 +10998,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10259,10 +11008,13 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
-      "activities": []
+      "activities": [],
+      "archived_at": null
     },
     {
       "title": "Benefits enrollment walkthrough flow",
@@ -10285,7 +11037,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10293,7 +11047,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10301,7 +11057,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -10309,7 +11067,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10334,7 +11094,8 @@
           "actor": "demo2",
           "created_at": "2026-01-27T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Org chart integration — reporting lines",
@@ -10367,7 +11128,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10375,7 +11138,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10414,7 +11179,8 @@
           "actor": "demo3",
           "created_at": "2025-12-21T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "New hire welcome kit — swag order automation",
@@ -10447,7 +11213,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10455,7 +11223,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10463,7 +11233,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10509,7 +11281,8 @@
           "actor": "demo3",
           "created_at": "2026-01-04T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Manager onboarding dashboard — progress view",
@@ -10549,7 +11322,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10557,7 +11332,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10565,7 +11342,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10573,7 +11352,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10581,7 +11362,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10655,7 +11438,8 @@
           "actor": "demo3",
           "created_at": "2026-02-08T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Kong gateway evaluation — proof of concept",
@@ -10679,7 +11463,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10687,7 +11473,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10705,7 +11493,8 @@
           "actor": "demo5",
           "created_at": "2026-02-07T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Authentication plugin configuration — JWT and OAuth",
@@ -10733,7 +11522,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10765,7 +11556,8 @@
           "actor": "demo2",
           "created_at": "2025-12-30T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rate limiting strategy — per-user and per-endpoint",
@@ -10794,7 +11586,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile App Relaunch",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10819,7 +11613,8 @@
           "actor": "demo3",
           "created_at": "2026-02-07T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API versioning scheme — URL path vs header",
@@ -10848,7 +11643,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10856,7 +11653,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10864,7 +11663,9 @@
           "from_swimlane": "Data Platform Migration",
           "to_swimlane": "Data Platform Migration",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10903,7 +11704,8 @@
           "actor": "demo3",
           "created_at": "2025-12-10T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Request logging and distributed tracing setup",
@@ -10926,7 +11728,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10934,7 +11738,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10942,7 +11748,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -10950,7 +11758,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -10958,7 +11768,9 @@
           "from_swimlane": "Security Compliance Audit",
           "to_swimlane": "Security Compliance Audit",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10990,7 +11802,8 @@
           "actor": "demo3",
           "created_at": "2026-01-17T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Circuit breaker configuration for upstream services",
@@ -11035,7 +11848,9 @@
           "from_swimlane": null,
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11043,7 +11858,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11051,7 +11868,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -11059,7 +11878,9 @@
           "from_swimlane": "Customer Portal v2",
           "to_swimlane": "Customer Portal v2",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11126,7 +11947,8 @@
           "actor": "demo5",
           "created_at": "2026-01-18T18:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API documentation portal — Swagger/OpenAPI",
@@ -11155,7 +11977,9 @@
           "from_swimlane": null,
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11163,7 +11987,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11171,7 +11997,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -11179,7 +12007,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -11187,7 +12017,9 @@
           "from_swimlane": "GDPR Deletion Pipeline",
           "to_swimlane": "GDPR Deletion Pipeline",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11226,7 +12058,8 @@
           "actor": "demo3",
           "created_at": "2026-01-30T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Load testing — 10k RPS sustained throughput",
@@ -11258,7 +12091,9 @@
           "from_swimlane": null,
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11266,7 +12101,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11274,7 +12111,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11282,7 +12121,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11290,7 +12131,9 @@
           "from_swimlane": "Infrastructure Modernization",
           "to_swimlane": "Infrastructure Modernization",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11329,7 +12172,8 @@
           "actor": "demo1",
           "created_at": "2026-01-16T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Canary deployment strategy for gateway rollout",
@@ -11357,7 +12201,9 @@
           "from_swimlane": null,
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11365,7 +12211,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11373,7 +12221,9 @@
           "from_swimlane": "Brand Redesign",
           "to_swimlane": "Brand Redesign",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11405,7 +12255,8 @@
           "actor": "demo3",
           "created_at": "2026-01-18T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Legacy gateway traffic drain plan",
@@ -11428,7 +12279,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vendor Management System",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11436,7 +12289,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11444,7 +12299,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -11452,7 +12309,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Milestone Review",
@@ -11460,7 +12319,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Wrap-up",
@@ -11468,7 +12329,9 @@
           "from_swimlane": "Vendor Management System",
           "to_swimlane": "Vendor Management System",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11493,7 +12356,8 @@
           "actor": "demo3",
           "created_at": "2025-12-22T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Developer portal — API key self-service",
@@ -11521,7 +12385,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11529,7 +12395,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11537,7 +12405,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Execution",
@@ -11545,7 +12415,9 @@
           "from_swimlane": "Employee Onboarding Platform",
           "to_swimlane": "Employee Onboarding Platform",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11577,7 +12449,8 @@
           "actor": "demo1",
           "created_at": "2026-02-12T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Monitoring and alerting — latency SLOs",
@@ -11605,7 +12478,9 @@
           "from_swimlane": null,
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Planning",
@@ -11613,7 +12488,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Kickoff",
@@ -11621,7 +12498,9 @@
           "from_swimlane": "API Gateway Overhaul",
           "to_swimlane": "API Gateway Overhaul",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11653,7 +12532,8 @@
           "actor": "demo5",
           "created_at": "2026-02-04T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     }
   ]
 }

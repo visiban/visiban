@@ -637,11 +637,19 @@ class Command(BaseCommand):
                 if random.random() < 0.60:
                     n_comments = random.randint(1, 3)
                     for body in random.sample(COMMENT_BODIES, min(n_comments, len(COMMENT_BODIES))):
-                        CardComment.objects.create(
+                        comment = CardComment.objects.create(
                             card=card,
                             author=random.choice(users),
                             body=body,
                         )
+                        # Anchor created_at to SEED_ANCHOR_DATE so regenerated exports are
+                        # git-stable across run dates (same pattern as movements/activities).
+                        anchor = datetime.datetime(
+                            SEED_ANCHOR_DATE.year, SEED_ANCHOR_DATE.month, SEED_ANCHOR_DATE.day,
+                            tzinfo=datetime.timezone.utc,
+                        )
+                        comment_at = anchor - datetime.timedelta(days=random.randint(1, 60))
+                        CardComment.objects.filter(pk=comment.pk).update(created_at=comment_at)
 
                 # Movement history for cards not in Backlog
                 self._add_movement_history(card, current_col, pipeline, users)
@@ -832,10 +840,14 @@ class Command(BaseCommand):
         """
         n = random.randint(7, 10)
         to_archive = random.sample(cards, min(n, len(cards)))
-        now = timezone.now()
+        # Anchor to SEED_ANCHOR_DATE so regenerated exports are git-stable.
+        anchor = datetime.datetime(
+            SEED_ANCHOR_DATE.year, SEED_ANCHOR_DATE.month, SEED_ANCHOR_DATE.day,
+            tzinfo=datetime.timezone.utc,
+        )
         for card in to_archive:
             days_ago = random.randint(3, 45)
-            archived_at = now - datetime.timedelta(days=days_ago)
+            archived_at = anchor - datetime.timedelta(days=days_ago)
             Card.objects.filter(pk=card.pk).update(archived_at=archived_at)
             card.archived_at = archived_at  # keep in-memory object consistent
         return len(to_archive)
@@ -885,7 +897,7 @@ class Command(BaseCommand):
         # Structure must match the canonical export format consumed by _import_json
         # (flat top-level keys: schema_version, name, description, columns, swimlanes, labels, cards).
         data = {
-            "schema_version": 1,
+            "schema_version": 2,
             "name": board.name,
             "description": board.description,
             "columns": [
@@ -924,6 +936,7 @@ class Command(BaseCommand):
                     "due_date": card.due_date.isoformat() if card.due_date else None,
                     "weight": card.weight,
                     "assignee": card.assignee.username if card.assignee else None,
+                    "archived_at": card.archived_at.isoformat() if card.archived_at else None,
                     "labels": [lbl.name for lbl in card.labels.order_by("name")],
                     "checklist": [
                         {"text": item.text, "is_checked": item.is_checked}
@@ -933,8 +946,9 @@ class Command(BaseCommand):
                         {
                             "body": comment.body,
                             "author": comment.author.username if comment.author else None,
+                            "created_at": comment.created_at.isoformat(),
                         }
-                        for comment in card.comments.all()
+                        for comment in sorted(card.comments.all(), key=lambda c: (c.created_at, c.body))
                     ],
                     "movements": [
                         {
@@ -944,6 +958,8 @@ class Command(BaseCommand):
                             "to_swimlane": mv.to_swimlane_name,
                             "moved_at": mv.moved_at.isoformat(),
                             "moved_by": mv.moved_by.username if mv.moved_by else None,
+                            "notes": mv.notes,
+                            "movement_type": mv.movement_type,
                         }
                         for mv in card.movements.order_by("moved_at")
                     ],

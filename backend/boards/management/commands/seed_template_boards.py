@@ -3836,7 +3836,7 @@ class Command(BaseCommand):
 
     def _export_json(self, board, columns, swimlane_specs, label_specs, cards, out_path):
         data = {
-            "schema_version": 1,
+            "schema_version": 2,
             "name": board.name,
             "description": board.description,
             "columns": [
@@ -3875,6 +3875,7 @@ class Command(BaseCommand):
                     "swimlane": card.swimlane.name,
                     "due_date": card.due_date.isoformat() if card.due_date else None,
                     "weight": card.weight,
+                    "archived_at": card.archived_at.isoformat() if card.archived_at else None,
                     "labels": [lbl.name for lbl in card.labels.order_by("name")],
                     "checklist": [
                         {"text": item.text, "is_checked": item.is_checked}
@@ -3884,6 +3885,7 @@ class Command(BaseCommand):
                         {
                             "body": comment.body,
                             "author": comment.author.username if comment.author else None,
+                            "created_at": comment.created_at.isoformat(),
                         }
                         for comment in card.comments.all()
                     ],
@@ -3895,6 +3897,8 @@ class Command(BaseCommand):
                             "to_swimlane": mv.to_swimlane_name,
                             "moved_at": mv.moved_at.isoformat(),
                             "moved_by": mv.moved_by.username if mv.moved_by else None,
+                            "notes": mv.notes,
+                            "movement_type": mv.movement_type,
                         }
                         for mv in card.movements.order_by("moved_at")
                     ],
