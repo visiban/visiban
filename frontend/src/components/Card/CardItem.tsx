@@ -228,9 +228,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
               <span title="Stale — no movement recently" className="text-amber-400 text-[10px] leading-none shrink-0">⏱</span>
             )}
 
-            {/* Recently moved dot — visible on hover only (<24h) */}
+            {/* Recently moved dot — always visible when condition is true (<24h, not stale) */}
             {isRecent && !card.is_stale && (
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" title="Recently moved" />
+              <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="Recently moved" />
             )}
 
             {/* Last-moved text label — for cards moved ≥24h ago */}

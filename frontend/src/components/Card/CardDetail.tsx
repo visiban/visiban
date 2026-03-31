@@ -13,6 +13,7 @@ import { formatDateStr, formatDueDate } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
+import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
   card: Card;
@@ -993,31 +994,30 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       )}
 
       {/* Delete / Archive confirmation overlay */}
-      {confirmAction && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
-          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl border border-slate-700">
-            {confirmAction === "delete" ? (
-              <>
-                <h3 className="text-white font-semibold text-base mb-2">Delete this card?</h3>
-                <p className="text-slate-400 text-sm mb-5">This cannot be undone.</p>
-                <div className="flex gap-3 justify-end">
-                  <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-                  <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-white font-semibold text-base mb-2">Archive this card?</h3>
-                <p className="text-slate-400 text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
-                <div className="flex gap-3 justify-end">
-                  <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-                  <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Archive</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <ModalWrapper
+        open={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        title={confirmAction === "delete" ? "Delete this card?" : "Archive this card?"}
+        maxWidth="max-w-sm"
+      >
+        {confirmAction === "delete" ? (
+          <>
+            <p className="text-slate-400 text-sm mb-5">This cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+              <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete</button>
+            </div>
+          </>
+        ) : confirmAction === "archive" ? (
+          <>
+            <p className="text-slate-400 text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+              <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Archive</button>
+            </div>
+          </>
+        ) : null}
+      </ModalWrapper>
     </div>
   );
 }
