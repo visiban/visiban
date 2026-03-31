@@ -1,0 +1,1 @@
+Added release-specific upgrade note to `docs/administration/upgrade.md` documenting the required pre-deploy SQL step for instances upgrading from any pre-1.0 release to 1.0.0, where `groups/0003_placeholder` must be manually inserted into `django_migrations` before running `manage.py migrate`.
