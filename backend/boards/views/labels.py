@@ -29,19 +29,21 @@ class LabelViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        label = serializer.save(board=board)
-        label_data = LabelSerializer(label).data
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.created", label_data))
+        with transaction.atomic():
+            label = serializer.save(board=board)
+            label_data = LabelSerializer(label).data
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.created", label_data))
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        label = serializer.save()
-        label_data = LabelSerializer(label).data
-        board_id = label.board_id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.updated", label_data))
+        with transaction.atomic():
+            label = serializer.save()
+            label_data = LabelSerializer(label).data
+            board_id = label.board_id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.updated", label_data))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -49,5 +51,6 @@ class LabelViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         board_id = instance.board_id
         label_id = instance.id
-        instance.delete()
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.deleted", {"label_id": label_id}))
+        with transaction.atomic():
+            instance.delete()
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.deleted", {"label_id": label_id}))

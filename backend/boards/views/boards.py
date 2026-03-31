@@ -106,13 +106,14 @@ class BoardViewSet(
         role = get_board_role(self.request.user, board)
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied("Only board admins can edit board settings.")
-        serializer.save()
-        board = serializer.instance
-        board_id = board.id
-        board_data = BoardSerializer(board, context={"request": self.request}).data
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
-        )
+        with transaction.atomic():
+            serializer.save()
+            board = serializer.instance
+            board_id = board.id
+            board_data = BoardSerializer(board, context={"request": self.request}).data
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
+            )
 
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
@@ -124,10 +125,11 @@ class BoardViewSet(
             "board.deleted board_id=%d board_name=%s deleted_by=%d deleted_by_username=%s",
             board.id, board.name, request.user.pk, request.user.username,
         )
-        board.delete()
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
-        )
+        with transaction.atomic():
+            board.delete()
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post", "delete"], url_path="star")
@@ -155,23 +157,24 @@ class BoardViewSet(
         board, role = get_board_for_user(pk, request.user)
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        if request.method == "POST":
-            board.share_token = _uuid.uuid4()
-            board.save(update_fields=["share_token"])
-            share_url = request.build_absolute_uri(f"/share/{board.share_token}")
-            response_data = {"share_token": str(board.share_token), "share_url": share_url}
-        else:
-            # DELETE
-            board.share_token = None
-            board.save(update_fields=["share_token"])
-            response_data = {"share_token": None}
+        with transaction.atomic():
+            if request.method == "POST":
+                board.share_token = _uuid.uuid4()
+                board.save(update_fields=["share_token"])
+                share_url = request.build_absolute_uri(f"/share/{board.share_token}")
+                response_data = {"share_token": str(board.share_token), "share_url": share_url}
+            else:
+                # DELETE
+                board.share_token = None
+                board.save(update_fields=["share_token"])
+                response_data = {"share_token": None}
 
-        # Notify connected clients so the Sharing tab updates without a reload.
-        board_id = board.pk
-        board_summary = BoardSerializer(board, context={"request": request}).data
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_summary)
-        )
+            # Notify connected clients so the Sharing tab updates without a reload.
+            board_id = board.pk
+            board_summary = BoardSerializer(board, context={"request": request}).data
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_summary)
+            )
         return Response(response_data)
 
     @action(detail=True, methods=["post"], url_path="move-group")
@@ -194,12 +197,13 @@ class BoardViewSet(
         else:
             board.group = None
 
-        board.save()
-        board_id = board.id
-        board_data = BoardSerializer(board, context={"request": request}).data
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
-        )
+        with transaction.atomic():
+            board.save()
+            board_id = board.id
+            board_data = BoardSerializer(board, context={"request": request}).data
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
+            )
         return Response(board_data)
 
     @action(detail=True, methods=["get"])
@@ -311,31 +315,32 @@ class BoardViewSet(
         defaults = {"role": member_role}
         if is_moderator is not None:
             defaults["is_moderator"] = is_moderator
-        membership, created = BoardMembership.objects.get_or_create(
-            board=board, user=target_user, defaults=defaults
-        )
-        if not created:
-            membership.role = member_role
-            if is_moderator is not None:
-                membership.is_moderator = is_moderator
-            # Clear moderator flag when demoting to collaborator/viewer
-            if member_role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
-                membership.is_moderator = False
-            membership.save()
-        membership_data = BoardMembershipSerializer(membership).data
-        board_id = board.id
-        ws_event = "member.added" if created else "member.updated"
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, ws_event, membership_data))
-        # Notify the invited user when they are newly added (not on role updates).
-        # Skipped if they added themselves or have opted out of board invite notifications.
-        if created and target_user != request.user and target_user.notif_board_invite:
-            Notification.objects.create(
-                recipient=target_user,
-                actor=request.user,
-                action_type=Notification.ActionType.BOARD_INVITE,
-                verb=f"{request.user.username} added you to \"{board.name}\"",
-                board=board,
+        with transaction.atomic():
+            membership, created = BoardMembership.objects.get_or_create(
+                board=board, user=target_user, defaults=defaults
             )
+            if not created:
+                membership.role = member_role
+                if is_moderator is not None:
+                    membership.is_moderator = is_moderator
+                # Clear moderator flag when demoting to collaborator/viewer
+                if member_role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
+                    membership.is_moderator = False
+                membership.save()
+            membership_data = BoardMembershipSerializer(membership).data
+            board_id = board.id
+            ws_event = "member.added" if created else "member.updated"
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, ws_event, membership_data))
+            # Notify the invited user when they are newly added (not on role updates).
+            # Skipped if they added themselves or have opted out of board invite notifications.
+            if created and target_user != request.user and target_user.notif_board_invite:
+                Notification.objects.create(
+                    recipient=target_user,
+                    actor=request.user,
+                    action_type=Notification.ActionType.BOARD_INVITE,
+                    verb=f"{request.user.username} added you to \"{board.name}\"",
+                    board=board,
+                )
         return Response(membership_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
@@ -349,6 +354,7 @@ class BoardViewSet(
             raise PermissionDenied("Cannot remove a site admin from a board.")
         board_id = board.id
         removed_user_id = target_user.id
-        BoardMembership.objects.filter(board=board, user=target_user).delete()
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "member.removed", {"user_id": removed_user_id}))
+        with transaction.atomic():
+            BoardMembership.objects.filter(board=board, user=target_user).delete()
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "member.removed", {"user_id": removed_user_id}))
         return Response(status=status.HTTP_204_NO_CONTENT)

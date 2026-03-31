@@ -1,0 +1,1 @@
+Wrap all broadcast `on_commit` calls in explicit `transaction.atomic()` blocks across `columns`, `swimlanes`, `labels`, `boards`, and `cards` views so broadcasts are always deferred and never fire synchronously when `ATOMIC_REQUESTS=False`.

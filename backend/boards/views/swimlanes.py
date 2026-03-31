@@ -53,21 +53,22 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             _max = board.swimlanes.aggregate(m=Max("position"))["m"]
             max_pos = 0 if _max is None else _max + 1
             swimlane = serializer.save(board=board, position=max_pos)
-        # Broadcast uses the public serializer — contact_email and notes must not be
-        # sent to viewer-role members who are connected via WebSocket.
-        swimlane_data = SwimlaneSerializer(swimlane).data
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.created", swimlane_data))
+            # Broadcast uses the public serializer — contact_email and notes must not be
+            # sent to viewer-role members who are connected via WebSocket.
+            swimlane_data = SwimlaneSerializer(swimlane).data
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.created", swimlane_data))
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        swimlane = serializer.save()
-        # Same broadcast-safety constraint as perform_create.
-        swimlane_data = SwimlaneSerializer(swimlane).data
-        board_id = swimlane.board_id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.updated", swimlane_data))
+        with transaction.atomic():
+            swimlane = serializer.save()
+            # Same broadcast-safety constraint as perform_create.
+            swimlane_data = SwimlaneSerializer(swimlane).data
+            board_id = swimlane.board_id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.updated", swimlane_data))
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -75,8 +76,9 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         board_id = instance.board_id
         swimlane_id = instance.id
-        instance.delete()
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_id": swimlane_id}))
+        with transaction.atomic():
+            instance.delete()
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_id": swimlane_id}))
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
@@ -93,7 +95,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             # Column has unique_together = ["board", "position"].
             for pos, swimlane_id in enumerate(order):
                 Swimlane.objects.filter(board=board, pk=swimlane_id).update(position=pos)
-        lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlanes.reordered", {"swimlanes": list(lanes_data)}))
+            lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlanes.reordered", {"swimlanes": list(lanes_data)}))
         return Response(lanes_data)
