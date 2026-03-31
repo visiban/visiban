@@ -650,3 +650,33 @@ class GroupStarMembershipTests(TestCase):
         self.client.force_authenticate(member)
         r = self.client.post(f"/api/groups/{self.group.id}/star/")
         self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+
+
+class CanAccessAllContentBypassTests(TestCase):
+    """Users with can_access_all_content=True bypass group permission helpers."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_bypass", password="pass")
+        self.superuser = User.objects.create_user(
+            username="super_bypass", password="pass", can_access_all_content=True
+        )
+        self.non_member = User.objects.create_user(username="nonmember_bypass", password="pass")
+        self.group = _make_group(self.owner, "Bypass Group")
+
+    def test_can_access_all_content_bypasses_admin_check(self):
+        """_require_group_admin must not raise for a user with can_access_all_content=True."""
+        from groups.views import _require_group_admin
+        # Should return without raising, even though superuser has no GroupMembership
+        try:
+            _require_group_admin(self.superuser, self.group)
+        except Exception as exc:
+            self.fail(f"_require_group_admin raised unexpectedly: {exc}")
+
+    def test_can_access_all_content_bypasses_member_check(self):
+        """_require_group_member must not raise for a user with can_access_all_content=True."""
+        from groups.views import _require_group_member
+        # Should return without raising, even though superuser has no GroupMembership
+        try:
+            _require_group_member(self.superuser, self.group)
+        except Exception as exc:
+            self.fail(f"_require_group_member raised unexpectedly: {exc}")
