@@ -1,7 +1,7 @@
 # Upgrading Visiban
 
 !!! note "Available from 1.0"
-    This guide covers upgrades from Visiban 1.0 onward. If you are migrating from a pre-1.0 release, follow the 1.0 release notes first.
+    This guide covers upgrades from Visiban 1.0 onward. If you are migrating from a pre-1.0 release, follow the [1.0 release notes](#upgrading-to-100) below first.
 
 This page explains how to safely upgrade a self-hosted Visiban instance between releases. The standard path is: pull the new image, run database migrations, restart. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
 
@@ -211,6 +211,25 @@ After rolling back, restart the backend container with the previous image versio
 
 !!! warning
     If the migration sequence includes any irreversible operation (a destructive `RunPython`, a column drop, or a `NOT NULL` constraint on existing data), Django will raise `django.db.migrations.exceptions.IrreversibleError` and abort. In that case the only recovery path is to restore the database from the backup taken before the upgrade.
+
+---
+
+## Release-specific upgrade notes
+
+### Upgrading to 1.0.0
+
+!!! warning "Required pre-deploy step for any instance that ran a pre-1.0 beta"
+    If your database was created from any pre-1.0 release (including any release candidate), you **must** run the following SQL against your database **before** running `manage.py migrate` or starting the 1.0 backend container:
+
+    ```sql
+    INSERT INTO django_migrations (app, name, applied)
+    VALUES ('groups', '0003_placeholder', NOW())
+    ON CONFLICT DO NOTHING;
+    ```
+
+    **Why:** Migration `groups/0003_placeholder` was added to the 1.0 release to fill a gap in the `groups` migration sequence. Because `groups/0004` was already applied in pre-1.0 releases, Django's startup check (`InconsistentMigrationHistory`) will prevent `manage.py migrate` from running if `0003` is not already marked applied. The SQL above registers it as applied so Django accepts the history as consistent. The migration itself is a no-op — it contains no schema changes.
+
+    Fresh installs (where no pre-1.0 migrations have ever been applied) are not affected.
 
 ---
 
