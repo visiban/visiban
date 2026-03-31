@@ -86,7 +86,7 @@ By default, anyone can create an account on a Visiban instance. The **Settings**
 | Mode | Effect |
 |---|---|
 | **Open** | Anyone can register |
-| **Invite-only** | Only accounts created by a site admin can log in; self-registration and OAuth sign-up are blocked |
+| **Invite-only** | New users must present a valid invite link to register. Existing users are unaffected. |
 | **Closed** | All registration is disabled |
 
 The change takes effect immediately — no restart required.
@@ -98,11 +98,8 @@ The change takes effect immediately — no restart required.
 - The login page shows: *"An invite link is required to create an account."*
 - Existing users are unaffected
 
-**Creating accounts when invite-only is on:**
+**Inviting users when invite-only is on:**
 
-Use **Site Admin → Users → Add user** in the admin panel. Set a temporary password and enable **Force password reset** so the user is prompted to choose their own password on first login.
+Go to **Site Admin → Invite Links** to generate a new invite link. Send the link to the prospective user — they can follow it to complete self-registration. Each link can be configured with an expiry and optional use limit.
 
-!!! warning
-    Copy the temporary password before closing the Create User dialog — it is not shown again. Share it with the new user via a secure channel. If lost, deactivate the account and create a new one.
-
-See [Admin Panel](admin-panel.md) for a full walkthrough of the user management interface.
+See [First Boot](../getting-started/first-boot.md) for a full walkthrough of the invite link workflow, and [Admin Panel](admin-panel.md) for the user management interface.

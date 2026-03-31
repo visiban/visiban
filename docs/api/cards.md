@@ -3,7 +3,21 @@
 ## Cards
 
 ### `GET /api/boards/{board_id}/cards/`
-List all cards on the board. Pagination is disabled — all cards are returned in a single response. Supports `?search=<q>` (title and description), `?assignee=<id>`, `?priority=<value>`, `?label=<id>`, and `?due_before=<YYYY-MM-DD>`.
+List all cards on the board. Pagination is disabled — all cards are returned in a single response.
+
+**Query parameters**
+
+| Parameter | Description |
+|---|---|
+| `?search=<q>` | Filter by title and description (partial, case-insensitive) |
+| `?assignee=<id>` | Filter by assignee user ID |
+| `?unassigned=true` | Return only cards with no assignee |
+| `?priority=<value>` | Filter by priority (`low`, `medium`, `high`, `critical`) |
+| `?column=<id>` | Filter by column ID |
+| `?swimlane=<id>` | Filter by swimlane ID |
+| `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
+| `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
+| `?overdue=true` | Cards past their due date (due date is set and is before today) |
 
 ### `POST /api/boards/{board_id}/cards/`
 Create a card. Requires member or above. The target column must have `allow_card_creation` enabled.
