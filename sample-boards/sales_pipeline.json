@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Template: Sales Pipeline",
   "description": "Track open deals from first contact through close. Each swimlane is a sales region; each card is a deal or opportunity.",
   "columns": [
@@ -221,7 +221,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -229,7 +231,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -237,7 +241,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -245,7 +251,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -253,7 +261,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -261,7 +271,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -269,7 +281,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -357,7 +371,8 @@
           "actor": "demo3",
           "created_at": "2026-02-05T01:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pinnacle Health -- HIPAA Module Add-on",
@@ -381,7 +396,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -389,7 +406,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -397,7 +416,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -415,7 +436,8 @@
           "actor": "demo1",
           "created_at": "2026-01-02T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Brightwave Systems -- 300-Seat Migration from Jira",
@@ -439,7 +461,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -447,7 +471,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -455,7 +481,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -463,7 +491,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -471,7 +501,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -503,7 +535,8 @@
           "actor": "demo3",
           "created_at": "2026-02-12T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Forge Analytics -- Enterprise Analytics Bundle",
@@ -533,7 +566,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -551,7 +586,8 @@
           "actor": "demo3",
           "created_at": "2025-12-13T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Redwood Therapeutics -- Clinical Ops Board License",
@@ -579,7 +615,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -587,7 +625,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -595,7 +635,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -634,7 +676,8 @@
           "actor": "demo3",
           "created_at": "2025-12-31T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Summit Financial -- Compliance Workflow Package",
@@ -666,7 +709,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -674,7 +719,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -682,7 +729,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -690,7 +739,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -698,7 +749,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -706,7 +759,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -714,7 +769,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -722,7 +779,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -768,7 +827,8 @@
           "actor": "demo4",
           "created_at": "2026-01-24T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vanguard Logistics -- 150-Seat Renewal + Expansion",
@@ -814,7 +874,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -822,7 +884,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -889,7 +953,8 @@
           "actor": "demo4",
           "created_at": "2025-12-28T03:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "NovaGen Biotech -- Lab Management Board Pilot",
@@ -912,7 +977,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -920,7 +987,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -928,7 +997,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -936,7 +1007,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -944,7 +1017,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -969,7 +1044,8 @@
           "actor": "demo3",
           "created_at": "2025-12-22T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Apex Manufacturing -- Factory Floor Kanban",
@@ -995,7 +1071,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1003,7 +1081,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1011,7 +1091,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1019,7 +1101,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1027,7 +1111,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1045,7 +1131,8 @@
           "actor": "demo1",
           "created_at": "2026-01-08T14:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cirrus Cloud -- DevOps Pipeline Board License",
@@ -1068,7 +1155,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1076,7 +1165,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1084,7 +1175,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -1092,7 +1185,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -1100,7 +1195,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -1108,7 +1205,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1126,7 +1225,8 @@
           "actor": "demo2",
           "created_at": "2026-02-02T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Atlas Retail Group -- 200-Store Operations Deal",
@@ -1147,7 +1247,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1155,7 +1257,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1163,7 +1267,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -1171,7 +1277,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -1179,7 +1287,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -1187,7 +1297,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -1195,7 +1307,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1220,7 +1334,8 @@
           "actor": "demo4",
           "created_at": "2026-01-08T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sakura Electronics -- 100-Seat Engineering Board",
@@ -1274,7 +1389,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1282,7 +1399,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1290,7 +1409,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1371,7 +1492,8 @@
           "actor": "demo1",
           "created_at": "2026-01-28T03:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dragon Logistics -- Cross-Border Shipping Tracker",
@@ -1399,7 +1521,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1407,7 +1531,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1446,7 +1572,8 @@
           "actor": "demo3",
           "created_at": "2025-12-21T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Coral Bay Resorts -- Property Management Board",
@@ -1475,7 +1602,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1500,7 +1629,8 @@
           "actor": "demo4",
           "created_at": "2026-02-08T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Harbour Tech -- 80-Seat SaaS Startup Deal",
@@ -1550,7 +1680,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1558,7 +1690,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1566,7 +1700,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1647,7 +1783,8 @@
           "actor": "demo2",
           "created_at": "2026-01-23T21:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Phoenix Manufacturing -- QA Workflow License",
@@ -1696,7 +1833,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1704,7 +1843,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1799,7 +1940,8 @@
           "actor": "demo4",
           "created_at": "2026-01-27T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Jade Capital -- Investment Pipeline Board",
@@ -1834,7 +1976,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1842,7 +1986,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -1850,7 +1996,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1903,7 +2051,8 @@
           "actor": "demo1",
           "created_at": "2025-12-27T18:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Tidal Wave Media -- Content Production License",
@@ -1953,7 +2102,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1961,7 +2112,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1969,7 +2122,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -1977,7 +2132,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -1985,7 +2142,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2073,7 +2232,8 @@
           "actor": "demo2",
           "created_at": "2026-01-08T03:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pacific Rim Insurance -- Claims Workflow Board",
@@ -2114,7 +2274,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2122,7 +2284,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -2130,7 +2294,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2190,7 +2356,8 @@
           "actor": "demo3",
           "created_at": "2025-12-11T03:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Golden Gate Trading -- Supply Chain Board",
@@ -2213,7 +2380,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2221,7 +2390,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2246,7 +2417,8 @@
           "actor": "demo2",
           "created_at": "2025-12-30T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Orient Express Travel -- Operations Board Pilot",
@@ -2275,7 +2447,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2300,7 +2474,8 @@
           "actor": "demo1",
           "created_at": "2026-01-06T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bamboo Health Systems -- Patient Tracking License",
@@ -2337,7 +2512,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2345,7 +2522,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -2353,7 +2532,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -2361,7 +2542,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -2369,7 +2552,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2429,7 +2614,8 @@
           "actor": "demo1",
           "created_at": "2026-01-31T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Meridian Consulting -- 120-Seat Strategic Deal",
@@ -2472,7 +2658,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2480,7 +2668,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2547,7 +2737,8 @@
           "actor": "demo3",
           "created_at": "2025-12-13T17:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "EuroTech Solutions -- Engineering Workflow License",
@@ -2579,7 +2770,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2587,7 +2780,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -2595,7 +2790,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2603,7 +2800,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -2611,7 +2810,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2650,7 +2851,8 @@
           "actor": "demo5",
           "created_at": "2025-12-13T18:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Nordic Finance Group -- SOC 2 Compliance Package",
@@ -2683,7 +2885,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2691,7 +2895,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -2699,7 +2905,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -2707,7 +2915,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2753,7 +2963,8 @@
           "actor": "demo1",
           "created_at": "2025-12-30T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Baltic Shipping -- Logistics Board Bundle",
@@ -2776,7 +2987,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2784,7 +2997,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -2792,7 +3007,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2800,7 +3017,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -2808,7 +3027,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2840,7 +3061,8 @@
           "actor": "demo4",
           "created_at": "2025-12-19T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Alpine Engineering GmbH -- Manufacturing Board",
@@ -2869,7 +3091,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -2877,7 +3101,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -2885,7 +3111,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -2893,7 +3121,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -2901,7 +3131,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -2909,7 +3141,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2948,7 +3182,8 @@
           "actor": "demo4",
           "created_at": "2026-01-30T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Iberian Software -- Platform Migration 200 Seats",
@@ -2997,7 +3232,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3005,7 +3242,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3013,7 +3252,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -3021,7 +3262,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -3029,7 +3272,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3117,7 +3362,8 @@
           "actor": "demo5",
           "created_at": "2025-12-14T21:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Benelux Pharma -- Clinical Trial Board License",
@@ -3153,7 +3399,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3161,7 +3409,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3169,7 +3419,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -3177,7 +3429,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3185,7 +3439,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -3193,7 +3449,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -3201,7 +3459,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3254,7 +3514,8 @@
           "actor": "demo5",
           "created_at": "2026-01-28T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Danube Data -- Analytics Platform Package",
@@ -3277,7 +3538,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3285,7 +3548,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3293,7 +3558,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3318,7 +3585,8 @@
           "actor": "demo2",
           "created_at": "2025-12-31T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Celtic Insurance -- Claims Processing Board",
@@ -3342,7 +3610,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3350,7 +3620,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3358,7 +3630,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -3366,7 +3640,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3398,7 +3674,8 @@
           "actor": "demo4",
           "created_at": "2025-12-21T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Aegean Hospitality -- Resort Operations License",
@@ -3419,7 +3696,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3427,7 +3706,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3435,7 +3716,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -3443,7 +3726,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -3451,7 +3736,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3469,7 +3756,8 @@
           "actor": "demo1",
           "created_at": "2026-01-08T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rhine Industrial -- Factory Kanban 150 Seats",
@@ -3493,7 +3781,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3501,7 +3791,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -3509,7 +3801,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -3517,7 +3811,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -3525,7 +3821,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3550,7 +3848,8 @@
           "actor": "demo3",
           "created_at": "2026-01-21T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rio Health Network -- Hospital Operations Board",
@@ -3573,7 +3872,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3581,7 +3882,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3599,7 +3902,8 @@
           "actor": "demo5",
           "created_at": "2025-12-21T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Andean Mining Corp -- Safety Compliance Board",
@@ -3623,7 +3927,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3648,7 +3954,8 @@
           "actor": "demo2",
           "created_at": "2025-12-11T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pampa Agritech -- Field Operations Tracker",
@@ -3681,7 +3988,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3689,7 +3998,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3697,7 +4008,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3705,7 +4018,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3713,7 +4028,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3752,7 +4069,8 @@
           "actor": "demo4",
           "created_at": "2026-01-22T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Amazonia Logistics -- Last-Mile Delivery Board",
@@ -3773,7 +4091,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3781,7 +4101,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3789,7 +4111,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -3797,7 +4121,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -3805,7 +4131,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3830,7 +4158,8 @@
           "actor": "demo1",
           "created_at": "2026-01-26T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Patagonia Energy -- Renewable Project Tracker",
@@ -3863,7 +4192,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3902,7 +4233,8 @@
           "actor": "demo1",
           "created_at": "2025-12-24T05:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Caribe Tourism Group -- Property Management Board",
@@ -3930,7 +4262,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -3938,7 +4272,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -3946,7 +4282,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3978,7 +4316,8 @@
           "actor": "demo2",
           "created_at": "2026-01-15T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Andes Pharmaceuticals -- Drug Development Pipeline",
@@ -4002,7 +4341,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4010,7 +4351,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4035,7 +4378,8 @@
           "actor": "demo2",
           "created_at": "2026-02-07T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Plata Financial -- Banking Compliance Board",
@@ -4058,7 +4402,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4066,7 +4412,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4074,7 +4422,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -4082,7 +4432,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -4090,7 +4442,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4115,7 +4469,8 @@
           "actor": "demo4",
           "created_at": "2026-01-09T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cono Sur Retail -- 300-Store Ops Board",
@@ -4144,7 +4499,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4152,7 +4509,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4160,7 +4519,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4168,7 +4529,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4176,7 +4539,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4215,7 +4580,8 @@
           "actor": "demo5",
           "created_at": "2026-02-08T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Mayan Software -- Engineering Team License",
@@ -4245,7 +4611,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4253,7 +4621,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4261,7 +4631,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -4269,7 +4641,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4277,7 +4651,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -4285,7 +4661,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4317,7 +4695,8 @@
           "actor": "demo4",
           "created_at": "2026-01-21T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Quetzal Healthcare -- Clinic Management Board",
@@ -4350,7 +4729,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4358,7 +4739,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4390,7 +4773,8 @@
           "actor": "demo4",
           "created_at": "2026-01-29T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Southern Cross Media -- Content Calendar License",
@@ -4436,7 +4820,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4444,7 +4830,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4518,7 +4906,8 @@
           "actor": "demo4",
           "created_at": "2026-01-14T20:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Outback Mining -- Safety Incident Board",
@@ -4551,7 +4940,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4559,7 +4950,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4567,7 +4960,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -4575,7 +4970,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -4583,7 +4980,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4622,7 +5021,8 @@
           "actor": "demo3",
           "created_at": "2026-02-03T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Harbour Digital -- 40-Seat Startup Deal",
@@ -4672,7 +5072,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4680,7 +5082,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4688,7 +5092,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -4696,7 +5102,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -4704,7 +5112,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4792,7 +5202,8 @@
           "actor": "demo5",
           "created_at": "2025-12-18T21:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Kiwi Creative -- Campaign Sprint Board",
@@ -4822,7 +5233,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4830,7 +5243,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4838,7 +5253,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4870,7 +5287,8 @@
           "actor": "demo3",
           "created_at": "2026-01-19T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Reef Tourism -- Guest Experience Tracker",
@@ -4919,7 +5337,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -4927,7 +5347,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -4935,7 +5357,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -4943,7 +5367,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -4951,7 +5377,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -4959,7 +5387,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -4967,7 +5397,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5034,7 +5466,8 @@
           "actor": "demo4",
           "created_at": "2026-01-12T21:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bushland Agriculture -- Farm Operations Board",
@@ -5072,7 +5505,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5080,7 +5515,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5088,7 +5525,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5148,7 +5587,8 @@
           "actor": "demo3",
           "created_at": "2025-12-22T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Wallaby Fintech -- Compliance Workflow License",
@@ -5177,7 +5617,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5185,7 +5627,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5193,7 +5637,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -5201,7 +5647,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5233,7 +5681,8 @@
           "actor": "demo2",
           "created_at": "2026-01-07T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Tasman Engineering -- Project Delivery Board",
@@ -5266,7 +5715,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5298,7 +5749,8 @@
           "actor": "demo1",
           "created_at": "2025-12-13T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Coral Coast Health -- Patient Journey Board",
@@ -5321,7 +5773,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5329,7 +5783,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5337,7 +5793,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -5345,7 +5803,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -5353,7 +5813,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5385,7 +5847,8 @@
           "actor": "demo3",
           "created_at": "2026-02-04T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Wombat Software -- 60-Seat Engineering Deal",
@@ -5406,7 +5869,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5414,7 +5879,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5432,7 +5899,8 @@
           "actor": "demo5",
           "created_at": "2026-01-21T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Blue Mountains Consulting -- Advisory Board License",
@@ -5464,7 +5932,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5472,7 +5942,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5480,7 +5952,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -5488,7 +5962,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -5496,7 +5972,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -5504,7 +5982,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -5512,7 +5992,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Closed Won",
@@ -5520,7 +6002,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5559,7 +6043,8 @@
           "actor": "demo1",
           "created_at": "2025-12-11T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Thames Capital -- Investment Pipeline Board",
@@ -5600,7 +6085,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5608,7 +6095,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5616,7 +6105,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5624,7 +6115,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5632,7 +6125,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5699,7 +6194,8 @@
           "actor": "demo4",
           "created_at": "2026-01-14T20:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Clyde Engineering -- Manufacturing Workflow License",
@@ -5727,7 +6223,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5735,7 +6233,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5774,7 +6274,8 @@
           "actor": "demo1",
           "created_at": "2026-01-18T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dublin Analytics -- Data Team Kanban",
@@ -5803,7 +6304,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5811,7 +6314,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5819,7 +6324,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -5827,7 +6334,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5859,7 +6368,8 @@
           "actor": "demo5",
           "created_at": "2026-01-03T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Avon Insurance -- Claims Processing Board",
@@ -5892,7 +6402,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5900,7 +6412,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -5908,7 +6422,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -5916,7 +6432,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -5924,7 +6442,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -5932,7 +6452,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5957,7 +6479,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Severn Healthcare -- NHS Trust Operations Board",
@@ -5990,7 +6513,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -5998,7 +6523,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6006,7 +6533,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -6014,7 +6543,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6053,7 +6584,8 @@
           "actor": "demo4",
           "created_at": "2026-02-01T05:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Mersey Digital -- Agency Campaign Tracker",
@@ -6081,7 +6613,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6089,7 +6623,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6097,7 +6633,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6105,7 +6643,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6113,7 +6653,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6145,7 +6687,8 @@
           "actor": "demo1",
           "created_at": "2025-12-19T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Belfast Tech -- 50-Seat SaaS Startup Deal",
@@ -6175,7 +6718,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6183,7 +6728,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6191,7 +6738,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -6199,7 +6748,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6231,7 +6782,8 @@
           "actor": "demo1",
           "created_at": "2026-01-25T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Trent Consulting -- Professional Services Board",
@@ -6252,7 +6804,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6260,7 +6814,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6268,7 +6824,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -6276,7 +6834,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -6284,7 +6844,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -6292,7 +6854,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6317,7 +6881,8 @@
           "actor": "demo3",
           "created_at": "2026-01-21T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cotswold Publishing -- Editorial Workflow License",
@@ -6346,7 +6911,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6354,7 +6921,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -6362,7 +6931,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6394,7 +6965,8 @@
           "actor": "demo2",
           "created_at": "2026-01-08T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Highland Logistics -- Distribution Board",
@@ -6423,7 +6995,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6431,7 +7005,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6439,7 +7015,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -6447,7 +7025,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6486,7 +7066,8 @@
           "actor": "demo2",
           "created_at": "2026-02-05T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Windsor Pharmaceuticals -- Drug Approval Pipeline",
@@ -6528,7 +7109,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6609,7 +7192,8 @@
           "actor": "demo4",
           "created_at": "2026-01-27T20:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bayern Maschinenbau -- Factory Floor Board",
@@ -6642,7 +7226,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6650,7 +7236,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6658,7 +7246,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -6666,7 +7256,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -6674,7 +7266,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -6682,7 +7276,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -6690,7 +7286,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Closed Won",
@@ -6698,7 +7296,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-03-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6737,7 +7337,8 @@
           "actor": "demo3",
           "created_at": "2026-02-12T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Wien Consulting -- Project Delivery License",
@@ -6760,7 +7361,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6768,7 +7371,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6776,7 +7381,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -6784,7 +7391,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -6792,7 +7401,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -6800,7 +7411,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -6808,7 +7421,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Closed Won",
@@ -6816,7 +7431,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6841,7 +7458,8 @@
           "actor": "demo3",
           "created_at": "2026-01-26T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Zurich Insurance AG -- Claims Workflow Board",
@@ -6877,7 +7495,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -6885,7 +7505,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -6893,7 +7515,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -6901,7 +7525,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -6909,7 +7535,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -6917,7 +7545,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -6925,7 +7555,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6978,7 +7610,8 @@
           "actor": "demo5",
           "created_at": "2025-12-19T19:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rhein Software -- 100-Seat Engineering Deal",
@@ -7011,7 +7644,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7050,7 +7685,8 @@
           "actor": "demo4",
           "created_at": "2026-01-11T05:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Alpen Logistics -- Cross-Border Shipping Board",
@@ -7071,7 +7707,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7079,7 +7717,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -7087,7 +7727,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -7095,7 +7737,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -7103,7 +7747,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -7111,7 +7757,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -7119,7 +7767,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Closed Won",
@@ -7127,7 +7777,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7138,7 +7790,8 @@
           "actor": "demo4",
           "created_at": "2026-02-11T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Hamburg Pharma -- Clinical Trial Tracker",
@@ -7183,7 +7836,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7191,7 +7846,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -7199,7 +7856,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -7207,7 +7866,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -7215,7 +7876,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -7223,7 +7886,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -7231,7 +7896,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Closed Won",
@@ -7239,7 +7906,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7313,7 +7982,8 @@
           "actor": "demo1",
           "created_at": "2026-01-15T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dresden Automotive -- QA Pipeline Board",
@@ -7354,7 +8024,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7362,7 +8034,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -7370,7 +8044,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -7378,7 +8054,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7438,7 +8116,8 @@
           "actor": "demo4",
           "created_at": "2026-01-16T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Salzburg Tourism -- Guest Operations License",
@@ -7459,7 +8138,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7467,7 +8148,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -7475,7 +8158,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -7483,7 +8168,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -7491,7 +8178,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7509,7 +8198,8 @@
           "actor": "demo5",
           "created_at": "2026-02-03T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bern Data Systems -- Analytics Board Package",
@@ -7539,7 +8229,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7547,7 +8239,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -7555,7 +8249,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7594,7 +8290,8 @@
           "actor": "demo4",
           "created_at": "2026-01-22T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Frankfurt Finance -- Compliance Workflow Deal",
@@ -7626,7 +8323,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7634,7 +8333,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -7642,7 +8343,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7681,7 +8384,8 @@
           "actor": "demo2",
           "created_at": "2026-01-01T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Stuttgart Manufacturing -- Production Kanban",
@@ -7720,7 +8424,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7787,7 +8493,8 @@
           "actor": "demo1",
           "created_at": "2026-02-13T19:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Stockholm SaaS -- 80-Seat Platform Migration",
@@ -7828,7 +8535,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7836,7 +8545,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7903,7 +8614,8 @@
           "actor": "demo5",
           "created_at": "2026-01-26T19:45:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Oslo Energy -- Renewable Project Board",
@@ -7926,7 +8638,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -7934,7 +8648,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7959,7 +8675,8 @@
           "actor": "demo5",
           "created_at": "2026-02-05T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Helsinki Gaming -- Sprint Board License",
@@ -8002,7 +8719,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -8010,7 +8729,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -8018,7 +8739,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -8026,7 +8749,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -8034,7 +8759,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8094,7 +8821,8 @@
           "actor": "demo4",
           "created_at": "2026-01-27T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Copenhagen Design -- Creative Workflow Board",
@@ -8143,7 +8871,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8238,7 +8968,8 @@
           "actor": "demo4",
           "created_at": "2025-12-14T23:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Gothenburg Shipping -- Fleet Operations Board",
@@ -8292,7 +9023,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8394,7 +9127,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T03:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Reykjavik Biotech -- Lab Management Board",
@@ -8435,7 +9169,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -8443,7 +9179,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -8451,7 +9189,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -8459,7 +9199,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -8467,7 +9209,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -8475,7 +9219,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8549,7 +9295,8 @@
           "actor": "demo3",
           "created_at": "2025-12-26T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Malmo Retail -- 50-Store Ops Board",
@@ -8598,7 +9345,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8686,7 +9435,8 @@
           "actor": "demo4",
           "created_at": "2026-01-16T05:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bergen Consulting -- Advisory Pipeline Board",
@@ -8740,7 +9490,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -8748,7 +9500,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -8756,7 +9510,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8851,7 +9607,8 @@
           "actor": "demo5",
           "created_at": "2025-12-23T06:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Tampere Automotive -- QA Workflow License",
@@ -8883,7 +9640,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -8891,7 +9650,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -8899,7 +9660,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -8907,7 +9670,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -8915,7 +9680,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8975,7 +9742,8 @@
           "actor": "demo4",
           "created_at": "2026-01-18T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Aarhus Digital -- Agency Board 30 Seats",
@@ -8996,7 +9764,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9004,7 +9774,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9012,7 +9784,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9030,7 +9804,8 @@
           "actor": "demo1",
           "created_at": "2026-02-06T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dubai Properties -- Real Estate Project Board",
@@ -9080,7 +9855,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9088,7 +9865,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9096,7 +9875,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -9104,7 +9885,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -9112,7 +9895,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -9120,7 +9905,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9201,7 +9988,8 @@
           "actor": "demo1",
           "created_at": "2025-12-18T01:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Riyadh Oil -- Operations Compliance Board",
@@ -9225,7 +10013,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9233,7 +10023,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9251,7 +10043,8 @@
           "actor": "demo5",
           "created_at": "2025-12-27T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Abu Dhabi Finance -- Investment Pipeline License",
@@ -9284,7 +10077,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9292,7 +10087,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9300,7 +10097,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -9308,7 +10107,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -9316,7 +10117,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9362,7 +10165,8 @@
           "actor": "demo4",
           "created_at": "2026-02-08T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Qatar Airways Cargo -- Logistics Board Deal",
@@ -9390,7 +10194,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9398,7 +10204,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -9406,7 +10214,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9445,7 +10255,8 @@
           "actor": "demo5",
           "created_at": "2026-01-26T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Doha Healthcare -- Hospital Operations Board",
@@ -9466,7 +10277,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9474,7 +10287,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9482,7 +10297,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -9490,7 +10307,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -9498,7 +10317,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9516,7 +10337,8 @@
           "actor": "demo1",
           "created_at": "2026-01-21T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Jeddah Retail -- 200-Store Operations License",
@@ -9557,7 +10379,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9565,7 +10389,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9573,7 +10399,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -9581,7 +10409,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -9589,7 +10419,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -9597,7 +10429,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9671,7 +10505,8 @@
           "actor": "demo3",
           "created_at": "2025-12-15T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Muscat Engineering -- Infrastructure Project Board",
@@ -9715,7 +10550,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9723,7 +10560,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9731,7 +10570,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9739,7 +10580,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9747,7 +10590,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9814,7 +10659,8 @@
           "actor": "demo5",
           "created_at": "2026-01-25T19:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bahrain Fintech -- Compliance Workflow License",
@@ -9868,7 +10714,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -9876,7 +10724,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -9884,7 +10734,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -9892,7 +10744,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -9900,7 +10754,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -9908,7 +10764,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -9916,7 +10774,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10004,7 +10864,8 @@
           "actor": "demo4",
           "created_at": "2025-12-22T02:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Kuwait Petroleum -- Safety Tracking Board",
@@ -10049,7 +10910,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10057,7 +10920,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10117,7 +10982,8 @@
           "actor": "demo4",
           "created_at": "2026-02-03T00:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sharjah Education -- Academic Operations Board",
@@ -10138,7 +11004,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10146,7 +11014,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -10154,7 +11024,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10165,7 +11037,8 @@
           "actor": "demo1",
           "created_at": "2026-02-06T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Singapore Fintech -- 60-Seat Compliance Board",
@@ -10193,7 +11066,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10201,7 +11076,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10233,7 +11110,8 @@
           "actor": "demo4",
           "created_at": "2026-01-04T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Jakarta Logistics -- Last-Mile Delivery Board",
@@ -10275,7 +11153,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10283,7 +11163,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -10291,7 +11173,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -10299,7 +11183,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -10307,7 +11193,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -10315,7 +11203,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -10323,7 +11213,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10383,7 +11275,8 @@
           "actor": "demo5",
           "created_at": "2026-02-07T15:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Manila BPO -- Operations Kanban 200 Seats",
@@ -10412,7 +11305,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10420,7 +11315,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -10428,7 +11325,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -10436,7 +11335,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -10444,7 +11345,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10483,7 +11386,8 @@
           "actor": "demo3",
           "created_at": "2026-01-02T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bangkok Retail -- Store Operations Board",
@@ -10525,7 +11429,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10533,7 +11439,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10600,7 +11508,8 @@
           "actor": "demo5",
           "created_at": "2026-01-05T20:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Ho Chi Minh Tech -- Engineering Board License",
@@ -10623,7 +11532,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10631,7 +11542,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -10639,7 +11552,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10647,7 +11562,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -10655,7 +11572,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -10663,7 +11582,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10695,7 +11616,8 @@
           "actor": "demo1",
           "created_at": "2026-01-14T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Kuala Lumpur Media -- Content Production Board",
@@ -10724,7 +11646,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10756,7 +11680,8 @@
           "actor": "demo1",
           "created_at": "2026-02-12T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cebu Software -- 40-Seat Startup Deal",
@@ -10789,7 +11714,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10797,7 +11724,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -10805,7 +11734,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10844,7 +11775,8 @@
           "actor": "demo2",
           "created_at": "2026-01-09T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bali Tourism -- Resort Management Board",
@@ -10876,7 +11808,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10915,7 +11849,8 @@
           "actor": "demo4",
           "created_at": "2026-01-28T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Hanoi Manufacturing -- Factory Kanban Board",
@@ -10953,7 +11888,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -10961,7 +11898,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11021,7 +11960,8 @@
           "actor": "demo4",
           "created_at": "2025-12-23T19:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Phnom Penh NGO -- Program Operations Board",
@@ -11047,7 +11987,9 @@
           "from_swimlane": null,
           "to_swimlane": "Nordics",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11055,7 +11997,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11063,7 +12007,9 @@
           "from_swimlane": "Nordics",
           "to_swimlane": "Nordics",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11088,7 +12034,8 @@
           "actor": "demo3",
           "created_at": "2026-01-25T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Tokyo Electronics -- 500-Seat Enterprise Deal",
@@ -11121,7 +12068,9 @@
           "from_swimlane": null,
           "to_swimlane": "Middle East",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11129,7 +12078,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11137,7 +12088,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11145,7 +12098,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11153,7 +12108,9 @@
           "from_swimlane": "Middle East",
           "to_swimlane": "Middle East",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11206,7 +12163,8 @@
           "actor": "demo3",
           "created_at": "2026-01-24T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Seoul Gaming -- Sprint Board License",
@@ -11259,7 +12217,9 @@
           "from_swimlane": null,
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11267,7 +12227,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11275,7 +12237,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -11283,7 +12247,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -11291,7 +12257,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -11299,7 +12267,9 @@
           "from_swimlane": "Southeast Asia",
           "to_swimlane": "Southeast Asia",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11401,7 +12371,8 @@
           "actor": "demo5",
           "created_at": "2026-01-18T07:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Osaka Manufacturing -- Quality Board Package",
@@ -11424,7 +12395,9 @@
           "from_swimlane": null,
           "to_swimlane": "Japan & Korea",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11432,7 +12405,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11440,7 +12415,9 @@
           "from_swimlane": "Japan & Korea",
           "to_swimlane": "Japan & Korea",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11465,7 +12442,8 @@
           "actor": "demo2",
           "created_at": "2025-12-18T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Busan Shipping -- Fleet Operations Board",
@@ -11507,7 +12485,9 @@
           "from_swimlane": null,
           "to_swimlane": "North America",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11515,7 +12495,9 @@
           "from_swimlane": "North America",
           "to_swimlane": "North America",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11582,7 +12564,8 @@
           "actor": "demo4",
           "created_at": "2025-12-20T19:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Kyoto Pharmaceuticals -- Drug Pipeline Board",
@@ -11603,7 +12586,9 @@
           "from_swimlane": null,
           "to_swimlane": "APAC",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11611,7 +12596,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11619,7 +12606,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -11627,7 +12616,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -11635,7 +12626,9 @@
           "from_swimlane": "APAC",
           "to_swimlane": "APAC",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11660,7 +12653,8 @@
           "actor": "demo1",
           "created_at": "2026-01-18T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Incheon Logistics -- Airport Operations License",
@@ -11704,7 +12698,9 @@
           "from_swimlane": null,
           "to_swimlane": "EMEA",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11712,7 +12708,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11720,7 +12718,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -11728,7 +12728,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -11736,7 +12738,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Proposal Sent",
@@ -11744,7 +12748,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Negotiation",
@@ -11752,7 +12758,9 @@
           "from_swimlane": "EMEA",
           "to_swimlane": "EMEA",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11833,7 +12841,8 @@
           "actor": "demo3",
           "created_at": "2026-01-26T22:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Nagoya Automotive -- Production Kanban 300 Seats",
@@ -11862,7 +12871,9 @@
           "from_swimlane": null,
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11870,7 +12881,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -11878,7 +12891,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -11886,7 +12901,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -11894,7 +12911,9 @@
           "from_swimlane": "LATAM",
           "to_swimlane": "LATAM",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11926,7 +12945,8 @@
           "actor": "demo5",
           "created_at": "2026-01-23T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Daegu Retail -- Store Operations Board",
@@ -11968,7 +12988,9 @@
           "from_swimlane": null,
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -11976,7 +12998,9 @@
           "from_swimlane": "ANZ",
           "to_swimlane": "ANZ",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12036,7 +13060,8 @@
           "actor": "demo3",
           "created_at": "2026-02-02T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Fukuoka Software -- Engineering Board 80 Seats",
@@ -12065,7 +13090,9 @@
           "from_swimlane": null,
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -12073,7 +13100,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Qualified",
@@ -12081,7 +13110,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Discovery",
@@ -12089,7 +13120,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Demo",
@@ -12097,7 +13130,9 @@
           "from_swimlane": "UK & Ireland",
           "to_swimlane": "UK & Ireland",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12136,7 +13171,8 @@
           "actor": "demo5",
           "created_at": "2026-01-12T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Jeju Tourism -- Guest Experience Board",
@@ -12168,7 +13204,9 @@
           "from_swimlane": null,
           "to_swimlane": "DACH",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Prospect",
@@ -12176,7 +13214,9 @@
           "from_swimlane": "DACH",
           "to_swimlane": "DACH",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12208,7 +13248,8 @@
           "actor": "demo3",
           "created_at": "2026-01-09T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     }
   ]
 }

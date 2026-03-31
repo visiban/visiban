@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Template: Infrastructure & DevOps",
   "description": "Track infrastructure incidents, changes, and improvements. Each swimlane is a system; each card is a work item.",
   "columns": [
@@ -198,7 +198,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -206,7 +208,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -214,7 +218,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -267,7 +273,8 @@
           "actor": "demo2",
           "created_at": "2026-02-04T19:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "EKS 1.28 to 1.29 cluster upgrade",
@@ -295,7 +302,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -327,7 +336,8 @@
           "actor": "demo4",
           "created_at": "2025-12-16T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pod topology spread constraints — better AZ distribution",
@@ -351,7 +361,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -376,7 +388,8 @@
           "actor": "demo1",
           "created_at": "2026-01-24T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cluster autoscaler tuning — reduce scale-down aggression",
@@ -404,7 +417,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -412,7 +427,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -420,7 +437,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -428,7 +447,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -436,7 +457,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -468,7 +491,8 @@
           "actor": "demo5",
           "created_at": "2025-12-10T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Upgrade Kubernetes to 1.30 — deprecation review",
@@ -492,7 +516,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -517,7 +543,8 @@
           "actor": "demo5",
           "created_at": "2025-12-15T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Node group instance type migration — Graviton3",
@@ -543,7 +570,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -551,7 +580,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -559,7 +590,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -567,7 +600,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -575,7 +610,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -607,7 +644,8 @@
           "actor": "demo3",
           "created_at": "2025-12-18T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pod security standards enforcement — restricted profile",
@@ -640,7 +678,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -672,7 +712,8 @@
           "actor": "demo3",
           "created_at": "2026-01-06T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Horizontal pod autoscaler tuning — API deployment",
@@ -696,7 +737,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -704,7 +747,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -712,7 +757,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -720,7 +767,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -728,7 +777,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -736,7 +787,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -744,7 +797,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Deployed",
@@ -752,7 +807,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -770,7 +827,8 @@
           "actor": "demo1",
           "created_at": "2026-01-14T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Ingress controller upgrade — NGINX to 1.10",
@@ -811,7 +869,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -819,7 +879,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -893,7 +955,8 @@
           "actor": "demo3",
           "created_at": "2025-12-18T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CoreDNS memory spike investigation",
@@ -917,7 +980,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -925,7 +990,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -933,7 +1000,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -941,7 +1010,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -949,7 +1020,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -957,7 +1030,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -965,7 +1040,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -983,7 +1060,8 @@
           "actor": "demo5",
           "created_at": "2026-01-02T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Service mesh evaluation — Istio vs Linkerd",
@@ -1004,7 +1082,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1015,7 +1095,8 @@
           "actor": "demo2",
           "created_at": "2025-12-15T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Namespace resource quotas — enforce per-team limits",
@@ -1044,7 +1125,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1052,7 +1135,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1060,7 +1145,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -1068,7 +1155,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1076,7 +1165,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -1084,7 +1175,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -1092,7 +1185,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1124,7 +1219,8 @@
           "actor": "demo2",
           "created_at": "2026-02-09T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pipeline flakiness — Docker layer cache misses",
@@ -1164,7 +1260,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1172,7 +1270,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1246,7 +1346,8 @@
           "actor": "demo1",
           "created_at": "2025-12-12T21:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Add SAST scanning job (Semgrep) to MR pipelines",
@@ -1279,7 +1380,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1287,7 +1390,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1295,7 +1400,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -1303,7 +1410,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -1311,7 +1420,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1350,7 +1461,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Reduce test suite runtime — parallelize Vitest workers",
@@ -1404,7 +1516,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1412,7 +1526,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1420,7 +1536,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -1428,7 +1546,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1509,7 +1629,8 @@
           "actor": "demo1",
           "created_at": "2026-01-13T00:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dependency scanning job — automate CVE alerting",
@@ -1559,7 +1680,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1567,7 +1690,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1575,7 +1700,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -1583,7 +1710,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -1591,7 +1720,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -1599,7 +1730,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1673,7 +1806,8 @@
           "actor": "demo2",
           "created_at": "2025-12-10T21:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Build caching strategy overhaul — Kaniko layers",
@@ -1718,7 +1852,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1726,7 +1862,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1734,7 +1872,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -1742,7 +1882,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -1750,7 +1892,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1831,7 +1975,8 @@
           "actor": "demo4",
           "created_at": "2026-01-01T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pipeline status Slack notifications — per-team channels",
@@ -1863,7 +2008,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1871,7 +2018,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -1879,7 +2028,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1925,7 +2076,8 @@
           "actor": "demo3",
           "created_at": "2025-12-12T07:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Artifact retention policy — reduce S3 storage costs",
@@ -1948,7 +2100,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -1956,7 +2110,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1974,7 +2130,8 @@
           "actor": "demo3",
           "created_at": "2025-12-25T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "MR pipeline timeout — increase from 30 to 45 minutes",
@@ -2002,7 +2159,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2010,7 +2169,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2018,7 +2179,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2026,7 +2189,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -2034,7 +2199,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2066,7 +2233,8 @@
           "actor": "demo1",
           "created_at": "2026-02-08T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Runner fleet scaling — add 4 spot instances",
@@ -2100,7 +2268,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2108,7 +2278,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2116,7 +2288,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2124,7 +2298,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2177,7 +2353,8 @@
           "actor": "demo2",
           "created_at": "2025-12-23T17:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Container image size reduction — multi-stage builds",
@@ -2223,7 +2400,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2231,7 +2410,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2239,7 +2420,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2247,7 +2430,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2314,7 +2499,8 @@
           "actor": "demo2",
           "created_at": "2025-12-23T02:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pipeline analytics dashboard — build time trends",
@@ -2340,7 +2526,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2348,7 +2536,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2356,7 +2546,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2364,7 +2556,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2372,7 +2566,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2380,7 +2576,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2405,7 +2603,8 @@
           "actor": "demo5",
           "created_at": "2026-01-11T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Secret scanning — prevent credential leaks in commits",
@@ -2428,7 +2627,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2436,7 +2637,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2444,7 +2647,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2452,7 +2657,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -2460,7 +2667,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -2468,7 +2677,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -2476,7 +2687,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2501,7 +2714,8 @@
           "actor": "demo3",
           "created_at": "2026-01-16T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Replica lag spike — 45s during analytics export job",
@@ -2524,7 +2738,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2532,7 +2748,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2540,7 +2758,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2548,7 +2768,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2566,7 +2788,8 @@
           "actor": "demo5",
           "created_at": "2026-01-09T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Index bloat cleanup — card_movements table",
@@ -2599,7 +2822,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2638,7 +2863,8 @@
           "actor": "demo3",
           "created_at": "2026-01-05T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Upgrade PostgreSQL 16.1 to 16.4 (minor patch)",
@@ -2685,7 +2911,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2693,7 +2921,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2701,7 +2931,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2709,7 +2941,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2797,7 +3031,8 @@
           "actor": "demo5",
           "created_at": "2026-01-18T04:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Evaluate pg_partman for card_movements partitioning",
@@ -2829,7 +3064,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2837,7 +3074,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2845,7 +3084,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -2853,7 +3094,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -2861,7 +3104,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -2869,7 +3114,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2915,7 +3162,8 @@
           "actor": "demo2",
           "created_at": "2026-01-23T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Connection pooler upgrade — PgBouncer 1.22",
@@ -2936,7 +3184,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -2944,7 +3194,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2952,7 +3204,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2963,7 +3217,8 @@
           "actor": "demo3",
           "created_at": "2026-02-11T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Slow query audit — queries over 500ms",
@@ -3013,7 +3268,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3021,7 +3278,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3029,7 +3288,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3110,7 +3371,8 @@
           "actor": "demo2",
           "created_at": "2026-01-12T21:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Automated vacuum tuning — large tables",
@@ -3148,7 +3410,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3156,7 +3420,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3164,7 +3430,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -3172,7 +3440,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3218,7 +3488,8 @@
           "actor": "demo5",
           "created_at": "2025-12-29T19:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Read replica auto-scaling based on connection count",
@@ -3255,7 +3526,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3263,7 +3536,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3271,7 +3546,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -3279,7 +3556,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -3287,7 +3566,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3361,7 +3642,8 @@
           "actor": "demo4",
           "created_at": "2026-02-04T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Point-in-time recovery drill — Q2 exercise",
@@ -3390,7 +3672,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3398,7 +3682,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3437,7 +3723,8 @@
           "actor": "demo4",
           "created_at": "2026-01-22T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "pg_stat_statements analysis — top 20 queries",
@@ -3461,7 +3748,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3469,7 +3758,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3477,7 +3768,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -3485,7 +3778,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -3493,7 +3788,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -3501,7 +3798,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3526,7 +3825,8 @@
           "actor": "demo3",
           "created_at": "2025-12-11T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Database parameter group review — shared_buffers tuning",
@@ -3568,7 +3868,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3576,7 +3878,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3636,7 +3940,8 @@
           "actor": "demo3",
           "created_at": "2026-01-10T02:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rotate TLS certificates — production database",
@@ -3668,7 +3973,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3707,7 +4014,8 @@
           "actor": "demo5",
           "created_at": "2025-12-27T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CloudFront cache invalidation automation for deploys",
@@ -3739,7 +4047,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3747,7 +4057,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3755,7 +4067,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3801,7 +4115,8 @@
           "actor": "demo3",
           "created_at": "2026-01-13T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "WAF rule update — block SQL injection patterns",
@@ -3843,7 +4158,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3851,7 +4168,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3911,7 +4230,8 @@
           "actor": "demo5",
           "created_at": "2026-01-24T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Edge function for A/B testing header injection",
@@ -3945,7 +4265,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -3953,7 +4275,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3961,7 +4285,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -3969,7 +4295,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3977,7 +4305,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -3985,7 +4315,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4031,7 +4363,8 @@
           "actor": "demo3",
           "created_at": "2026-02-10T17:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Custom error page — branded 502 and 503 pages",
@@ -4072,7 +4405,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4080,7 +4415,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4088,7 +4425,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4148,7 +4487,8 @@
           "actor": "demo5",
           "created_at": "2026-01-20T22:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Origin failover configuration — multi-region",
@@ -4181,7 +4521,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4189,7 +4531,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4197,7 +4541,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4243,7 +4589,8 @@
           "actor": "demo2",
           "created_at": "2025-12-13T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cache-Control header audit — static assets",
@@ -4267,7 +4614,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4275,7 +4624,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -4283,7 +4634,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -4291,7 +4644,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4323,7 +4678,8 @@
           "actor": "demo4",
           "created_at": "2026-02-08T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Brotli compression enablement — reduce payload sizes",
@@ -4355,7 +4711,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4363,7 +4721,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4371,7 +4731,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -4379,7 +4741,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -4387,7 +4751,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4426,7 +4792,8 @@
           "actor": "demo3",
           "created_at": "2025-12-28T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Real user monitoring (RUM) integration at edge",
@@ -4454,7 +4821,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4462,7 +4831,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4470,7 +4841,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -4478,7 +4851,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -4486,7 +4861,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -4494,7 +4871,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4533,7 +4912,8 @@
           "actor": "demo1",
           "created_at": "2026-01-30T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Geographic restriction policy for sanctioned regions",
@@ -4566,7 +4946,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4574,7 +4956,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4582,7 +4966,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4590,7 +4976,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4598,7 +4986,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4630,7 +5020,8 @@
           "actor": "demo2",
           "created_at": "2026-01-04T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SSL/TLS certificate auto-renewal validation",
@@ -4662,7 +5053,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4670,7 +5063,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4678,7 +5073,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -4686,7 +5083,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -4694,7 +5093,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -4702,7 +5103,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4741,7 +5144,8 @@
           "actor": "demo3",
           "created_at": "2025-12-27T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CDN access logging — ship to S3 for analysis",
@@ -4767,7 +5171,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4775,7 +5181,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4800,7 +5208,8 @@
           "actor": "demo3",
           "created_at": "2026-01-05T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Edge function — bot detection and rate limiting",
@@ -4849,7 +5258,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -4857,7 +5268,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4865,7 +5278,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -4873,7 +5288,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -4881,7 +5298,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -4889,7 +5308,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -4897,7 +5318,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4978,7 +5401,8 @@
           "actor": "demo3",
           "created_at": "2026-01-09T01:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Prometheus cardinality explosion — label cleanup",
@@ -5004,7 +5428,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5012,7 +5438,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5020,7 +5448,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5028,7 +5458,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5036,7 +5468,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5061,7 +5495,8 @@
           "actor": "demo5",
           "created_at": "2026-01-30T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Grafana dashboard standardization — golden signals",
@@ -5107,7 +5542,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5115,7 +5552,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5189,7 +5628,8 @@
           "actor": "demo1",
           "created_at": "2026-02-04T04:45:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "PagerDuty escalation policy review — update on-call rotation",
@@ -5221,7 +5661,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5229,7 +5671,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5237,7 +5681,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -5245,7 +5691,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5284,7 +5732,8 @@
           "actor": "demo5",
           "created_at": "2026-02-03T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Jaeger trace sampling rate adjustment",
@@ -5307,7 +5756,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5315,7 +5766,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5323,7 +5776,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -5331,7 +5786,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5339,7 +5796,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -5347,7 +5806,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -5355,7 +5816,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5380,7 +5843,8 @@
           "actor": "demo4",
           "created_at": "2026-02-08T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Alert fatigue audit — suppress low-signal alerts",
@@ -5425,7 +5889,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5492,7 +5958,8 @@
           "actor": "demo1",
           "created_at": "2026-02-05T19:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SLO dashboard — error budget burn rate",
@@ -5525,7 +5992,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5533,7 +6002,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5541,7 +6012,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -5549,7 +6022,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -5557,7 +6032,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -5565,7 +6042,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5604,7 +6083,8 @@
           "actor": "demo5",
           "created_at": "2026-02-02T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Log aggregation — Loki deployment and configuration",
@@ -5627,7 +6107,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5635,7 +6117,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5643,7 +6127,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5651,7 +6137,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5659,7 +6147,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5684,7 +6174,8 @@
           "actor": "demo5",
           "created_at": "2026-01-31T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Synthetic monitoring — uptime checks for critical endpoints",
@@ -5731,7 +6222,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5739,7 +6232,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5747,7 +6242,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -5755,7 +6252,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -5763,7 +6262,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -5771,7 +6272,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -5779,7 +6282,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5853,7 +6358,8 @@
           "actor": "demo2",
           "created_at": "2026-01-31T20:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Custom Prometheus exporter for board creation metrics",
@@ -5874,7 +6380,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5882,7 +6390,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5907,7 +6417,8 @@
           "actor": "demo4",
           "created_at": "2026-01-10T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Alertmanager routing rules — per-team notification channels",
@@ -5949,7 +6460,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -5957,7 +6470,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5965,7 +6480,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -5973,7 +6490,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -5981,7 +6500,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -5989,7 +6510,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6049,7 +6572,8 @@
           "actor": "demo4",
           "created_at": "2026-01-14T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Grafana Terraform provider — dashboards as code",
@@ -6087,7 +6611,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6147,7 +6673,8 @@
           "actor": "demo3",
           "created_at": "2025-12-24T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Distributed tracing — add span for WebSocket connections",
@@ -6188,7 +6715,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6196,7 +6725,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6204,7 +6735,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -6212,7 +6745,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -6220,7 +6755,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -6228,7 +6765,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -6236,7 +6775,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6289,7 +6830,8 @@
           "actor": "demo5",
           "created_at": "2026-01-08T18:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vault secret rotation — database credentials",
@@ -6315,7 +6857,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6323,7 +6867,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6331,7 +6877,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -6339,7 +6887,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -6347,7 +6897,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-03-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6379,7 +6931,8 @@
           "actor": "demo5",
           "created_at": "2026-02-13T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Falco runtime detection rules — update for EKS 1.29",
@@ -6402,7 +6955,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6410,7 +6965,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6442,7 +6999,8 @@
           "actor": "demo4",
           "created_at": "2026-01-13T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Trivy image scanning — add to nightly job",
@@ -6474,7 +7032,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6482,7 +7042,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6490,7 +7052,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -6498,7 +7062,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6544,7 +7110,8 @@
           "actor": "demo1",
           "created_at": "2026-01-14T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Network policy enforcement — deny-all default",
@@ -6586,7 +7153,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6653,7 +7222,8 @@
           "actor": "demo2",
           "created_at": "2026-01-30T22:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "IAM role audit — remove stale service accounts",
@@ -6691,7 +7261,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6699,7 +7271,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6707,7 +7281,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -6715,7 +7291,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -6723,7 +7301,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6783,7 +7363,8 @@
           "actor": "demo5",
           "created_at": "2026-01-18T15:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "OIDC federation for CI/CD — eliminate long-lived keys",
@@ -6822,7 +7403,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6830,7 +7413,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6838,7 +7423,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6846,7 +7433,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6854,7 +7443,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6914,7 +7505,8 @@
           "actor": "demo3",
           "created_at": "2025-12-18T17:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Security group audit — close unused ports",
@@ -6944,7 +7536,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -6952,7 +7546,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6960,7 +7556,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -6968,7 +7566,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -6976,7 +7576,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7015,7 +7617,8 @@
           "actor": "demo4",
           "created_at": "2026-01-09T18:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Encryption key rotation — KMS annual rotation",
@@ -7047,7 +7650,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7055,7 +7660,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7094,7 +7701,8 @@
           "actor": "demo3",
           "created_at": "2026-01-21T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Container runtime security — Seccomp profile enforcement",
@@ -7139,7 +7747,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7147,7 +7757,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7155,7 +7767,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7163,7 +7777,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7171,7 +7787,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7252,7 +7870,8 @@
           "actor": "demo4",
           "created_at": "2025-12-20T21:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SSH bastion host hardening — jump server audit",
@@ -7280,7 +7899,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7288,7 +7909,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7296,7 +7919,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -7304,7 +7929,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7329,7 +7956,8 @@
           "actor": "demo4",
           "created_at": "2025-12-17T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Audit log shipping to SIEM — CloudTrail to Splunk",
@@ -7359,7 +7987,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7367,7 +7997,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7375,7 +8007,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7383,7 +8017,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7391,7 +8027,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7430,7 +8068,8 @@
           "actor": "demo1",
           "created_at": "2026-01-09T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dependency vulnerability triage — critical CVEs",
@@ -7463,7 +8102,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7471,7 +8112,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7479,7 +8122,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -7487,7 +8132,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -7495,7 +8142,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -7503,7 +8152,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7549,7 +8200,8 @@
           "actor": "demo1",
           "created_at": "2026-01-07T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging seed data refresh — automate nightly reset",
@@ -7570,7 +8222,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7578,7 +8232,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7586,7 +8242,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -7594,7 +8252,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7619,7 +8279,8 @@
           "actor": "demo1",
           "created_at": "2026-01-16T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging SSL certificate expired — auto-renewal fix",
@@ -7651,7 +8312,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7659,7 +8322,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -7667,7 +8332,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7713,7 +8380,8 @@
           "actor": "demo4",
           "created_at": "2025-12-27T07:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Scale staging to 1/2 production for load testing",
@@ -7737,7 +8405,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7745,7 +8415,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7763,7 +8435,8 @@
           "actor": "demo5",
           "created_at": "2026-02-01T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging database anonymization — PII masking script",
@@ -7808,7 +8481,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7816,7 +8491,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7824,7 +8501,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -7832,7 +8511,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -7840,7 +8521,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -7848,7 +8531,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Deployed",
@@ -7856,7 +8541,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7944,7 +8631,8 @@
           "actor": "demo4",
           "created_at": "2025-12-24T23:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Feature flag service deployment — staging environment",
@@ -7973,7 +8661,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -7981,7 +8671,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7989,7 +8681,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -7997,7 +8691,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -8005,7 +8701,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -8013,7 +8711,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8045,7 +8745,8 @@
           "actor": "demo3",
           "created_at": "2025-12-12T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging environment access control — RBAC review",
@@ -8079,7 +8780,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8125,7 +8828,8 @@
           "actor": "demo1",
           "created_at": "2026-01-01T18:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging to production drift detection — Terraform plan",
@@ -8157,7 +8861,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -8165,7 +8871,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8173,7 +8881,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -8181,7 +8891,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -8189,7 +8901,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -8197,7 +8911,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-03-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8243,7 +8959,8 @@
           "actor": "demo5",
           "created_at": "2026-02-14T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Automated smoke tests — post-deploy verification",
@@ -8269,7 +8986,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -8277,7 +8996,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8285,7 +9006,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -8293,7 +9016,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -8301,7 +9026,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8326,7 +9053,8 @@
           "actor": "demo1",
           "created_at": "2026-01-19T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging cost optimization — schedule shutdown overnight",
@@ -8349,7 +9077,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -8357,7 +9087,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8365,7 +9097,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -8373,7 +9107,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -8381,7 +9117,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -8389,7 +9127,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Deployed",
@@ -8397,7 +9137,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8429,7 +9171,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Mirror production traffic to staging — shadow mode",
@@ -8471,7 +9214,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -8479,7 +9224,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8546,7 +9293,8 @@
           "actor": "demo3",
           "created_at": "2026-01-15T20:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging monitoring — separate Grafana workspace",
@@ -8590,7 +9338,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8657,7 +9407,8 @@
           "actor": "demo1",
           "created_at": "2026-01-27T20:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Staging DNS — wildcard certificate setup",
@@ -8680,7 +9431,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -8688,7 +9441,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8696,7 +9451,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -8704,7 +9461,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -8712,7 +9471,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -8720,7 +9481,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -8728,7 +9491,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8753,7 +9518,8 @@
           "actor": "demo3",
           "created_at": "2026-01-15T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Airflow DAG failure — Snowflake ingestion timeout",
@@ -8777,7 +9543,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -8785,7 +9553,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8793,7 +9563,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -8801,7 +9573,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -8809,7 +9583,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -8817,7 +9593,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8835,7 +9613,8 @@
           "actor": "demo5",
           "created_at": "2026-01-31T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "dbt model performance — optimize card_movements mart",
@@ -8858,7 +9637,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8890,7 +9671,8 @@
           "actor": "demo2",
           "created_at": "2026-02-01T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data freshness SLO — alert on stale tables",
@@ -8931,7 +9713,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -8939,7 +9723,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8947,7 +9733,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -8955,7 +9743,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -8963,7 +9753,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -8971,7 +9763,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -8979,7 +9773,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-03-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9039,7 +9835,8 @@
           "actor": "demo3",
           "created_at": "2026-02-09T23:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Airflow 2.8 upgrade — new scheduler architecture",
@@ -9067,7 +9864,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9075,7 +9874,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9114,7 +9915,8 @@
           "actor": "demo2",
           "created_at": "2026-01-14T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "S3 event notification — trigger pipeline on upload",
@@ -9138,7 +9940,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9146,7 +9950,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9154,7 +9960,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -9162,7 +9970,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9194,7 +10004,8 @@
           "actor": "demo3",
           "created_at": "2026-01-14T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data quality checks — Great Expectations integration",
@@ -9239,7 +10050,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9247,7 +10060,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9255,7 +10070,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9315,7 +10132,8 @@
           "actor": "demo2",
           "created_at": "2026-02-14T02:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Backfill pipeline — historical card movement data",
@@ -9348,7 +10166,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9356,7 +10176,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9364,7 +10186,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -9372,7 +10196,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -9380,7 +10206,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -9388,7 +10216,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -9396,7 +10226,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Deployed",
@@ -9404,7 +10236,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9443,7 +10277,8 @@
           "actor": "demo1",
           "created_at": "2026-02-03T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pipeline observability — Airflow metrics to Prometheus",
@@ -9472,7 +10307,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9480,7 +10317,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9512,7 +10351,8 @@
           "actor": "demo3",
           "created_at": "2026-01-23T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cost allocation tags — Snowflake credit tracking per team",
@@ -9541,7 +10381,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9549,7 +10391,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9557,7 +10401,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -9565,7 +10411,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -9573,7 +10421,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -9581,7 +10431,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9613,7 +10465,8 @@
           "actor": "demo2",
           "created_at": "2026-01-20T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Reverse ETL — Salesforce account sync pipeline",
@@ -9642,7 +10495,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9650,7 +10505,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9658,7 +10515,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -9666,7 +10525,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -9674,7 +10535,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9713,7 +10576,8 @@
           "actor": "demo1",
           "created_at": "2026-01-19T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data retention policy — archive tables older than 2 years",
@@ -9742,7 +10606,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9750,7 +10616,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9758,7 +10626,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -9766,7 +10636,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9774,7 +10646,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -9782,7 +10656,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -9790,7 +10666,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9822,7 +10700,8 @@
           "actor": "demo1",
           "created_at": "2026-01-18T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pipeline idempotency audit — prevent duplicate processing",
@@ -9845,7 +10724,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9877,7 +10758,8 @@
           "actor": "demo2",
           "created_at": "2026-01-23T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Route 53 health check — failover to secondary region",
@@ -9913,7 +10795,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -9921,7 +10805,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9995,7 +10881,8 @@
           "actor": "demo4",
           "created_at": "2025-12-28T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "VPC peering — new analytics account connection",
@@ -10048,7 +10935,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10056,7 +10945,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -10064,7 +10955,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -10072,7 +10965,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10153,7 +11048,8 @@
           "actor": "demo3",
           "created_at": "2025-12-22T23:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Transit Gateway route table cleanup — stale entries",
@@ -10194,7 +11090,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10202,7 +11100,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10210,7 +11110,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -10218,7 +11120,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -10226,7 +11130,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -10234,7 +11140,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10308,7 +11216,8 @@
           "actor": "demo5",
           "created_at": "2026-01-16T08:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DNS TTL audit — reduce for critical services",
@@ -10344,7 +11253,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10352,7 +11263,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10360,7 +11273,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -10368,7 +11283,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -10376,7 +11293,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -10384,7 +11303,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10437,7 +11358,8 @@
           "actor": "demo5",
           "created_at": "2025-12-18T19:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Private hosted zone — internal service discovery",
@@ -10480,7 +11402,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10488,7 +11412,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10562,7 +11488,8 @@
           "actor": "demo1",
           "created_at": "2026-01-09T18:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Network ACL review — remove permissive rules",
@@ -10585,7 +11512,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10593,7 +11522,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10601,7 +11532,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -10609,7 +11542,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -10617,7 +11552,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -10625,7 +11562,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -10633,7 +11572,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10658,7 +11599,8 @@
           "actor": "demo4",
           "created_at": "2025-12-24T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "IPv6 enablement — dual-stack VPC configuration",
@@ -10679,7 +11621,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10690,7 +11634,8 @@
           "actor": "demo1",
           "created_at": "2026-01-30T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Direct Connect monitoring — latency and packet loss",
@@ -10732,7 +11677,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10740,7 +11687,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10748,7 +11697,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10756,7 +11707,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10764,7 +11717,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -10772,7 +11727,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10839,7 +11796,8 @@
           "actor": "demo4",
           "created_at": "2025-12-14T21:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DNS record audit — remove orphaned entries",
@@ -10862,7 +11820,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10870,7 +11830,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10878,7 +11840,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10896,7 +11860,8 @@
           "actor": "demo5",
           "created_at": "2026-02-07T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Subnet CIDR planning — allocate for new services",
@@ -10935,7 +11900,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -10943,7 +11910,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10951,7 +11920,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -10959,7 +11930,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -10967,7 +11940,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11013,7 +11988,8 @@
           "actor": "demo5",
           "created_at": "2026-01-01T20:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Network flow logs — enable and ship to S3",
@@ -11041,7 +12017,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11049,7 +12027,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11057,7 +12037,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -11065,7 +12047,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11104,7 +12088,8 @@
           "actor": "demo4",
           "created_at": "2026-02-08T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Internal DNS resolution — CoreDNS caching optimization",
@@ -11125,7 +12110,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11133,7 +12120,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11141,7 +12130,9 @@
           "from_swimlane": "Data Pipeline",
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11159,7 +12150,8 @@
           "actor": "demo1",
           "created_at": "2026-01-26T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cross-region failover drill — Q2 exercise",
@@ -11188,7 +12180,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11196,7 +12190,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11204,7 +12200,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11243,7 +12241,8 @@
           "actor": "demo1",
           "created_at": "2026-02-03T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "RDS cross-region replica promotion test",
@@ -11269,7 +12268,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11277,7 +12278,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11295,7 +12298,8 @@
           "actor": "demo4",
           "created_at": "2026-01-01T14:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "S3 cross-region replication lag monitoring",
@@ -11324,7 +12328,9 @@
           "from_swimlane": null,
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11332,7 +12338,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11340,7 +12348,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11348,7 +12358,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11356,7 +12368,9 @@
           "from_swimlane": "Production Kubernetes",
           "to_swimlane": "Production Kubernetes",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11395,7 +12409,8 @@
           "actor": "demo3",
           "created_at": "2026-02-10T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DR runbook update — new services added since Q1",
@@ -11423,7 +12438,9 @@
           "from_swimlane": null,
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11431,7 +12448,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11439,7 +12458,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -11447,7 +12468,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -11455,7 +12478,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -11463,7 +12488,9 @@
           "from_swimlane": "CI/CD Pipeline",
           "to_swimlane": "CI/CD Pipeline",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11495,7 +12522,8 @@
           "actor": "demo2",
           "created_at": "2025-12-28T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Backup verification — restore to isolated environment",
@@ -11518,7 +12546,9 @@
           "from_swimlane": null,
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11526,7 +12556,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11534,7 +12566,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -11542,7 +12576,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -11550,7 +12586,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -11558,7 +12596,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Change Window",
@@ -11566,7 +12606,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Deployed",
@@ -11574,7 +12616,9 @@
           "from_swimlane": "Database Cluster",
           "to_swimlane": "Database Cluster",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11606,7 +12650,8 @@
           "actor": "demo1",
           "created_at": "2026-01-07T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "RPO validation — measure actual replication lag",
@@ -11629,7 +12674,9 @@
           "from_swimlane": null,
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11637,7 +12684,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11645,7 +12694,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11653,7 +12704,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11661,7 +12714,9 @@
           "from_swimlane": "CDN & Edge",
           "to_swimlane": "CDN & Edge",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11686,7 +12741,8 @@
           "actor": "demo3",
           "created_at": "2025-12-14T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DR environment cost audit — optimize standby resources",
@@ -11718,7 +12774,9 @@
           "from_swimlane": null,
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11726,7 +12784,9 @@
           "from_swimlane": "Monitoring Stack",
           "to_swimlane": "Monitoring Stack",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11765,7 +12825,8 @@
           "actor": "demo5",
           "created_at": "2025-12-11T19:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Automated failover trigger — Route 53 health checks",
@@ -11789,7 +12850,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11797,7 +12860,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11805,7 +12870,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -11813,7 +12880,9 @@
           "from_swimlane": "Security Infrastructure",
           "to_swimlane": "Security Infrastructure",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11838,7 +12907,8 @@
           "actor": "demo2",
           "created_at": "2025-12-27T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Communication plan update — incident notification tree",
@@ -11881,7 +12951,9 @@
           "from_swimlane": null,
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -11889,7 +12961,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -11897,7 +12971,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -11905,7 +12981,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Testing",
@@ -11913,7 +12991,9 @@
           "from_swimlane": "Staging Environment",
           "to_swimlane": "Staging Environment",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11994,7 +13074,8 @@
           "actor": "demo2",
           "created_at": "2026-02-07T20:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DR documentation — architecture diagrams refresh",
@@ -12022,7 +13103,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Pipeline",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12054,7 +13137,8 @@
           "actor": "demo5",
           "created_at": "2026-01-09T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Chaos engineering — random pod termination drill",
@@ -12091,7 +13175,9 @@
           "from_swimlane": null,
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -12099,7 +13185,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -12107,7 +13195,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Assigned",
@@ -12115,7 +13205,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "In Progress",
@@ -12123,7 +13215,9 @@
           "from_swimlane": "DNS & Networking",
           "to_swimlane": "DNS & Networking",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12183,7 +13277,8 @@
           "actor": "demo3",
           "created_at": "2026-01-25T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Business impact analysis — updated service criticality tiers",
@@ -12206,7 +13301,9 @@
           "from_swimlane": null,
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Reported",
@@ -12214,7 +13311,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -12222,7 +13321,9 @@
           "from_swimlane": "Disaster Recovery",
           "to_swimlane": "Disaster Recovery",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12233,7 +13334,8 @@
           "actor": "demo5",
           "created_at": "2026-01-10T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     }
   ]
 }

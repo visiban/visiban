@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Template: Simple Kanban",
   "description": "General-purpose kanban for any team. Each swimlane is a team or workstream; each card is a work item.",
   "columns": [
@@ -169,7 +169,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -177,7 +179,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -185,7 +189,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -231,7 +237,8 @@
           "actor": "demo5",
           "created_at": "2026-01-09T07:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Implement card search with debounce",
@@ -264,7 +271,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -272,7 +281,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -280,7 +291,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -288,7 +301,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -296,7 +311,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -335,7 +352,8 @@
           "actor": "demo3",
           "created_at": "2025-12-17T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Extract color token constants to design-system package",
@@ -365,7 +383,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -390,7 +410,8 @@
           "actor": "demo3",
           "created_at": "2026-01-09T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Optimistic update for card weight field",
@@ -413,7 +434,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -421,7 +444,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -429,7 +454,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -437,7 +464,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -445,7 +474,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -470,7 +501,8 @@
           "actor": "demo3",
           "created_at": "2026-02-03T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Responsive board layout for tablet breakpoints",
@@ -511,7 +543,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -519,7 +553,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -527,7 +563,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -535,7 +573,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -543,7 +583,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -596,7 +638,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T00:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Keyboard shortcut overlay modal",
@@ -636,7 +679,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -644,7 +689,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -704,7 +751,8 @@
           "actor": "demo2",
           "created_at": "2026-02-09T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Virtualized card list for boards with 500+ cards",
@@ -736,7 +784,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -744,7 +794,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -752,7 +804,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -791,7 +845,8 @@
           "actor": "demo4",
           "created_at": "2026-01-28T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dark mode toggle persistence across sessions",
@@ -815,7 +870,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -840,7 +897,8 @@
           "actor": "demo1",
           "created_at": "2025-12-13T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Drag preview ghost image polish for Safari",
@@ -885,7 +943,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -893,7 +953,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -901,7 +963,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -989,7 +1053,8 @@
           "actor": "demo3",
           "created_at": "2026-01-21T22:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Card detail modal transition animation",
@@ -1013,7 +1078,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1021,7 +1088,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1039,7 +1108,8 @@
           "actor": "demo5",
           "created_at": "2026-02-02T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Swimlane header sticky positioning on scroll",
@@ -1071,7 +1141,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1117,7 +1189,8 @@
           "actor": "demo5",
           "created_at": "2025-12-21T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Board skeleton loader during initial fetch",
@@ -1138,7 +1211,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1156,7 +1231,8 @@
           "actor": "demo4",
           "created_at": "2026-01-18T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Add cursor-based pagination to card list endpoint",
@@ -1188,7 +1264,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1196,7 +1274,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1242,7 +1322,8 @@
           "actor": "demo4",
           "created_at": "2026-01-23T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rate limiting on public invite accept endpoint",
@@ -1278,7 +1359,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1338,7 +1421,8 @@
           "actor": "demo3",
           "created_at": "2025-12-14T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Bulk card archive endpoint",
@@ -1371,7 +1455,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1379,7 +1465,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1411,7 +1499,8 @@
           "actor": "demo3",
           "created_at": "2026-01-22T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "N+1 fix on /api/boards/ list endpoint",
@@ -1444,7 +1533,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1452,7 +1543,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -1460,7 +1553,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -1468,7 +1563,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -1476,7 +1573,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1522,7 +1621,8 @@
           "actor": "demo4",
           "created_at": "2025-12-26T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "WebSocket reconnection with exponential backoff",
@@ -1559,7 +1659,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1567,7 +1669,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1620,7 +1724,8 @@
           "actor": "demo4",
           "created_at": "2025-12-18T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Card movement audit trail compression for old records",
@@ -1641,7 +1746,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1649,7 +1756,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -1657,7 +1766,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -1665,7 +1776,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -1673,7 +1786,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1691,7 +1806,8 @@
           "actor": "demo1",
           "created_at": "2026-01-22T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Background task for stale card due date notifications",
@@ -1723,7 +1839,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1731,7 +1849,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -1739,7 +1859,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1778,7 +1900,8 @@
           "actor": "demo3",
           "created_at": "2025-12-26T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Database index on card.position for sort performance",
@@ -1811,7 +1934,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1819,7 +1944,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1858,7 +1985,8 @@
           "actor": "demo5",
           "created_at": "2026-01-07T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API versioning header support for v2 endpoints",
@@ -1891,7 +2019,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -1899,7 +2029,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -1907,7 +2039,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -1915,7 +2049,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -1923,7 +2059,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -1931,7 +2069,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1977,7 +2117,8 @@
           "actor": "demo3",
           "created_at": "2026-01-03T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Soft delete for archived boards with 30-day retention",
@@ -2022,7 +2163,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2030,7 +2173,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -2038,7 +2183,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -2046,7 +2193,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -2054,7 +2203,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2135,7 +2286,8 @@
           "actor": "demo4",
           "created_at": "2025-12-13T22:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Batch webhook delivery for high-frequency board events",
@@ -2171,7 +2323,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2179,7 +2333,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2239,7 +2395,8 @@
           "actor": "demo1",
           "created_at": "2025-12-18T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rate limit middleware per-user token bucket",
@@ -2271,7 +2428,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2279,7 +2438,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -2287,7 +2448,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -2295,7 +2458,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2327,7 +2492,8 @@
           "actor": "demo2",
           "created_at": "2026-01-18T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Card swipe gestures for quick archive",
@@ -2373,7 +2539,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2381,7 +2549,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -2389,7 +2559,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2463,7 +2635,8 @@
           "actor": "demo1",
           "created_at": "2026-02-11T23:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Fix card drag on iOS 17 with new UIKit scroll fix",
@@ -2492,7 +2665,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2531,7 +2706,8 @@
           "actor": "demo5",
           "created_at": "2025-12-30T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Push notification for card assignment",
@@ -2563,7 +2739,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2571,7 +2749,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -2579,7 +2759,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2632,7 +2814,8 @@
           "actor": "demo4",
           "created_at": "2026-02-05T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Offline mode: queue moves while disconnected",
@@ -2653,7 +2836,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2661,7 +2846,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2686,7 +2873,8 @@
           "actor": "demo1",
           "created_at": "2026-01-24T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Biometric authentication for app unlock",
@@ -2729,7 +2917,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2737,7 +2927,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -2745,7 +2937,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2753,7 +2947,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -2761,7 +2957,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -2769,7 +2967,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -2777,7 +2977,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2851,7 +3053,8 @@
           "actor": "demo2",
           "created_at": "2026-01-15T21:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Pull-to-refresh on board view",
@@ -2883,7 +3086,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2891,7 +3096,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -2899,7 +3106,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2924,7 +3133,8 @@
           "actor": "demo5",
           "created_at": "2026-02-12T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Haptic feedback on card drop",
@@ -2952,7 +3162,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -2960,7 +3172,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2999,7 +3213,8 @@
           "actor": "demo5",
           "created_at": "2026-01-24T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Deep link to specific card from notification",
@@ -3031,7 +3246,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3039,7 +3256,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3047,7 +3266,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3055,7 +3276,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3063,7 +3286,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3109,7 +3334,8 @@
           "actor": "demo5",
           "created_at": "2026-02-10T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Widget for due-date cards on home screen",
@@ -3130,7 +3356,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3138,7 +3366,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3146,7 +3376,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3171,7 +3403,8 @@
           "actor": "demo1",
           "created_at": "2025-12-11T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Camera attachment flow from card detail",
@@ -3195,7 +3428,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3203,7 +3438,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3211,7 +3448,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3219,7 +3458,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3227,7 +3468,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3259,7 +3502,8 @@
           "actor": "demo3",
           "created_at": "2026-01-25T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Landscape mode layout for tablets",
@@ -3285,7 +3529,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3293,7 +3539,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3301,7 +3549,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -3309,7 +3559,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -3317,7 +3569,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3342,7 +3596,8 @@
           "actor": "demo5",
           "created_at": "2026-01-03T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "App size reduction: remove unused assets",
@@ -3368,7 +3623,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3393,7 +3650,8 @@
           "actor": "demo4",
           "created_at": "2026-01-11T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rotate CI/CD secrets -- 90-day policy",
@@ -3425,7 +3683,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3433,7 +3693,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3441,7 +3703,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3449,7 +3713,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3457,7 +3723,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3496,7 +3764,8 @@
           "actor": "demo1",
           "created_at": "2025-12-28T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Add Prometheus metrics to API gateway",
@@ -3522,7 +3791,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3530,7 +3801,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3562,7 +3835,8 @@
           "actor": "demo5",
           "created_at": "2025-12-11T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Kubernetes pod autoscaling HPA tuning",
@@ -3599,7 +3873,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3607,7 +3883,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3667,7 +3945,8 @@
           "actor": "demo3",
           "created_at": "2025-12-28T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Zero-downtime deployment runbook",
@@ -3699,7 +3978,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -3707,7 +3988,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -3715,7 +3998,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -3723,7 +4008,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3755,7 +4042,8 @@
           "actor": "demo5",
           "created_at": "2026-01-17T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Set up staging environment auto-teardown after 7 days",
@@ -3804,7 +4092,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3892,7 +4182,8 @@
           "actor": "demo1",
           "created_at": "2026-02-01T04:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Migrate CI runners to ARM64 for cost savings",
@@ -3938,7 +4229,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4005,7 +4298,8 @@
           "actor": "demo3",
           "created_at": "2026-01-26T19:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Implement canary deployment pipeline stage",
@@ -4026,7 +4320,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4034,7 +4330,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4059,7 +4357,8 @@
           "actor": "demo1",
           "created_at": "2026-02-01T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Database backup verification cron job",
@@ -4082,7 +4381,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4090,7 +4391,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4098,7 +4401,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4130,7 +4435,8 @@
           "actor": "demo3",
           "created_at": "2026-01-13T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Log aggregation: ship to Loki instead of CloudWatch",
@@ -4163,7 +4469,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4171,7 +4479,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4179,7 +4489,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -4187,7 +4499,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4219,7 +4533,8 @@
           "actor": "demo5",
           "created_at": "2026-01-15T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Terraform state locking with DynamoDB",
@@ -4247,7 +4562,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4286,7 +4603,8 @@
           "actor": "demo3",
           "created_at": "2026-01-03T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Container image vulnerability scanning in CI",
@@ -4318,7 +4636,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4326,7 +4646,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4372,7 +4694,8 @@
           "actor": "demo2",
           "created_at": "2026-02-14T06:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CDN cache invalidation automation on deploy",
@@ -4400,7 +4723,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4408,7 +4733,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4416,7 +4743,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -4424,7 +4753,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -4432,7 +4763,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -4440,7 +4773,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -4448,7 +4783,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4480,7 +4817,8 @@
           "actor": "demo5",
           "created_at": "2025-12-12T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Component audit -- identify inconsistent spacing",
@@ -4504,7 +4842,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4529,7 +4869,8 @@
           "actor": "demo3",
           "created_at": "2025-12-21T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Redesign empty state illustrations",
@@ -4562,7 +4903,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4570,7 +4913,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4578,7 +4923,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4586,7 +4933,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4594,7 +4943,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4626,7 +4977,8 @@
           "actor": "demo3",
           "created_at": "2026-02-05T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "User research: onboarding friction study",
@@ -4652,7 +5004,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4660,7 +5014,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4678,7 +5034,8 @@
           "actor": "demo4",
           "created_at": "2026-02-09T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dark mode color system -- token audit",
@@ -4706,7 +5063,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4714,7 +5073,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4722,7 +5083,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4730,7 +5093,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4738,7 +5103,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4777,7 +5144,8 @@
           "actor": "demo4",
           "created_at": "2025-12-13T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Card priority badge redesign for color-blind users",
@@ -4801,7 +5169,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4809,7 +5179,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4817,7 +5189,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -4825,7 +5199,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -4833,7 +5209,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4858,7 +5236,8 @@
           "actor": "demo1",
           "created_at": "2026-01-10T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Swimlane collapse animation prototype",
@@ -4891,7 +5270,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4930,7 +5311,8 @@
           "actor": "demo4",
           "created_at": "2026-01-19T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Board settings modal layout overhaul",
@@ -4953,7 +5335,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -4961,7 +5345,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -4969,7 +5355,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4987,7 +5375,8 @@
           "actor": "demo5",
           "created_at": "2026-01-12T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Typography scale standardization across all pages",
@@ -5024,7 +5413,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5091,7 +5482,8 @@
           "actor": "demo2",
           "created_at": "2026-01-27T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Icon set migration from Heroicons v1 to v2",
@@ -5124,7 +5516,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -5132,7 +5526,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -5140,7 +5536,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5193,7 +5591,8 @@
           "actor": "demo4",
           "created_at": "2026-01-23T21:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Mobile navigation bottom sheet pattern",
@@ -5222,7 +5621,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -5230,7 +5631,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5269,7 +5672,8 @@
           "actor": "demo2",
           "created_at": "2025-12-22T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Loading state skeleton design tokens",
@@ -5293,7 +5697,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -5301,7 +5707,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5333,7 +5741,8 @@
           "actor": "demo3",
           "created_at": "2026-01-05T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Accessibility audit report and remediation plan",
@@ -5375,7 +5784,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -5383,7 +5794,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5443,7 +5856,8 @@
           "actor": "demo5",
           "created_at": "2025-12-18T04:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "End-to-end test suite for card move flow",
@@ -5488,7 +5902,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -5496,7 +5912,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5570,7 +5988,8 @@
           "actor": "demo2",
           "created_at": "2026-02-05T20:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Visual regression testing with Playwright screenshots",
@@ -5603,7 +6022,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5649,7 +6070,8 @@
           "actor": "demo4",
           "created_at": "2026-01-21T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API contract testing with Pact",
@@ -5682,7 +6104,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -5690,7 +6114,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -5698,7 +6124,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5737,7 +6165,8 @@
           "actor": "demo3",
           "created_at": "2025-12-22T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Load testing board view with 1000 cards using k6",
@@ -5761,7 +6190,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -5769,7 +6200,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -5777,7 +6210,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -5785,7 +6220,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5810,7 +6247,8 @@
           "actor": "demo3",
           "created_at": "2026-01-19T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cross-browser smoke test matrix for board drag-and-drop",
@@ -5855,7 +6293,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5929,7 +6369,8 @@
           "actor": "demo4",
           "created_at": "2026-01-11T20:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Accessibility automated scan with axe-core in CI",
@@ -5963,7 +6404,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6023,7 +6466,8 @@
           "actor": "demo2",
           "created_at": "2026-01-28T17:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Regression test for CSV import edge cases",
@@ -6074,7 +6518,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6082,7 +6528,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -6090,7 +6538,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -6098,7 +6548,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -6106,7 +6558,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -6114,7 +6568,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6202,7 +6658,8 @@
           "actor": "demo3",
           "created_at": "2025-12-26T23:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Mobile device farm testing on BrowserStack",
@@ -6252,7 +6709,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6260,7 +6719,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6348,7 +6809,8 @@
           "actor": "demo2",
           "created_at": "2026-01-27T01:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Performance benchmark: board load time p95 tracking",
@@ -6381,7 +6843,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6389,7 +6853,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6435,7 +6901,8 @@
           "actor": "demo3",
           "created_at": "2026-01-28T06:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Chaos engineering: simulate WebSocket disconnects",
@@ -6458,7 +6925,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6466,7 +6935,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -6474,7 +6945,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6499,7 +6972,8 @@
           "actor": "demo5",
           "created_at": "2026-01-06T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Test data factory for seed board generation",
@@ -6523,7 +6997,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6531,7 +7007,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6563,7 +7041,8 @@
           "actor": "demo2",
           "created_at": "2025-12-27T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Flaky test quarantine and auto-retry pipeline",
@@ -6584,7 +7063,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6609,7 +7090,8 @@
           "actor": "demo4",
           "created_at": "2026-01-05T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "ETL pipeline for board analytics warehouse",
@@ -6650,7 +7132,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6658,7 +7142,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6732,7 +7218,8 @@
           "actor": "demo1",
           "created_at": "2026-01-04T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Real-time dashboard for card throughput metrics",
@@ -6755,7 +7242,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6763,7 +7252,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -6771,7 +7262,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -6779,7 +7272,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6811,7 +7306,8 @@
           "actor": "demo3",
           "created_at": "2026-01-09T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "User cohort analysis: retention by signup month",
@@ -6832,7 +7328,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6840,7 +7338,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6851,7 +7351,8 @@
           "actor": "demo5",
           "created_at": "2026-01-12T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Board activity heatmap aggregation job",
@@ -6887,7 +7388,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6895,7 +7398,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6955,7 +7460,8 @@
           "actor": "demo2",
           "created_at": "2026-01-22T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data quality checks for movement audit trail",
@@ -6988,7 +7494,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -6996,7 +7504,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7004,7 +7514,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7057,7 +7569,8 @@
           "actor": "demo4",
           "created_at": "2025-12-31T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Anomaly detection on card cycle time outliers",
@@ -7096,7 +7609,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7156,7 +7671,8 @@
           "actor": "demo2",
           "created_at": "2025-12-28T17:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Weekly email digest: board health scorecard",
@@ -7182,7 +7698,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7190,7 +7708,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7198,7 +7718,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -7206,7 +7728,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7238,7 +7762,8 @@
           "actor": "demo1",
           "created_at": "2026-02-12T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Migration from Redshift to ClickHouse for analytics",
@@ -7287,7 +7812,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7347,7 +7874,8 @@
           "actor": "demo3",
           "created_at": "2026-02-02T00:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "GDPR data deletion pipeline for churned accounts",
@@ -7371,7 +7899,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7379,7 +7909,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7411,7 +7943,8 @@
           "actor": "demo2",
           "created_at": "2025-12-11T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "A/B test framework for onboarding flow experiments",
@@ -7456,7 +7989,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7464,7 +7999,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7472,7 +8009,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -7480,7 +8019,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7561,7 +8102,8 @@
           "actor": "demo4",
           "created_at": "2026-01-09T22:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Custom event tracking for swimlane interactions",
@@ -7585,7 +8127,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7593,7 +8137,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7601,7 +8147,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7609,7 +8157,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7617,7 +8167,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7635,7 +8187,8 @@
           "actor": "demo1",
           "created_at": "2026-01-12T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data catalog documentation for analytics tables",
@@ -7664,7 +8217,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7672,7 +8227,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7680,7 +8237,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -7688,7 +8247,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -7696,7 +8257,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7735,7 +8298,8 @@
           "actor": "demo1",
           "created_at": "2025-12-15T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Penetration test remediation: XSS in card description",
@@ -7764,7 +8328,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7772,7 +8338,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7780,7 +8348,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -7788,7 +8358,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7813,7 +8385,8 @@
           "actor": "demo5",
           "created_at": "2026-01-22T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CSRF token rotation policy enforcement",
@@ -7842,7 +8415,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7850,7 +8425,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7858,7 +8435,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7897,7 +8476,8 @@
           "actor": "demo4",
           "created_at": "2025-12-19T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API key scope restriction for third-party integrations",
@@ -7946,7 +8526,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -7954,7 +8536,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -7962,7 +8546,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -7970,7 +8556,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8058,7 +8646,8 @@
           "actor": "demo5",
           "created_at": "2026-01-10T00:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Dependency vulnerability scan and patch cycle",
@@ -8100,7 +8689,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8160,7 +8751,8 @@
           "actor": "demo3",
           "created_at": "2026-01-04T23:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Security headers audit: HSTS, CSP, X-Frame-Options",
@@ -8193,7 +8785,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8201,7 +8795,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8209,7 +8805,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -8217,7 +8815,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -8225,7 +8825,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8264,7 +8866,8 @@
           "actor": "demo1",
           "created_at": "2026-02-13T05:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Rate limit bypass investigation on auth endpoints",
@@ -8297,7 +8900,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8305,7 +8910,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8313,7 +8920,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8321,7 +8930,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8329,7 +8940,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8368,7 +8981,8 @@
           "actor": "demo4",
           "created_at": "2026-01-10T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Secret scanning in CI for accidentally committed tokens",
@@ -8401,7 +9015,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8461,7 +9077,8 @@
           "actor": "demo2",
           "created_at": "2026-01-05T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "OAuth token refresh flow hardening",
@@ -8490,7 +9107,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8498,7 +9117,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8530,7 +9151,8 @@
           "actor": "demo3",
           "created_at": "2026-01-09T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "IP allowlisting for admin panel access",
@@ -8559,7 +9181,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8567,7 +9191,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8575,7 +9201,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8607,7 +9235,8 @@
           "actor": "demo5",
           "created_at": "2026-02-02T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Audit log tamper detection with hash chaining",
@@ -8628,7 +9257,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8636,7 +9267,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8644,7 +9277,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -8652,7 +9287,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8677,7 +9314,8 @@
           "actor": "demo3",
           "created_at": "2026-01-21T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "RBAC permission matrix documentation and test",
@@ -8718,7 +9356,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8726,7 +9366,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8734,7 +9376,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8742,7 +9386,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8750,7 +9396,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8810,7 +9458,8 @@
           "actor": "demo5",
           "created_at": "2026-02-12T17:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Incident response runbook update for data breach scenario",
@@ -8859,7 +9508,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8867,7 +9518,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8875,7 +9528,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -8883,7 +9538,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -8891,7 +9548,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8979,7 +9638,8 @@
           "actor": "demo1",
           "created_at": "2026-01-29T04:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Shared TypeScript SDK for API consumers",
@@ -9022,7 +9682,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9030,7 +9692,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -9038,7 +9702,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -9046,7 +9712,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -9054,7 +9722,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9107,7 +9777,8 @@
           "actor": "demo5",
           "created_at": "2026-01-16T16:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Internal CLI tool for seed data generation",
@@ -9130,7 +9801,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9138,7 +9811,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -9146,7 +9821,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -9154,7 +9831,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9186,7 +9865,8 @@
           "actor": "demo1",
           "created_at": "2026-01-11T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "GraphQL gateway proof of concept",
@@ -9221,7 +9901,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9229,7 +9911,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9282,7 +9966,8 @@
           "actor": "demo5",
           "created_at": "2025-12-18T18:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Feature flag service integration with LaunchDarkly",
@@ -9315,7 +10000,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9323,7 +10010,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9362,7 +10051,8 @@
           "actor": "demo1",
           "created_at": "2026-01-26T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Shared error boundary component for micro-frontends",
@@ -9395,7 +10085,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9403,7 +10095,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -9411,7 +10105,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9419,7 +10115,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -9427,7 +10125,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9473,7 +10173,8 @@
           "actor": "demo2",
           "created_at": "2026-01-09T06:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API client retry logic with idempotency keys",
@@ -9497,7 +10198,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9505,7 +10208,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9530,7 +10235,8 @@
           "actor": "demo4",
           "created_at": "2026-02-09T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Event bus abstraction for cross-service messaging",
@@ -9562,7 +10268,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9570,7 +10278,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -9578,7 +10288,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -9586,7 +10298,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -9594,7 +10308,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9626,7 +10342,8 @@
           "actor": "demo3",
           "created_at": "2026-01-27T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Shared date/time utility library with timezone handling",
@@ -9649,7 +10366,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9657,7 +10376,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9682,7 +10403,8 @@
           "actor": "demo3",
           "created_at": "2026-01-31T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Developer onboarding script: one-command local setup",
@@ -9703,7 +10425,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9711,7 +10435,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9729,7 +10455,8 @@
           "actor": "demo5",
           "created_at": "2025-12-22T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Internal package registry for shared npm modules",
@@ -9770,7 +10497,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9778,7 +10507,9 @@
           "from_swimlane": "QA",
           "to_swimlane": "QA",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9831,7 +10562,8 @@
           "actor": "demo2",
           "created_at": "2026-02-01T19:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "OpenAPI spec generation from DRF serializers",
@@ -9863,7 +10595,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9871,7 +10605,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -9879,7 +10615,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9918,7 +10656,8 @@
           "actor": "demo2",
           "created_at": "2026-01-25T05:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Monorepo migration feasibility study",
@@ -9960,7 +10699,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -9968,7 +10709,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -9976,7 +10719,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -9984,7 +10729,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -9992,7 +10739,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10066,7 +10815,8 @@
           "actor": "demo2",
           "created_at": "2025-12-24T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "API reference overhaul with interactive examples",
@@ -10099,7 +10849,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10107,7 +10859,9 @@
           "from_swimlane": "Platform",
           "to_swimlane": "Platform",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10139,7 +10893,8 @@
           "actor": "demo2",
           "created_at": "2025-12-14T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Getting started guide for new self-hosted users",
@@ -10168,7 +10923,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10176,7 +10933,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -10184,7 +10943,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -10192,7 +10953,9 @@
           "from_swimlane": "Documentation",
           "to_swimlane": "Documentation",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10224,7 +10987,8 @@
           "actor": "demo3",
           "created_at": "2026-01-31T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Webhook event catalog with payload schemas",
@@ -10253,7 +11017,9 @@
           "from_swimlane": null,
           "to_swimlane": "Frontend",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10261,7 +11027,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -10269,7 +11037,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Doing",
@@ -10277,7 +11047,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Review",
@@ -10285,7 +11057,9 @@
           "from_swimlane": "Frontend",
           "to_swimlane": "Frontend",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10317,7 +11091,8 @@
           "actor": "demo2",
           "created_at": "2026-01-24T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Architecture decision records for major choices",
@@ -10350,7 +11125,9 @@
           "from_swimlane": null,
           "to_swimlane": "Backend",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10358,7 +11135,9 @@
           "from_swimlane": "Backend",
           "to_swimlane": "Backend",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10411,7 +11190,8 @@
           "actor": "demo4",
           "created_at": "2026-01-28T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Runbook: how to restore a deleted board",
@@ -10449,7 +11229,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10457,7 +11239,9 @@
           "from_swimlane": "Mobile",
           "to_swimlane": "Mobile",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10510,7 +11294,8 @@
           "actor": "demo1",
           "created_at": "2026-01-05T16:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "FAQ page for common support questions",
@@ -10542,7 +11327,9 @@
           "from_swimlane": null,
           "to_swimlane": "DevOps",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10550,7 +11337,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -10558,7 +11347,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10566,7 +11357,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -10574,7 +11367,9 @@
           "from_swimlane": "DevOps",
           "to_swimlane": "DevOps",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10620,7 +11415,8 @@
           "actor": "demo1",
           "created_at": "2025-12-18T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Video tutorial: setting up your first board",
@@ -10656,7 +11452,9 @@
           "from_swimlane": null,
           "to_swimlane": "Design",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10664,7 +11462,9 @@
           "from_swimlane": "Design",
           "to_swimlane": "Design",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10710,7 +11510,8 @@
           "actor": "demo5",
           "created_at": "2026-02-03T19:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Migration guide from Trello to Visiban",
@@ -10733,7 +11534,9 @@
           "from_swimlane": null,
           "to_swimlane": "QA",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10765,7 +11568,8 @@
           "actor": "demo2",
           "created_at": "2026-02-02T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Admin configuration reference for all env vars",
@@ -10802,7 +11606,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10810,7 +11616,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -10818,7 +11626,9 @@
           "from_swimlane": "Data",
           "to_swimlane": "Data",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10878,7 +11688,8 @@
           "actor": "demo1",
           "created_at": "2026-01-13T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Changelog writing guidelines for contributors",
@@ -10915,7 +11726,9 @@
           "from_swimlane": null,
           "to_swimlane": "Security",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Backlog",
@@ -10923,7 +11736,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "To Do",
@@ -10931,7 +11746,9 @@
           "from_swimlane": "Security",
           "to_swimlane": "Security",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10984,7 +11801,8 @@
           "actor": "demo4",
           "created_at": "2026-02-01T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Glossary of Visiban-specific terms",
@@ -11037,7 +11855,9 @@
           "from_swimlane": null,
           "to_swimlane": "Platform",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11132,7 +11952,8 @@
           "actor": "demo5",
           "created_at": "2025-12-17T04:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Release notes template for minor and major versions",
@@ -11153,7 +11974,9 @@
           "from_swimlane": null,
           "to_swimlane": "Documentation",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11171,7 +11994,8 @@
           "actor": "demo5",
           "created_at": "2025-12-26T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     }
   ]
 }

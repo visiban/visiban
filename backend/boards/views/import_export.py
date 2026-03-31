@@ -121,9 +121,10 @@ class BoardImportExportMixin:
             return Response({"detail": "Invalid JSON: expected an object at the top level."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Schema version guard — warn on missing (pre-versioning files) or future versions.
-        # The current importer understands schema_version 1.  Files without the field are
-        # treated as version 0 (pre-1.0 exports) and imported on a best-effort basis.
-        _SUPPORTED_SCHEMA_VERSION = 1
+        # The current importer understands schema_version 1 and 2.  Files without the field
+        # are treated as version 0 (pre-1.0 exports) and imported on a best-effort basis.
+        # v2 adds archived_at per card, movement_type, movement notes, and comment created_at.
+        _SUPPORTED_SCHEMA_VERSION = 2
         schema_version = data.get("schema_version", 0)
         if schema_version > _SUPPORTED_SCHEMA_VERSION:
             import logging as _logging
@@ -175,6 +176,40 @@ class BoardImportExportMixin:
                 if not card_data.get(field):
                     return Response(
                         {"detail": f"Card at index {i} is missing required field: {field}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        # Validate all timestamp strings before touching the database.  A malformed
+        # timestamp inside the atomic block would produce an unhandled 500; catching it
+        # here returns a clean 400 and avoids a partial rollback.
+        from django.utils.dateparse import parse_datetime as _parse_dt
+        for _ci, _card in enumerate(data.get("cards", [])):
+            for _field in ("archived_at",):
+                _v = _card.get(_field)
+                if _v and _parse_dt(str(_v)) is None:
+                    return Response(
+                        {"detail": f"Card at index {_ci}: invalid timestamp for '{_field}': {_v!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            for _ji, _comment in enumerate(_card.get("comments", [])):
+                _v = _comment.get("created_at")
+                if _v and _parse_dt(str(_v)) is None:
+                    return Response(
+                        {"detail": f"Card at index {_ci}, comment at index {_ji}: invalid 'created_at': {_v!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            for _ji, _mv in enumerate(_card.get("movements", [])):
+                _v = _mv.get("moved_at")
+                if _v and _parse_dt(str(_v)) is None:
+                    return Response(
+                        {"detail": f"Card at index {_ci}, movement at index {_ji}: invalid 'moved_at': {_v!r}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            for _ji, _act in enumerate(_card.get("activities", [])):
+                _v = _act.get("created_at")
+                if _v and _parse_dt(str(_v)) is None:
+                    return Response(
+                        {"detail": f"Card at index {_ci}, activity at index {_ji}: invalid 'created_at': {_v!r}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -281,6 +316,13 @@ class BoardImportExportMixin:
                     position=card_data.get("position", 0),
                     created_by=request.user,
                 )
+                # Restore archived state. Cards that were archived when exported
+                # must come back as archived — not silently re-activated.
+                if card_data.get("archived_at"):
+                    Card.objects.filter(pk=card.pk).update(
+                        archived_at=card_data["archived_at"]
+                    )
+                    card.archived_at = card_data["archived_at"]
 
                 # Record weight change activity for non-default weights
                 if card.weight and card.weight > 1:
@@ -308,13 +350,18 @@ class BoardImportExportMixin:
                         actor=request.user,
                     )
 
-                # Create comments
+                # Create comments. Original timestamps are backfilled via .update()
+                # so the activity timeline reflects when comments were actually written.
                 for comment_data in card_data.get("comments", []):
-                    CardComment.objects.create(
+                    comment = CardComment.objects.create(
                         card=card,
                         author=request.user,
                         body=comment_data.get("body", ""),
                     )
+                    if comment_data.get("created_at"):
+                        CardComment.objects.filter(pk=comment.pk).update(
+                            created_at=comment_data["created_at"]
+                        )
 
                 # Create checklist items
                 for ci_idx, checklist_data in enumerate(card_data.get("checklist", [])):
@@ -347,6 +394,13 @@ class BoardImportExportMixin:
                     moved_by = (
                         user_map.get(moved_by_username.lower()) if moved_by_username else None
                     ) or request.user
+                    valid_movement_types = [t[0] for t in CardMovement.MovementType.choices]
+                    raw_movement_type = mv_data.get("movement_type", CardMovement.MovementType.MOVE)
+                    movement_type = (
+                        raw_movement_type
+                        if raw_movement_type in valid_movement_types
+                        else CardMovement.MovementType.MOVE
+                    )
                     mv = CardMovement.objects.create(
                         card=card,
                         from_column=from_col,
@@ -362,6 +416,8 @@ class BoardImportExportMixin:
                         from_swimlane_uid=from_sw.uid if from_sw else "",
                         to_swimlane_uid=to_sw.uid if to_sw else "",
                         moved_by=moved_by,
+                        notes=mv_data.get("notes", ""),
+                        movement_type=movement_type,
                     )
                     if mv_data.get("moved_at"):
                         CardMovement.objects.filter(pk=mv.pk).update(
@@ -668,6 +724,7 @@ class BoardImportExportMixin:
                     "position": card.position,
                     "created_at": card.created_at.isoformat(),
                     "created_by": card.created_by.username if card.created_by else None,
+                    "archived_at": card.archived_at.isoformat() if card.archived_at else None,
                     "comments": [
                         {
                             "author": c.author.username if c.author else None,
@@ -709,6 +766,7 @@ class BoardImportExportMixin:
                 })
 
             payload = {
+                "schema_version": 2,
                 "name": board.name,
                 "description": board.description,
                 "columns": [

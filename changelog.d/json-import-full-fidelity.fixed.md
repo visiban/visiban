@@ -1,0 +1,1 @@
+JSON board export now includes `archived_at` per card and `schema_version: 2`. Import restores archived card state, movement `movement_type` and `notes`, and comment timestamps — achieving full round-trip fidelity for JSON. CSV import/export remains intentionally limited.

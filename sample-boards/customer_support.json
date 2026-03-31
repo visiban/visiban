@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Template: Customer Support",
   "description": "Track support tickets from first report through resolution. Each swimlane is a customer account; each card is an open ticket.",
   "columns": [
@@ -192,7 +192,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -200,7 +202,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -208,7 +212,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -216,7 +222,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -224,7 +232,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -270,7 +280,8 @@
           "actor": "demo2",
           "created_at": "2026-01-05T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1028: Webhook not firing on card archive",
@@ -303,7 +314,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -311,7 +324,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -319,7 +334,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -327,7 +344,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -380,7 +399,8 @@
           "actor": "demo3",
           "created_at": "2026-02-12T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1015: SSO login loop on Safari 17.4",
@@ -412,7 +432,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -420,7 +442,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -428,7 +452,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -436,7 +462,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -444,7 +472,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -452,7 +482,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -491,7 +523,8 @@
           "actor": "demo4",
           "created_at": "2025-12-25T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1009: Export CSV missing swimlane column",
@@ -533,7 +566,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -541,7 +576,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -549,7 +586,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -616,7 +655,8 @@
           "actor": "demo1",
           "created_at": "2025-12-17T01:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1052: Board duplication fails silently for boards with 50+ cards",
@@ -640,7 +680,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -648,7 +690,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -656,7 +700,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -681,7 +727,8 @@
           "actor": "demo4",
           "created_at": "2026-01-02T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1058: Card weight not included in webhook payload",
@@ -714,7 +761,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -722,7 +771,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -730,7 +781,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -738,7 +791,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -746,7 +801,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -754,7 +811,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -786,7 +845,8 @@
           "actor": "demo1",
           "created_at": "2026-01-30T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1063: Due date reminder email sent twice",
@@ -818,7 +878,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -850,7 +912,8 @@
           "actor": "demo3",
           "created_at": "2026-02-07T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1067: Board settings modal blank on Firefox 124",
@@ -882,7 +945,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -890,7 +955,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -898,7 +965,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -937,7 +1006,8 @@
           "actor": "demo5",
           "created_at": "2025-12-15T19:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1071: Card description markdown preview not rendering tables",
@@ -974,7 +1044,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1041,7 +1113,8 @@
           "actor": "demo2",
           "created_at": "2026-01-12T20:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-1074: Swimlane reorder drag handle unresponsive on touch devices",
@@ -1085,7 +1158,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1093,7 +1168,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1101,7 +1178,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1109,7 +1188,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1117,7 +1198,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1198,7 +1281,8 @@
           "actor": "demo4",
           "created_at": "2026-01-22T22:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2033: Cards not syncing across browser tabs",
@@ -1221,7 +1305,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1229,7 +1315,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1237,7 +1325,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -1245,7 +1335,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -1253,7 +1345,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1285,7 +1379,8 @@
           "actor": "demo1",
           "created_at": "2025-12-18T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2027: Swimlane collapse state not persisting",
@@ -1309,7 +1404,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1317,7 +1414,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1325,7 +1424,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -1333,7 +1434,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -1341,7 +1444,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1366,7 +1471,8 @@
           "actor": "demo3",
           "created_at": "2026-02-02T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2019: Request -- bulk card move between swimlanes",
@@ -1412,7 +1518,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1420,7 +1528,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1473,7 +1583,8 @@
           "actor": "demo1",
           "created_at": "2025-12-31T17:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2011: Board permissions not applying to new members",
@@ -1503,7 +1614,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1511,7 +1624,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1519,7 +1634,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1558,7 +1675,8 @@
           "actor": "demo3",
           "created_at": "2026-01-25T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2041: Card filter by label returns stale results",
@@ -1581,7 +1699,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1589,7 +1709,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1614,7 +1736,8 @@
           "actor": "demo4",
           "created_at": "2026-01-19T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2046: Mobile web board view cuts off last swimlane",
@@ -1665,7 +1788,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1746,7 +1871,8 @@
           "actor": "demo3",
           "created_at": "2026-01-04T20:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2049: CSV import maps columns incorrectly on retry",
@@ -1774,7 +1900,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1782,7 +1910,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1821,7 +1951,8 @@
           "actor": "demo5",
           "created_at": "2025-12-17T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2053: Email notification for card comment mentions wrong board name",
@@ -1849,7 +1980,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1857,7 +1990,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1865,7 +2000,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -1873,7 +2010,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -1881,7 +2020,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1899,7 +2040,8 @@
           "actor": "demo3",
           "created_at": "2026-01-30T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2058: Request -- custom card fields for store number",
@@ -1922,7 +2064,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -1930,7 +2074,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -1938,7 +2084,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1956,7 +2104,8 @@
           "actor": "demo2",
           "created_at": "2026-01-28T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-2062: Board archive button missing for admin users on mobile",
@@ -2002,7 +2151,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2076,7 +2227,8 @@
           "actor": "demo5",
           "created_at": "2026-01-21T06:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3044: Audit log export missing movement events",
@@ -2099,7 +2251,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2107,7 +2261,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2115,7 +2271,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -2123,7 +2281,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -2131,7 +2291,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -2139,7 +2301,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2171,7 +2335,8 @@
           "actor": "demo1",
           "created_at": "2026-01-23T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3038: 2FA enforcement not applying to SSO users",
@@ -2194,7 +2359,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2202,7 +2369,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2234,7 +2403,8 @@
           "actor": "demo3",
           "created_at": "2026-02-12T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3025: API rate limit headers missing from responses",
@@ -2257,7 +2427,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2265,7 +2437,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2273,7 +2447,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2298,7 +2474,8 @@
           "actor": "demo5",
           "created_at": "2026-01-06T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3014: Webhook HMAC signature docs incorrect",
@@ -2330,7 +2507,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2338,7 +2517,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2346,7 +2527,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -2354,7 +2537,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -2362,7 +2547,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2408,7 +2595,8 @@
           "actor": "demo2",
           "created_at": "2025-12-23T19:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3051: Board export includes archived cards despite filter",
@@ -2445,7 +2633,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2505,7 +2695,8 @@
           "actor": "demo4",
           "created_at": "2026-01-30T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3056: Activity feed not loading for boards with 1000+ activities",
@@ -2538,7 +2729,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2546,7 +2739,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2554,7 +2749,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -2562,7 +2759,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -2570,7 +2769,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2616,7 +2817,8 @@
           "actor": "demo1",
           "created_at": "2026-01-23T07:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3061: API token scope too broad for read-only integrations",
@@ -2653,7 +2855,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2720,7 +2924,8 @@
           "actor": "demo5",
           "created_at": "2025-12-27T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3065: Card movement audit trail missing timezone info",
@@ -2744,7 +2949,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2752,7 +2959,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2760,7 +2969,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -2768,7 +2979,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -2776,7 +2989,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -2784,7 +2999,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Resolved",
@@ -2792,7 +3009,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2803,7 +3022,8 @@
           "actor": "demo5",
           "created_at": "2025-12-20T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3069: Request -- scheduled board export to SFTP",
@@ -2849,7 +3069,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2857,7 +3079,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2865,7 +3089,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -2873,7 +3099,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2954,7 +3182,8 @@
           "actor": "demo2",
           "created_at": "2025-12-12T21:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-3073: Column WIP limit enforcement off by one",
@@ -2978,7 +3207,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -2986,7 +3217,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -2994,7 +3227,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -3002,7 +3237,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3034,7 +3271,8 @@
           "actor": "demo4",
           "created_at": "2025-12-22T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4029: Card attachments not uploading for HIPAA users",
@@ -3075,7 +3313,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3083,7 +3323,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3091,7 +3333,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -3099,7 +3343,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -3107,7 +3353,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3181,7 +3429,8 @@
           "actor": "demo4",
           "created_at": "2025-12-15T22:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4021: Board export failing for HIPAA tenant",
@@ -3202,7 +3451,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3210,7 +3461,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3218,7 +3471,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -3226,7 +3481,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -3234,7 +3491,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-03-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -3242,7 +3501,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-03-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3267,7 +3528,8 @@
           "actor": "demo3",
           "created_at": "2026-02-13T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4018: Email notification delays in HIPAA tenant",
@@ -3291,7 +3553,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3299,7 +3563,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3307,7 +3573,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3332,7 +3600,8 @@
           "actor": "demo5",
           "created_at": "2026-01-05T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4005: Board member cannot see swimlane after invite",
@@ -3355,7 +3624,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3363,7 +3634,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -3371,7 +3644,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -3379,7 +3654,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3397,7 +3674,8 @@
           "actor": "demo2",
           "created_at": "2025-12-22T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4035: Card comment @mention autocomplete not filtering HIPAA users",
@@ -3433,7 +3711,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3486,7 +3766,8 @@
           "actor": "demo4",
           "created_at": "2026-01-04T20:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4039: Board template creation fails with 500 for HIPAA tenant",
@@ -3510,7 +3791,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3518,7 +3801,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3526,7 +3811,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3534,7 +3821,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3542,7 +3831,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3560,7 +3851,8 @@
           "actor": "demo1",
           "created_at": "2026-01-02T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4043: Request -- PHI redaction on board export",
@@ -3592,7 +3884,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3638,7 +3932,8 @@
           "actor": "demo5",
           "created_at": "2025-12-25T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4047: Checklist completion percentage rounds incorrectly",
@@ -3692,7 +3987,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3700,7 +3997,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3708,7 +4007,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -3716,7 +4017,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -3724,7 +4027,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -3732,7 +4037,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3827,7 +4134,8 @@
           "actor": "demo2",
           "created_at": "2026-01-29T05:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4051: Card due date reminder goes to wrong timezone",
@@ -3860,7 +4168,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3868,7 +4178,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3921,7 +4233,8 @@
           "actor": "demo2",
           "created_at": "2026-02-01T20:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-4055: Request -- HIPAA audit log retention policy setting",
@@ -3945,7 +4258,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -3953,7 +4268,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -3961,7 +4278,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -3969,7 +4288,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3994,7 +4315,8 @@
           "actor": "demo4",
           "created_at": "2026-01-29T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5018: Colors not saving on card labels",
@@ -4037,7 +4359,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4045,7 +4369,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4112,7 +4438,8 @@
           "actor": "demo4",
           "created_at": "2026-01-18T21:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5014: Request -- keyboard shortcut to archive card",
@@ -4136,7 +4463,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4144,7 +4473,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4152,7 +4483,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -4160,7 +4493,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -4168,7 +4503,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4186,7 +4523,8 @@
           "actor": "demo3",
           "created_at": "2026-02-10T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5009: Import CSV failing on special characters",
@@ -4231,7 +4569,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4239,7 +4579,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4247,7 +4589,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4255,7 +4599,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4263,7 +4609,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4358,7 +4706,8 @@
           "actor": "demo5",
           "created_at": "2025-12-30T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5003: Due date filter returning no results",
@@ -4387,7 +4736,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4395,7 +4746,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4427,7 +4780,8 @@
           "actor": "demo4",
           "created_at": "2026-01-11T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5023: Card drag ghost image too small on 4K displays",
@@ -4459,7 +4813,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4467,7 +4823,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4475,7 +4833,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4521,7 +4881,8 @@
           "actor": "demo4",
           "created_at": "2026-02-12T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5027: Board background color resets after page reload",
@@ -4570,7 +4931,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4578,7 +4941,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4586,7 +4951,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4594,7 +4961,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -4602,7 +4971,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -4610,7 +4981,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -4618,7 +4991,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4713,7 +5088,8 @@
           "actor": "demo5",
           "created_at": "2026-01-27T07:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5031: Request -- card cover images from attachments",
@@ -4759,7 +5135,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4767,7 +5145,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4855,7 +5235,8 @@
           "actor": "demo4",
           "created_at": "2025-12-24T06:45:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5035: Swimlane color picker doesn't show current color",
@@ -4908,7 +5289,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -4916,7 +5299,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5004,7 +5389,8 @@
           "actor": "demo4",
           "created_at": "2026-01-05T01:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5039: Request -- recurring card due dates",
@@ -5041,7 +5427,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5094,7 +5482,8 @@
           "actor": "demo2",
           "created_at": "2026-02-12T21:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-5043: Board member list not sorted alphabetically",
@@ -5138,7 +5527,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5146,7 +5537,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5154,7 +5547,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5242,7 +5637,8 @@
           "actor": "demo4",
           "created_at": "2026-01-22T23:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6001: Board load timeout on boards with 15+ swimlanes",
@@ -5270,7 +5666,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5278,7 +5676,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5286,7 +5686,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5318,7 +5720,8 @@
           "actor": "demo1",
           "created_at": "2025-12-31T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6005: Card movement history truncated at 100 entries",
@@ -5350,7 +5753,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5358,7 +5763,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -5366,7 +5773,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -5374,7 +5783,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5420,7 +5831,8 @@
           "actor": "demo2",
           "created_at": "2026-01-30T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6009: Webhook delivery retries not respecting exponential backoff",
@@ -5448,7 +5860,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5456,7 +5870,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5464,7 +5880,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5472,7 +5890,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5480,7 +5900,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -5488,7 +5910,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -5496,7 +5920,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-03-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5528,7 +5954,8 @@
           "actor": "demo3",
           "created_at": "2026-02-10T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6013: Request -- swimlane-level WIP limits",
@@ -5577,7 +6004,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5585,7 +6014,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5593,7 +6024,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -5601,7 +6034,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -5609,7 +6044,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -5617,7 +6054,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -5625,7 +6064,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-03-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5727,7 +6168,8 @@
           "actor": "demo3",
           "created_at": "2026-02-02T22:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6017: CSV export encoding issue with non-Latin characters in card titles",
@@ -5769,7 +6211,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5777,7 +6221,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5785,7 +6231,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -5793,7 +6241,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -5801,7 +6251,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -5809,7 +6261,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5876,7 +6330,8 @@
           "actor": "demo2",
           "created_at": "2026-01-19T22:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6021: Board member role change not reflected until re-login",
@@ -5902,7 +6357,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5910,7 +6367,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -5918,7 +6377,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5943,7 +6404,8 @@
           "actor": "demo5",
           "created_at": "2026-01-18T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6025: Card search does not match checklist item text",
@@ -5985,7 +6447,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -5993,7 +6457,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6001,7 +6467,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -6009,7 +6477,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6076,7 +6546,8 @@
           "actor": "demo5",
           "created_at": "2026-01-11T01:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6029: Request -- API endpoint for bulk card creation",
@@ -6099,7 +6570,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6124,7 +6597,8 @@
           "actor": "demo5",
           "created_at": "2025-12-28T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6033: Board duplication loses label colors",
@@ -6171,7 +6645,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6245,7 +6721,8 @@
           "actor": "demo2",
           "created_at": "2026-02-06T04:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-6037: Notification email subject line truncated at 80 characters",
@@ -6286,7 +6763,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -6294,7 +6773,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6302,7 +6783,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -6310,7 +6793,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6370,7 +6855,8 @@
           "actor": "demo4",
           "created_at": "2026-02-09T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7001: Compliance export PDF formatting broken on A3 paper size",
@@ -6391,7 +6877,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6416,7 +6904,8 @@
           "actor": "demo1",
           "created_at": "2025-12-30T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7005: SSO session timeout too aggressive for long review sessions",
@@ -6448,7 +6937,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -6456,7 +6947,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6464,7 +6957,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -6472,7 +6967,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6480,7 +6977,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6526,7 +7025,8 @@
           "actor": "demo5",
           "created_at": "2025-12-26T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7009: Card comment edit history not available via API",
@@ -6559,7 +7059,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6591,7 +7093,8 @@
           "actor": "demo3",
           "created_at": "2025-12-29T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7013: Request -- board-level audit log filtering by date range",
@@ -6635,7 +7138,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -6643,7 +7148,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6651,7 +7158,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -6659,7 +7168,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6740,7 +7251,8 @@
           "actor": "demo2",
           "created_at": "2026-01-04T21:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7017: Webhook payload missing card weight field",
@@ -6789,7 +7301,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -6797,7 +7311,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6885,7 +7401,8 @@
           "actor": "demo1",
           "created_at": "2025-12-17T07:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7021: Board settings save button disabled after label delete",
@@ -6930,7 +7447,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -6938,7 +7457,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6946,7 +7467,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -6954,7 +7477,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -6962,7 +7487,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -6970,7 +7497,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -6978,7 +7507,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -6986,7 +7517,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Resolved",
@@ -6994,7 +7527,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7054,7 +7589,8 @@
           "actor": "demo2",
           "created_at": "2025-12-26T20:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7025: Request -- mandatory card fields per column",
@@ -7083,7 +7619,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7091,7 +7629,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7099,7 +7639,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7107,7 +7649,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7115,7 +7659,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7154,7 +7700,8 @@
           "actor": "demo4",
           "created_at": "2025-12-20T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7029: Activity export CSV date format inconsistent with ISO 8601",
@@ -7177,7 +7724,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7185,7 +7734,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7193,7 +7744,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7211,7 +7764,8 @@
           "actor": "demo5",
           "created_at": "2026-02-08T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7033: Card description character limit not documented in API docs",
@@ -7237,7 +7791,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7245,7 +7801,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7253,7 +7811,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7278,7 +7838,8 @@
           "actor": "demo4",
           "created_at": "2025-12-18T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-7037: Request -- two-person approval for card movement to final column",
@@ -7306,7 +7867,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7314,7 +7877,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7346,7 +7911,8 @@
           "actor": "demo3",
           "created_at": "2026-01-08T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8001: Board sharing link expiry not configurable",
@@ -7369,7 +7935,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7394,7 +7962,8 @@
           "actor": "demo1",
           "created_at": "2026-01-28T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8005: Card due date not showing in board calendar view",
@@ -7424,7 +7993,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7463,7 +8034,8 @@
           "actor": "demo4",
           "created_at": "2025-12-24T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8009: Swimlane notes field truncated in board settings modal",
@@ -7496,7 +8068,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7504,7 +8078,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7512,7 +8088,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7520,7 +8098,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7528,7 +8108,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -7536,7 +8118,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -7544,7 +8128,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7583,7 +8169,8 @@
           "actor": "demo3",
           "created_at": "2026-02-09T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8013: Request -- card time tracking integration",
@@ -7615,7 +8202,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7623,7 +8212,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7631,7 +8222,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -7639,7 +8232,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7685,7 +8280,8 @@
           "actor": "demo2",
           "created_at": "2025-12-24T20:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8017: Label delete confirmation dialog missing",
@@ -7730,7 +8326,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7738,7 +8336,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7812,7 +8412,8 @@
           "actor": "demo4",
           "created_at": "2026-01-06T20:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8021: Board export JSON schema undocumented",
@@ -7840,7 +8441,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7848,7 +8451,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7880,7 +8485,8 @@
           "actor": "demo3",
           "created_at": "2026-01-29T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8025: Card comment notification arrives 10 minutes late",
@@ -7908,7 +8514,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -7916,7 +8524,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -7924,7 +8534,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7956,7 +8568,8 @@
           "actor": "demo3",
           "created_at": "2026-02-07T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8029: Request -- board templates marketplace",
@@ -8009,7 +8622,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8097,7 +8712,8 @@
           "actor": "demo5",
           "created_at": "2026-01-17T00:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8033: Mobile web: card detail modal does not scroll on iOS",
@@ -8147,7 +8763,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8155,7 +8773,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8163,7 +8783,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -8171,7 +8793,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -8179,7 +8803,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8267,7 +8893,8 @@
           "actor": "demo4",
           "created_at": "2026-01-20T21:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-8037: Request -- Slack notification for card due date",
@@ -8291,7 +8918,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8299,7 +8928,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -8307,7 +8938,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -8315,7 +8948,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -8323,7 +8958,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8348,7 +8985,8 @@
           "actor": "demo4",
           "created_at": "2026-02-07T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9001: Board load slow during EU business hours peak",
@@ -8386,7 +9024,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8394,7 +9034,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8433,7 +9075,8 @@
           "actor": "demo4",
           "created_at": "2026-01-10T18:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9005: GDPR data export missing card comment attachments",
@@ -8479,7 +9122,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8487,7 +9132,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8561,7 +9208,8 @@
           "actor": "demo3",
           "created_at": "2026-01-29T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9009: Swimlane position reset after board duplicate",
@@ -8584,7 +9232,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8592,7 +9242,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8610,7 +9262,8 @@
           "actor": "demo5",
           "created_at": "2025-12-18T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9013: Request -- multi-language card title support validation",
@@ -8639,7 +9292,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8647,7 +9302,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8686,7 +9343,8 @@
           "actor": "demo1",
           "created_at": "2025-12-14T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9017: Card movement via API not triggering webhook",
@@ -8712,7 +9370,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8720,7 +9380,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8752,7 +9414,8 @@
           "actor": "demo1",
           "created_at": "2026-01-16T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9021: Board member invite email landing in spam (DKIM issue)",
@@ -8798,7 +9461,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8806,7 +9471,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8880,7 +9547,8 @@
           "actor": "demo4",
           "created_at": "2026-01-14T01:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9025: Column color not visible in high-contrast mode",
@@ -8903,7 +9571,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8928,7 +9598,8 @@
           "actor": "demo3",
           "created_at": "2026-02-06T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9029: Request -- board access audit report for GDPR compliance",
@@ -8954,7 +9625,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -8962,7 +9635,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -8970,7 +9645,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -8978,7 +9655,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8996,7 +9675,8 @@
           "actor": "demo3",
           "created_at": "2026-01-17T14:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9033: CSV import timeout on files over 5 MB",
@@ -9020,7 +9700,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9028,7 +9710,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9036,7 +9720,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9061,7 +9747,8 @@
           "actor": "demo2",
           "created_at": "2026-01-01T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-9037: Card checklist reorder not persisting",
@@ -9084,7 +9771,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9092,7 +9781,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9100,7 +9791,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -9108,7 +9801,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -9116,7 +9811,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Resolved",
@@ -9124,7 +9821,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9156,7 +9855,8 @@
           "actor": "demo4",
           "created_at": "2025-12-11T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10001: Board activity feed missing card label change events",
@@ -9185,7 +9885,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9193,7 +9895,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9201,7 +9905,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9233,7 +9939,8 @@
           "actor": "demo2",
           "created_at": "2026-01-19T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10005: Request -- card dependencies and blocking visualization",
@@ -9270,7 +9977,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9278,7 +9987,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9286,7 +9997,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -9294,7 +10007,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -9302,7 +10017,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9362,7 +10079,8 @@
           "actor": "demo3",
           "created_at": "2026-01-23T21:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10009: Swimlane contact email field validation too strict",
@@ -9390,7 +10108,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9398,7 +10118,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9406,7 +10128,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -9414,7 +10138,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9439,7 +10165,8 @@
           "actor": "demo3",
           "created_at": "2026-01-14T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10013: Card search results do not highlight match text",
@@ -9476,7 +10203,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9484,7 +10213,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9492,7 +10223,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9500,7 +10233,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9508,7 +10243,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -9516,7 +10253,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -9524,7 +10263,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -9532,7 +10273,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Resolved",
@@ -9540,7 +10283,9 @@
           "from_swimlane": "Global Freight Co",
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9586,7 +10331,8 @@
           "actor": "demo2",
           "created_at": "2025-12-18T18:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10017: Board settings changes not synced via WebSocket",
@@ -9610,7 +10356,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9618,7 +10366,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9626,7 +10376,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -9634,7 +10386,9 @@
           "from_swimlane": "Pinnacle Finance",
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9659,7 +10413,8 @@
           "actor": "demo4",
           "created_at": "2026-01-02T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10021: Request -- board-level custom fields",
@@ -9692,7 +10447,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9700,7 +10457,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9708,7 +10467,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -9716,7 +10477,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -9724,7 +10487,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Escalated",
@@ -9732,7 +10497,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Resolved",
@@ -9740,7 +10507,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9772,7 +10541,8 @@
           "actor": "demo2",
           "created_at": "2025-12-28T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10025: Notification preferences reset after password change",
@@ -9801,7 +10571,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9809,7 +10581,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9817,7 +10591,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9825,7 +10601,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -9833,7 +10611,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9865,7 +10645,8 @@
           "actor": "demo1",
           "created_at": "2025-12-20T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10029: Card weight field accepts negative values via API",
@@ -9895,7 +10676,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9913,7 +10696,8 @@
           "actor": "demo2",
           "created_at": "2026-01-10T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10033: Request -- card aging visualization by column dwell time",
@@ -9959,7 +10743,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -9967,7 +10753,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10034,7 +10822,8 @@
           "actor": "demo2",
           "created_at": "2026-02-02T05:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-10037: Board calendar view does not respect swimlane filter",
@@ -10057,7 +10846,9 @@
           "from_swimlane": null,
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10065,7 +10856,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10073,7 +10866,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -10081,7 +10876,9 @@
           "from_swimlane": "TechNova Inc",
           "to_swimlane": "TechNova Inc",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10106,7 +10903,8 @@
           "actor": "demo4",
           "created_at": "2026-01-16T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11001: Card title font too small on shop floor tablets",
@@ -10156,7 +10954,9 @@
           "from_swimlane": null,
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10164,7 +10964,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10172,7 +10974,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -10180,7 +10984,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10188,7 +10994,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -10196,7 +11004,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Awaiting Customer",
@@ -10204,7 +11014,9 @@
           "from_swimlane": "Apex Retail Group",
           "to_swimlane": "Apex Retail Group",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10285,7 +11097,8 @@
           "actor": "demo3",
           "created_at": "2026-01-19T05:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11005: Board does not work offline on factory floor WiFi dead zones",
@@ -10318,7 +11131,9 @@
           "from_swimlane": null,
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10326,7 +11141,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10334,7 +11151,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -10342,7 +11161,9 @@
           "from_swimlane": "FinEdge Ltd",
           "to_swimlane": "FinEdge Ltd",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10381,7 +11202,8 @@
           "actor": "demo4",
           "created_at": "2026-01-15T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11009: Request -- barcode scan to open card on mobile",
@@ -10404,7 +11226,9 @@
           "from_swimlane": null,
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10412,7 +11236,9 @@
           "from_swimlane": "BlueSky Health",
           "to_swimlane": "BlueSky Health",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10437,7 +11263,8 @@
           "actor": "demo5",
           "created_at": "2026-02-12T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11013: Column header wraps incorrectly on narrow tablet screens",
@@ -10467,7 +11294,9 @@
           "from_swimlane": null,
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10475,7 +11304,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10483,7 +11314,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10491,7 +11324,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10499,7 +11334,9 @@
           "from_swimlane": "Mosaic Creative",
           "to_swimlane": "Mosaic Creative",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10538,7 +11375,8 @@
           "actor": "demo3",
           "created_at": "2026-02-11T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11017: Card due date notification not sent for unassigned cards",
@@ -10562,7 +11400,9 @@
           "from_swimlane": null,
           "to_swimlane": "Global Freight Co",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10587,7 +11427,8 @@
           "actor": "demo4",
           "created_at": "2026-01-13T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11021: Board invitation QR code too small to scan",
@@ -10608,7 +11449,9 @@
           "from_swimlane": null,
           "to_swimlane": "Pinnacle Finance",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10626,7 +11469,8 @@
           "actor": "demo1",
           "created_at": "2025-12-15T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11025: Request -- simplified card view for non-technical users",
@@ -10655,7 +11499,9 @@
           "from_swimlane": null,
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10663,7 +11509,9 @@
           "from_swimlane": "Redwood Agency",
           "to_swimlane": "Redwood Agency",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10695,7 +11543,8 @@
           "actor": "demo5",
           "created_at": "2026-01-30T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11029: Swimlane collapse all button not working",
@@ -10727,7 +11576,9 @@
           "from_swimlane": null,
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10735,7 +11586,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10743,7 +11596,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Investigating",
@@ -10751,7 +11606,9 @@
           "from_swimlane": "Atlas Logistics BV",
           "to_swimlane": "Atlas Logistics BV",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10790,7 +11647,8 @@
           "actor": "demo3",
           "created_at": "2026-01-16T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11033: Card attachment upload fails on files with spaces in name",
@@ -10840,7 +11698,9 @@
           "from_swimlane": null,
           "to_swimlane": "Vertex Media",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10848,7 +11708,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Triaged",
@@ -10856,7 +11718,9 @@
           "from_swimlane": "Vertex Media",
           "to_swimlane": "Vertex Media",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10937,7 +11801,8 @@
           "actor": "demo2",
           "created_at": "2025-12-19T05:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "TKT-11037: Request -- read-only board view for TV dashboards",
@@ -10960,7 +11825,9 @@
           "from_swimlane": null,
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "New",
@@ -10968,7 +11835,9 @@
           "from_swimlane": "Ironside Manufacturing",
           "to_swimlane": "Ironside Manufacturing",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11000,7 +11869,8 @@
           "actor": "demo4",
           "created_at": "2025-12-29T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     }
   ]
 }

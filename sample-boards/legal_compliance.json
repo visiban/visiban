@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Template: Legal & Compliance",
   "description": "Track contracts, policy requests, and compliance reviews. Each swimlane is a practice area; each card is a request or obligation.",
   "columns": [
@@ -173,7 +173,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -181,7 +183,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -189,7 +193,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -197,7 +203,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -205,7 +213,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -213,7 +223,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -221,7 +233,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-03-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -229,7 +243,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-03-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -261,7 +277,8 @@
           "actor": "demo3",
           "created_at": "2026-02-07T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Snowflake DPA — data processing agreement",
@@ -305,7 +322,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -393,7 +412,8 @@
           "actor": "demo2",
           "created_at": "2025-12-23T23:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "AWS Enterprise Discount Program — annual renewal",
@@ -432,7 +452,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -440,7 +462,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -448,7 +472,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -508,7 +534,8 @@
           "actor": "demo1",
           "created_at": "2026-01-19T03:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Stripe payment processing agreement renewal",
@@ -531,7 +558,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -539,7 +568,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -547,7 +578,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -555,7 +588,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -563,7 +598,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -588,7 +625,8 @@
           "actor": "demo1",
           "created_at": "2026-01-28T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "New SaaS vendor contract — project management tool",
@@ -627,7 +665,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -635,7 +675,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -688,7 +730,8 @@
           "actor": "demo2",
           "created_at": "2026-01-29T23:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Zapier developer partner agreement review",
@@ -720,7 +763,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -728,7 +773,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -736,7 +783,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -744,7 +793,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -752,7 +803,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -791,7 +844,8 @@
           "actor": "demo4",
           "created_at": "2025-12-16T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Accounting software DPA — new bookkeeping vendor",
@@ -812,7 +866,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -820,7 +876,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -838,7 +896,8 @@
           "actor": "demo2",
           "created_at": "2026-02-05T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cloud hosting MSA — GCP commitment terms",
@@ -861,7 +920,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -869,7 +930,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -894,7 +957,8 @@
           "actor": "demo4",
           "created_at": "2026-02-05T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Office supplies procurement — annual contract renewal",
@@ -918,7 +982,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -926,7 +992,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -934,7 +1002,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -942,7 +1012,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -950,7 +1022,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -958,7 +1032,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -983,7 +1059,8 @@
           "actor": "demo1",
           "created_at": "2026-01-07T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "IT hardware vendor agreement — laptop fleet refresh",
@@ -1024,7 +1101,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -1032,7 +1111,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1099,7 +1180,8 @@
           "actor": "demo1",
           "created_at": "2025-12-22T20:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Consulting services MSA — design agency retainer",
@@ -1131,7 +1213,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1163,7 +1247,8 @@
           "actor": "demo3",
           "created_at": "2025-12-20T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Software license audit — annual true-up review",
@@ -1191,7 +1276,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -1199,7 +1286,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1231,7 +1320,8 @@
           "actor": "demo3",
           "created_at": "2026-01-05T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Independent contractor agreement — new design consultant",
@@ -1274,7 +1364,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -1282,7 +1374,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -1290,7 +1384,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1371,7 +1467,8 @@
           "actor": "demo2",
           "created_at": "2026-02-08T23:45:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Remote work policy update — international contractors",
@@ -1392,7 +1489,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1417,7 +1516,8 @@
           "actor": "demo1",
           "created_at": "2025-12-28T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Equity plan amendment — RSU vesting cliff change",
@@ -1462,7 +1562,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1550,7 +1652,8 @@
           "actor": "demo3",
           "created_at": "2026-01-07T21:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Parental leave policy — align to UK statutory minimum",
@@ -1582,7 +1685,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -1590,7 +1695,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -1598,7 +1705,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -1606,7 +1715,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -1614,7 +1725,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1653,7 +1766,8 @@
           "actor": "demo2",
           "created_at": "2026-02-08T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Non-compete clause review — departing VP Engineering",
@@ -1693,7 +1807,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -1701,7 +1817,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -1709,7 +1827,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -1717,7 +1837,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -1725,7 +1847,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -1733,7 +1857,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -1741,7 +1867,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1815,7 +1943,8 @@
           "actor": "demo2",
           "created_at": "2025-12-15T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Severance agreement — terminated employee",
@@ -1847,7 +1976,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -1855,7 +1986,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -1863,7 +1996,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -1871,7 +2006,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -1879,7 +2016,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -1887,7 +2026,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -1933,7 +2074,8 @@
           "actor": "demo5",
           "created_at": "2026-01-17T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Employee handbook annual update — Q2 2026",
@@ -1962,7 +2104,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -1970,7 +2114,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -1978,7 +2124,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2017,7 +2165,8 @@
           "actor": "demo1",
           "created_at": "2026-01-02T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Contractor classification audit — IRS 20-factor test",
@@ -2038,7 +2187,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2046,7 +2197,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2054,7 +2207,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2062,7 +2217,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2070,7 +2227,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -2078,7 +2237,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -2086,7 +2247,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -2094,7 +2257,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2112,7 +2277,8 @@
           "actor": "demo3",
           "created_at": "2026-02-09T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Workplace harassment policy — annual training compliance",
@@ -2138,7 +2304,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2146,7 +2314,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2154,7 +2324,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2172,7 +2344,8 @@
           "actor": "demo1",
           "created_at": "2026-01-04T14:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Immigration sponsorship — H-1B petition for engineer",
@@ -2202,7 +2375,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2210,7 +2385,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2242,7 +2419,8 @@
           "actor": "demo2",
           "created_at": "2026-02-01T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Equity refresh grant — board approval package",
@@ -2274,7 +2452,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2282,7 +2462,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2290,7 +2472,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -2298,7 +2482,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -2306,7 +2492,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2345,7 +2533,8 @@
           "actor": "demo4",
           "created_at": "2026-02-08T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Return-to-office policy — hybrid work agreement template",
@@ -2375,7 +2564,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2383,7 +2574,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2391,7 +2584,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2430,7 +2625,8 @@
           "actor": "demo3",
           "created_at": "2026-01-28T02:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Apache 2.0 compatibility review — new OSS dependencies",
@@ -2453,7 +2649,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2461,7 +2659,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2469,7 +2669,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2494,7 +2696,8 @@
           "actor": "demo3",
           "created_at": "2026-02-04T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "BUSL license review — HashiCorp Terraform",
@@ -2527,7 +2730,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2535,7 +2740,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2543,7 +2750,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -2551,7 +2760,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2583,7 +2794,8 @@
           "actor": "demo1",
           "created_at": "2026-02-02T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Trademark application — Visiban wordmark in EU",
@@ -2636,7 +2848,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2731,7 +2945,8 @@
           "actor": "demo5",
           "created_at": "2026-02-13T03:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Patent prior art search — board analytics algorithm",
@@ -2772,7 +2987,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2780,7 +2997,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2788,7 +3007,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -2796,7 +3017,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -2804,7 +3027,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -2812,7 +3037,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2879,7 +3106,8 @@
           "actor": "demo4",
           "created_at": "2026-02-10T21:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "IP assignment agreement — new hire onboarding",
@@ -2907,7 +3135,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2915,7 +3145,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -2954,7 +3186,8 @@
           "actor": "demo4",
           "created_at": "2026-01-28T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Open-source contribution policy update",
@@ -2983,7 +3216,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -2991,7 +3226,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -2999,7 +3236,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3024,7 +3263,8 @@
           "actor": "demo5",
           "created_at": "2026-01-02T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Copyright takedown response — DMCA notice received",
@@ -3066,7 +3306,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3126,7 +3368,8 @@
           "actor": "demo5",
           "created_at": "2025-12-22T16:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Trade secret audit — classify internal documentation",
@@ -3172,7 +3415,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3180,7 +3425,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3247,7 +3494,8 @@
           "actor": "demo1",
           "created_at": "2026-02-14T03:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Domain name portfolio review — renewal decisions",
@@ -3270,7 +3518,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3278,7 +3528,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -3286,7 +3538,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -3294,7 +3548,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -3302,7 +3558,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -3310,7 +3568,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3328,7 +3588,8 @@
           "actor": "demo4",
           "created_at": "2026-01-27T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Logo trademark opposition — similar mark in Class 9",
@@ -3352,7 +3613,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3377,7 +3640,8 @@
           "actor": "demo1",
           "created_at": "2026-01-08T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "OSS license compliance scan — quarterly CI report",
@@ -3398,7 +3662,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3406,7 +3672,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -3414,7 +3682,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -3422,7 +3692,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3447,7 +3719,8 @@
           "actor": "demo3",
           "created_at": "2026-01-31T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Invention disclosure review — card AI features",
@@ -3471,7 +3744,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3479,7 +3754,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3490,7 +3767,8 @@
           "actor": "demo5",
           "created_at": "2025-12-14T13:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "GDPR data mapping audit — Q2",
@@ -3531,7 +3809,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3539,7 +3819,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -3547,7 +3829,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3607,7 +3891,8 @@
           "actor": "demo2",
           "created_at": "2026-01-27T19:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data subject access request — user 4821",
@@ -3639,7 +3924,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3647,7 +3934,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -3655,7 +3944,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -3663,7 +3954,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3709,7 +4002,8 @@
           "actor": "demo1",
           "created_at": "2026-01-25T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Privacy impact assessment — analytics dashboard feature",
@@ -3732,7 +4026,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3764,7 +4060,8 @@
           "actor": "demo1",
           "created_at": "2026-01-01T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cookie consent mechanism audit — ePrivacy compliance",
@@ -3796,7 +4093,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3804,7 +4103,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -3812,7 +4113,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -3820,7 +4123,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -3828,7 +4133,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3874,7 +4181,8 @@
           "actor": "demo3",
           "created_at": "2025-12-22T20:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Standard contractual clauses update — Schrems II",
@@ -3898,7 +4206,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3906,7 +4216,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -3914,7 +4226,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -3932,7 +4246,8 @@
           "actor": "demo5",
           "created_at": "2026-01-28T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "GDPR Article 30 records of processing update",
@@ -3968,7 +4283,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -3976,7 +4293,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -3984,7 +4303,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -3992,7 +4313,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -4000,7 +4323,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -4008,7 +4333,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4068,7 +4395,8 @@
           "actor": "demo2",
           "created_at": "2026-02-11T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data breach notification procedure — annual drill",
@@ -4113,7 +4441,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4121,7 +4451,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4129,7 +4461,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4196,7 +4530,8 @@
           "actor": "demo2",
           "created_at": "2026-02-09T01:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Privacy policy update — AI feature disclosures",
@@ -4225,7 +4560,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4233,7 +4570,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4241,7 +4580,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4273,7 +4614,8 @@
           "actor": "demo4",
           "created_at": "2026-02-11T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Third-party data sharing agreement — analytics partner",
@@ -4306,7 +4648,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4314,7 +4658,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4322,7 +4668,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4330,7 +4678,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4338,7 +4688,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4370,7 +4722,8 @@
           "actor": "demo3",
           "created_at": "2026-01-18T18:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Children's data assessment — COPPA compliance check",
@@ -4394,7 +4747,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4402,7 +4757,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4410,7 +4767,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4418,7 +4777,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4426,7 +4787,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4444,7 +4807,8 @@
           "actor": "demo5",
           "created_at": "2026-02-04T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cross-border data transfer review — new APAC region",
@@ -4467,7 +4831,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-30T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4475,7 +4841,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4483,7 +4851,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4491,7 +4861,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4499,7 +4871,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4524,7 +4898,8 @@
           "actor": "demo2",
           "created_at": "2025-12-30T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Data retention policy review — align to legal minimums",
@@ -4547,7 +4922,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4555,7 +4932,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4563,7 +4942,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -4571,7 +4952,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -4579,7 +4962,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -4587,7 +4972,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4619,7 +5006,8 @@
           "actor": "demo4",
           "created_at": "2025-12-13T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SOC 2 Type II audit — evidence package assembly",
@@ -4647,7 +5035,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4655,7 +5045,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4663,7 +5055,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4702,7 +5096,8 @@
           "actor": "demo3",
           "created_at": "2026-02-08T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "HIPAA BAA — BlueSky Health business associate agreement",
@@ -4747,7 +5142,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4755,7 +5152,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4763,7 +5162,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4771,7 +5172,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4779,7 +5182,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4853,7 +5258,8 @@
           "actor": "demo3",
           "created_at": "2026-01-20T20:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "PCI-DSS self-assessment questionnaire — annual filing",
@@ -4899,7 +5305,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -4907,7 +5315,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -4915,7 +5325,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -4923,7 +5335,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -4990,7 +5404,8 @@
           "actor": "demo4",
           "created_at": "2026-01-16T04:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SOC 2 bridge letter for enterprise prospect",
@@ -5030,7 +5445,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5038,7 +5455,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5046,7 +5465,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5127,7 +5548,8 @@
           "actor": "demo2",
           "created_at": "2026-02-07T22:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "CCPA consumer request process audit",
@@ -5155,7 +5577,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5163,7 +5587,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5171,7 +5597,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5203,7 +5631,8 @@
           "actor": "demo5",
           "created_at": "2026-01-21T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "ISO 27001 gap analysis — certification roadmap",
@@ -5227,7 +5656,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5235,7 +5666,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5260,7 +5693,8 @@
           "actor": "demo1",
           "created_at": "2025-12-24T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "FedRAMP authorization — preliminary assessment",
@@ -5288,7 +5722,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5296,7 +5732,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5304,7 +5742,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -5312,7 +5752,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5344,7 +5786,8 @@
           "actor": "demo5",
           "created_at": "2025-12-27T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Accessibility compliance — VPAT documentation update",
@@ -5389,7 +5832,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5397,7 +5842,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5405,7 +5852,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -5413,7 +5862,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -5421,7 +5872,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5488,7 +5941,8 @@
           "actor": "demo5",
           "created_at": "2026-02-02T20:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Export control screening — new customer onboarding",
@@ -5524,7 +5978,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5532,7 +5988,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5540,7 +5998,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5600,7 +6060,8 @@
           "actor": "demo2",
           "created_at": "2025-12-26T21:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Anti-money laundering review — payment flow assessment",
@@ -5632,7 +6093,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5640,7 +6103,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5648,7 +6113,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -5656,7 +6123,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5664,7 +6133,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -5672,7 +6143,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5718,7 +6191,8 @@
           "actor": "demo4",
           "created_at": "2026-01-31T21:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "DORA compliance assessment — EU digital resilience",
@@ -5754,7 +6228,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5762,7 +6238,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -5770,7 +6248,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -5778,7 +6258,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5831,7 +6313,8 @@
           "actor": "demo1",
           "created_at": "2026-01-07T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Industry-specific compliance — healthcare customer review",
@@ -5864,7 +6347,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5903,7 +6388,8 @@
           "actor": "demo2",
           "created_at": "2026-02-07T04:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Board meeting preparation — Q2 2026 materials",
@@ -5932,7 +6418,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -5957,7 +6445,8 @@
           "actor": "demo5",
           "created_at": "2025-12-15T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Shareholder agreement amendment — new investor round",
@@ -5987,7 +6476,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -5995,7 +6486,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -6003,7 +6496,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6028,7 +6523,8 @@
           "actor": "demo2",
           "created_at": "2025-12-26T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Corporate annual report filing — state of Delaware",
@@ -6056,7 +6552,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -6064,7 +6562,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6096,7 +6596,8 @@
           "actor": "demo2",
           "created_at": "2026-01-17T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Board resolution — approve Series B term sheet",
@@ -6145,7 +6646,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6219,7 +6722,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T20:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Subsidiary formation — EU operating entity",
@@ -6268,7 +6772,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -6276,7 +6782,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -6284,7 +6792,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -6292,7 +6802,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -6300,7 +6812,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6388,7 +6902,8 @@
           "actor": "demo5",
           "created_at": "2026-01-14T05:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Capitalization table update — post-funding round",
@@ -6425,7 +6940,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6478,7 +6995,8 @@
           "actor": "demo5",
           "created_at": "2026-01-29T18:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Insider trading policy — quarterly blackout reminder",
@@ -6507,7 +7025,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6539,7 +7059,8 @@
           "actor": "demo1",
           "created_at": "2025-12-20T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Board observer rights agreement — investor request",
@@ -6580,7 +7101,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -6588,7 +7111,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -6596,7 +7121,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6663,7 +7190,8 @@
           "actor": "demo4",
           "created_at": "2026-02-11T04:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Corporate bylaws amendment — committee structure",
@@ -6717,7 +7245,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -6725,7 +7255,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -6733,7 +7265,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6821,7 +7355,8 @@
           "actor": "demo1",
           "created_at": "2026-01-27T05:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Annual meeting minutes — shareholder vote documentation",
@@ -6844,7 +7379,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -6852,7 +7389,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -6884,7 +7423,8 @@
           "actor": "demo3",
           "created_at": "2025-12-31T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Stock option pool expansion — board approval",
@@ -6929,7 +7469,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -6937,7 +7479,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -6945,7 +7489,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -6953,7 +7499,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -6961,7 +7509,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-03-01T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7028,7 +7578,8 @@
           "actor": "demo1",
           "created_at": "2026-02-13T00:45:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Related party transaction disclosure — annual review",
@@ -7057,7 +7608,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7065,7 +7618,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -7073,7 +7628,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -7081,7 +7638,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7120,7 +7679,8 @@
           "actor": "demo5",
           "created_at": "2026-01-12T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Demand letter response — former contractor IP claim",
@@ -7148,7 +7708,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7187,7 +7749,8 @@
           "actor": "demo3",
           "created_at": "2026-01-05T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Settlement negotiation — customer data dispute",
@@ -7237,7 +7800,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7245,7 +7810,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -7253,7 +7820,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7334,7 +7903,8 @@
           "actor": "demo4",
           "created_at": "2026-01-10T22:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Patent infringement claim — defensive analysis",
@@ -7362,7 +7932,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2025-12-14T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7370,7 +7942,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -7378,7 +7952,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7410,7 +7986,8 @@
           "actor": "demo4",
           "created_at": "2025-12-14T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Employment discrimination complaint — EEOC response",
@@ -7448,7 +8025,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7456,7 +8035,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -7464,7 +8045,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -7472,7 +8055,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7511,7 +8096,8 @@
           "actor": "demo1",
           "created_at": "2025-12-25T18:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Breach of contract claim — vendor non-performance",
@@ -7560,7 +8146,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7568,7 +8156,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-26T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -7576,7 +8166,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-28T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -7584,7 +8176,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7658,7 +8252,8 @@
           "actor": "demo4",
           "created_at": "2025-12-11T22:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Class action assessment — consumer data privacy suit",
@@ -7691,7 +8286,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7699,7 +8296,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -7707,7 +8306,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -7715,7 +8316,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -7723,7 +8326,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-01T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7762,7 +8367,8 @@
           "actor": "demo2",
           "created_at": "2025-12-27T22:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Arbitration preparation — licensing fee dispute",
@@ -7791,7 +8397,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7830,7 +8438,8 @@
           "actor": "demo5",
           "created_at": "2026-02-07T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Litigation hold notice — preserve relevant documents",
@@ -7863,7 +8472,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2025-12-23T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7871,7 +8482,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -7917,7 +8530,8 @@
           "actor": "demo4",
           "created_at": "2025-12-24T06:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Expert witness engagement — damages calculation",
@@ -7955,7 +8569,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -7963,7 +8579,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -7971,7 +8589,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8024,7 +8644,8 @@
           "actor": "demo4",
           "created_at": "2026-01-26T18:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Court filing deadline — motion to dismiss brief",
@@ -8057,7 +8678,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8065,7 +8688,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8111,7 +8736,8 @@
           "actor": "demo5",
           "created_at": "2026-02-12T03:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Mediation scheduling — customer contract dispute",
@@ -8161,7 +8787,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8169,7 +8797,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -8177,7 +8807,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -8185,7 +8817,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -8193,7 +8827,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8288,7 +8924,8 @@
           "actor": "demo4",
           "created_at": "2026-01-24T23:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Insurance claim submission — D&O coverage trigger",
@@ -8312,7 +8949,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8320,7 +8959,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-02-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8352,7 +8993,8 @@
           "actor": "demo1",
           "created_at": "2026-01-28T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cyber liability policy renewal — annual review",
@@ -8389,7 +9031,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8442,7 +9086,8 @@
           "actor": "demo5",
           "created_at": "2026-02-02T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "D&O insurance — coverage increase for Series B",
@@ -8486,7 +9131,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8494,7 +9141,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -8502,7 +9151,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8562,7 +9213,8 @@
           "actor": "demo5",
           "created_at": "2025-12-15T17:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "E&O policy review — professional services coverage",
@@ -8595,7 +9247,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8603,7 +9257,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -8611,7 +9267,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -8619,7 +9277,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-20T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -8627,7 +9287,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -8635,7 +9297,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-25T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8667,7 +9331,8 @@
           "actor": "demo2",
           "created_at": "2026-02-05T18:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "General liability certificate — landlord requirement",
@@ -8696,7 +9361,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8704,7 +9371,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8743,7 +9412,8 @@
           "actor": "demo5",
           "created_at": "2026-01-19T21:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Workers compensation audit — annual premium review",
@@ -8781,7 +9451,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8789,7 +9461,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -8797,7 +9471,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -8805,7 +9481,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -8813,7 +9491,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -8821,7 +9501,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -8829,7 +9511,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -8837,7 +9521,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-05T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -8890,7 +9576,8 @@
           "actor": "demo1",
           "created_at": "2026-01-04T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Risk assessment matrix — quarterly update",
@@ -8934,7 +9621,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -8942,7 +9631,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -8950,7 +9641,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -8958,7 +9651,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -8966,7 +9661,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9040,7 +9737,8 @@
           "actor": "demo3",
           "created_at": "2026-02-12T22:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Business interruption coverage — pandemic clause review",
@@ -9061,7 +9759,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9079,7 +9779,8 @@
           "actor": "demo5",
           "created_at": "2026-01-30T15:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Umbrella policy renewal — excess liability limits",
@@ -9120,7 +9821,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9128,7 +9831,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-02-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9174,7 +9879,8 @@
           "actor": "demo2",
           "created_at": "2026-01-17T01:40:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Vendor insurance certificate verification — top 10",
@@ -9223,7 +9929,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2025-12-16T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9304,7 +10012,8 @@
           "actor": "demo1",
           "created_at": "2025-12-17T07:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Cyber insurance claim — credential stuffing incident",
@@ -9342,7 +10051,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9350,7 +10061,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9403,7 +10116,8 @@
           "actor": "demo5",
           "created_at": "2025-12-31T19:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Key person insurance evaluation — CEO and CTO",
@@ -9436,7 +10150,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9444,7 +10160,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -9452,7 +10170,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -9460,7 +10180,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-02-22T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9506,7 +10228,8 @@
           "actor": "demo1",
           "created_at": "2026-02-04T23:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Travel insurance policy — international employee coverage",
@@ -9548,7 +10271,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9556,7 +10281,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9616,7 +10343,8 @@
           "actor": "demo5",
           "created_at": "2026-01-03T15:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "SF office lease renewal — December 2027 expiry planning",
@@ -9648,7 +10376,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9656,7 +10386,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-21T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -9664,7 +10396,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-27T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9672,7 +10406,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -9680,7 +10416,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9719,7 +10457,8 @@
           "actor": "demo2",
           "created_at": "2025-12-10T19:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Co-working space agreement — NYC satellite office",
@@ -9751,7 +10490,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2025-12-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9759,7 +10500,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9805,7 +10548,8 @@
           "actor": "demo2",
           "created_at": "2025-12-19T00:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Lease amendment — SF office expansion (floor 3)",
@@ -9826,7 +10570,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2025-12-15T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9851,7 +10597,8 @@
           "actor": "demo1",
           "created_at": "2025-12-15T17:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sublease review — vacating unused office space",
@@ -9883,7 +10630,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9891,7 +10640,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-02-18T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -9937,7 +10688,8 @@
           "actor": "demo3",
           "created_at": "2026-01-31T18:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Office build-out approval — landlord consent request",
@@ -9967,7 +10719,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2025-12-12T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -9975,7 +10729,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -9983,7 +10739,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2025-12-22T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -9991,7 +10749,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -9999,7 +10759,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10024,7 +10786,8 @@
           "actor": "demo3",
           "created_at": "2025-12-12T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Property tax assessment appeal — SF office",
@@ -10074,7 +10837,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2025-12-13T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10082,7 +10847,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10090,7 +10857,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -10098,7 +10867,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-05T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -10106,7 +10877,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -10114,7 +10887,9 @@
           "from_swimlane": "Employment Law",
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10195,7 +10970,8 @@
           "actor": "demo4",
           "created_at": "2025-12-13T21:10:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Maintenance responsibility matrix — landlord vs tenant",
@@ -10219,7 +10995,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-23T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10227,7 +11005,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10259,7 +11039,8 @@
           "actor": "demo4",
           "created_at": "2026-01-23T20:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Parking agreement amendment — additional spaces",
@@ -10285,7 +11066,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2025-12-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10293,7 +11076,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-01T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10301,7 +11086,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10309,7 +11096,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-09T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10317,7 +11106,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10342,7 +11133,8 @@
           "actor": "demo4",
           "created_at": "2025-12-19T16:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Security deposit return — closed Portland office",
@@ -10384,7 +11176,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-04T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10392,7 +11186,9 @@
           "from_swimlane": "Regulatory Compliance",
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10459,7 +11255,8 @@
           "actor": "demo2",
           "created_at": "2026-01-04T22:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "ADA compliance audit — office accessibility review",
@@ -10488,7 +11285,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10496,7 +11295,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-21T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10504,7 +11305,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-23T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -10512,7 +11315,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -10520,7 +11325,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-03-05T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10552,7 +11359,8 @@
           "actor": "demo3",
           "created_at": "2026-02-11T19:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Lease abstract preparation — portfolio summary",
@@ -10592,7 +11400,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2025-12-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10600,7 +11410,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10608,7 +11420,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-11T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -10616,7 +11430,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-21T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -10624,7 +11440,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -10632,7 +11450,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10692,7 +11512,8 @@
           "actor": "demo2",
           "created_at": "2025-12-24T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Remote office stipend policy — home office reimbursement",
@@ -10725,7 +11546,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2025-12-29T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10733,7 +11556,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-13T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10741,7 +11566,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -10749,7 +11576,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-20T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10795,7 +11624,8 @@
           "actor": "demo2",
           "created_at": "2025-12-30T01:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "R&D tax credit filing — federal and California",
@@ -10834,7 +11664,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10842,7 +11674,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10850,7 +11684,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -10858,7 +11694,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-04T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -10866,7 +11704,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10926,7 +11766,8 @@
           "actor": "demo5",
           "created_at": "2026-01-16T19:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Sales tax nexus analysis — new state registrations",
@@ -10954,7 +11795,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -10962,7 +11805,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-12T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -10970,7 +11815,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -10995,7 +11842,8 @@
           "actor": "demo2",
           "created_at": "2026-01-02T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Transfer pricing documentation — intercompany transactions",
@@ -11036,7 +11884,9 @@
           "from_swimlane": null,
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-25T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -11044,7 +11894,9 @@
           "from_swimlane": "Contracts & Procurement",
           "to_swimlane": "Contracts & Procurement",
           "moved_at": "2026-01-31T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11104,7 +11956,8 @@
           "actor": "demo1",
           "created_at": "2026-01-25T20:15:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Quarterly estimated tax payment — Q2 2026",
@@ -11137,7 +11990,9 @@
           "from_swimlane": null,
           "to_swimlane": "Employment Law",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11169,7 +12024,8 @@
           "actor": "demo2",
           "created_at": "2026-01-03T18:20:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Tax provision review — ASC 740 compliance",
@@ -11218,7 +12074,9 @@
           "from_swimlane": null,
           "to_swimlane": "Intellectual Property",
           "moved_at": "2025-12-25T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -11226,7 +12084,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-06T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -11234,7 +12094,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -11242,7 +12104,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-01-27T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -11250,7 +12114,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -11258,7 +12124,9 @@
           "from_swimlane": "Intellectual Property",
           "to_swimlane": "Intellectual Property",
           "moved_at": "2026-02-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11353,7 +12221,8 @@
           "actor": "demo3",
           "created_at": "2025-12-25T23:25:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "State income tax filing — multi-state apportionment",
@@ -11377,7 +12246,9 @@
           "from_swimlane": null,
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-08T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -11385,7 +12256,9 @@
           "from_swimlane": "Data Privacy (GDPR)",
           "to_swimlane": "Data Privacy (GDPR)",
           "moved_at": "2026-01-17T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11410,7 +12283,8 @@
           "actor": "demo1",
           "created_at": "2026-01-08T18:00:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "International tax structure — EU subsidiary setup",
@@ -11451,7 +12325,9 @@
           "from_swimlane": null,
           "to_swimlane": "Regulatory Compliance",
           "moved_at": "2026-01-28T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11518,7 +12394,8 @@
           "actor": "demo3",
           "created_at": "2026-01-28T19:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Audit defense preparation — IRS notice received",
@@ -11556,7 +12433,9 @@
           "from_swimlane": null,
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-09T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -11564,7 +12443,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-17T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -11572,7 +12453,9 @@
           "from_swimlane": "Corporate Governance",
           "to_swimlane": "Corporate Governance",
           "moved_at": "2026-02-24T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11625,7 +12508,8 @@
           "actor": "demo5",
           "created_at": "2026-02-09T15:35:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Revenue recognition review — ASC 606 compliance",
@@ -11671,7 +12555,9 @@
           "from_swimlane": null,
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-01-15T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -11679,7 +12565,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-02T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -11687,7 +12575,9 @@
           "from_swimlane": "Litigation Management",
           "to_swimlane": "Litigation Management",
           "moved_at": "2026-02-13T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11768,7 +12658,8 @@
           "actor": "demo4",
           "created_at": "2026-01-16T04:30:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Tax impact analysis — equity compensation plans",
@@ -11809,7 +12700,9 @@
           "from_swimlane": null,
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -11817,7 +12710,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-22T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -11825,7 +12720,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-01-29T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -11833,7 +12730,9 @@
           "from_swimlane": "Insurance & Risk",
           "to_swimlane": "Insurance & Risk",
           "moved_at": "2026-02-11T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -11921,7 +12820,8 @@
           "actor": "demo4",
           "created_at": "2026-01-07T23:05:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Property tax filing — business personal property",
@@ -11971,7 +12871,9 @@
           "from_swimlane": null,
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2025-12-10T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -11979,7 +12881,9 @@
           "from_swimlane": "Real Estate & Leases",
           "to_swimlane": "Real Estate & Leases",
           "moved_at": "2026-01-03T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12060,7 +12964,8 @@
           "actor": "demo3",
           "created_at": "2025-12-11T00:50:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     },
     {
       "title": "Withholding tax review — international contractor payments",
@@ -12096,7 +13001,9 @@
           "from_swimlane": null,
           "to_swimlane": "Tax & Finance",
           "moved_at": "2025-12-31T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Submitted",
@@ -12104,7 +13011,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-07T12:00:00+00:00",
-          "moved_by": "demo4"
+          "moved_by": "demo4",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Under Review",
@@ -12112,7 +13021,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-16T12:00:00+00:00",
-          "moved_by": "demo5"
+          "moved_by": "demo5",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Needs Clarification",
@@ -12120,7 +13031,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-19T12:00:00+00:00",
-          "moved_by": "demo1"
+          "moved_by": "demo1",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Approved",
@@ -12128,7 +13041,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-26T12:00:00+00:00",
-          "moved_by": "demo2"
+          "moved_by": "demo2",
+          "notes": "",
+          "movement_type": "move"
         },
         {
           "from_column": "Denied",
@@ -12136,7 +13051,9 @@
           "from_swimlane": "Tax & Finance",
           "to_swimlane": "Tax & Finance",
           "moved_at": "2026-01-30T12:00:00+00:00",
-          "moved_by": "demo3"
+          "moved_by": "demo3",
+          "notes": "",
+          "movement_type": "move"
         }
       ],
       "activities": [
@@ -12196,7 +13113,8 @@
           "actor": "demo3",
           "created_at": "2025-12-31T21:55:00+00:00"
         }
-      ]
+      ],
+      "archived_at": null
     }
   ]
 }

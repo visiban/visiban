@@ -3,7 +3,7 @@ Generate all 10 seed template JSON files with:
   - 20-25 cards per template (expands existing 11-14)
   - Varied movement histories: stage skipping + occasional backtracks
   - All fields populated: description, checklist, comments, labels, due_date, weight, assignee
-  - schema_version: 1
+  - schema_version: 2
 
 Existing card content is PRESERVED exactly — only movements and activities are
 regenerated. New cards are appended after the existing ones.
@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 # ── Constants ────────────────────────────────────────────────────────────────
 ANCHOR = datetime(2026, 3, 15, 12, 0, 0, tzinfo=timezone.utc)
 DEMO_USERS = ["demo1", "demo2", "demo3", "demo4", "demo5"]
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SEED_DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 
