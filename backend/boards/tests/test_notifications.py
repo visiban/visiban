@@ -394,3 +394,40 @@ class NotificationActionTypeBackfillTests(TestCase):
         n.refresh_from_db()
         # Non-blank row must not be overwritten
         self.assertEqual(n.action_type, "board_invite")
+
+
+# ---------------------------------------------------------------------------
+# #572 — Notification.action_type blank=False constraint
+# ---------------------------------------------------------------------------
+
+class NotificationActionTypeConstraintTests(TestCase):
+    """Verify that Notification.action_type rejects blank values at the model level."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="ctest", password="pass")
+        self.board = Board.objects.create(name="B", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role=BoardMembership.Role.ADMIN)
+
+    def test_blank_action_type_fails_full_clean(self):
+        """A Notification with an empty action_type must fail model validation."""
+        from django.core.exceptions import ValidationError
+        n = Notification(
+            recipient=self.user,
+            verb="some verb",
+            board=self.board,
+            action_type="",
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            n.full_clean()
+        self.assertIn("action_type", ctx.exception.message_dict)
+
+    def test_valid_action_type_passes_full_clean(self):
+        """A Notification with a valid action_type must pass model validation."""
+        n = Notification(
+            recipient=self.user,
+            verb="You were assigned to X",
+            board=self.board,
+            action_type=Notification.ActionType.ASSIGNED,
+        )
+        # Should not raise
+        n.full_clean()
