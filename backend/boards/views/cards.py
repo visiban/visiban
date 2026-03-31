@@ -880,13 +880,12 @@ class CardViewSet(viewsets.ModelViewSet):
         if request.method == "GET":
             items = card.checklist_items.all()
             return Response(CardChecklistSerializer(items, many=True).data)
-        # Only viewers are blocked — collaborators are intentionally allowed to
-        # add checklist items.  See docs/features/rbac/roles.md permission table.
-        if role == BoardMembership.Role.VIEWER:
-            return Response(
-                {"detail": "Viewers cannot perform this action."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Allow-list: only member, admin, or site_admin may add checklist items.
+        # A block-list (VIEWER, COLLABORATOR) would silently allow any future
+        # role added to the system — the allow-list is the safe default.
+        # SITE_ADMIN access is handled upstream by can_access_all_content.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("You do not have permission to perform this action.")
         serializer = CardChecklistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         position = card.checklist_items.count()
@@ -905,13 +904,12 @@ class CardViewSet(viewsets.ModelViewSet):
     def checklist_item(self, request, board_pk=None, pk=None, item_pk=None):
         """Update (PATCH) or delete a single checklist item."""
         board, role = self._board_and_role()
-        # Only viewers are blocked — collaborators may edit and delete checklist
-        # items.  See docs/features/rbac/roles.md permission table.
-        if role == BoardMembership.Role.VIEWER:
-            return Response(
-                {"detail": "Viewers cannot perform this action."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Allow-list: only member, admin, or site_admin may edit/delete checklist
+        # items.  A block-list (VIEWER, COLLABORATOR) would silently allow any
+        # future role added to the system — the allow-list is the safe default.
+        # SITE_ADMIN access is handled upstream by can_access_all_content.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("You do not have permission to perform this action.")
         card = get_object_or_404(Card, pk=pk, board=board)
         item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
         if request.method == "DELETE":
