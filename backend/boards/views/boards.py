@@ -2,7 +2,7 @@
 
 import logging
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
@@ -56,7 +56,7 @@ class BoardViewSet(
         # subqueries per board (member_count, card_count, is_starred).
         return qs.select_related("owner", "group").annotate(
             _member_count=Count("memberships", distinct=True),
-            _card_count=Count("cards", distinct=True),
+            _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
             _is_starred=Exists(
                 BoardFavorite.objects.filter(board=OuterRef("pk"), user=user)
             ),
@@ -255,7 +255,7 @@ class BoardViewSet(
                 name=name,
                 state_json=state_json,
             )
-        except Exception:
+        except IntegrityError:
             # unique_together violation — a filter with this name already exists.
             return Response(
                 {"detail": "A saved filter with this name already exists on this board."},
