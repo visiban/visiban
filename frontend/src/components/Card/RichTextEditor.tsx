@@ -8,7 +8,7 @@ import MentionExtension from "@tiptap/extension-mention";
 import { Markdown } from "tiptap-markdown";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import type { BoardMembership, User } from "../../types";
+import type { BoardMembership, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
 import type { MentionListRef } from "./MentionList";
@@ -197,7 +197,7 @@ export default function RichTextEditor({
         // Serialize the mention node to @username when copying as plain text.
         renderText: ({ node }) => `@${node.attrs.id}`,
         suggestion: {
-          items: ({ query }: { query: string }): User[] => {
+          items: ({ query }: { query: string }): BoardUser[] => {
             if (!membersRef.current?.length) return [];
             return membersRef.current
               .map((m) => m.user)

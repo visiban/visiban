@@ -1,9 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import type { User } from "../../types";
+import type { BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 
 interface Props {
-  items: User[];
+  items: BoardUser[];
   command: (attrs: { id: string; label: string }) => void;
 }
 

@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.models import User
-from accounts.serializers import BoardUserSerializer, UserSerializer
+from accounts.serializers import BoardUserSerializer
 
 from .models import (
     Board, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card, CardMovement,
