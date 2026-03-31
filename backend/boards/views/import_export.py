@@ -300,6 +300,13 @@ class BoardImportExportMixin:
                         card_labels.append(label)
                 if card_labels:
                     card.labels.set(card_labels)
+                    CardActivity.objects.create(
+                        card=card,
+                        event_type=CardActivity.EventType.LABEL_CHANGE,
+                        from_value="",
+                        to_value=f"+{', '.join(lb.name for lb in card_labels)}",
+                        actor=request.user,
+                    )
 
                 # Create comments
                 for comment_data in card_data.get("comments", []):
@@ -311,11 +318,18 @@ class BoardImportExportMixin:
 
                 # Create checklist items
                 for ci_idx, checklist_data in enumerate(card_data.get("checklist", [])):
-                    CardChecklist.objects.create(
+                    item = CardChecklist.objects.create(
                         card=card,
                         text=checklist_data.get("text", ""),
                         is_checked=checklist_data.get("is_checked", False),
                         position=ci_idx,
+                    )
+                    CardActivity.objects.create(
+                        card=card,
+                        event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
+                        from_value="",
+                        to_value=item.text,
+                        actor=request.user,
                     )
 
                 # Create movement history. Unknown usernames fall back to the
@@ -591,6 +605,13 @@ class BoardImportExportMixin:
                             card_labels.append(label)
                     if card_labels:
                         card.labels.set(card_labels)
+                        CardActivity.objects.create(
+                            card=card,
+                            event_type=CardActivity.EventType.LABEL_CHANGE,
+                            from_value="",
+                            to_value=f"+{', '.join(lb.name for lb in card_labels)}",
+                            actor=request.user,
+                        )
 
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 

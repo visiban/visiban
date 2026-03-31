@@ -134,6 +134,46 @@ class BoardImportJSONTests(TestCase):
             ).exists()
         )
 
+    def test_json_import_label_activity_created(self):
+        """Importing a card with labels should create a LABEL_CHANGE activity."""
+        data = self._valid_json_data()
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        activity = CardActivity.objects.filter(
+            card=card, event_type=CardActivity.EventType.LABEL_CHANGE
+        ).first()
+        self.assertIsNotNone(activity)
+        self.assertEqual(activity.from_value, "")
+        self.assertIn("+", activity.to_value)
+        self.assertIn("Bug", activity.to_value)
+
+    def test_json_import_checklist_activity_created(self):
+        """Importing checklist items should create a CHECKLIST_ITEM_ADDED activity per item."""
+        data = self._valid_json_data()
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id)
+        activities = list(
+            CardActivity.objects.filter(
+                card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED
+            ).values_list("to_value", flat=True)
+        )
+        # _valid_json_data has 2 checklist items: "Reproduce issue" and "Write fix"
+        self.assertEqual(len(activities), 2)
+        self.assertIn("Reproduce issue", activities)
+        self.assertIn("Write fix", activities)
+
     def test_json_import_name_override(self):
         data = self._valid_json_data()
         resp = self.client.post(
@@ -271,6 +311,27 @@ class BoardImportCSVTests(TestCase):
         self.assertEqual(activity.from_value, "1")
         self.assertEqual(activity.to_value, "2")
         self.assertEqual(activity.actor, self.user)
+
+    def test_csv_import_label_activity_created(self):
+        """CSV import of a card with labels should create a LABEL_CHANGE activity."""
+        csv_content = (
+            "Title,Column,Swimlane,Labels\n"
+            "Fix login,To Do,General,\"Bug, Feature\"\n"
+        )
+        resp = self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_csv_file(csv_content), "name": "CSV Label Board"},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Fix login")
+        activity = CardActivity.objects.filter(
+            card=card, event_type=CardActivity.EventType.LABEL_CHANGE
+        ).first()
+        self.assertIsNotNone(activity)
+        self.assertEqual(activity.from_value, "")
+        self.assertIn("+", activity.to_value)
 
     def test_csv_import_no_weight_activity_for_default(self):
         """CSV import of a card with weight=1 should NOT create a WEIGHT_CHANGE activity."""
