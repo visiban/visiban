@@ -521,7 +521,10 @@ describe('BulkActionToolbar', () => {
 
   it('shows warning in delete modal when member selects cards by others', async () => {
     const user = userEvent.setup()
-    const memberUser = { id: 99, username: 'member', avatar_url: '', display_name: 'Member' }
+    // memberUser is used both as a board member (BoardUser shape) and as the
+    // currentUser prop (full User shape). Declare with the full User shape so
+    // both usages type-check correctly — BoardUser is structurally satisfied by User.
+    const memberUser = { id: 99, username: 'member', email: '', first_name: 'Member', last_name: '', avatar_url: '', display_name: 'Member', is_site_admin: false, must_change_password: false, must_change_username: false }
     const board = makeBoard()
     board.current_user_role = 'member'
     board.members = [{ id: 2, user: memberUser, role: 'member', is_moderator: false, joined_at: '' }]
