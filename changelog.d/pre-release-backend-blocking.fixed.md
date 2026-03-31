@@ -1,0 +1,4 @@
+- Fixed group members endpoint exposing full user PII (email, notification preferences, admin flags) to all group members — now returns the same narrow `BoardUser` shape used by board membership endpoints (#549)
+- Fixed `_require_group_admin` and `_require_group_member` issuing one database query per ancestor group level — now batches into a single query (#545)
+- Fixed missing `groups/migrations/0003` sequence gap with a documented placeholder migration (#550)
+- Pinned `drf-spectacular==0.29.0` in `backend/requirements.txt` for reproducible builds (#555)

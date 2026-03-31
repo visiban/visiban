@@ -22,53 +22,56 @@ logger = logging.getLogger(__name__)
 def _require_group_admin(user, group):
     """Raise PermissionDenied if user is not an admin of this group or any ancestor.
 
-    Traversal is capped at _GROUP_TRAVERSAL_MAX_DEPTH + 1 levels (one extra
-    for the target group itself) to guard against runaway queries on deep trees.
+    Collects all ancestor PKs in a single traversal, then issues one batched
+    membership query instead of one query per level to avoid N+1 on deep trees.
+    Traversal is capped at _GROUP_TRAVERSAL_MAX_DEPTH levels.
     """
     from rest_framework.exceptions import PermissionDenied
+    from django.utils.translation import gettext_lazy as _
     from .models import _GROUP_TRAVERSAL_MAX_DEPTH
     if getattr(user, "can_access_all_content", False):
         return
-    # Walk from the group up through its ancestors — direct membership with admin
-    # role at any level grants admin on all descendants.
+    ancestor_ids = []
     node = group
     depth = 0
-    while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH + 1:
-        if node.owner_id == user.id:
-            return
-        try:
-            m = node.memberships.get(user=user)
-            if m.role == GroupMembership.Role.ADMIN:
-                return
-            # Direct non-admin membership on the target group is NOT sufficient;
-            # a non-admin direct member of an ancestor also cannot admin descendants.
-        except GroupMembership.DoesNotExist:
-            pass
+    while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
+        ancestor_ids.append(node.pk)
         node = node.parent
         depth += 1
-    raise PermissionDenied
+    if GroupMembership.objects.filter(
+        group_id__in=ancestor_ids,
+        user=user,
+        role=GroupMembership.Role.ADMIN,
+    ).exists():
+        return
+    raise PermissionDenied(_("You must be a group admin to perform this action."))
 
 
 def _require_group_member(user, group):
     """Raise PermissionDenied if user is not a member of this group or any ancestor.
 
+    Collects all ancestor PKs in a single traversal, then issues one batched
+    membership query instead of one query per level to avoid N+1 on deep trees.
     Traversal is capped at _GROUP_TRAVERSAL_MAX_DEPTH levels.
     """
     from rest_framework.exceptions import PermissionDenied
+    from django.utils.translation import gettext_lazy as _
     from .models import _GROUP_TRAVERSAL_MAX_DEPTH
     if getattr(user, "can_access_all_content", False):
         return
-    if group.owner_id == user.id:
-        return
-    # Walk up the ancestor chain
+    ancestor_ids = []
     node = group
     depth = 0
     while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
-        if node.memberships.filter(user=user).exists():
-            return
+        ancestor_ids.append(node.pk)
         node = node.parent
         depth += 1
-    raise PermissionDenied
+    if GroupMembership.objects.filter(
+        group_id__in=ancestor_ids,
+        user=user,
+    ).exists():
+        return
+    raise PermissionDenied(_("You must be a group member to perform this action."))
 
 
 class GroupViewSet(viewsets.ModelViewSet):
@@ -149,7 +152,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         group = self.get_object()
         _require_group_member(request.user, group)
 
-        from accounts.serializers import UserSerializer
+        from accounts.serializers import BoardUserSerializer
 
         # Direct memberships
         direct = list(group.memberships.select_related("user"))
@@ -158,7 +161,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         result = [
             {
                 "id": m.id,
-                "user": UserSerializer(m.user).data,
+                "user": BoardUserSerializer(m.user).data,
                 "role": m.role,
                 "joined_at": m.joined_at,
                 "is_inherited": False,
@@ -174,7 +177,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                 if m.user_id not in seen_user_ids:
                     result.append({
                         "id": None,
-                        "user": UserSerializer(m.user).data,
+                        "user": BoardUserSerializer(m.user).data,
                         "role": m.role,
                         "joined_at": m.joined_at,
                         "is_inherited": True,
