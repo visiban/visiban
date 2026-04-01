@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import secrets
-import uuid
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
@@ -191,9 +190,6 @@ class GroupInviteLink(models.Model):
         VIEWER = "viewer"
 
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="invite_links")
-    # Deprecated: kept for one release cycle for backward compatibility.
-    # New tokens use token_hash + prefix instead.
-    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     token_hash = models.CharField(max_length=64, unique=True, db_index=True, null=True)
     prefix = models.CharField(max_length=8, blank=True, default="")
     created_by = models.ForeignKey(

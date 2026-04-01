@@ -80,7 +80,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed | Full `CardSerializer` object |
 | `card.deleted` | Card deleted | `{ "card_id": <int> }` |
 | `card.moved` | Card moved to a different column or swimlane | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer> }` |
-| `card.archived` | Card archived | `{ "card_id": <int> }` |
+| `card.archived` | Card archived | `{ "card_uid": <string> }` |
 | `card.unarchived` | Card restored from archive | Full `CardSerializer` object |
 
 ### Member events

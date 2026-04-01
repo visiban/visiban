@@ -175,9 +175,24 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         # Inherited memberships from ancestor groups (nearest ancestor wins,
         # ancestors() returns nearest-first).
-        for ancestor in group.ancestors():
-            for m in ancestor.memberships.select_related("user"):
+        # Collect ancestor PKs in a single traversal (uses the prefetched chain,
+        # no extra queries), then issue ONE batched membership query instead of
+        # one SELECT per ancestor level to avoid N+1 on deep hierarchies.
+        ancestors = group.ancestors()
+        ancestor_ids = [a.pk for a in ancestors]
+        if ancestor_ids:
+            ancestor_map = {a.pk: a for a in ancestors}
+            inherited_memberships = (
+                GroupMembership.objects
+                .filter(group_id__in=ancestor_ids)
+                .select_related("user", "group")
+            )
+            # Re-apply nearest-first ordering by sorting against the ancestors list.
+            ancestor_rank = {pk: i for i, pk in enumerate(ancestor_ids)}
+            sorted_memberships = sorted(inherited_memberships, key=lambda m: ancestor_rank.get(m.group_id, 999))
+            for m in sorted_memberships:
                 if m.user_id not in seen_user_ids:
+                    ancestor = ancestor_map[m.group_id]
                     result.append({
                         "id": None,
                         "user": BoardUserSerializer(m.user).data,
