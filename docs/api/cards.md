@@ -106,10 +106,17 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
     "to_swimlane_uid": "deadbeef01234567",
     "moved_by": { "id": 7, "username": "alice" },
     "moved_at": "2026-03-15T09:41:22Z",
+    "movement_type": "move",
     "notes": ""
   }
 }
 ```
+
+| Field | Type | Description |
+|---|---|---|
+| `moved_by` | object | User who performed the move — contains `id` (integer) and `username` (string) |
+| `movement_type` | string | Always `"move"` for explicit card moves via this endpoint |
+| `notes` | string | Optional notes recorded at move time (empty string by default) |
 
 `movement` is `null` if only position changed within the same cell.
 

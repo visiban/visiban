@@ -30,7 +30,7 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | Add comments | ✓ | ✓ | ✓ | — |
 | Delete comments | ✓ | Own† | Own | — |
 | Add attachments | ✓ | ✓ | ✓ | — |
-| Delete attachments | ✓ | ✓ | ✓ | — |
+| Delete attachments | ✓ | Own† | Own | — |
 | Add checklist items | ✓ | ✓ | ✓ | — |
 | Check / uncheck checklist items | ✓ | ✓ | ✓ | — |
 | Delete checklist items | ✓ | ✓ | ✓ | — |
@@ -47,7 +47,7 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | Remove members | ✓ | — | — | — |
 | Delete board | ✓ (owner only) | — | — | — |
 
-**†** Members can only perform this action on content they created (cards they own, comments they authored). Members with the **moderator** entitlement — and admins — can perform it on any content. See [Moderator entitlement](#moderator-entitlement) below.
+**†** Members and collaborators can only perform this action on content they created (cards they own, comments/attachments they uploaded). Members and collaborators with the **moderator** entitlement — and admins — can perform it on any content. See [Moderator entitlement](#moderator-entitlement) below.
 
 !!! note "Viewer boundary enforced since 1.0"
     Prior to the 1.0 release, the Viewer role was not fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. This was corrected in [#248](https://gitlab.com/visiban/visiban/-/issues/248): all write operations now return `403 Forbidden` for Viewers.

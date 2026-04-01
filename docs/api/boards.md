@@ -37,10 +37,10 @@ Get board summary. Response includes:
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
-### `PUT /api/boards/{id}/`
-Update board fields. Requires board admin.
+### `PUT /api/boards/{id}/` / `PATCH /api/boards/{id}/`
+Update board fields. Both `PUT` and `PATCH` are accepted — all fields are optional in either case. Requires board admin.
 
-**Writable fields:** `name`, `description`, `staleness_threshold_days`, `allowed_priorities`. Board admins may also set `enforce_wip_limits` and `enforce_weight_limits`; non-admins sending these fields receive `403 Forbidden`.
+**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`. Board admins may also set `enforce_wip_limits`, `enforce_weight_limits`, and `enforce_wip_hard`; non-admins sending these fields receive `403 Forbidden`.
 
 ### `DELETE /api/boards/{id}/`
 Delete board. Requires board owner or site admin.
