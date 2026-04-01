@@ -8,6 +8,7 @@ import MentionExtension from "@tiptap/extension-mention";
 import { Markdown } from "tiptap-markdown";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { BoardMembership, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
@@ -153,6 +154,22 @@ const MentionWithMarkdown = MentionExtension.extend({
     };
   },
 });
+
+// Allowlist-based sanitization schema for card descriptions rendered via rehypeRaw.
+// rehypeRaw is required to preserve <span style="color:..."> tags written by the
+// Tiptap Color extension. rehypeSanitize with this schema strips <script>, event
+// handlers, javascript: hrefs, and all other unsafe HTML while permitting only the
+// specific color: style value the Color extension emits.
+const SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    span: [
+      ...(defaultSchema.attributes?.span ?? []),
+      ["style", /^color:\s*(#[0-9a-fA-F]{3,6}|[a-z]+)$/],
+    ],
+  },
+};
 
 export default function RichTextEditor({
   value,
@@ -348,7 +365,7 @@ export default function RichTextEditor({
               "[&_blockquote]:border-l-4 [&_blockquote]:border-slate-600 [&_blockquote]:pl-4 [&_blockquote]:text-slate-400",
               "[&_hr]:border-slate-700",
             ].join(" ")}>
-              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{value}</ReactMarkdown>
+              <ReactMarkdown rehypePlugins={[rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]]}>{value}</ReactMarkdown>
             </div>
           ) : (
             !readOnly && (
