@@ -65,13 +65,31 @@ Run in parallel:
 1. **test-scaffold** — Full test coverage audit across all backend apps and frontend modules. For each app in `backend/` and each module in `frontend/src/`, identify: (a) public functions/methods/endpoints with no test, (b) edge cases (empty state, permission boundary, error path) that are exercised in code but not in tests, (c) any `SerializerMethodField`, custom model method, or `useCallback` hook that has only routing tests (asserting the right function is called) and lacks state/behaviour tests (asserting the result is correct). Do NOT generate scaffold files — return a structured findings report only, grouped by app/module, severity-rated as 🔴 (no coverage at all) or 🟡 (routing-only / missing edge cases).
 
 ### `full`
-Run all agents above in 3 parallel waves:
+Run all agents above in 3 parallel waves **with gate checks between waves**. A gate check stops the audit early if blockers are found, so critical issues surface immediately rather than being buried in a 14-agent report.
 
 **Wave 1** (security + performance):
 - security-review, rbac-check, perf-check, perf-bench
 
+**Wave 1 gate check** — after all 4 Wave 1 agents complete:
+1. Collect all 🔴 blocking findings from the 4 agents.
+2. If any 🔴 findings exist:
+   - Present them to the user in the consolidated report format (summary + blocking section only).
+   - Ask: "Wave 1 found N blocking issue(s). Fix these first, or continue the audit? (fix first / continue)"
+   - If "fix first" → stop here. Run Step 3 (GitLab issue check) for the Wave 1 findings only, then run Step 4 gate check. Do not launch Wave 2.
+   - If "continue" → proceed to Wave 2.
+3. If no 🔴 findings → proceed to Wave 2 immediately (no prompt needed).
+
 **Wave 2** (frontend + contracts):
 - ux-review, broadcast-check, architect (full codebase mode), migration-check
+
+**Wave 2 gate check** — after all 4 Wave 2 agents complete:
+1. Collect all 🔴 blocking findings from Wave 2.
+2. If any 🔴 findings exist:
+   - Present them (along with any Wave 1 blockers) in the consolidated format.
+   - Ask: "Wave 2 found N additional blocking issue(s). Fix these first, or continue the audit? (fix first / continue)"
+   - If "fix first" → stop here. Run Step 3 for all findings so far, then Step 4. Do not launch Wave 3.
+   - If "continue" → proceed to Wave 3.
+3. If no 🔴 findings → proceed to Wave 3 immediately.
 
 **Wave 3** (docs + ecosystem):
 - api-docs, docs, dependency, enterprise-check, regression-check, test-scaffold (coverage audit mode — report only, no scaffold generation)
@@ -132,3 +150,27 @@ If the audit type was `full`:
 - If any 🔴 blocking findings remain unresolved → **do not proceed to `/release`**. Tell the user: "Pre-release audit found N blocking issue(s). Resolve these before running `/release`."
 - If only 🟡 findings remain → advise the user to triage them, then they may proceed to `/release`
 - If all findings are 🟢 → "Pre-release audit passed. You may proceed to `/release`."
+
+---
+
+## Step 5 — Tighten early-detection agents (full audit only, when blockers found)
+
+If the audit type was `full` and any 🔴 or 🟡 findings were found, update the day-to-day agent definitions in `.claude/agents/` so those classes of issue are caught earlier — during normal feature development, not just at release time.
+
+**How to do this:**
+
+For each finding, identify which day-to-day agent *should* have caught it (e.g. a missing `select_related` belongs in `perf-check.md`; an IDOR belongs in `security-review.md`; a missing broadcast belongs in `broadcast-check.md`).
+
+Then update that agent's `SKILL.md` or agent definition using these principles:
+
+1. **Abstract to the class of problem, not the specific instance.** Do not add "check for missing select_related on CardSerializer.labels". Instead, add: "For every relation traversed in a serializer (ForeignKey, ManyToMany, reverse FK, source= with a dotted path), verify the calling view has a corresponding select_related/prefetch_related. Flag any relation that lacks it as a potential N+1." This catches the whole class, not just the one example.
+
+2. **Add the check to the agent's trigger condition if applicable.** If a blocker was found in a context the agent is already supposed to cover (e.g. new viewset), add an explicit check instruction so it won't be missed again.
+
+3. **Do not hardcode filenames or field names.** The agent should check patterns structurally (e.g. "any SerializerMethodField that calls .filter() or .all()") not by name (e.g. "check `labels` on `CardSerializer`").
+
+4. **Add a "what to look for" principle, not a "look for this" rule.** Good: "Check whether every write path that modifies a board-scoped resource calls broadcast_board_event() — look for views that call .save(), .create(), .delete(), or bulk operations without a subsequent broadcast call." Bad: "Check that the card move endpoint calls broadcast."
+
+After updating each affected agent file, list the changes made and which finding they address.
+
+If no 🔴/🟡 findings were found, skip this step.

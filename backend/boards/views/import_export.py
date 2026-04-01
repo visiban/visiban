@@ -695,7 +695,13 @@ class BoardImportExportMixin:
                     color="#EAB308",
                 )
 
-            # Create cards
+            # Collect valid card objects and their source rows in parallel lists so
+            # we can bulk_create all cards in one INSERT, then attach activities and
+            # label associations in two further bulk operations.  This mirrors the
+            # JSON import path and avoids up to ~1,500 individual INSERTs for a
+            # 500-card CSV with weight/label metadata.
+            cards_to_create = []
+            valid_rows = []
             for row in rows:
                 column = column_map.get(row["Column"].strip())
                 swimlane = swimlane_map.get(row["Swimlane"].strip())
@@ -714,7 +720,7 @@ class BoardImportExportMixin:
                 except (ValueError, TypeError):
                     weight = 1
 
-                card = Card.objects.create(
+                cards_to_create.append(Card(
                     board=board,
                     column=column,
                     swimlane=swimlane,
@@ -725,17 +731,27 @@ class BoardImportExportMixin:
                     weight=weight,
                     position=0,
                     created_by=request.user,
-                )
+                ))
+                valid_rows.append(row)
 
+            created_cards = Card.objects.bulk_create(cards_to_create)
+
+            # Build activity records and label M2M associations in memory, then
+            # flush both with a single bulk INSERT each.
+            activities = []
+            label_through_model = Card.labels.through
+            label_through_objs = []
+
+            for card, row in zip(created_cards, valid_rows):
                 # Record weight change activity for non-default weights
                 if card.weight and card.weight > 1:
-                    CardActivity.objects.create(
+                    activities.append(CardActivity(
                         card=card,
                         event_type=CardActivity.EventType.WEIGHT_CHANGE,
                         from_value="1",
                         to_value=str(card.weight),
                         actor=request.user,
-                    )
+                    ))
 
                 # Assign labels
                 labels_str = row.get("Labels", "").strip()
@@ -747,14 +763,22 @@ class BoardImportExportMixin:
                         if label:
                             card_labels.append(label)
                     if card_labels:
-                        card.labels.set(card_labels)
-                        CardActivity.objects.create(
+                        label_through_objs.extend(
+                            label_through_model(card_id=card.pk, label_id=lbl.pk)
+                            for lbl in card_labels
+                        )
+                        activities.append(CardActivity(
                             card=card,
                             event_type=CardActivity.EventType.LABEL_CHANGE,
                             from_value="",
                             to_value=f"+{', '.join(lb.name for lb in card_labels)}",
                             actor=request.user,
-                        )
+                        ))
+
+            if activities:
+                CardActivity.objects.bulk_create(activities)
+            if label_through_objs:
+                label_through_model.objects.bulk_create(label_through_objs, ignore_conflicts=True)
 
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 

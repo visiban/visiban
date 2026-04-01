@@ -127,7 +127,7 @@ def _card_queryset(qs):
     from .models import CardMovement as _CM
     return (
         qs
-        .select_related("board", "assignee", "created_by")
+        .select_related("board", "column", "swimlane", "assignee", "created_by")
         .prefetch_related(
             "labels",
             "attachments",
