@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SectionErrorBoundary from "../components/SectionErrorBoundary";
 
-function BrokenComponent(): JSX.Element {
+function BrokenComponent(): React.JSX.Element {
   throw new Error("test crash");
 }
 
