@@ -98,7 +98,10 @@ class GroupViewSet(viewsets.ModelViewSet):
             related += ["__".join(["parent"] * d) for d in range(2, 7)]
         qs = Group.objects.filter(
             id__in=get_accessible_group_ids(user)
-        ).select_related(*related).annotate(
+        ).select_related(*related).prefetch_related(
+            # Prefetch shared labels to avoid one query per group in list responses.
+            "labels",
+        ).annotate(
             # Annotate counts so GroupSerializer can read _member_count etc.
             # directly from the object instead of issuing 3-4 extra queries per group.
             _member_count=Count("memberships", distinct=True),
@@ -232,6 +235,16 @@ class GroupViewSet(viewsets.ModelViewSet):
                 ).values_list("id", flat=True)
             )
             subgroups = group.subgroups.filter(id__in=accessible_ids)
+        # Annotate and prefetch so GroupSerializer avoids per-subgroup queries —
+        # mirrors the approach in get_queryset().
+        subgroups = subgroups.select_related("owner", "parent").prefetch_related("labels").annotate(
+            _member_count=Count("memberships", distinct=True),
+            _board_count=Count("boards", distinct=True),
+            _subgroup_count=Count("subgroups", distinct=True),
+            _is_starred=Exists(
+                GroupFavorite.objects.filter(user=request.user, group=OuterRef("pk"))
+            ),
+        )
         return Response(GroupSerializer(subgroups, many=True, context={"request": request}).data)
 
     # ------------------------------------------------------------------
