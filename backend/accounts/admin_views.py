@@ -52,9 +52,15 @@ class AdminUserSerializer(drf_serializers.ModelSerializer):
     owned_boards = drf_serializers.SerializerMethodField()
 
     def get_owned_boards(self, obj):
+        # Use the pre-built map injected by AdminUsersView.get() when available.
+        # This allows the list endpoint to load owned boards in a single query
+        # rather than one query per user. Single-object responses (create, patch,
+        # deactivate) do not inject the map and fall back to the live query.
+        owned_map = self.context.get("_owned_boards_map")
+        if owned_map is not None:
+            return owned_map.get(obj.id, [])
         # Deferred import to avoid circular dependency at module load time
         # (boards imports accounts for User; accounts must not import boards at top level).
-        # Acceptable N+1 at admin-panel scale (50–200 users).
         from boards.models import Board
         return list(Board.objects.filter(owner=obj).values("id", "uid", "name"))
 
@@ -224,7 +230,21 @@ class AdminUsersView(APIView):
             )
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(qs, request)
-        serializer = AdminUserSerializer(page, many=True)
+
+        # Build owned_boards in a single query across all users on this page,
+        # then inject a pre-built map into the serializer context so
+        # AdminUserSerializer.get_owned_boards() does not fire one query per user.
+        # Deferred import to avoid circular dependency at module load time.
+        from boards.models import Board as _Board
+        user_ids = [u.id for u in page]
+        board_rows = _Board.objects.filter(owner_id__in=user_ids).values("owner_id", "id", "uid", "name")
+        owned_map: dict = {}
+        for row in board_rows:
+            owned_map.setdefault(row["owner_id"], []).append(
+                {"id": row["id"], "uid": row["uid"], "name": row["name"]}
+            )
+
+        serializer = AdminUserSerializer(page, many=True, context={"_owned_boards_map": owned_map})
         return paginator.get_paginated_response(serializer.data)
 
     @transaction.atomic

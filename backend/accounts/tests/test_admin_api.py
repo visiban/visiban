@@ -146,6 +146,53 @@ class AdminUsersListTests(TestCase):
         r = self.client.get("/api/admin/users/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_owned_boards_included_in_response(self):
+        """Each user in the list should include their owned_boards array."""
+        from boards.models import Board
+        alice = User.objects.get(username="alice")
+        Board.objects.create(name="Alice Board", owner=alice)
+        r = self.client.get("/api/admin/users/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        alice_data = next(u for u in r.json()["results"] if u["username"] == "alice")
+        self.assertEqual(len(alice_data["owned_boards"]), 1)
+        self.assertEqual(alice_data["owned_boards"][0]["name"], "Alice Board")
+
+    def test_owned_boards_uses_prefetch_not_per_user_query(self):
+        """Query count must not scale with the number of users (no N+1).
+
+        With N+1, adding 10 users would add 10 queries. With the prefetch fix
+        the total remains constant regardless of how many users are in the page.
+        """
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+        from boards.models import Board
+        alice = User.objects.get(username="alice")
+        bob = User.objects.get(username="bob")
+        Board.objects.create(name="Alice Board", owner=alice)
+        Board.objects.create(name="Bob Board", owner=bob)
+        # Baseline query count with 3 users (admin + alice + bob).
+        with CaptureQueriesContext(connection) as small:
+            r = self.client.get("/api/admin/users/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        small_count = len(small.captured_queries)
+
+        # Add 10 more users, each with a board.
+        extras = [make_user(username=f"extra{i}", email=f"extra{i}@example.com") for i in range(10)]
+        for u in extras:
+            Board.objects.create(name=f"Board {u.username}", owner=u)
+
+        with CaptureQueriesContext(connection) as large:
+            r = self.client.get("/api/admin/users/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        large_count = len(large.captured_queries)
+
+        # With prefetch: query count is the same regardless of user count.
+        # Without prefetch (N+1): large_count would be small_count + 10.
+        self.assertEqual(small_count, large_count, (
+            f"Query count grew from {small_count} to {large_count} when adding 10 users "
+            f"— indicates a per-user N+1 query for owned_boards."
+        ))
+
 
 # ---------------------------------------------------------------------------
 # AdminUsersView — POST (create user)
