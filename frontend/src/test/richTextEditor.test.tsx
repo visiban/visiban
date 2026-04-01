@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { sanitize } from 'hast-util-sanitize'
+import type { Element } from 'hast'
 import RichTextEditor from '../components/Card/RichTextEditor'
 
 // Tiptap uses ProseMirror which requires a real browser DOM; mock it for unit tests.
@@ -30,6 +32,13 @@ vi.mock('tiptap-markdown', () => ({
 }))
 // rehype-raw must be a function (unified plugin) — an empty object causes react-markdown to throw
 vi.mock('rehype-raw', () => ({ default: () => {} }))
+// rehype-sanitize: mock the plugin as a no-op and provide a minimal defaultSchema shape
+// so SANITIZE_SCHEMA construction in the component doesn't throw. The actual sanitization
+// behaviour is tested separately in the 'XSS sanitization schema' describe block below.
+vi.mock('rehype-sanitize', () => ({
+  default: () => {},
+  defaultSchema: { attributes: {}, tagNames: [] as string[] },
+}))
 
 describe('RichTextEditor', () => {
   const onSave = vi.fn()
@@ -114,6 +123,26 @@ describe('RichTextEditor', () => {
     })
   })
 
+  describe('XSS sanitization — component rendering', () => {
+    it('does not render <script> elements from description content', () => {
+      const { container } = render(
+        <RichTextEditor value={'Hello <script>alert("xss")</script> world'} onSave={vi.fn()} />
+      )
+      expect(container.querySelector('script')).toBeNull()
+    })
+
+    it('renders without error when description contains raw HTML attributes', () => {
+      expect(() =>
+        render(
+          <RichTextEditor
+            value={'<img src="x" onerror="alert(1)">'}
+            onSave={vi.fn()}
+          />
+        )
+      ).not.toThrow()
+    })
+  })
+
   describe('toolbar', () => {
     it('renders toolbar in edit mode', () => {
       const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
@@ -132,5 +161,86 @@ describe('RichTextEditor', () => {
       render(<RichTextEditor value="text" onSave={onSave} />)
       expect(screen.queryByTitle('Bold (Ctrl+B)')).not.toBeInTheDocument()
     })
+  })
+})
+
+// These tests exercise the sanitization schema logic directly via hast-util-sanitize.
+// They run outside the component mock scope and use the REAL rehype-sanitize defaultSchema
+// (vi.mock is hoisted but only applies to imports used by the component — hast-util-sanitize
+// is imported directly here and is not mocked). They verify the two key guarantees:
+// (1) <script> and event-handler attributes are stripped, and
+// (2) <span style="color:..."> values from the Tiptap Color extension are preserved.
+describe('XSS sanitization schema', () => {
+  // COLOR_PATTERN mirrors the regex in SANITIZE_SCHEMA in RichTextEditor.tsx.
+  const COLOR_PATTERN = /^color:\s*(#[0-9a-fA-F]{3,6}|[a-z]+)$/
+
+  // Minimal schema that replicates the component's SANITIZE_SCHEMA shape for these tests.
+  // Uses hast-util-sanitize's defaultSchema as the base (imported directly, not mocked).
+  const buildSchema = (base: Record<string, unknown>) => ({
+    ...base,
+    attributes: {
+      ...((base.attributes as Record<string, unknown>) ?? {}),
+      span: [
+        ...(((base.attributes as Record<string, unknown[]>)?.span) ?? []),
+        ['style', COLOR_PATTERN],
+      ],
+    },
+  })
+
+  it('strips <script> elements', async () => {
+    const { sanitize, defaultSchema } = await import('hast-util-sanitize')
+    const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
+    const scriptNode: Element = {
+      type: 'element',
+      tagName: 'script',
+      properties: {},
+      children: [{ type: 'text', value: 'alert(1)' }],
+    }
+    const result = sanitize({ type: 'root', children: [scriptNode] }, schema as Parameters<typeof sanitize>[1])
+    const tags = result.children.map((n) => ('tagName' in n ? n.tagName : n.type))
+    expect(tags).not.toContain('script')
+  })
+
+  it('strips event-handler attributes (onerror)', async () => {
+    const { sanitize, defaultSchema } = await import('hast-util-sanitize')
+    const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
+    const imgNode: Element = {
+      type: 'element',
+      tagName: 'img',
+      properties: { src: 'x', onerror: 'alert(1)' },
+      children: [],
+    }
+    const result = sanitize({ type: 'root', children: [imgNode] }, schema as Parameters<typeof sanitize>[1])
+    const img = result.children.find((n) => 'tagName' in n && n.tagName === 'img') as Element | undefined
+    expect(img?.properties?.onerror).toBeUndefined()
+  })
+
+  it('preserves <span style="color:#ff0000"> written by the Color extension', async () => {
+    const { sanitize, defaultSchema } = await import('hast-util-sanitize')
+    const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
+    const spanNode: Element = {
+      type: 'element',
+      tagName: 'span',
+      properties: { style: 'color:#ff0000' },
+      children: [{ type: 'text', value: 'red text' }],
+    }
+    const result = sanitize({ type: 'root', children: [spanNode] }, schema as Parameters<typeof sanitize>[1])
+    const span = result.children.find((n) => 'tagName' in n && n.tagName === 'span') as Element | undefined
+    expect(span).toBeDefined()
+    expect(span?.properties?.style).toBe('color:#ff0000')
+  })
+
+  it('strips <span style> with non-color values (CSS injection)', async () => {
+    const { sanitize, defaultSchema } = await import('hast-util-sanitize')
+    const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
+    const spanNode: Element = {
+      type: 'element',
+      tagName: 'span',
+      properties: { style: 'background:url(javascript:alert(1))' },
+      children: [],
+    }
+    const result = sanitize({ type: 'root', children: [spanNode] }, schema as Parameters<typeof sanitize>[1])
+    const span = result.children.find((n) => 'tagName' in n && n.tagName === 'span') as Element | undefined
+    expect(span?.properties?.style).toBeUndefined()
   })
 })
