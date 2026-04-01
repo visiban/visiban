@@ -96,3 +96,58 @@ class ServeMediaPathTraversalTests(TestCase):
         """An absolute path in the URL must not bypass the media root."""
         r = self.client.get("/media//etc/passwd")
         self.assertIn(r.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
+
+
+class ServeMediaContentDispositionTests(TestCase):
+    """ServeMediaView must force-download non-image files to prevent stored XSS (#588).
+
+    Only known-safe image types (JPEG, PNG, GIF, WebP) are served inline.
+    All other types — including text/plain — must carry Content-Disposition: attachment
+    so browsers download rather than render them.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_cd", password="pass")
+        self.board, self.col, self.swim = _make_board(self.owner)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", priority="medium", position=0, created_by=self.owner,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _make_attachment(self, content: bytes, filename: str, content_type: str) -> "CardAttachment":
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        f = SimpleUploadedFile(filename, content, content_type=content_type)
+        return CardAttachment.objects.create(
+            card=self.card, file=f, filename=filename, size=len(content),
+            uploaded_by=self.owner,
+        )
+
+    def test_plain_text_served_as_attachment_not_inline(self):
+        """text/plain files must be served with Content-Disposition: attachment."""
+        att = self._make_attachment(b"hello world", "notes.txt", "text/plain")
+        r = self.client.get(f"/media/{att.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        disposition = r.get("Content-Disposition", "")
+        self.assertIn("attachment", disposition,
+            "text/plain must not be served inline — it could render HTML/script payloads in the browser")
+
+    def test_pdf_served_as_attachment_not_inline(self):
+        """PDF files must be served with Content-Disposition: attachment."""
+        att = self._make_attachment(b"%PDF-1.4 data", "doc.pdf", "application/pdf")
+        r = self.client.get(f"/media/{att.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        disposition = r.get("Content-Disposition", "")
+        self.assertIn("attachment", disposition)
+
+    def test_jpeg_served_inline(self):
+        """JPEG images may be served inline — they cannot execute scripts."""
+        att = self._make_attachment(
+            b"\xff\xd8\xff\xe0" + b"\x00" * 100, "photo.jpg", "image/jpeg"
+        )
+        r = self.client.get(f"/media/{att.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        disposition = r.get("Content-Disposition", "inline")
+        self.assertEqual(disposition, "inline",
+            "JPEG images should be served inline for a better UX")

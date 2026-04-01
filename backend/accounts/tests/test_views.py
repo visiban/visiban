@@ -265,3 +265,58 @@ class UserSearchViewTests(TestCase):
         self.client.force_authenticate(user=None)
         r = self.client.get("/api/users/", {"search": "alice"})
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
+
+class CurrentUserSerializerWritableFieldsTests(TestCase):
+    """Allowlist test for CurrentUserSerializer writable fields (#589).
+
+    A denylist test silently passes when a new sensitive field is added to the
+    serializer without being marked read_only.  This allowlist test fails fast
+    whenever the serializer changes, forcing an explicit decision about whether
+    each new field should be writable via PATCH /api/auth/me/.
+    """
+
+    def test_writable_fields_match_allowlist(self):
+        """Only explicitly approved fields may be writable via PATCH /api/auth/me/."""
+        from accounts.serializers import CurrentUserSerializer
+
+        # Fields that are intentionally writable by the authenticated user.
+        # To add a new writable field: add it here AND confirm it is safe to expose
+        # via the user-facing profile update endpoint before merging.
+        ALLOWED_WRITABLE = {
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "avatar_url",
+            "display_name",
+            "timezone",
+            "date_format",
+            "time_format",
+            "number_locale",
+            "close_editor_on_enter",
+            "has_completed_tour",
+            "notif_card_assigned",
+            "notif_mentioned",
+            "notif_due_soon",
+            "notif_card_moved",
+            "notif_comment_added",
+            "notif_board_invite",
+            "default_board_id",
+        }
+
+        serializer = CurrentUserSerializer()
+        writable = {
+            name for name, field in serializer.fields.items()
+            if not field.read_only
+        }
+
+        self.assertEqual(
+            writable,
+            ALLOWED_WRITABLE,
+            "CurrentUserSerializer writable fields have changed. "
+            "Update ALLOWED_WRITABLE with an explicit decision about whether "
+            "the new/removed field should be writable via PATCH /api/auth/me/. "
+            f"Unexpected writable: {writable - ALLOWED_WRITABLE!r}. "
+            f"Missing from serializer: {ALLOWED_WRITABLE - writable!r}.",
+        )
