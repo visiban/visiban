@@ -90,6 +90,7 @@ nav:
     - Deployment: architecture/deployment.md
     - Scaling: architecture/scaling.md
     - Open-Core Boundary: architecture/open-core-boundary.md
+    - API Versioning: architecture/api-versioning.md
   - Administration:
     - administration/index.md
     - Site Admins: administration/site-admins.md

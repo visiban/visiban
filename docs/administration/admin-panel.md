@@ -83,6 +83,42 @@ These two flags — `is_site_admin` (admin panel access) and `can_access_all_con
 
 Sets `must_change_password = true` on the user. The next time they log in, they are presented with a password-change dialog before accessing the application. Useful after a suspected credential compromise.
 
+## Invite Links tab
+
+> **Added in 1.0.0-rc.10**
+
+The **Invite Links** tab lets site admins create and manage invite links for instance-wide registration. Invite links are only relevant when the instance registration mode is set to **Invite-only** (see [Settings tab](#settings-tab)), but links can be created regardless of the current mode and activated later.
+
+### Link list
+
+Each row in the list shows:
+
+| Column | Description |
+|---|---|
+| **Token prefix** | The first 8 characters of the token — enough to identify a link without exposing the full value |
+| **Status** | `Active`, `Expired`, or `Revoked` |
+| **Expires** | Expiry date and time in the instance timezone |
+| **Single-use** | Whether the link can only be used once |
+| **Uses** | How many times the link has been successfully redeemed |
+
+### Creating a new invite link
+
+Click **New invite link** to open the creation dialog. Fields:
+
+| Field | Notes |
+|---|---|
+| **TTL** | Time-to-live for the link — choose from preset durations (1 hour, 24 hours, 7 days, 30 days) or enter a custom value |
+| **Single-use** | When enabled, the link is automatically revoked after the first successful registration |
+
+After clicking **Create**, the full join URL (`/join/<token>`) is displayed **once** in the dialog. Copy it immediately — it is not shown again. The token prefix remains visible in the list for reference.
+
+!!! warning
+    The full join URL is only revealed at creation time. If you close the dialog without copying it, you must revoke the link and create a new one.
+
+### Revoking a link
+
+Click **Revoke** on any active link to invalidate it immediately. Revoked links cannot be re-activated. Users who attempt to use a revoked link receive a clear error message.
+
 ## CLI alternatives
 
 All admin-panel operations are also available via management commands for scripting and automation:
