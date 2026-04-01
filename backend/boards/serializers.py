@@ -324,7 +324,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
         from .utils import _get_effective_member_ids
         qs = _card_queryset(obj.cards.filter(archived_at__isnull=True))
         member_ids = _get_effective_member_ids(obj)
-        board_labels_qs = Label.objects.filter(board=obj)
+        # Reuse the labels prefetch loaded by get_board_for_user() rather than
+        # issuing a second Label query.  The board must be fetched via
+        # get_board_for_user() (which prefetches "labels") for this to hit the
+        # cache; a bare Board.objects.get() would fall back to a live query.
+        board_labels_qs = obj.labels.all()
         ctx = {**self.context, "board": obj, "_member_ids": member_ids, "_board_labels_qs": board_labels_qs}
         return CardSerializer(qs, many=True, context=ctx).data
 

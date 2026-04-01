@@ -205,10 +205,17 @@ class BoardAnalyticsMixin:
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
 
-        # Load all cards and their movements in two queries (cards + prefetch),
-        # then group by swimlane to avoid O(swimlanes) extra card+movement queries.
+        # Load cards within the analysis window and their movements in two
+        # queries (cards + prefetch), then group by swimlane to avoid
+        # O(swimlanes) extra card+movement queries.
+        # Include cards archived within the window so their dwell-time data
+        # contributes to the heatmap.  Cards archived before the window would
+        # inflate past-column counts without adding value to the selected view.
+        from django.db.models import Q as _Q
         all_cards = list(
-            board.cards.prefetch_related("movements").order_by("swimlane_id", "position")
+            board.cards.filter(
+                _Q(archived_at__isnull=True) | _Q(archived_at__gte=period_cutoff)
+            ).prefetch_related("movements").order_by("swimlane_id", "position")
         )
         cards_by_swimlane: dict[int, list] = {}
         for _c in all_cards:
