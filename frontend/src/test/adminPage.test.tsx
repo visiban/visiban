@@ -196,6 +196,14 @@ describe('AdminPage — Settings tab', () => {
       expect(screen.getByText(/failed to load settings/i)).toBeInTheDocument()
     })
   })
+
+  it('renders native radio inputs for registration mode', async () => {
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Open'))
+    const radios = screen.getAllByRole('radio')
+    const openRadio = radios.find((r) => (r as HTMLInputElement).value === 'open')
+    expect(openRadio).toBeChecked()
+  })
 })
 
 // ---------------------------------------------------------------------------

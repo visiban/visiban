@@ -377,22 +377,27 @@ describe('AppearanceTab', () => {
   })
 
   it('clicking System theme option calls setPreference with "system"', async () => {
+    // mock starts with preference='dark'; clicking system fires onChange
     const user = await openAppearanceTab()
-    await user.click(screen.getByText('System'))
+    const systemRadio = screen.getAllByRole('radio').find((r) => (r as HTMLInputElement).value === 'system')!
+    await user.click(systemRadio)
     expect(mockSetPreference).toHaveBeenCalledWith('system')
-  })
-
-  it('clicking Dark theme option calls setPreference with "dark"', async () => {
-    const user = await openAppearanceTab()
-    await user.click(screen.getByText('Dark'))
-    expect(mockSetPreference).toHaveBeenCalledWith('dark')
   })
 
   it('active theme (dark) shows selected indicator', async () => {
     await openAppearanceTab()
-    // The Dark button should have the blue-selected styling
-    const darkButton = screen.getByText('Dark').closest('button')
-    expect(darkButton?.className).toMatch(/border-blue-500/)
+    // The Dark label should have the blue-selected styling
+    const darkLabel = screen.getByText('Dark').closest('label')
+    expect(darkLabel?.className).toMatch(/border-blue-500/)
+  })
+
+  it('renders native radio inputs for accessibility', async () => {
+    await openAppearanceTab()
+    const radios = screen.getAllByRole('radio')
+    expect(radios.length).toBeGreaterThanOrEqual(2)
+    // The active theme (dark) radio should be checked
+    const darkRadio = radios.find((r) => (r as HTMLInputElement).value === 'dark')
+    expect(darkRadio).toBeChecked()
   })
 })
 

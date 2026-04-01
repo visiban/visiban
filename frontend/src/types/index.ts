@@ -35,6 +35,7 @@ export interface User {
   notif_due_soon?: boolean;
   notif_card_moved?: boolean;
   notif_comment_added?: boolean;
+  notif_board_invite?: boolean;
   close_editor_on_enter?: boolean;
   has_completed_tour?: boolean;
   /** PK of the board to open automatically on login, or null if not set. */

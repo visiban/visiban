@@ -161,7 +161,7 @@ class BoardViewSet(
             if request.method == "POST":
                 board.share_token = _uuid.uuid4()
                 board.save(update_fields=["share_token"])
-                share_url = request.build_absolute_uri(f"/share/{board.share_token}")
+                share_url = request.build_absolute_uri(f"/api/share/{board.share_token}")
                 response_data = {"share_token": str(board.share_token), "share_url": share_url}
             else:
                 # DELETE

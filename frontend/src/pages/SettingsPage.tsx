@@ -583,17 +583,24 @@ function AppearanceTab() {
 
       <div>
         <p className="text-sm text-slate-400 mb-3">Theme</p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" role="radiogroup" aria-label="Theme">
           {THEME_OPTIONS.map(({ value, label, description }) => (
-            <button
+            <label
               key={value}
-              onClick={() => setPreference(value)}
-              className={`flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border transition ${
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 ${
                 preference === value
-                  ? "border-blue-500 bg-blue-600/10 text-white"
-                  : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
+                  ? "border-blue-500 bg-blue-500/10"
+                  : "border-slate-600 hover:bg-slate-700/40"
               }`}
             >
+              <input
+                type="radio"
+                className="sr-only"
+                name="theme"
+                value={value}
+                checked={preference === value}
+                onChange={() => setPreference(value)}
+              />
               <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                 preference === value ? "border-blue-500" : "border-slate-500"
               }`}>
@@ -602,10 +609,10 @@ function AppearanceTab() {
                 )}
               </span>
               <span>
-                <span className="block text-sm font-medium">{label}</span>
-                <span className="block text-xs text-slate-500">{description}</span>
+                <span className="block text-sm font-medium text-slate-200">{label}</span>
+                <span className="block text-xs text-slate-500 mt-0.5">{description}</span>
               </span>
-            </button>
+            </label>
           ))}
 
         </div>

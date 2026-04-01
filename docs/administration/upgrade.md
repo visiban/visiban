@@ -231,6 +231,19 @@ After rolling back, restart the backend container with the previous image versio
 
     Fresh installs (where no pre-1.0 migrations have ever been applied) are not affected.
 
+!!! warning "Maintenance window required for groups/0012 (plaintext token column drop)"
+    Migration `groups/0012` drops the `token` column from the `groupinvitelinks` table. This column was replaced by `token_hash` + `prefix` in migrations `0010`/`0011`. All invite link lookups have read `token_hash` exclusively since that point (#605).
+
+    Because this is a column drop, it is **irreversible** — if you apply this migration and need to roll back, you must restore from a backup.
+
+    **Required upgrade procedure for instances running a version prior to `groups/0012`:**
+
+    1. Stop all backend container(s) before running migrations — the old code references `token` at the ORM level; running it against the post-0012 schema will cause startup errors.
+    2. Run `python manage.py migrate`.
+    3. Start backend container(s) with the new image.
+
+    Instances that are already on a release that includes `groups/0012` are not affected.
+
 !!! warning "Maintenance window required for boards/0005 (Customer → Swimlane rename)"
     Migration `boards/0005` renames the `customers` table to `swimlanes` and renames four columns (`customer_id`, `from_customer_id`, `to_customer_id`) to their `swimlane` equivalents. This is a **single-step rename** — there is no intermediate schema state where both the old code (reading `customer`) and the new code (reading `swimlane`) can run simultaneously.
 

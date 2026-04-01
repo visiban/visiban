@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Avatar from '../components/Common/Avatar'
 
@@ -515,6 +515,43 @@ describe('ColumnHeader', () => {
     )
     expect(screen.getByText('DON')).toBeInTheDocument()
     expect(screen.getByTitle('Expand "Done"')).toBeInTheDocument()
+  })
+
+  it('collapsed column is keyboard-accessible with role=button and tabIndex', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Done' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={true}
+        onToggleCollapse={noop}
+      />,
+    )
+    const btn = screen.getByTitle('Expand "Done"')
+    expect(btn).toHaveAttribute('role', 'button')
+    expect(btn).toHaveAttribute('tabindex', '0')
+  })
+
+  it('collapsed column fires onToggleCollapse on Enter key', () => {
+    const onToggleCollapse = vi.fn()
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Done' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={true}
+        onToggleCollapse={onToggleCollapse}
+      />,
+    )
+    const btn = screen.getByTitle('Expand "Done"')
+    fireEvent.keyDown(btn, { key: 'Enter' })
+    expect(onToggleCollapse).toHaveBeenCalledOnce()
   })
 })
 
