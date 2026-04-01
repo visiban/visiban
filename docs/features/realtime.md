@@ -204,6 +204,18 @@ externalRedis:
 !!! tip
     If you use a single external Redis instance for both Channels and caching, set both `REDIS_URL` and `REDIS_CACHE_URL` to the same DSN. Using different database numbers (e.g. `/0` and `/1`) keeps the keyspaces separate and avoids accidental eviction of channel-layer data by cache expiry.
 
+## Tab-focus reconciliation
+
+When a browser tab is backgrounded, the operating system may throttle or suspend JavaScript timers and WebSocket connections. Events broadcast while the tab is inactive can be lost, causing the board state to drift.
+
+To guard against this, Visiban automatically re-fetches the full board state when a tab returns to the foreground (`visibilitychange` event). A 30-second throttle prevents redundant fetches when the user rapidly switches between tabs. The reload is "silent" — it does not flash a loading skeleton.
+
+## Optimistic concurrency control
+
+Card moves use optimistic concurrency control (OCC) to prevent lost updates. Every card carries a `version` number that increments on every mutation (move, field update). When the frontend sends a move request, it includes the card's current `version`. If another user modified the card in the meantime, the server returns `409 Conflict` with a `version_conflict` error code, and the frontend refreshes the board automatically.
+
+The version check is backward-compatible: clients that omit the `version` field bypass the OCC check entirely.
+
 ## ASGI server
 
 The backend runs under **daphne** (ASGI) instead of gunicorn (WSGI) to support WebSocket connections. This is handled automatically in `docker-compose.yml` and the Helm chart.

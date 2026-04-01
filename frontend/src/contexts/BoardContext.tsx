@@ -9,6 +9,7 @@ export interface BoardContextType {
   loading: boolean;
   error: string | null;
   reload: () => void;
+  silentReload: () => void;
   moveCard: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<void>;
   forceMoveCard: () => Promise<void>;
   moveError: MoveBlockedError | null;

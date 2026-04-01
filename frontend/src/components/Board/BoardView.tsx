@@ -38,6 +38,8 @@ import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
+import { useBoardResync } from "../../hooks/useBoardResync";
+import SectionErrorBoundary from "../SectionErrorBoundary";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 
@@ -130,12 +132,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     evictSwimlane,
     evictCardByUid,
     mergeBoardState,
+    silentReload,
   } = useBoardContext();
 
   // BoardView is only rendered when board is non-null (guarded by the parent).
   // The non-null assertion keeps the existing contract without changing every
   // downstream reference from BoardFull to BoardFull | null.
   const board = boardOrNull!;
+
+  // Re-fetch board state when the user returns to a backgrounded tab.
+  useBoardResync(silentReload);
 
   // Alias removeCard for the two semantic uses (archive and delete both remove
   // the card from local state).
@@ -699,7 +705,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
-        <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
+        <SectionErrorBoundary section="Summary">
+          <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
+        </SectionErrorBoundary>
       </div>
     );
   }
@@ -710,7 +718,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
-        <MovementHistoryView board={board} />
+        <SectionErrorBoundary section="Movement history">
+          <MovementHistoryView board={board} />
+        </SectionErrorBoundary>
       </div>
     );
   }
@@ -721,14 +731,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0">
           <ViewToggle view={view} onChange={setView} />
         </div>
-        <AnalyticsView
-          boardId={board.id}
-          currentUserRole={board.current_user_role}
-          onOpenCard={(cardId) => {
-            const card = board.cards.find((c) => c.id === cardId);
-            if (card) { clearSelection(); setSelectedCard(card); }
-          }}
-        />
+        <SectionErrorBoundary section="Analytics">
+          <AnalyticsView
+            boardId={board.id}
+            currentUserRole={board.current_user_role}
+            onOpenCard={(cardId) => {
+              const card = board.cards.find((c) => c.id === cardId);
+              if (card) { clearSelection(); setSelectedCard(card); }
+            }}
+          />
+        </SectionErrorBoundary>
         {selectedCard && (
           <CardDetail
             card={selectedCard}
@@ -896,6 +908,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
 
+      <SectionErrorBoundary section="Board grid">
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/*
           Single scroll container — header and body share the same horizontal
@@ -1101,6 +1114,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           )}
         </DragOverlay>
       </DndContext>
+      </SectionErrorBoundary>
 
       {selectedCardIds.size > 0 && canEdit && (
         <BulkActionToolbar
@@ -1115,20 +1129,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       {selectedCard && (
-        <CardDetail
-          card={selectedCard}
-          board={board}
-          onClose={() => setSelectedCard(null)}
-          onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
-          onUpdated={onCardUpdated}
-          onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
-          onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
-          userDateFormat={userDateFormat}
-          userTimeFormat={userTimeFormat}
-          userTimezone={userTimezone}
-          currentUser={currentUser}
-          closeEditorOnEnter={closeEditorOnEnter}
-        />
+        <SectionErrorBoundary section="Card detail">
+          <CardDetail
+            card={selectedCard}
+            board={board}
+            onClose={() => setSelectedCard(null)}
+            onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
+            onUpdated={onCardUpdated}
+            onArchived={(id) => { onCardArchived(id); setSelectedCard(null); showArchiveToast(); }}
+            onMoveCard={async (cardId, columnId, swimlaneId, position) => onMoveCard(cardId, columnId, swimlaneId, position)}
+            userDateFormat={userDateFormat}
+            userTimeFormat={userTimeFormat}
+            userTimezone={userTimezone}
+            currentUser={currentUser}
+            closeEditorOnEnter={closeEditorOnEnter}
+          />
+        </SectionErrorBoundary>
       )}
 
       {isAdmin && showAddColumn && (

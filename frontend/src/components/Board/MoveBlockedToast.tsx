@@ -8,6 +8,9 @@ interface Props {
 }
 
 function toastBody(error: MoveBlockedError): string {
+  if (error.code === "version_conflict") {
+    return "This card was modified by another user while you were dragging it. The board has been refreshed.";
+  }
   if (error.code === "wip_limit_exceeded" || error.code === "wip_hard_blocked") {
     const s = error.wip_limit !== 1 ? "s" : "";
     return `"${error.column_name}" is at its limit of ${error.wip_limit} card${s} (${error.current_count} active).`;
@@ -17,12 +20,14 @@ function toastBody(error: MoveBlockedError): string {
 }
 
 function toastTitle(error: MoveBlockedError): string {
+  if (error.code === "version_conflict") return "Card was updated";
   if (error.code === "wip_hard_blocked") return "Column at capacity — no exceptions";
   return error.code === "wip_limit_exceeded" ? "WIP limit reached" : "Weight limit reached";
 }
 
 export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {
   const hardBlocked = error.code === "wip_hard_blocked";
+  const versionConflict = error.code === "version_conflict";
   return (
     <div
       role="alert"
@@ -33,7 +38,7 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
         <p>
           <span className="font-medium">{toastTitle(error)}</span> — {toastBody(error)}
         </p>
-        {hardBlocked ? (
+        {versionConflict ? null : hardBlocked ? (
           // Hard mode: no override possible for any role. Show resolution hint instead.
           <p className="mt-1.5 text-xs text-slate-400">
             To unblock, move a card out of {error.column_name}, or ask an admin to raise the WIP limit.

@@ -240,6 +240,11 @@ class Card(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Optimistic concurrency control — incremented on every mutation (move,
+    # update, archive).  Clients send the version they have; the server
+    # rejects the request with 409 if it has been modified in the meantime.
+    # Source of change: Gemini Pro external codebase review (2026-04-01).
+    version = models.PositiveIntegerField(default=1)
     # Soft-delete: set when a card is archived; null for active cards.
     # Analytics uses this as the terminal timestamp so dwell time reflects
     # only the active period, not the time since archiving.

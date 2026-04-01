@@ -186,9 +186,9 @@ class CardSerializer(serializers.ModelSerializer):
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
-            "is_stale", "archived_at",
+            "is_stale", "archived_at", "version",
         ]
-        read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at"]
+        read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at", "version"]
 
     def get_last_moved_at(self, obj):
         # Use .all() not .first() — .first() bypasses the prefetch cache and
