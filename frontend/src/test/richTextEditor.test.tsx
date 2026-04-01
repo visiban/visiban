@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { Element } from 'hast'
+import type { Element as HastElement, Root } from 'hast'
 import RichTextEditor from '../components/Card/RichTextEditor'
 
 // Tiptap uses ProseMirror which requires a real browser DOM; mock it for unit tests.
@@ -189,13 +189,13 @@ describe('XSS sanitization schema', () => {
   it('strips <script> elements', async () => {
     const { sanitize, defaultSchema } = await import('hast-util-sanitize')
     const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
-    const scriptNode: Element = {
+    const scriptNode: HastElement = {
       type: 'element',
       tagName: 'script',
       properties: {},
       children: [{ type: 'text', value: 'alert(1)' }],
     }
-    const result = sanitize({ type: 'root', children: [scriptNode] }, schema as Parameters<typeof sanitize>[1])
+    const result = sanitize({ type: 'root', children: [scriptNode] }, schema as Parameters<typeof sanitize>[1]) as Root
     const tags = result.children.map((n) => ('tagName' in n ? n.tagName : n.type))
     expect(tags).not.toContain('script')
   })
@@ -203,28 +203,28 @@ describe('XSS sanitization schema', () => {
   it('strips event-handler attributes (onerror)', async () => {
     const { sanitize, defaultSchema } = await import('hast-util-sanitize')
     const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
-    const imgNode: Element = {
+    const imgNode: HastElement = {
       type: 'element',
       tagName: 'img',
       properties: { src: 'x', onerror: 'alert(1)' },
       children: [],
     }
-    const result = sanitize({ type: 'root', children: [imgNode] }, schema as Parameters<typeof sanitize>[1])
-    const img = result.children.find((n) => 'tagName' in n && n.tagName === 'img') as Element | undefined
+    const result = sanitize({ type: 'root', children: [imgNode] }, schema as Parameters<typeof sanitize>[1]) as Root
+    const img = result.children.find((n) => 'tagName' in n && n.tagName === 'img') as HastElement | undefined
     expect(img?.properties?.onerror).toBeUndefined()
   })
 
   it('preserves <span style="color:#ff0000"> written by the Color extension', async () => {
     const { sanitize, defaultSchema } = await import('hast-util-sanitize')
     const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
-    const spanNode: Element = {
+    const spanNode: HastElement = {
       type: 'element',
       tagName: 'span',
       properties: { style: 'color:#ff0000' },
       children: [{ type: 'text', value: 'red text' }],
     }
-    const result = sanitize({ type: 'root', children: [spanNode] }, schema as Parameters<typeof sanitize>[1])
-    const span = result.children.find((n) => 'tagName' in n && n.tagName === 'span') as Element | undefined
+    const result = sanitize({ type: 'root', children: [spanNode] }, schema as Parameters<typeof sanitize>[1]) as Root
+    const span = result.children.find((n) => 'tagName' in n && n.tagName === 'span') as HastElement | undefined
     expect(span).toBeDefined()
     expect(span?.properties?.style).toBe('color:#ff0000')
   })
@@ -232,14 +232,14 @@ describe('XSS sanitization schema', () => {
   it('strips <span style> with non-color values (CSS injection)', async () => {
     const { sanitize, defaultSchema } = await import('hast-util-sanitize')
     const schema = buildSchema(defaultSchema as unknown as Record<string, unknown>)
-    const spanNode: Element = {
+    const spanNode: HastElement = {
       type: 'element',
       tagName: 'span',
       properties: { style: 'background:url(javascript:alert(1))' },
       children: [],
     }
-    const result = sanitize({ type: 'root', children: [spanNode] }, schema as Parameters<typeof sanitize>[1])
-    const span = result.children.find((n) => 'tagName' in n && n.tagName === 'span') as Element | undefined
+    const result = sanitize({ type: 'root', children: [spanNode] }, schema as Parameters<typeof sanitize>[1]) as Root
+    const span = result.children.find((n) => 'tagName' in n && n.tagName === 'span') as HastElement | undefined
     expect(span?.properties?.style).toBeUndefined()
   })
 })
