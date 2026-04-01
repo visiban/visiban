@@ -30,6 +30,7 @@ export const moveCard = (boardId: number, cardId: number, data: {
   column_id: number;
   swimlane_id: number;
   position: number;
+  version?: number;
 }, force?: boolean) => client.post<{ card: Card; movement?: CardMovement }>(
   `/api/boards/${boardId}/cards/${cardId}/move/${force ? "?force=true" : ""}`, data
 ).then((r) => r.data);

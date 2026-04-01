@@ -439,6 +439,8 @@ class CardViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(card, data=request.data, partial=partial)
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
+            # OCC: bump version on every mutation so stale clients detect conflicts.
+            Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
             card.refresh_from_db()
 
             activities = []
@@ -523,8 +525,32 @@ class CardViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         card = get_object_or_404(
-            Card.objects.select_related("column", "swimlane"), pk=pk, board=board
+            Card.objects.select_for_update().select_related("column", "swimlane"),
+            pk=pk, board=board,
         )
+
+        # Optimistic concurrency control — reject stale writes.  Clients send
+        # the version they have; if it doesn't match the DB, another user has
+        # modified the card since the client last fetched it.  The check is
+        # optional for backward compatibility: omitting version skips OCC.
+        client_version = request.data.get("version")
+        if client_version is not None:
+            try:
+                client_version = int(client_version)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "version must be an integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if card.version != client_version:
+                return Response(
+                    {
+                        "code": "version_conflict",
+                        "detail": "This card was modified by another user. Please refresh and try again.",
+                        "current_version": card.version,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
 
         target_column_id = request.data.get("column_id")
         target_swimlane_id = request.data.get("swimlane_id")
@@ -675,7 +701,9 @@ class CardViewSet(viewsets.ModelViewSet):
         card.column = target_column
         card.swimlane = target_swimlane
         card.position = new_position
-        card.save(update_fields=["column", "swimlane", "position"])
+        card.version = F("version") + 1
+        card.save(update_fields=["column", "swimlane", "position", "version"])
+        card.refresh_from_db(fields=["version"])
 
         # Re-fetch the card through _card_queryset so CardSerializer has all
         # prefetches populated — the card instance at this point is bare (loaded

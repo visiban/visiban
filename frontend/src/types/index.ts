@@ -161,6 +161,7 @@ export interface Card {
   checklist_done: number;
   is_stale: boolean;
   archived_at: string | null;
+  version: number;
 }
 
 export interface Notification {

@@ -7,7 +7,8 @@ import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "
 export type MoveBlockedError =
   | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
   | { code: "wip_hard_blocked"; column_name: string; current_count: number; wip_limit: number }
-  | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number };
+  | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number }
+  | { code: "version_conflict"; detail: string; current_version: number };
 
 /** @deprecated Use MoveBlockedError */
 export type WipLimitError = Extract<MoveBlockedError, { code: "wip_limit_exceeded" }>;
@@ -56,6 +57,21 @@ export function useBoard() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Silent reload — re-fetches the full board without flashing the loading
+  // skeleton.  Used by tab-focus reconciliation so the resync is invisible
+  // to the user unless the board no longer exists or access was revoked.
+  const silentReload = useCallback(() => {
+    getBoardFull(boardId)
+      .then(setBoard)
+      .catch((err) => {
+        if (err?.response?.status === 404 || err?.response?.status === 403) {
+          navigate("/", { replace: true });
+        }
+        // Swallow other errors silently — a background resync failure is not
+        // worth surfacing to the user; the WS connection will recover it.
+      });
+  }, [boardId, navigate]);
+
   const clearMoveError = useCallback(() => {
     setMoveError(null);
     setPendingMove(null);
@@ -84,8 +100,13 @@ export function useBoard() {
       };
     });
 
+    // Send the card's version for optimistic concurrency control — the server
+    // rejects the move if another user has modified the card since we last
+    // fetched it.
+    const cardVersion = boardRef.current.cards.find((c) => c.id === cardId)?.version;
+
     try {
-      const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position });
+      const { card } = await apiMoveCard(boardId, cardId, { column_id: columnId, swimlane_id: swimlaneId, position, version: cardVersion });
       setBoard((b) => {
         if (!b) return b;
         return { ...b, cards: b.cards.map((c) => (c.id === cardId ? card : c)) };
@@ -93,11 +114,15 @@ export function useBoard() {
     } catch (err: unknown) {
       // Roll back the optimistic update unconditionally.
       setBoard((b) => b ? { ...b, cards: prev } : b);
-      // On WIP limit exceeded (409), surface a structured error for the UI to display.
+      // On 409, surface a structured error for the UI to display.
       const axiosErr = err as { response?: { status?: number; data?: unknown } };
       if (axiosErr?.response?.status === 409) {
         const data = axiosErr.response.data as MoveBlockedError;
-        if (data?.code === "wip_limit_exceeded" || data?.code === "weight_limit_exceeded") {
+        if (data?.code === "version_conflict") {
+          // Another user modified this card — reload the board to get fresh state.
+          setMoveError(data);
+          load();
+        } else if (data?.code === "wip_limit_exceeded" || data?.code === "weight_limit_exceeded") {
           setMoveError(data);
           setPendingMove({ cardId, columnId, swimlaneId, position });
         } else if (data?.code === "wip_hard_blocked") {
@@ -106,7 +131,7 @@ export function useBoard() {
         }
       }
     }
-  }, [boardId]);
+  }, [boardId, load]);
 
   // Admin-only: retry the last blocked move with force=true, bypassing the WIP limit.
   const forceMoveCard = useCallback(async () => {
@@ -333,5 +358,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, reload: load, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
+  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }
