@@ -288,7 +288,18 @@ class BoardImportExportMixin:
                 .filter(lower_username__in=[n.lower() for n in all_usernames])
             } if all_usernames else {}
 
-            # Create cards
+            # ---------- Phase 1: build Card instances (no DB writes yet) ----------
+            # We defer all per-card related objects until after bulk_create returns
+            # PKs.  Keyed lists accumulate data that needs those PKs.
+            valid_priorities = {c[0] for c in Card.Priority.choices}
+            valid_event_types = {e[0] for e in CardActivity.EventType.choices}
+            valid_movement_types = {t[0] for t in CardMovement.MovementType.choices}
+
+            cards_to_create = []
+            # Parallel list: the raw card_data dict for each Card instance so we
+            # can correlate after bulk_create assigns PKs.
+            cards_raw = []
+
             for card_data in data.get("cards", []):
                 column = column_map.get(card_data["column"])
                 swimlane = swimlane_map.get(card_data["swimlane"])
@@ -296,14 +307,13 @@ class BoardImportExportMixin:
                     continue
 
                 priority = card_data.get("priority", "medium")
-                if priority not in [c[0] for c in Card.Priority.choices]:
+                if priority not in valid_priorities:
                     priority = "medium"
 
-                # Resolve assignee by username if present; silently skip unknown users.
                 assignee_username = card_data.get("assignee")
                 assignee = user_map.get(assignee_username.lower()) if assignee_username else None
 
-                card = Card.objects.create(
+                card_obj = Card(
                     board=board,
                     column=column,
                     swimlane=swimlane,
@@ -316,71 +326,92 @@ class BoardImportExportMixin:
                     position=card_data.get("position", 0),
                     created_by=request.user,
                 )
-                # Restore archived state. Cards that were archived when exported
-                # must come back as archived — not silently re-activated.
+                # Restore archived state directly on the instance — bulk_create
+                # respects explicitly set field values so no UPDATE pass is needed.
                 if card_data.get("archived_at"):
-                    Card.objects.filter(pk=card.pk).update(
-                        archived_at=card_data["archived_at"]
-                    )
-                    card.archived_at = card_data["archived_at"]
+                    card_obj.archived_at = card_data["archived_at"]
 
-                # Record weight change activity for non-default weights
-                if card.weight and card.weight > 1:
-                    CardActivity.objects.create(
-                        card=card,
+                cards_to_create.append(card_obj)
+                cards_raw.append(card_data)
+
+            # Single INSERT for all cards.  PostgreSQL returns PKs in insertion
+            # order, so cards_to_create[i].pk aligns with cards_raw[i] after this.
+            Card.objects.bulk_create(cards_to_create)
+
+            # ---------- Phase 2: build related objects using the assigned PKs ----------
+            label_through = Card.labels.through
+            label_through_objs = []
+
+            # Auto-generated activities (weight, labels, checklist)
+            auto_activities = []
+
+            comments_to_create = []       # (CardComment obj, created_at str or None)
+            checklists_to_create = []
+
+            movements_to_create = []      # (CardMovement obj, moved_at str or None)
+            imported_activities = []      # (CardActivity obj, created_at str or None)
+
+            for card_obj, card_data in zip(cards_to_create, cards_raw):
+                card_pk = card_obj.pk
+
+                # Weight-change activity for non-default weights
+                if card_obj.weight and card_obj.weight > 1:
+                    auto_activities.append(CardActivity(
+                        card_id=card_pk,
                         event_type=CardActivity.EventType.WEIGHT_CHANGE,
                         from_value="1",
-                        to_value=str(card.weight),
+                        to_value=str(card_obj.weight),
                         actor=request.user,
-                    )
+                    ))
 
-                # Assign labels
-                card_labels = []
-                for label_name in card_data.get("labels", []):
-                    label = label_map.get(label_name)
-                    if label:
-                        card_labels.append(label)
+                # Labels (M2M via through model) + label-change activity
+                card_labels = [
+                    label_map[name]
+                    for name in card_data.get("labels", [])
+                    if name in label_map
+                ]
+                for label in card_labels:
+                    label_through_objs.append(
+                        label_through(card_id=card_pk, label_id=label.pk)
+                    )
                 if card_labels:
-                    card.labels.set(card_labels)
-                    CardActivity.objects.create(
-                        card=card,
+                    auto_activities.append(CardActivity(
+                        card_id=card_pk,
                         event_type=CardActivity.EventType.LABEL_CHANGE,
                         from_value="",
                         to_value=f"+{', '.join(lb.name for lb in card_labels)}",
                         actor=request.user,
-                    )
+                    ))
 
-                # Create comments. Original timestamps are backfilled via .update()
-                # so the activity timeline reflects when comments were actually written.
+                # Comments
                 for comment_data in card_data.get("comments", []):
-                    comment = CardComment.objects.create(
-                        card=card,
-                        author=request.user,
-                        body=comment_data.get("body", ""),
-                    )
-                    if comment_data.get("created_at"):
-                        CardComment.objects.filter(pk=comment.pk).update(
-                            created_at=comment_data["created_at"]
-                        )
+                    comments_to_create.append((
+                        CardComment(
+                            card_id=card_pk,
+                            author=request.user,
+                            body=comment_data.get("body", ""),
+                        ),
+                        comment_data.get("created_at"),
+                    ))
 
-                # Create checklist items
+                # Checklist items + checklist-added activities
                 for ci_idx, checklist_data in enumerate(card_data.get("checklist", [])):
-                    item = CardChecklist.objects.create(
-                        card=card,
+                    item = CardChecklist(
+                        card_id=card_pk,
                         text=checklist_data.get("text", ""),
                         is_checked=checklist_data.get("is_checked", False),
                         position=ci_idx,
                     )
-                    CardActivity.objects.create(
-                        card=card,
+                    checklists_to_create.append(item)
+                    auto_activities.append(CardActivity(
+                        card_id=card_pk,
                         event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
                         from_value="",
                         to_value=item.text,
                         actor=request.user,
-                    )
+                    ))
 
-                # Create movement history. Unknown usernames fall back to the
-                # importing user so history is never orphaned.
+                # Movement history
                 for mv_data in card_data.get("movements", []):
                     from_col_name = mv_data.get("from_column") or ""
                     to_col_name = mv_data.get("to_column") or ""
@@ -394,57 +425,113 @@ class BoardImportExportMixin:
                     moved_by = (
                         user_map.get(moved_by_username.lower()) if moved_by_username else None
                     ) or request.user
-                    valid_movement_types = [t[0] for t in CardMovement.MovementType.choices]
                     raw_movement_type = mv_data.get("movement_type", CardMovement.MovementType.MOVE)
                     movement_type = (
                         raw_movement_type
                         if raw_movement_type in valid_movement_types
                         else CardMovement.MovementType.MOVE
                     )
-                    mv = CardMovement.objects.create(
-                        card=card,
-                        from_column=from_col,
-                        to_column=to_col,
-                        from_swimlane=from_sw,
-                        to_swimlane=to_sw,
-                        from_column_name=from_col.name if from_col else from_col_name,
-                        to_column_name=to_col.name if to_col else to_col_name,
-                        from_swimlane_name=from_sw.name if from_sw else from_sw_name,
-                        to_swimlane_name=to_sw.name if to_sw else to_sw_name,
-                        from_column_uid=from_col.uid if from_col else "",
-                        to_column_uid=to_col.uid if to_col else "",
-                        from_swimlane_uid=from_sw.uid if from_sw else "",
-                        to_swimlane_uid=to_sw.uid if to_sw else "",
-                        moved_by=moved_by,
-                        notes=mv_data.get("notes", ""),
-                        movement_type=movement_type,
-                    )
-                    if mv_data.get("moved_at"):
-                        CardMovement.objects.filter(pk=mv.pk).update(
-                            moved_at=mv_data["moved_at"]
-                        )
+                    movements_to_create.append((
+                        CardMovement(
+                            card_id=card_pk,
+                            from_column=from_col,
+                            to_column=to_col,
+                            from_swimlane=from_sw,
+                            to_swimlane=to_sw,
+                            from_column_name=from_col.name if from_col else from_col_name,
+                            to_column_name=to_col.name if to_col else to_col_name,
+                            from_swimlane_name=from_sw.name if from_sw else from_sw_name,
+                            to_swimlane_name=to_sw.name if to_sw else to_sw_name,
+                            from_column_uid=from_col.uid if from_col else "",
+                            to_column_uid=to_col.uid if to_col else "",
+                            from_swimlane_uid=from_sw.uid if from_sw else "",
+                            to_swimlane_uid=to_sw.uid if to_sw else "",
+                            moved_by=moved_by,
+                            notes=mv_data.get("notes", ""),
+                            movement_type=movement_type,
+                        ),
+                        mv_data.get("moved_at"),
+                    ))
 
-                # Create activity log entries (field-change history).
+                # Imported activity log entries (field-change history)
                 for act_data in card_data.get("activities", []):
                     event_type = act_data.get("event_type", "")
-                    valid_types = [e[0] for e in CardActivity.EventType.choices]
-                    if event_type not in valid_types:
+                    if event_type not in valid_event_types:
                         continue
                     actor_username = act_data.get("actor")
                     actor = (
                         user_map.get(actor_username.lower()) if actor_username else None
                     ) or request.user
-                    act = CardActivity.objects.create(
-                        card=card,
-                        event_type=event_type,
-                        from_value=act_data.get("from_value", ""),
-                        to_value=act_data.get("to_value", ""),
-                        actor=actor,
+                    imported_activities.append((
+                        CardActivity(
+                            card_id=card_pk,
+                            event_type=event_type,
+                            from_value=act_data.get("from_value", ""),
+                            to_value=act_data.get("to_value", ""),
+                            actor=actor,
+                        ),
+                        act_data.get("created_at"),
+                    ))
+
+            # ---------- Phase 3: bulk-insert all related objects ----------
+
+            # Labels M2M — ignore_conflicts in case the same label appears twice
+            # in a card's label list (defensive; exporter should deduplicate).
+            if label_through_objs:
+                label_through.objects.bulk_create(label_through_objs, ignore_conflicts=True)
+
+            # Auto-generated activities (no timestamp backfill needed — these are
+            # produced by the import itself, not carried over from the export).
+            if auto_activities:
+                CardActivity.objects.bulk_create(auto_activities)
+
+            # Checklist items
+            if checklists_to_create:
+                CardChecklist.objects.bulk_create(checklists_to_create)
+
+            # Comments with optional timestamp backfill.
+            # bulk_create returns objects with PKs; bulk_update then issues a single
+            # UPDATE … SET created_at = CASE WHEN … covering all rows at once.
+            if comments_to_create:
+                comment_objs = [c for c, _ in comments_to_create]
+                CardComment.objects.bulk_create(comment_objs)
+                backfill = [
+                    (obj, ts) for obj, ts in comments_to_create if ts
+                ]
+                if backfill:
+                    for obj, ts in backfill:
+                        obj.created_at = ts
+                    CardComment.objects.bulk_update(
+                        [obj for obj, _ in backfill], ["created_at"]
                     )
-                    if act_data.get("created_at"):
-                        CardActivity.objects.filter(pk=act.pk).update(
-                            created_at=act_data["created_at"]
-                        )
+
+            # Movements with optional moved_at backfill.
+            if movements_to_create:
+                mv_objs = [m for m, _ in movements_to_create]
+                CardMovement.objects.bulk_create(mv_objs)
+                backfill = [
+                    (obj, ts) for obj, ts in movements_to_create if ts
+                ]
+                if backfill:
+                    for obj, ts in backfill:
+                        obj.moved_at = ts
+                    CardMovement.objects.bulk_update(
+                        [obj for obj, _ in backfill], ["moved_at"]
+                    )
+
+            # Imported activities with optional created_at backfill.
+            if imported_activities:
+                act_objs = [a for a, _ in imported_activities]
+                CardActivity.objects.bulk_create(act_objs)
+                backfill = [
+                    (obj, ts) for obj, ts in imported_activities if ts
+                ]
+                if backfill:
+                    for obj, ts in backfill:
+                        obj.created_at = ts
+                    CardActivity.objects.bulk_update(
+                        [obj for obj, _ in backfill], ["created_at"]
+                    )
 
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
