@@ -83,6 +83,7 @@ Closes #N
 EOF
 )" \
   --target-branch main \
+  --remove-source-branch \
   --yes
 ```
 
@@ -173,7 +174,7 @@ If the pipeline fails, run `/ci-debug` with the MR number, fix the root cause, p
 
 ## What NOT to do
 
-- Never use `--squash` or `--remove-source-branch` flags unless the user explicitly requests it
+- Never use `--squash` unless the user explicitly requests it
 - Never merge an MR with a failing or pending pipeline
 - Never push directly to `main` — if you find yourself on `main` with uncommitted changes, create a branch first
 - Never skip the test comment step — both pass and fail results must be posted
