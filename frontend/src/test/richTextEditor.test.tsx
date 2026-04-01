@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { sanitize } from 'hast-util-sanitize'
 import type { Element } from 'hast'
 import RichTextEditor from '../components/Card/RichTextEditor'
 
