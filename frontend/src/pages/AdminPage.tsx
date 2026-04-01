@@ -739,18 +739,27 @@ function SettingsTab() {
         <p className="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">
           Registration
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" role="radiogroup" aria-label="Registration mode">
           {REGISTRATION_MODE_OPTIONS.map(({ value, label, description }) => (
-            <button
+            <label
               key={value}
-              onClick={() => handleChange(value)}
-              disabled={saving}
-              className={`flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg border transition disabled:opacity-50 ${
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 ${
+                saving ? "opacity-50 pointer-events-none" : ""
+              } ${
                 settings?.registration_mode === value
-                  ? "border-blue-500 bg-blue-600/10 text-white"
-                  : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
+                  ? "border-blue-500 bg-blue-500/10"
+                  : "border-slate-600 hover:bg-slate-700/40"
               }`}
             >
+              <input
+                type="radio"
+                className="sr-only"
+                name="registration_mode"
+                value={value}
+                checked={settings?.registration_mode === value}
+                disabled={saving}
+                onChange={() => handleChange(value)}
+              />
               <span
                 className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                   settings?.registration_mode === value
@@ -763,10 +772,10 @@ function SettingsTab() {
                 )}
               </span>
               <span>
-                <span className="block text-sm font-medium">{label}</span>
-                <span className="block text-xs text-slate-500">{description}</span>
+                <span className="block text-sm font-medium text-slate-200">{label}</span>
+                <span className="block text-xs text-slate-500 mt-0.5">{description}</span>
               </span>
-            </button>
+            </label>
           ))}
         </div>
       </div>

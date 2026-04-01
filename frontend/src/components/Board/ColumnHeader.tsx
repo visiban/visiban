@@ -70,9 +70,12 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-slate-700 bg-slate-800 cursor-pointer hover:bg-slate-700 transition overflow-hidden"
+        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-slate-700 bg-slate-800 cursor-pointer hover:bg-slate-700 transition overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
         data-no-pan
+        tabIndex={0}
+        role="button"
         onClick={onToggleCollapse}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleCollapse(); } }}
         title={`Expand "${column.name}"`}
       >
         {/* Color dot is the drag handle — same pattern as expanded header */}
