@@ -231,6 +231,17 @@ After rolling back, restart the backend container with the previous image versio
 
     Fresh installs (where no pre-1.0 migrations have ever been applied) are not affected.
 
+!!! warning "Maintenance window required for boards/0005 (Customer → Swimlane rename)"
+    Migration `boards/0005` renames the `customers` table to `swimlanes` and renames four columns (`customer_id`, `from_customer_id`, `to_customer_id`) to their `swimlane` equivalents. This is a **single-step rename** — there is no intermediate schema state where both the old code (reading `customer`) and the new code (reading `swimlane`) can run simultaneously.
+
+    **Required upgrade procedure for pre-1.0 instances:**
+
+    1. Stop all backend container(s) — do **not** leave them running during migration.
+    2. Run `python manage.py migrate` to apply `boards/0005` and any subsequent migrations.
+    3. Start backend container(s) with the new image.
+
+    This is a one-time requirement for the 1.0 upgrade. All subsequent releases follow the standard zero-downtime upgrade path described above.
+
 ---
 
 ## Checking migration status
