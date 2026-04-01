@@ -243,7 +243,7 @@ describe('useBoard', () => {
       await result.current.moveCard(100, 11, 20, 0)
     })
 
-    expect(mockMoveCard).toHaveBeenCalledWith(1, 100, { column_id: 11, swimlane_id: 20, position: 0 })
+    expect(mockMoveCard).toHaveBeenCalledWith(1, 100, { column_id: 11, swimlane_id: 20, position: 0, version: 1 })
     expect(result.current.board!.cards[0].column).toBe(11)
   })
 
