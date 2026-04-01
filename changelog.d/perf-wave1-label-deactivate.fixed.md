@@ -1,0 +1,2 @@
+- Fixed N+1 on label write endpoints — `LabelViewSet` now caches the board/role lookup per request, matching the pattern used by `ColumnViewSet` and `SwimlaneViewSet`.
+- Fixed N+1 in `AdminUserDeactivateView` transfer validation — transfer target users and boards are now bulk-fetched in two queries before the validation loop instead of one query per entry.

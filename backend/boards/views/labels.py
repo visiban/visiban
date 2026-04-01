@@ -16,8 +16,16 @@ class LabelViewSet(viewsets.ModelViewSet):
 
     serializer_class = LabelSerializer
 
+    _cached_board_role = None
+
     def _board_and_role(self):
-        return get_board_for_user(self.kwargs["board_pk"], self.request.user)
+        # Cache per-request to avoid redundant board fetches — DRF creates a
+        # fresh viewset instance for each request, so the cache is safe.
+        if self._cached_board_role is None:
+            self._cached_board_role = get_board_for_user(
+                self.kwargs["board_pk"], self.request.user
+            )
+        return self._cached_board_role
 
     def _board(self):
         return self._board_and_role()[0]
