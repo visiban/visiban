@@ -96,8 +96,8 @@ describe('CardItem', () => {
   it('applies a full border color matching the priority', () => {
     const { container } = render(<CardItem card={makeCard({ priority: 'urgent' })} />)
     const root = container.firstChild as HTMLElement
-    // urgent = #EF4444
-    expect(root.style.borderColor.toLowerCase()).toContain('#ef4444')
+    // urgent = #B91C1C (red-700, darker than high's red-500)
+    expect(root.style.borderColor.toLowerCase()).toContain('#b91c1c')
   })
 
   it('renders label pills when labels are provided', () => {
