@@ -522,7 +522,9 @@ class CardViewSet(viewsets.ModelViewSet):
         # Allow-list: same pattern as perform_create — safer than block-list.
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        card = get_object_or_404(Card, pk=pk, board=board)
+        card = get_object_or_404(
+            Card.objects.select_related("column", "swimlane"), pk=pk, board=board
+        )
 
         target_column_id = request.data.get("column_id")
         target_swimlane_id = request.data.get("swimlane_id")
