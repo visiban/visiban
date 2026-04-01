@@ -453,6 +453,8 @@ interface OffboardingModalProps {
 
 function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProps) {
   useEscapeStack(onClose, 40);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { closeBtnRef.current?.focus(); }, []);
   // Per-board transfer map: board id → selected user id
   const [transfers, setTransfers] = useState<Record<number, number | null>>(
     () => Object.fromEntries(user.owned_boards.map((b) => [b.id, null]))
@@ -521,6 +523,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
             Transfer boards &amp; deactivate
           </h2>
           <button
+            ref={closeBtnRef}
             onClick={onClose}
             className="hover:bg-slate-700 p-1 rounded transition text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Close"

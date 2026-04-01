@@ -55,8 +55,9 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
-          <label className="block text-slate-400 text-xs mb-1">Temporary password</label>
+          <label htmlFor="fcp-current" className="block text-slate-400 text-xs mb-1">Temporary password</label>
           <input
+            id="fcp-current"
             type="password"
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
@@ -66,8 +67,9 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
           />
         </div>
         <div>
-          <label className="block text-slate-400 text-xs mb-1">New password <span className="text-slate-500">(min 12 characters)</span></label>
+          <label htmlFor="fcp-next" className="block text-slate-400 text-xs mb-1">New password <span className="text-slate-500">(min 12 characters)</span></label>
           <input
+            id="fcp-next"
             type="password"
             value={next}
             onChange={(e) => setNext(e.target.value)}
@@ -76,8 +78,9 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
           />
         </div>
         <div>
-          <label className="block text-slate-400 text-xs mb-1">Confirm new password</label>
+          <label htmlFor="fcp-confirm" className="block text-slate-400 text-xs mb-1">Confirm new password</label>
           <input
+            id="fcp-confirm"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
