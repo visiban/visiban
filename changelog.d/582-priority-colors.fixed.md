@@ -1,0 +1,1 @@
+Fix `PRIORITY_COLORS` mapping to match the design spec: low=blue-500 (#3B82F6), medium=orange-500 (#F97316), high=red-500 (#EF4444), urgent=red-700 (#B91C1C). Previous mapping had low=gray and medium=blue, causing inverted card borders and priority pills.
