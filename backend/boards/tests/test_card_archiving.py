@@ -154,27 +154,53 @@ class TestArchiveExclusion(CardArchivingSetup):
         card_ids = [c["id"] for c in r.json()["cards"]]
         self.assertIn(self.card.pk, card_ids)
 
+    def test_archived_list_returns_paginated_shape(self):
+        self.card.archived_at = timezone.now()
+        self.card.save()
+        r = self._client_for(self.admin).get(self._archived_list_url())
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("count", data)
+        self.assertIn("offset", data)
+        self.assertIn("page_size", data)
+        self.assertIn("results", data)
+
     def test_archived_list_returns_archived_cards(self):
         self.card.archived_at = timezone.now()
         self.card.save()
         r = self._client_for(self.admin).get(self._archived_list_url())
         self.assertEqual(r.status_code, 200)
-        card_ids = [c["id"] for c in r.json()]
+        card_ids = [c["id"] for c in r.json()["results"]]
         self.assertIn(self.card.pk, card_ids)
 
     def test_archived_list_excludes_active_cards(self):
         # card is active (archived_at is null)
         r = self._client_for(self.admin).get(self._archived_list_url())
-        card_ids = [c["id"] for c in r.json()]
+        card_ids = [c["id"] for c in r.json()["results"]]
         self.assertNotIn(self.card.pk, card_ids)
 
     def test_archived_field_present_in_card_response(self):
         self.card.archived_at = timezone.now()
         self.card.save()
         r = self._client_for(self.admin).get(self._archived_list_url())
-        card = next(c for c in r.json() if c["id"] == self.card.pk)
+        card = next(c for c in r.json()["results"] if c["id"] == self.card.pk)
         self.assertIn("archived_at", card)
         self.assertIsNotNone(card["archived_at"])
+
+    def test_archived_list_offset_param(self):
+        """offset param pages through results correctly."""
+        for i in range(3):
+            Card.objects.create(
+                board=self.board, column=self.column, swimlane=self.swimlane,
+                title=f"Archived {i}", created_by=self.admin, position=i + 1,
+                archived_at=timezone.now(),
+            )
+        r = self._client_for(self.admin).get(self._archived_list_url() + "?offset=2")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["count"], 3)
+        self.assertEqual(data["offset"], 2)
+        self.assertEqual(len(data["results"]), 1)
 
 
 class TestArchiveIdempotency(CardArchivingSetup):
@@ -203,7 +229,7 @@ class TestArchivedListPermissions(CardArchivingSetup):
     def test_viewer_can_list_archived_cards(self):
         r = self._client_for(self.viewer).get(self._archived_list_url())
         self.assertEqual(r.status_code, 200)
-        self.assertIn(self.card.pk, [c["id"] for c in r.json()])
+        self.assertIn(self.card.pk, [c["id"] for c in r.json()["results"]])
 
     def test_collaborator_can_list_archived_cards(self):
         r = self._client_for(self.collab).get(self._archived_list_url())

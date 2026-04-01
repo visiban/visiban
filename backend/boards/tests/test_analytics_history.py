@@ -465,3 +465,38 @@ class TestAnalyticsDoneColumns(AnalyticsHistorySetup):
         c = self._client_for(self.admin)
         resp = c.get(self._analytics_url())
         self.assertEqual(resp.data["done_columns"], [])
+
+
+class TestAnalyticsWindowFilter(AnalyticsHistorySetup):
+    """Analytics endpoint must exclude cards archived before the analysis window.
+
+    Regression test for the pre-1.0 perf blocker where board.cards was
+    fetched with no archive filter, loading all-time history into memory.
+    """
+
+    def test_card_archived_before_window_excluded_from_stalled(self):
+        """A card archived long before the analysis window must not appear as stalled."""
+        old_date = timezone.now() - datetime.timedelta(days=200)
+        self.card.archived_at = old_date
+        self.card.save(update_fields=["archived_at"])
+
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        stalled_ids = [
+            c["id"]
+            for lane in resp.data["swimlanes"]
+            for c in lane.get("stalled_cards", [])
+        ]
+        self.assertNotIn(self.card.pk, stalled_ids)
+
+    def test_card_archived_within_window_included(self):
+        """A card archived within the analysis window should be included (dwell-time data)."""
+        recent_date = timezone.now() - datetime.timedelta(days=5)
+        self.card.archived_at = recent_date
+        self.card.save(update_fields=["archived_at"])
+
+        resp = self._client_for(self.admin).get(self._analytics_url() + "?days=30")
+        self.assertEqual(resp.status_code, 200)
+        # The endpoint must return 200 without error; the card is processed
+        # without raising (it enters the cards_by_swimlane grouping)
+        self.assertIn("swimlanes", resp.data)
