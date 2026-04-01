@@ -56,8 +56,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       onDoubleClick={() => { if (column.allow_card_creation && canEdit) setAdding(true); }}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
       style={{ width: width ?? 220 }}
-      className={`relative shrink-0 min-h-[80px] p-2 transition-colors ${
-        isOver && isDraggingCard ? "bg-blue-900/20" : ""
+      className={`relative shrink-0 min-h-[80px] p-2 transition-colors bg-slate-950 ${
+        isOver && isDraggingCard ? "bg-slate-700/40" : ""
       } ${cards.length === 0 && !adding ? "border border-dashed border-slate-700/50" : "border-r border-slate-700/50"}`}
     >
       {cards.length >= 2 && (
@@ -66,7 +66,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         </span>
       )}
       <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))" }}>
+        <div className="flex flex-col gap-1.5">
           {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (
             <CardItem
               key={card.id}

@@ -53,9 +53,32 @@ interface ConfirmDialogProps {
 
 function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
   useEscapeStack(onCancel, 40);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = modalRef.current;
+    if (!el) return;
+    const focusable = Array.from(
+      el.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter(el => !el.hasAttribute('disabled'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    first?.focus();
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    };
+    el.addEventListener('keydown', trap);
+    return () => el.removeEventListener('keydown', trap);
+  }, []);
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-sm w-full">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-sm w-full">
         <p id="confirm-dialog-message" className="text-sm text-slate-300 mb-6">{message}</p>
         <div className="flex justify-end gap-3">
           <button
@@ -454,7 +477,29 @@ interface OffboardingModalProps {
 function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProps) {
   useEscapeStack(onClose, 40);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { closeBtnRef.current?.focus(); }, []);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = modalRef.current;
+    if (!el) return;
+    const focusable = Array.from(
+      el.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter(el => !el.hasAttribute('disabled'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    first?.focus();
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    };
+    el.addEventListener('keydown', trap);
+    return () => el.removeEventListener('keydown', trap);
+  }, []);
   // Per-board transfer map: board id → selected user id
   const [transfers, setTransfers] = useState<Record<number, number | null>>(
     () => Object.fromEntries(user.owned_boards.map((b) => [b.id, null]))
@@ -513,6 +558,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div
+        ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="offboard-title"
