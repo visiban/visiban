@@ -172,8 +172,19 @@ class CardViewSet(viewsets.ModelViewSet):
     # the board-full endpoint already returns all cards without pagination.
     pagination_class = None
 
+    # Cache the (board, role) tuple for the lifetime of the request so that
+    # multiple _board_and_role() / _board() calls within one action (e.g.
+    # get_queryset() + get_serializer_context() + perform_update()) do not
+    # each issue a full select_related board fetch.  Matches the pattern
+    # already used by ColumnViewSet and SwimlaneViewSet.
+    _cached_board_role = None
+
     def _board_and_role(self):
-        return get_board_for_user(self.kwargs["board_pk"], self.request.user)
+        if self._cached_board_role is None:
+            self._cached_board_role = get_board_for_user(
+                self.kwargs["board_pk"], self.request.user
+            )
+        return self._cached_board_role
 
     def _board(self):
         return self._board_and_role()[0]
@@ -380,9 +391,15 @@ class CardViewSet(viewsets.ModelViewSet):
             context={"request": request, "board": card.board},
         ).data)
 
+    _ARCHIVED_PAGE_SIZE = 50
+
     @action(detail=False, methods=["get"], url_path="archived")
     def archived(self, request, board_pk=None):
         """List archived cards for this board, newest first.
+
+        Returns a paginated window of up to 50 cards.  Use the ``offset``
+        query parameter to page through results; the response includes
+        ``count``, ``offset``, ``page_size``, and ``results``.
 
         Read access is intentionally open to all board members including
         viewers — listing archived cards is a read operation, consistent with
@@ -391,17 +408,28 @@ class CardViewSet(viewsets.ModelViewSet):
         """
         board = self._board()
         qs = _card_queryset(Card.objects.filter(board=board, archived_at__isnull=False)).order_by("-archived_at")
+        try:
+            offset = max(0, int(request.query_params.get("offset", 0)))
+        except (ValueError, TypeError):
+            offset = 0
+        total = qs.count()
+        page_qs = qs[offset: offset + self._ARCHIVED_PAGE_SIZE]
         # Pre-compute shared context values so CardSerializer does not call
         # _get_effective_member_ids() once per card instance (O(n) queries).
         member_ids = _get_effective_member_ids(board)
         board_labels_qs = Label.objects.filter(board=board)
-        serializer = CardSerializer(qs, many=True, context={
+        serializer = CardSerializer(page_qs, many=True, context={
             "request": request,
             "board": board,
             "_member_ids": member_ids,
             "_board_labels_qs": board_labels_qs,
         })
-        return Response(serializer.data)
+        return Response({
+            "count": total,
+            "offset": offset,
+            "page_size": self._ARCHIVED_PAGE_SIZE,
+            "results": serializer.data,
+        })
 
     def update(self, request, *args, **kwargs):
         """Update card fields and record a CardActivity entry for each changed field.

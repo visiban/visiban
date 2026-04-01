@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, User } from "../../types";
-import { getArchivedCards, unarchiveCard } from "../../api/cards";
+import { getArchivedCards } from "../../api/cards";
+import { unarchiveCard } from "../../api/cards";
 
 interface Props {
   board: BoardFull;
@@ -12,7 +13,10 @@ interface Props {
 
 export default function ArchivedCardsPanel({ board, onClose, onUnarchived, currentUser }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [unarchivingId, setUnarchivingId] = useState<number | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -25,16 +29,33 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
   useEffect(() => {
     setLoading(true);
-    getArchivedCards(board.id)
-      .then(setCards)
+    setCards([]);
+    setOffset(0);
+    getArchivedCards(board.id, 0)
+      .then((page) => {
+        setCards(page.results);
+        setTotal(page.count);
+        setOffset(page.results.length);
+      })
       .finally(() => setLoading(false));
   }, [board.id]);
+
+  const handleLoadMore = () => {
+    setLoadingMore(true);
+    getArchivedCards(board.id, offset)
+      .then((page) => {
+        setCards((prev) => [...prev, ...page.results]);
+        setOffset((prev) => prev + page.results.length);
+      })
+      .finally(() => setLoadingMore(false));
+  };
 
   const handleUnarchive = async (card: Card) => {
     setUnarchivingId(card.id);
     try {
       const unarchived = await unarchiveCard(board.id, card.id);
       setCards((prev) => prev.filter((c) => c.id !== card.id));
+      setTotal((prev) => Math.max(0, prev - 1));
       onUnarchived(unarchived);
     } finally {
       setUnarchivingId(null);
@@ -54,6 +75,8 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const columnName = (colId: number) => board.columns.find((c) => c.id === colId)?.name ?? "—";
   const swimlaneName = (slId: number) => board.swimlanes.find((s) => s.id === slId)?.name ?? "—";
 
+  const hasMore = cards.length < total;
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
@@ -69,7 +92,9 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
         className="relative w-96 max-w-full h-full bg-slate-800 border-l border-slate-700 shadow-xl flex flex-col outline-none"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
-          <h2 className="text-sm font-medium text-slate-200">Archived cards</h2>
+          <h2 className="text-sm font-medium text-slate-200">
+            Archived cards{total > 0 && <span className="ml-2 text-slate-500 font-normal">({total})</span>}
+          </h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-white hover:bg-slate-700 rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -90,35 +115,46 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
             </div>
           )}
           {!loading && cards.length > 0 && (
-            <ul className="space-y-2">
-              {cards.map((card) => (
-                <li
-                  key={card.id}
-                  className="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-1.5"
-                >
-                  <span className="text-sm text-slate-200 font-medium">{card.title}</span>
-                  <span className="text-xs text-slate-500">
-                    {columnName(card.column)} · {swimlaneName(card.swimlane)}
-                  </span>
-                  <div className="flex items-center justify-between mt-1">
+            <>
+              <ul className="space-y-2">
+                {cards.map((card) => (
+                  <li
+                    key={card.id}
+                    className="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-1.5"
+                  >
+                    <span className="text-sm text-slate-200 font-medium">{card.title}</span>
                     <span className="text-xs text-slate-500">
-                      {card.archived_at
-                        ? `Archived ${new Date(card.archived_at).toLocaleDateString()}`
-                        : ""}
+                      {columnName(card.column)} · {swimlaneName(card.swimlane)}
                     </span>
-                    {canUnarchive(card) && (
-                      <button
-                        onClick={() => handleUnarchive(card)}
-                        disabled={unarchivingId === card.id}
-                        className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-slate-500">
+                        {card.archived_at
+                          ? `Archived ${new Date(card.archived_at).toLocaleDateString()}`
+                          : ""}
+                      </span>
+                      {canUnarchive(card) && (
+                        <button
+                          onClick={() => handleUnarchive(card)}
+                          disabled={unarchivingId === card.id}
+                          className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {hasMore && (
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="mt-4 w-full text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-700 py-2 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {loadingMore ? "Loading…" : `Load more (${total - cards.length} remaining)`}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

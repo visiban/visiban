@@ -34,7 +34,11 @@ def get_board_for_user(board_id, user):
                 "favorites",
                 queryset=BoardFavorite.objects.filter(user=user),
                 to_attr="_user_favorites",
-            )
+            ),
+            # Pre-load labels so BoardFullSerializer.get_cards() can call
+            # obj.labels.all() and hit the prefetch cache rather than issuing
+            # a second Label query alongside the _card_queryset prefetch chain.
+            "labels",
         ),
         pk=board_id,
     )

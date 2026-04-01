@@ -88,11 +88,15 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         order = request.data.get("order", [])
         with transaction.atomic():
+            # Lock the board row before updating positions to prevent two
+            # concurrent reorder requests from interleaving their UPDATE
+            # statements and producing an inconsistent position sequence.
             # Single-pass update is safe here: Swimlane has unique_together on
             # (board, name), NOT (board, position), so mid-update position
             # collisions cannot cause an IntegrityError.  Contrast with
             # ColumnViewSet.reorder which requires a two-pass approach because
             # Column has unique_together = ["board", "position"].
+            Board.objects.select_for_update().get(pk=board.pk)
             for pos, swimlane_id in enumerate(order):
                 Swimlane.objects.filter(board=board, pk=swimlane_id).update(position=pos)
             lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data

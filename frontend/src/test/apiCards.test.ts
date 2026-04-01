@@ -170,12 +170,19 @@ describe('cards API', () => {
   })
 
   describe('getArchivedCards', () => {
-    it('fetches from archived endpoint and returns card list', async () => {
-      const cards = [{ id: 1, title: 'Old card' }]
-      mockClient.get.mockResolvedValue({ data: cards })
+    it('fetches from archived endpoint and returns paginated page', async () => {
+      const page = { count: 1, offset: 0, page_size: 50, results: [{ id: 1, title: 'Old card' }] }
+      mockClient.get.mockResolvedValue({ data: page })
       const result = await getArchivedCards(5)
-      expect(mockClient.get).toHaveBeenCalledWith('/api/boards/5/cards/archived/')
-      expect(result).toEqual(cards)
+      expect(mockClient.get).toHaveBeenCalledWith('/api/boards/5/cards/archived/', { params: { offset: 0 } })
+      expect(result).toEqual(page)
+    })
+
+    it('passes offset param when specified', async () => {
+      const page = { count: 75, offset: 50, page_size: 50, results: [] }
+      mockClient.get.mockResolvedValue({ data: page })
+      await getArchivedCards(5, 50)
+      expect(mockClient.get).toHaveBeenCalledWith('/api/boards/5/cards/archived/', { params: { offset: 50 } })
     })
   })
 })

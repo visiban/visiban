@@ -70,8 +70,17 @@ export const archiveCard = (boardId: number, cardId: number) =>
 export const unarchiveCard = (boardId: number, cardId: number) =>
   client.post<Card>(`/api/boards/${boardId}/cards/${cardId}/unarchive/`).then((r) => r.data);
 
-export const getArchivedCards = (boardId: number) =>
-  client.get<Card[]>(`/api/boards/${boardId}/cards/archived/`).then((r) => r.data);
+export interface ArchivedCardsPage {
+  count: number;
+  offset: number;
+  page_size: number;
+  results: Card[];
+}
+
+export const getArchivedCards = (boardId: number, offset = 0) =>
+  client
+    .get<ArchivedCardsPage>(`/api/boards/${boardId}/cards/archived/`, { params: { offset } })
+    .then((r) => r.data);
 
 // Checklists
 export const getChecklist = (boardId: number, cardId: number) =>
