@@ -878,3 +878,148 @@ class BoardImportBulkUserLookupTests(TestCase):
             f"Expected 0 per-card user queries, got {len(per_card_user_queries)}: "
             f"{[q['sql'][:120] for q in per_card_user_queries]}"
         )
+
+
+class BoardImportBulkCreateEdgeCaseTests(TestCase):
+    """Cover the bulk_create Phase 1/2/3 edge-case branches in _import_json().
+
+    These branches are not exercised by the main happy-path tests:
+      - invalid priority falls back to "medium"
+      - card with unknown column/swimlane is silently skipped
+      - movement with unrecognised movement_type falls back to MOVE
+      - movement referencing a column/swimlane not in the board preserves the
+        raw name string and sets UID to "" rather than raising
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="edge_importer", password="pass")
+        self.client.force_authenticate(self.user)
+
+    def _make_json_file(self, data, filename="board.json"):
+        content = json.dumps(data).encode("utf-8")
+        f = io.BytesIO(content)
+        f.name = filename
+        return f
+
+    def _base_payload(self):
+        return {
+            "name": "Edge Case Board",
+            "columns": [{"name": "Backlog", "position": 0, "color": "#000", "wip_limit": None, "weight_limit": None, "allow_card_creation": True}],
+            "swimlanes": [{"name": "Lane", "position": 0, "color": "#000", "contact_email": "", "notes": ""}],
+            "labels": [],
+            "cards": [],
+        }
+
+    def _post(self, data):
+        return self.client.post(
+            "/api/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+
+    def test_invalid_priority_falls_back_to_medium(self):
+        """A card with an unrecognised priority value is imported as 'medium'."""
+        data = self._base_payload()
+        data["cards"] = [{
+            "title": "Bad Priority Card",
+            "column": "Backlog",
+            "swimlane": "Lane",
+            "priority": "critical",  # not a valid Priority value
+            "weight": 1,
+            "position": 0,
+        }]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 201)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Bad Priority Card")
+        self.assertEqual(card.priority, "medium")
+
+    def test_card_with_unknown_column_is_skipped(self):
+        """A card referencing a column name that doesn't exist is silently skipped."""
+        data = self._base_payload()
+        data["cards"] = [
+            {"title": "Good Card", "column": "Backlog", "swimlane": "Lane", "priority": "low", "weight": 1, "position": 0},
+            {"title": "Bad Card", "column": "NonExistentColumn", "swimlane": "Lane", "priority": "low", "weight": 1, "position": 1},
+        ]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 201)
+        board_id = resp.data["id"]
+        self.assertTrue(Card.objects.filter(board_id=board_id, title="Good Card").exists())
+        self.assertFalse(Card.objects.filter(board_id=board_id, title="Bad Card").exists())
+
+    def test_card_with_unknown_swimlane_is_skipped(self):
+        """A card referencing a swimlane name that doesn't exist is silently skipped."""
+        data = self._base_payload()
+        data["cards"] = [
+            {"title": "Valid Card", "column": "Backlog", "swimlane": "Lane", "priority": "low", "weight": 1, "position": 0},
+            {"title": "Orphan Card", "column": "Backlog", "swimlane": "GhostLane", "priority": "low", "weight": 1, "position": 1},
+        ]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 201)
+        board_id = resp.data["id"]
+        self.assertTrue(Card.objects.filter(board_id=board_id, title="Valid Card").exists())
+        self.assertFalse(Card.objects.filter(board_id=board_id, title="Orphan Card").exists())
+
+    def test_movement_with_invalid_type_falls_back_to_move(self):
+        """A movement with an unrecognised movement_type is imported as 'move'."""
+        data = self._base_payload()
+        data["cards"] = [{
+            "title": "Moved Card",
+            "column": "Backlog",
+            "swimlane": "Lane",
+            "priority": "low",
+            "weight": 1,
+            "position": 0,
+            "movements": [{
+                "from_column": "Backlog",
+                "to_column": "Backlog",
+                "from_swimlane": "Lane",
+                "to_swimlane": "Lane",
+                "moved_by": None,
+                "notes": "",
+                "moved_at": "2026-01-01T00:00:00Z",
+                "movement_type": "teleported",  # not a valid MovementType
+            }],
+        }]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 201)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="Moved Card")
+        mv = CardMovement.objects.filter(card=card).first()
+        self.assertIsNotNone(mv)
+        self.assertEqual(mv.movement_type, "move")
+
+    def test_movement_with_unresolved_column_preserves_name_and_empty_uid(self):
+        """When a movement references a column not in the board, the name string
+        is preserved verbatim and the UID is stored as an empty string."""
+        data = self._base_payload()
+        data["cards"] = [{
+            "title": "History Card",
+            "column": "Backlog",
+            "swimlane": "Lane",
+            "priority": "low",
+            "weight": 1,
+            "position": 0,
+            "movements": [{
+                "from_column": "Old Column That No Longer Exists",
+                "to_column": "Backlog",
+                "from_swimlane": "Old Lane",
+                "to_swimlane": "Lane",
+                "moved_by": None,
+                "notes": "",
+                "moved_at": None,
+                "movement_type": "move",
+            }],
+        }]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 201)
+        board_id = resp.data["id"]
+        card = Card.objects.get(board_id=board_id, title="History Card")
+        mv = CardMovement.objects.filter(card=card).first()
+        self.assertIsNotNone(mv)
+        # Name is preserved; UID is "" because the column wasn't in the board
+        self.assertEqual(mv.from_column_name, "Old Column That No Longer Exists")
+        self.assertEqual(mv.from_column_uid, "")
+        self.assertEqual(mv.from_swimlane_name, "Old Lane")
+        self.assertEqual(mv.from_swimlane_uid, "")
