@@ -561,6 +561,67 @@ class JoinGroupLoggingTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
+# MIME validation — text/plain XSS bypass (#588)
+# ---------------------------------------------------------------------------
+
+class ValidateUploadMimePlainTextXssTests(TestCase):
+    """_validate_upload_mime must reject text/plain files containing HTML/script
+    markers that could enable stored XSS if served inline (#588)."""
+
+    def _make_file(self, content: bytes, content_type: str, name: str = "test.txt"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(name, content, content_type=content_type)
+
+    def test_rejects_plain_text_with_script_tag(self):
+        """text/plain file containing <script> must be rejected."""
+        payload = b"<script>alert(1)</script>"
+        f = self._make_file(payload, "text/plain", "evil.txt")
+        error = _validate_upload_mime(f)
+        self.assertIsNotNone(error)
+        self.assertIn("HTML/script", error)
+
+    def test_rejects_plain_text_with_html_doctype(self):
+        """text/plain file with <!doctype html> must be rejected."""
+        payload = b"<!doctype html><html><body>hi</body></html>"
+        f = self._make_file(payload, "text/plain", "page.txt")
+        error = _validate_upload_mime(f)
+        self.assertIsNotNone(error)
+
+    def test_rejects_plain_text_with_svg_tag(self):
+        """text/plain file containing <svg> must be rejected (SVG can execute JS)."""
+        payload = b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>"
+        f = self._make_file(payload, "text/plain", "image.txt")
+        error = _validate_upload_mime(f)
+        self.assertIsNotNone(error)
+
+    def test_rejects_plain_text_with_iframe(self):
+        """text/plain file containing <iframe> must be rejected."""
+        payload = b"<iframe src='https://evil.example/'></iframe>"
+        f = self._make_file(payload, "text/plain", "frame.txt")
+        error = _validate_upload_mime(f)
+        self.assertIsNotNone(error)
+
+    def test_rejects_csv_with_script_content(self):
+        """text/csv file containing <script> must be rejected."""
+        payload = b"Title,Value\n<script>alert(1)</script>,bad"
+        f = self._make_file(payload, "text/csv", "evil.csv")
+        error = _validate_upload_mime(f)
+        self.assertIsNotNone(error)
+
+    def test_accepts_plain_text_without_html_markers(self):
+        """text/plain file with no HTML must be accepted."""
+        f = self._make_file(b"Just plain text\nNo markup here.", "text/plain", "notes.txt")
+        self.assertIsNone(_validate_upload_mime(f))
+
+    def test_file_pointer_reset_after_xss_rejection(self):
+        """File pointer must be at 0 even when the file is rejected for XSS content."""
+        payload = b"<script>alert(1)</script>"
+        f = self._make_file(payload, "text/plain", "evil.txt")
+        _validate_upload_mime(f)
+        self.assertEqual(f.read(), payload)
+
+
+# ---------------------------------------------------------------------------
 # Static media fallback removal (#374)
 # ---------------------------------------------------------------------------
 
