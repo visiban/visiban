@@ -28,7 +28,7 @@ Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` 
 
 ## Board creation & templates
 
-When creating a new board you choose from six purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, or Project Delivery — each pre-seeded with the right columns and a swimlane placeholder. A Blank Board option is also available for fully custom setups.
+When creating a new board you choose from eleven purposeful templates — Sales Pipeline, Customer Support, Customer Success, Simple Kanban, Product Roadmap, Project Delivery, Content Production, Hiring & Recruiting, Legal & Compliance, Infrastructure & DevOps, or Blank Board — each pre-seeded with the right columns and a swimlane placeholder.
 
 After choosing a template you're prompted to name the first swimlane using the template's label (e.g. "Account" for Sales Pipeline). You can also mark any newly created board as your **default board** so it opens automatically after login.
 

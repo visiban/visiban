@@ -34,18 +34,8 @@ docker build -f backend/Dockerfile -t registry.gitlab.com/visiban/visiban/backen
 docker build -f frontend/Dockerfile -t registry.gitlab.com/visiban/visiban/frontend:latest frontend/
 ```
 
-!!! warning
-    The Helm chart runs the backend with **gunicorn** (WSGI) by default. Gunicorn does not support WebSocket connections, which means **real-time features will not work** — including live board updates, collaborative editing, and push notifications. To enable these features in Kubernetes, override the backend command to use an ASGI server such as daphne or uvicorn:
-
-    ```
-    daphne -b 0.0.0.0 -p 8000 visiban.asgi:application
-    ```
-
-    or
-
-    ```
-    uvicorn visiban.asgi:application --host 0.0.0.0 --port 8000
-    ```
+!!! note
+    The Helm chart runs the backend with **daphne** (ASGI server) by default — the same as the Docker Compose stack. WebSocket connections and all real-time features work out of the box in Kubernetes with no extra configuration required.
 
 ## Kubernetes / Helm
 

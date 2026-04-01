@@ -173,7 +173,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
-      onCardArchived((d as { card_id: number }).card_id);
+      evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.unarchived") {
       onCardUnarchived(d as unknown as Card);
     } else if (event.event === "column.created") {

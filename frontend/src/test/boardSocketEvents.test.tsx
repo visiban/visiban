@@ -217,6 +217,15 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.evictCardByUid).toHaveBeenCalledWith('crd001')
   })
 
+  it('card.archived routes to evictCardByUid with card_uid (#595)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'card.archived', data: { card_uid: 'crd001' } }) })
+    expect(ctx.evictCardByUid).toHaveBeenCalledWith('crd001')
+  })
+
   it('column.deleted routes to evictColumn with column_uid', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx

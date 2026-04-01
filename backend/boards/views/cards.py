@@ -280,7 +280,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You can only archive cards you created.")
         if card.archived_at is None:
             board_id = card.board_id
-            card_id = card.id
+            card_uid = card.uid
             with transaction.atomic():
                 card.archived_at = timezone.now()
                 card.save(update_fields=["archived_at"])
@@ -305,7 +305,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     moved_by=request.user,
                     movement_type=CardMovement.MovementType.ARCHIVED,
                 )
-                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.archived", {"card_id": card_id}))
+                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.archived", {"card_uid": card_uid}))
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
             context={"request": request, "board": card.board},
