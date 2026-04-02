@@ -227,10 +227,8 @@ describe('CardItem — compact vs expanded rendering', () => {
   it('assignee avatar is shown in compact mode', () => {
     const card = makeCard({
       assignee: {
-        id: 2, username: 'jdoe', email: 'j@example.com',
-        first_name: 'Jane', last_name: 'Doe', avatar_url: '',
-        display_name: 'Jane Doe', is_site_admin: false,
-        must_change_password: false, must_change_username: false, has_usable_password: true,
+        id: 2, username: 'jdoe', avatar_url: '',
+        display_name: 'Jane Doe',
       },
     })
     render(<CardItem card={card} compact />)
@@ -240,10 +238,8 @@ describe('CardItem — compact vs expanded rendering', () => {
   it('assignee avatar is shown in expanded mode', () => {
     const card = makeCard({
       assignee: {
-        id: 2, username: 'jdoe', email: 'j@example.com',
-        first_name: 'Jane', last_name: 'Doe', avatar_url: '',
-        display_name: 'Jane Doe', is_site_admin: false,
-        must_change_password: false, must_change_username: false, has_usable_password: true,
+        id: 2, username: 'jdoe', avatar_url: '',
+        display_name: 'Jane Doe',
       },
     })
     render(<CardItem card={card} compact={false} />)
