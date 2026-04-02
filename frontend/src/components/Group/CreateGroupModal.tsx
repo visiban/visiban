@@ -85,6 +85,19 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         : "text-slate-500";
 
   // --- Post-creation phase ---
+  // Build ancestor breadcrumb for the post-creation state so the user
+  // knows exactly where in the hierarchy subgroups will be created.
+  const breadcrumbParts: { id: number; name: string }[] = [];
+  if (parentGroup) {
+    if (parentGroup.ancestors) {
+      breadcrumbParts.push(...parentGroup.ancestors);
+    }
+    breadcrumbParts.push({ id: parentGroup.id, name: parentGroup.name });
+  }
+  if (createdGroup) {
+    breadcrumbParts.push({ id: createdGroup.id, name: createdGroup.name });
+  }
+
   if (phase === "post-creation" && createdGroup) {
     return (
       <ModalWrapper
@@ -94,6 +107,21 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         maxWidth="max-w-sm"
       >
         <div className="flex flex-col gap-3">
+          {breadcrumbParts.length > 1 && (
+            <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center">
+              {breadcrumbParts.map((part, i) => (
+                <span key={part.id} className="flex items-center">
+                  {i > 0 && <span className="text-slate-600 mx-1.5 select-none">/</span>}
+                  <span
+                    className={`text-sm max-w-[12rem] truncate ${i === breadcrumbParts.length - 1 ? "text-slate-200 font-medium" : "text-slate-400"}`}
+                    title={part.name}
+                  >
+                    {part.name}
+                  </span>
+                </span>
+              ))}
+            </nav>
+          )}
           <div>
             <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
               Add Subgroups

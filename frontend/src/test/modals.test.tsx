@@ -327,6 +327,43 @@ describe('CreateGroupModal', () => {
     expect(onCreated).toHaveBeenCalledTimes(3)
   })
 
+  it('shows ancestor breadcrumb in post-creation state for subgroups', async () => {
+    const subgroup = { id: 5, name: 'Platform', parent: 3 }
+    mockCreateGroup.mockResolvedValue(subgroup)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = {
+      ...fakeBoard, id: 3, name: 'Engineering',
+      ancestors: [{ id: 1, name: 'Acme Corp' }],
+    } as any
+
+    render(<CreateGroupModal parentGroup={parent} onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Backend'), 'Platform')
+    await user.click(screen.getByText('Create Subgroup'))
+
+    await waitFor(() => {
+      // Breadcrumb should show: Acme Corp / Engineering / Platform
+      expect(screen.getByText('Acme Corp')).toBeInTheDocument()
+      expect(screen.getByText('Engineering')).toBeInTheDocument()
+      expect(screen.getByText('Platform')).toBeInTheDocument()
+    })
+    expect(screen.getByLabelText('Group breadcrumb')).toBeInTheDocument()
+  })
+
+  it('does not show breadcrumb for top-level group', async () => {
+    const group = { id: 1, name: 'Engineering' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
+    await user.click(screen.getByText('Create Group'))
+
+    await waitFor(() => expect(screen.getByText(/Engineering created/)).toBeInTheDocument())
+    // Top-level group has only one breadcrumb part — breadcrumb nav should not render
+    expect(screen.queryByLabelText('Group breadcrumb')).not.toBeInTheDocument()
+  })
+
   it('Done button closes the modal', async () => {
     const group = { id: 1, name: 'Engineering' }
     mockCreateGroup.mockResolvedValue(group)
