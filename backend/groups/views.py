@@ -328,6 +328,62 @@ class GroupViewSet(viewsets.ModelViewSet):
         return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
+    # Descendant boards
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["get"], url_path="descendant-boards")
+    def descendant_boards(self, request, pk=None):
+        """Return all boards in this group and all its descendants that the user can access.
+
+        This endpoint answers the question "what boards live anywhere inside this group
+        subtree?" — including boards in deeply nested subgroups.  It powers the GroupDetail
+        page's board list and the sidebar's auto-expand logic for deeply nested boards.
+
+        The traversal uses get_accessible_group_ids() which already caps at
+        _GROUP_TRAVERSAL_MAX_DEPTH, so we avoid unbounded recursion here too.
+        """
+        from boards.models import Board, BoardFavorite
+        from boards.serializers import BoardSerializer
+        from .models import get_accessible_group_ids, _GROUP_TRAVERSAL_MAX_DEPTH
+
+        group = self.get_object()
+        _require_group_member(request.user, group)
+
+        # Collect accessible group IDs for this user, then filter to only those
+        # that are descendants of the target group (including the group itself).
+        accessible_ids = get_accessible_group_ids(request.user)
+
+        # Walk down from the target group to find all descendant group IDs.
+        descendant_ids = {group.pk}
+        frontier = {group.pk}
+        for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+            if not frontier:
+                break
+            children = set(
+                Group.objects.filter(parent__in=frontier)
+                .exclude(id__in=descendant_ids)
+                .values_list("id", flat=True)
+            )
+            descendant_ids |= children
+            frontier = children
+
+        # Intersect with what the user is allowed to see.
+        visible_descendant_ids = descendant_ids & accessible_ids
+
+        boards = (
+            Board.objects.filter(group_id__in=visible_descendant_ids)
+            .select_related("owner", "group")
+            .annotate(
+                _member_count=Count("memberships", distinct=True),
+                _card_count=Count("cards", distinct=True),
+                _is_starred=Exists(
+                    BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)
+                ),
+            )
+        )
+        return Response(BoardSerializer(boards, many=True, context={"request": request}).data)
+
+    # ------------------------------------------------------------------
     # Ownership transfer
     # ------------------------------------------------------------------
 

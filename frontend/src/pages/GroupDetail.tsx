@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from "react-rout
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import Avatar from "../components/Common/Avatar";
 import {
-  getGroup, getGroupMembers, getSubgroups, getGroupBoards,
+  getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
   transferGroupOwnership, createGroupLabel, deleteGroupLabel, updateGroupBoardDefaults,
   starGroup, unstarGroup, updateGroup,
@@ -123,13 +123,28 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   }, [groupId, navigate]);
 
   useEffect(() => {
-    if (!showSubgroupBoards || subgroups.length === 0) return;
+    // A single request for all boards in the group subtree avoids the previous N+1
+    // pattern (one getGroupBoards call per direct subgroup) and correctly surfaces
+    // boards in groups nested 3+ levels deep.
+    if (!showSubgroupBoards) return;
     setLoadingSubgroupBoards(true);
-    Promise.all(
-      subgroups.map((sg) => getGroupBoards(sg.id).then((bs) => bs.map((b) => ({ board: b, groupName: sg.name }))))
-    ).then((results) => setSubgroupBoards(results.flat()))
+    getGroupDescendantBoards(groupId)
+      .then((bs) => {
+        // Exclude boards already shown in the direct boards list; the descendant
+        // endpoint returns boards from the root group too.
+        const directIds = new Set(boards.map((b) => b.id));
+        setSubgroupBoards(
+          bs
+            .filter((b) => !directIds.has(b.id))
+            .map((b) => ({ board: b, groupName: b.group_name ?? "" }))
+        );
+      })
+      .catch(() => setSubgroupBoards([]))
       .finally(() => setLoadingSubgroupBoards(false));
-  }, [showSubgroupBoards, subgroups]);
+  // boards is intentionally not listed here — we only want to re-fetch when the
+  // toggle turns on or the group changes, not on every boards state update.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSubgroupBoards, groupId]);
 
   const handleStarToggle = async () => {
     if (starLoading) return;
