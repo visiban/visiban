@@ -135,7 +135,8 @@ vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
   default: ({ onClose }: { onClose: () => void }) => <div data-testid="shortcuts-overlay"><button onClick={onClose}>Close Shortcuts</button></div>,
 }))
 vi.mock('../components/Common/Tooltip', () => ({
-  default: ({ content, children }: { content: string; children: React.ReactElement }) =>
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  default: ({ content, children }: { content: string; children: React.ReactElement<any> }) =>
     React.cloneElement(children, { 'data-tooltip': content }),
 }))
 vi.mock('../components/Board/BulkActionToolbar', () => ({

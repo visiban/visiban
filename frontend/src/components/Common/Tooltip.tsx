@@ -1,10 +1,12 @@
-import { useRef, useState, useId, cloneElement } from "react";
+import React, { useRef, useState, useId, cloneElement } from "react";
 import { createPortal } from "react-dom";
-import type { ReactElement } from "react";
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+type AnyElement = React.ReactElement<any>;
 
 interface Props {
   content: string;
-  children: ReactElement;
+  children: AnyElement;
   position?: "top" | "bottom";
   delay?: number;
 }

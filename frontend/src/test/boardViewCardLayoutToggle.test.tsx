@@ -117,7 +117,8 @@ vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
   ),
 }))
 vi.mock('../components/Common/Tooltip', () => ({
-  default: ({ content, children }: { content: string; children: React.ReactElement }) =>
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  default: ({ content, children }: { content: string; children: React.ReactElement<any> }) =>
     React.cloneElement(children, { 'data-tooltip': content }),
 }))
 vi.mock('../components/Board/BulkActionToolbar', () => ({
