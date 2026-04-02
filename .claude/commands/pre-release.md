@@ -26,6 +26,35 @@ Wait for the user's choice before proceeding.
 
 ---
 
+## Step 0.5 — Pre-flight: check for prior audit findings
+
+Before launching any agents, check whether a recent pre-release audit has already been run and its findings already filed as GitLab issues.
+
+```bash
+glab issue list --repo visiban/visiban --state opened --label "pre-1.0" --search "audit" 2>/dev/null | head -20
+glab issue list --repo visiban/visiban --state opened --label "pre-1.0" 2>/dev/null | head -30
+```
+
+Also check for recently closed audit issues (resolved since last run):
+```bash
+glab issue list --repo visiban/visiban --state closed --label "pre-1.0" --updated-after "$(date -v-7d +%Y-%m-%d 2>/dev/null || date -d '7 days ago' +%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)" 2>/dev/null | head -20
+```
+
+**If open `pre-1.0` issues exist from a prior audit:**
+1. List them for the user grouped by severity (🔴 blocking vs 🟡 should-fix).
+2. Say: "A prior audit has N open finding(s) still unresolved (see above). Re-running will re-discover the same issues. Options:
+   - **resolve** — work through the open issues first, then re-run the audit
+   - **continue** — re-run anyway (e.g. significant code has changed since the last run)
+   - **targeted** — run only a specific sub-audit (e.g. `/pre-release security`) on the area you just fixed"
+3. Wait for the user's choice before proceeding.
+   - If "resolve" → stop here. Do not launch any agents.
+   - If "targeted" → jump to Step 0 to let the user pick a specific audit type.
+   - If "continue" → proceed to Step 1.
+
+**If no open `pre-1.0` issues exist** (or the label returns no results) → proceed to Step 1 immediately with no prompt.
+
+---
+
 ## Step 1 — Run the audit
 
 For each agent below, the prompt must be written for **full codebase audit mode** — not "what changed in this branch". Frame every prompt as: "Audit the full Visiban codebase as if preparing a 1.0 public release. Identify any issues that would become public commitments we can't easily reverse."
