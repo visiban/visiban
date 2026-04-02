@@ -378,8 +378,12 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if obj.owner_id and obj.owner_id not in seen:
             seen[obj.owner_id] = {"id": None, "user": obj.owner, "role": "admin", "is_moderator": False, "joined_at": obj.created_at}
 
-        # Include users with can_access_all_content so they appear in @mention autocomplete
-        for u in User.objects.filter(can_access_all_content=True):
+        # Include users with can_access_all_content so they appear in @mention autocomplete.
+        # .only() limits the columns fetched — BoardUserSerializer only needs these four fields,
+        # and this query runs on every /full/ request regardless of board membership.
+        for u in User.objects.filter(can_access_all_content=True).only(
+            "id", "username", "display_name", "avatar_url"
+        ):
             if u.pk not in seen:
                 seen[u.pk] = {"id": None, "user": u, "role": "site_admin", "is_moderator": False, "joined_at": obj.created_at}
 

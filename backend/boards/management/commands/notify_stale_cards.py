@@ -29,10 +29,11 @@ class Command(BaseCommand):
         for board in Board.objects.prefetch_related("memberships__user"):
             cutoff = now - datetime.timedelta(days=board.staleness_threshold_days)
 
-            # Collect admin user IDs for this board (once per board, not per card)
-            admin_users = set(
-                board.memberships.filter(role="admin").values_list("user_id", flat=True)
-            )
+            # Collect admin user IDs using the prefetch cache — .filter() on a
+            # prefetched manager always re-queries the DB, so filter in Python instead.
+            admin_users = {
+                m.user_id for m in board.memberships.all() if m.role == "admin"
+            }
             admin_users.add(board.owner_id)
 
             # Hoist user opt-in lookup: fetch all opted-in user IDs for this
