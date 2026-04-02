@@ -116,7 +116,8 @@ describe('CreateGroupModal', () => {
     render(<CreateGroupModal parentGroup={parent} onCreated={onCreated} onClose={onClose} />)
     const user = userEvent.setup()
 
-    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Frontend')
+    // When parentGroup is set the placeholder reflects the context ("e.g. Backend" not "e.g. Engineering")
+    await user.type(screen.getByPlaceholderText('e.g. Backend'), 'Frontend')
     await user.keyboard('{Enter}')
 
     expect(mockCreateGroup).toHaveBeenCalledWith({ name: 'Frontend', parent: 7 })
@@ -185,7 +186,7 @@ describe('CreateGroupModal', () => {
   // Success feedback
   // ----------------------------------------------------------------
 
-  it('shows a success message and resets the input after a successful save', async () => {
+  it('transitions to post-creation state after a successful save', async () => {
     const created = makeGroup({ name: 'Ops' })
     mockCreateGroup.mockResolvedValue(created)
 
@@ -195,14 +196,16 @@ describe('CreateGroupModal', () => {
     await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Ops')
     await user.keyboard('{Enter}')
 
+    // Modal transitions to post-creation phase: title shows "✓ Ops created" and
+    // the original name input is replaced by the subgroup input
     await waitFor(() =>
-      expect(screen.getByText(/✓ "Ops" created/)).toBeInTheDocument()
+      expect(screen.getByText(/✓ Ops created/)).toBeInTheDocument()
     )
-    // Input is cleared so the user can type the next group immediately
-    expect(screen.getByPlaceholderText('e.g. Engineering')).toHaveValue('')
+    expect(screen.getByPlaceholderText('Subgroup name')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('e.g. Engineering')).not.toBeInTheDocument()
   })
 
-  it('relabels Cancel to Close after a successful save', async () => {
+  it('shows a Done button (not Cancel) in the post-creation state', async () => {
     const created = makeGroup({ name: 'Ops' })
     mockCreateGroup.mockResolvedValue(created)
 
@@ -212,7 +215,8 @@ describe('CreateGroupModal', () => {
     await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Ops')
     await user.keyboard('{Enter}')
 
-    await waitFor(() => expect(screen.getByText("Close")).toBeInTheDocument())
+    // Post-creation phase uses "Done" (not "Cancel") since the group already exists
+    await waitFor(() => expect(screen.getByText("Done")).toBeInTheDocument())
     expect(screen.queryByText("Cancel")).not.toBeInTheDocument()
   })
 

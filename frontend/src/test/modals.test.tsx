@@ -247,10 +247,10 @@ describe('CreateGroupModal', () => {
 
   it('disables create when name is empty', () => {
     render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
-    expect(screen.getByText('Create')).toBeDisabled()
+    expect(screen.getByText('Create Group')).toBeDisabled()
   })
 
-  it('calls createGroup on submit', async () => {
+  it('calls createGroup and transitions to post-creation state', async () => {
     const group = { id: 1, name: 'Engineering' }
     mockCreateGroup.mockResolvedValue(group)
     const onCreated = vi.fn()
@@ -259,9 +259,124 @@ describe('CreateGroupModal', () => {
     render(<CreateGroupModal onCreated={onCreated} onClose={onClose} />)
     const user = userEvent.setup()
     await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
-    await user.click(screen.getByText('Create'))
+    await user.click(screen.getByText('Create Group'))
 
     expect(mockCreateGroup).toHaveBeenCalledWith({ name: 'Engineering', parent: null })
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledWith(group)
+    })
+    // Should show post-creation state with success title and subgroup input
+    expect(screen.getByText(/Engineering created/)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Subgroup name')).toBeInTheDocument()
+    expect(screen.getByText('Done')).toBeInTheDocument()
+  })
+
+  it('transitions to post-creation state when creating a subgroup', async () => {
+    const subgroup = { id: 2, name: 'Backend', parent: 1 }
+    mockCreateGroup.mockResolvedValue(subgroup)
+    const onCreated = vi.fn()
+    const onClose = vi.fn()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { ...fakeBoard, id: 1, name: 'Engineering' } as any
+
+    render(<CreateGroupModal parentGroup={parent} onCreated={onCreated} onClose={onClose} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Backend'), 'Backend')
+    await user.click(screen.getByText('Create Subgroup'))
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledWith(subgroup)
+    })
+    // Should show post-creation state for adding sub-subgroups
+    expect(screen.getByText(/Backend created/)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Subgroup name')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('adds subgroups in post-creation state', async () => {
+    const group = { id: 1, name: 'Engineering' }
+    const sub1 = { id: 2, name: 'Frontend', parent: 1 }
+    const sub2 = { id: 3, name: 'Backend', parent: 1 }
+    mockCreateGroup
+      .mockResolvedValueOnce(group)
+      .mockResolvedValueOnce(sub1)
+      .mockResolvedValueOnce(sub2)
+    const onCreated = vi.fn()
+
+    render(<CreateGroupModal onCreated={onCreated} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+
+    // Create the parent group
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
+    await user.click(screen.getByText('Create Group'))
+    await waitFor(() => expect(screen.getByPlaceholderText('Subgroup name')).toBeInTheDocument())
+
+    // Add first subgroup
+    await user.type(screen.getByPlaceholderText('Subgroup name'), 'Frontend')
+    await user.click(screen.getByText('+ Add'))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(sub1))
+    expect(screen.getByText('Frontend')).toBeInTheDocument()
+
+    // Add second subgroup
+    await user.type(screen.getByPlaceholderText('Subgroup name'), 'Backend')
+    await user.click(screen.getByText('+ Add'))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(sub2))
+    expect(screen.getByText('Backend')).toBeInTheDocument()
+
+    // onCreated called 3 times total (parent + 2 subgroups)
+    expect(onCreated).toHaveBeenCalledTimes(3)
+  })
+
+  it('shows ancestor breadcrumb in post-creation state for subgroups', async () => {
+    const subgroup = { id: 5, name: 'Platform', parent: 3 }
+    mockCreateGroup.mockResolvedValue(subgroup)
+    const parent = {
+      ...fakeBoard, id: 3, name: 'Engineering',
+      ancestors: [{ id: 1, name: 'Acme Corp' }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any
+
+    render(<CreateGroupModal parentGroup={parent} onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Backend'), 'Platform')
+    await user.click(screen.getByText('Create Subgroup'))
+
+    await waitFor(() => {
+      // Breadcrumb should show: Acme Corp / Engineering / Platform
+      expect(screen.getByText('Acme Corp')).toBeInTheDocument()
+      expect(screen.getByText('Engineering')).toBeInTheDocument()
+      expect(screen.getByText('Platform')).toBeInTheDocument()
+    })
+    expect(screen.getByLabelText('Group breadcrumb')).toBeInTheDocument()
+  })
+
+  it('does not show breadcrumb for top-level group', async () => {
+    const group = { id: 1, name: 'Engineering' }
+    mockCreateGroup.mockResolvedValue(group)
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
+    await user.click(screen.getByText('Create Group'))
+
+    await waitFor(() => expect(screen.getByText(/Engineering created/)).toBeInTheDocument())
+    // Top-level group has only one breadcrumb part — breadcrumb nav should not render
+    expect(screen.queryByLabelText('Group breadcrumb')).not.toBeInTheDocument()
+  })
+
+  it('Done button closes the modal', async () => {
+    const group = { id: 1, name: 'Engineering' }
+    mockCreateGroup.mockResolvedValue(group)
+    const onClose = vi.fn()
+
+    render(<CreateGroupModal onCreated={vi.fn()} onClose={onClose} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Engineering')
+    await user.click(screen.getByText('Create Group'))
+    await waitFor(() => expect(screen.getByText('Done')).toBeInTheDocument())
+
+    await user.click(screen.getByText('Done'))
+    expect(onClose).toHaveBeenCalled()
   })
 })
 
