@@ -11,7 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
+# Run as non-root for defense in depth.
+RUN addgroup --system --gid 1001 visiban \
+    && adduser --system --uid 1001 --ingroup visiban visiban \
+    && chown -R visiban:visiban /app
 
 EXPOSE 8000
 
@@ -20,4 +23,6 @@ EXPOSE 8000
 # volume is mounted explicitly in docker-compose.prod.yml.
 VOLUME ["/app/media"]
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py ensure_site_admin && daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"]
+USER visiban
+
+CMD ["sh", "-c", "python manage.py collectstatic --noinput && python manage.py migrate && python manage.py ensure_site_admin && daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"]

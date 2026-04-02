@@ -29,7 +29,8 @@ services:
     build:
       context: ./backend
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate &&
              python manage.py ensure_site_admin &&
              daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"
     restart: unless-stopped
