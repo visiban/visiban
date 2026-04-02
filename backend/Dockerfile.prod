@@ -11,8 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
-
 # Run as non-root for defense in depth.
 RUN addgroup --system --gid 1001 visiban \
     && adduser --system --uid 1001 --ingroup visiban visiban \
@@ -27,4 +25,4 @@ VOLUME ["/app/media"]
 
 USER visiban
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py ensure_site_admin && daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"]
+CMD ["sh", "-c", "python manage.py collectstatic --noinput && python manage.py migrate && python manage.py ensure_site_admin && daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"]
