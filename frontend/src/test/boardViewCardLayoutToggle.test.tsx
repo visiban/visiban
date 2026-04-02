@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
-import type { CollisionDetection, DragEndEvent as _DragEndEvent } from '@dnd-kit/core'
+import type { CollisionDetection } from '@dnd-kit/core'
 
 const LAYOUT_KEY = 'user:prefs:card-layout'
 
@@ -122,6 +122,9 @@ vi.mock('../components/Common/Tooltip', () => ({
 }))
 vi.mock('../components/Board/BulkActionToolbar', () => ({
   default: () => <div data-testid="bulk-toolbar" />,
+}))
+vi.mock('../components/Board/ArchivedCardsPanel', () => ({
+  default: () => <div data-testid="archived-panel">Archived</div>,
 }))
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({

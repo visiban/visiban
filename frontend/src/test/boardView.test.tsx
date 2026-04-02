@@ -141,6 +141,9 @@ vi.mock('../components/Common/Tooltip', () => ({
 vi.mock('../components/Board/BulkActionToolbar', () => ({
   default: () => <div data-testid="bulk-toolbar">Bulk Actions</div>,
 }))
+vi.mock('../components/Board/ArchivedCardsPanel', () => ({
+  default: () => <div data-testid="archived-panel">Archived</div>,
+}))
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({
     savedFilters: [],

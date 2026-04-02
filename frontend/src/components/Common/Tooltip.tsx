@@ -36,10 +36,6 @@ export default function Tooltip({ content, children, position = "bottom", delay 
   const child = cloneElement(children, {
     ref: (node: HTMLElement | null) => {
       triggerRef.current = node;
-      // Forward ref if the child already has one
-      const { ref } = children as any;
-      if (typeof ref === "function") ref(node);
-      else if (ref) ref.current = node;
     },
     onMouseEnter: (e: React.MouseEvent) => {
       show();
