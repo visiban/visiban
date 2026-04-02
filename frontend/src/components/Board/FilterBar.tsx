@@ -1,8 +1,9 @@
 import type { RefObject } from "react";
-import type { BoardFull, Priority } from "../../types";
+import type { BoardFull, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
+import Avatar from "../Common/Avatar";
 
 export interface FilterState {
   search: string;
@@ -39,6 +40,34 @@ interface Props {
   onChange: (filters: FilterState) => void;
   searchRef?: RefObject<HTMLInputElement | null>;
   isSearching?: boolean;
+  currentUser?: User | null;
+}
+
+interface MyCardsButtonProps {
+  currentUser: User;
+  filters: FilterState;
+  onChange: (filters: FilterState) => void;
+}
+
+function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
+  const isActive =
+    filters.assigneeIds.length === 1 && filters.assigneeIds[0] === currentUser.id;
+
+  return (
+    <button
+      onClick={() => onChange({ ...filters, assigneeIds: isActive ? [] : [currentUser.id] })}
+      aria-pressed={isActive}
+      title={isActive ? "Remove My cards filter" : "Show only cards assigned to me"}
+      className={`bg-slate-800 border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
+        isActive
+          ? "border-blue-400 text-blue-400"
+          : "border-slate-600 text-slate-300 hover:border-slate-400"
+      }`}
+    >
+      <Avatar user={currentUser} size="xs" />
+      My cards
+    </button>
+  );
 }
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
@@ -55,12 +84,16 @@ const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: str
   { value: "none", label: "No due date" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser }: Props) {
   const activeCount = countActiveFilters(filters);
 
   return (
     <>
       <span className="w-px h-4 bg-slate-600 shrink-0" />
+
+      {currentUser && (
+        <MyCardsButton currentUser={currentUser} filters={filters} onChange={onChange} />
+      )}
 
       <div className="relative shrink-0">
         <input

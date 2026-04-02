@@ -90,6 +90,9 @@ vi.mock('../hooks/useSavedFilters', () => ({
     hydrateFilter: vi.fn(),
   }),
 }))
+vi.mock('../hooks/useCardSearch', () => ({
+  useCardSearch: () => ({ searchMatchIds: null, isSearching: false }),
+}))
 
 // Board context mock — lets tests control what useBoardContext returns.
 let mockBoardContextValue: BoardContextType

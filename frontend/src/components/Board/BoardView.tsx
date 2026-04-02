@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { getCardStatus } from "../../api/cards";
 import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
@@ -44,6 +45,7 @@ import { useBoardResync } from "../../hooks/useBoardResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
+import { filterCards } from "../../utils/filterCards";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -236,7 +238,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [activeSwimlane, setActiveSwimlane] = useState<Swimlane | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<number | null>(null);
-  const [cardNotFound, setCardNotFound] = useState(false);
+  // null = no message; non-null string = message to show in the not-found toast.
+  const [cardNotFound, setCardNotFound] = useState<string | null>(null);
   const [archiveToast, setArchiveToast] = useState(false);
   const archiveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -300,7 +303,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
   }, [focusedSwimlaneId]);
 
-  // Auto-open card from ?card= query param (e.g. from notification deep-link)
+  // Auto-open card from ?card= query param (e.g. from notification deep-link).
+  // When the card is not in the active board view, call the /status/ endpoint to
+  // distinguish "archived" (show targeted message) from "deleted/missing" (generic).
   useEffect(() => {
     const cardId = Number(searchParams.get("card"));
     if (!cardId) return;
@@ -311,11 +316,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       setTimeout(() => setHighlightedCardId(null), 1500);
       setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
     } else {
-      setCardNotFound(true);
       setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
-      setTimeout(() => setCardNotFound(false), 4000);
+      // Check whether the card is archived so we can show a contextual message.
+      getCardStatus(board.id, cardId).then((status) => {
+        const msg = status?.archived
+          ? "This card has been archived."
+          : "Card not found — it may have been deleted.";
+        setCardNotFound(msg);
+        setTimeout(() => setCardNotFound(null), 4000);
+      });
     }
-  }, [board.cards, searchParams, setSearchParams]);
+  }, [board.cards, board.id, searchParams, setSearchParams]);
   const [showAddColumn, setShowAddColumn] = useState(false);
   // When non-null, new column is inserted at this index (0 = first)
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
@@ -421,10 +432,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   // Server-side text search — debounced 300ms, aborts stale requests.
   // searchMatchIds is null when query is empty or on error (silent fallback → show all cards).
-  const { searchMatchIds } = useCardSearch(board.id, filters.search);
+  const { searchMatchIds, isSearching } = useCardSearch(board.id, filters.search);
 
+  // Search is handled server-side (useCardSearch → GET /api/boards/{id}/cards/?search=)
+  // because it uses trigram indexes (migration 0030) for efficient title+description matching.
+  // Assignee/label/priority/due-date filters run client-side against board.cards since all
+  // cards are already loaded via the /full/ endpoint. The two results are intersected here.
+  // Note: server search matches title+description only; client-side filterCards additionally
+  // matches assignee name and label name — this is intentional (client has richer context).
   const filteredCardIds: Set<number> | null = (() => {
-    // Client-side filter: assignee, label, priority, due date (search is server-side).
     const clientFiltersActive = (
       filters.assigneeIds.length > 0 ||
       filters.labelIds.length > 0 ||
@@ -432,52 +448,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       filters.dueDate !== null
     );
 
-    let clientMatchIds: Set<number> | null = null;
-    if (clientFiltersActive) {
-      // Use the user's stored timezone so that "Today" / "Overdue" boundaries
-      // are computed at midnight in their local time, not the browser's locale.
-      const todayStr = todayInTimezone(userTimezone);
-      const nextWeekMs = new Date(todayStr + "T00:00:00Z").getTime() + 7 * 86_400_000;
-      const nw = new Date(nextWeekMs);
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const nextWeekStr = `${nw.getUTCFullYear()}-${pad(nw.getUTCMonth() + 1)}-${pad(nw.getUTCDate())}`;
-      const matching = board.cards.filter((card) => {
-        if (filters.assigneeIds.length > 0) {
-          const matches = filters.assigneeIds.some((id) =>
-            id === -1 ? card.assignee === null : card.assignee?.id === id
-          );
-          if (!matches) return false;
-        }
-        if (filters.labelIds.length > 0 && !filters.labelIds.every((id) => card.labels.some((l) => l.id === id))) return false;
-        if (filters.priorities.length > 0 && !filters.priorities.includes(card.priority)) return false;
-        if (filters.dueDate !== null) {
-          if (filters.dueDate === "none" && card.due_date !== null) return false;
-          if (filters.dueDate === "overdue") {
-            if (!card.due_date || card.due_date >= todayStr) return false;
-          }
-          if (filters.dueDate === "today") {
-            if (card.due_date !== todayStr) return false;
-          }
-          if (filters.dueDate === "this_week") {
-            if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
-          }
-        }
-        return true;
-      });
-      clientMatchIds = new Set(matching.map((c) => c.id));
+    if (!clientFiltersActive && searchMatchIds === null) return null;
+
+    if (!clientFiltersActive && searchMatchIds !== null) {
+      // Only server search is active — return its result directly as a Set.
+      return searchMatchIds;
     }
 
-    // Combine server search results with client filter results:
-    // - Both active → intersection
-    // - Only searchMatchIds → use that
-    // - Only clientMatchIds → use that
-    // - Neither → null (show all cards)
-    if (searchMatchIds !== null && clientMatchIds !== null) {
-      return new Set([...searchMatchIds].filter((id) => clientMatchIds!.has(id)));
-    }
-    if (searchMatchIds !== null) return searchMatchIds;
-    if (clientMatchIds !== null) return clientMatchIds;
-    return null;
+    // Use the user's stored timezone so that "Today" / "Overdue" boundaries
+    // are computed at midnight in their local time, not the browser's locale.
+    const todayStr = todayInTimezone(userTimezone);
+
+    // filterCards handles the server search intersection via its searchResults param.
+    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr));
   })();
 
   const handleColumnAdded = useCallback((col: Column) => {
@@ -929,7 +912,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onSave={(name) => saveFilter(name, filters)}
             onDelete={removeFilter}
           />
-          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} />
+          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} isSearching={isSearching} currentUser={currentUser} />
         </div>
       )}
       {filteredCardIds !== null && filteredCardIds.size === 0 && (
@@ -937,9 +920,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           No cards match the active filters.
         </div>
       )}
-      {cardNotFound && (
+      {cardNotFound !== null && (
         <div className="mx-4 mt-2 px-4 py-2 bg-amber-900/50 border border-amber-700 rounded-lg text-amber-200 text-sm">
-          Card not found — it may have been archived or deleted.
+          {cardNotFound}
         </div>
       )}
       {archiveToast && (
