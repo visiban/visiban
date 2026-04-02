@@ -43,41 +43,47 @@ def get_board_role(user, board):
         return membership.role
     except BoardMembership.DoesNotExist:
         pass
+    if not board.group_id:
+        return None
+
     # Walk up the group ancestor chain — collect IDs first, then load all
     # GroupMembership rows for those groups in a single query instead of one
     # query per ancestor level. The board is loaded with
     # select_related("group__parent__parent__...") by get_board_for_user, so
     # the .parent traversal here hits the ORM cache rather than the database.
-    if board.group_id:
-        from groups.models import GroupMembership
-        ancestor_ids = []
-        node = board.group
-        depth = 0
-        while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
-            ancestor_ids.append(node.pk)
-            node = node.parent
-            depth += 1
-        if node is not None:
-            # Depth cap hit — some ancestor memberships were not evaluated.
-            logger.warning(
-                "Group ancestry traversal capped at depth %d for board %s (group %s). "
-                "Memberships at deeper levels were not evaluated.",
-                _GROUP_TRAVERSAL_MAX_DEPTH,
-                board.pk,
-                board.group_id,
-            )
-        if ancestor_ids:
-            # Load all matching memberships in one round-trip, ordered so that
-            # closer ancestors (earlier in ancestor_ids) take precedence.
-            memberships = {
-                gm.group_id: gm.role
-                for gm in GroupMembership.objects.filter(
-                    group_id__in=ancestor_ids, user=user
-                )
-            }
-            for gid in ancestor_ids:
-                if gid in memberships:
-                    return memberships[gid]
+    from groups.models import GroupMembership
+
+    ancestor_ids = []
+    node = board.group
+    depth = 0
+    while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
+        ancestor_ids.append(node.pk)
+        node = node.parent
+        depth += 1
+
+    if node is not None:
+        logger.warning(
+            "Group ancestry traversal capped at depth %d for board %s (group %s). "
+            "Memberships at deeper levels were not evaluated.",
+            _GROUP_TRAVERSAL_MAX_DEPTH,
+            board.pk,
+            board.group_id,
+        )
+
+    if not ancestor_ids:
+        return None
+
+    # Load all matching memberships in one round-trip, ordered so that
+    # closer ancestors (earlier in ancestor_ids) take precedence.
+    memberships = {
+        gm.group_id: gm.role
+        for gm in GroupMembership.objects.filter(
+            group_id__in=ancestor_ids, user=user
+        )
+    }
+    for gid in ancestor_ids:
+        if gid in memberships:
+            return memberships[gid]
     return None
 
 

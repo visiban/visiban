@@ -112,6 +112,7 @@ if $DRY_RUN; then
         changed)  echo "### Changed" ;;
         fixed)    echo "### Fixed" ;;
         security) echo "### Security" ;;
+        *)        echo "### ${type^}" ;;
       esac
       cat "$tmpfile"
       echo
