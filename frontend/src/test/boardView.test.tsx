@@ -134,8 +134,16 @@ vi.mock('../components/Board/FilterBar', () => ({
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
   default: ({ onClose }: { onClose: () => void }) => <div data-testid="shortcuts-overlay"><button onClick={onClose}>Close Shortcuts</button></div>,
 }))
+vi.mock('../components/Common/Tooltip', () => ({
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  default: ({ content, children }: { content: string; children: React.ReactElement<any> }) =>
+    React.cloneElement(children, { 'data-tooltip': content }),
+}))
 vi.mock('../components/Board/BulkActionToolbar', () => ({
   default: () => <div data-testid="bulk-toolbar">Bulk Actions</div>,
+}))
+vi.mock('../components/Board/ArchivedCardsPanel', () => ({
+  default: () => <div data-testid="archived-panel">Archived</div>,
 }))
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({
@@ -267,15 +275,15 @@ describe('BoardView', () => {
     expect(screen.queryByText('Export')).not.toBeInTheDocument()
   })
 
-  it('renders Settings button', () => {
+  it('renders Settings gear icon for admin', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText('Settings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Board settings')).toBeInTheDocument()
   })
 
-  it('hides Settings button for viewer', () => {
+  it('hides Settings gear icon for viewer', () => {
     mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
     render(<BoardView {...defaultProps()} />)
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Board settings')).not.toBeInTheDocument()
   })
 
   it('renders column headers', () => {
@@ -367,9 +375,9 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
   })
 
-  it('clicking Settings opens the settings modal', async () => {
+  it('clicking Settings gear opens the settings modal', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByText('Settings'))
+    await userEvent.setup().click(screen.getByLabelText('Board settings'))
     expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
   })
 
@@ -379,14 +387,14 @@ describe('BoardView', () => {
     expect(screen.getByText(/lane/)).toBeInTheDocument()
   })
 
-  it('renders ? keyboard shortcuts button', () => {
+  it('renders keyboard shortcuts icon button', () => {
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByTitle('Keyboard shortcuts (?)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Keyboard shortcuts')).toBeInTheDocument()
   })
 
-  it('clicking ? shows shortcuts overlay', async () => {
+  it('clicking keyboard shortcuts icon shows shortcuts overlay', async () => {
     render(<BoardView {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByTitle('Keyboard shortcuts (?)'))
+    await userEvent.setup().click(screen.getByLabelText('Keyboard shortcuts'))
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
   })
 
@@ -639,5 +647,52 @@ describe('BoardView', () => {
 
     // Focus banner should be gone since the focused swimlane no longer exists
     expect(screen.queryByText('Focused on:')).not.toBeInTheDocument()
+  })
+
+  describe('toolbar zone layout', () => {
+    it('toolbar has exactly 2 zone dividers', () => {
+      render(<BoardView {...defaultProps()} />)
+      const toolbar = screen.getByTestId('board-toolbar')
+      // Zone dividers are direct children of the toolbar with the w-px divider class
+      const dividers = Array.from(toolbar.children).filter(
+        (el) => el.tagName === 'DIV' && el.classList.contains('w-px')
+      )
+      expect(dividers.length).toBe(2)
+    })
+
+    it('Archived button is in the same zone as Filters', () => {
+      render(<BoardView {...defaultProps()} />)
+      const filters = screen.getByLabelText('Filters')
+      const archived = screen.getByLabelText('Show archived cards')
+      // Both should share the same parent container (Zone 2)
+      expect(filters.parentElement).toBe(archived.parentElement)
+    })
+
+    it('Archived button shows amber active state when toggled', async () => {
+      render(<BoardView {...defaultProps()} />)
+      const archived = screen.getByLabelText('Show archived cards')
+      await userEvent.setup().click(archived)
+      expect(archived.className).toMatch(/text-amber-400/)
+      expect(archived.getAttribute('aria-pressed')).toBe('true')
+    })
+
+    it('does not render pan hint text in toolbar', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByText(/Space.*drag to pan/)).not.toBeInTheDocument()
+    })
+
+    it('keyboard shortcuts and settings icons have tooltips', () => {
+      render(<BoardView {...defaultProps()} />)
+      const shortcuts = screen.getByLabelText('Keyboard shortcuts')
+      expect(shortcuts.getAttribute('data-tooltip')).toBe('Keyboard shortcuts')
+      const settings = screen.getByLabelText('Board settings')
+      expect(settings.getAttribute('data-tooltip')).toBe('Board settings')
+    })
+
+    it('Live indicator has role=status', () => {
+      render(<BoardView {...defaultProps()} />)
+      const live = screen.getByRole('status')
+      expect(live).toBeInTheDocument()
+    })
   })
 })
