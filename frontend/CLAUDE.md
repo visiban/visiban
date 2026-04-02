@@ -34,8 +34,11 @@ Three variants — use no others:
 | Icon-only | `hover:bg-slate-700` with icon content |
 
 - Consistent sizing: `px-3 py-1.5 text-sm rounded` for most buttons
-- Focus state: `focus:outline-none focus:ring-2 focus:ring-blue-500`
+- Focus state: `focus:outline-none focus:ring-2 focus:ring-blue-500` (use `focus:ring-red-500` for danger buttons)
 - Danger variant (destructive actions): `bg-red-600 hover:bg-red-700 text-white`
+- Disabled state: `disabled:opacity-40 disabled:cursor-not-allowed` — never `disabled:opacity-50`
+- Primary and danger buttons always include `font-medium`
+- Border radius: always `rounded` — never `rounded-lg` on buttons
 
 ## Inputs and textareas
 
@@ -77,6 +80,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Panel: `bg-slate-800 border border-slate-700 rounded-lg shadow-xl`
 - Consistent padding: `p-6` for content, `pb-4` for header
 - Close button: icon-only variant, top-right corner
+- Footer layout: `flex items-center justify-end gap-3` — always `gap-3`, never `gap-2`
 - **Fixed-height tabbed modals** — when a modal contains tabs with variable content height, give the panel a fixed height (`h-[85vh] max-h-[640px] min-h-0`) rather than only a max-height. This prevents layout jumping between tabs. The scrollable content region uses `overflow-y-auto flex-1` and the panel uses `flex flex-col`. Never use `max-h` alone on a tabbed modal panel.
 - **Inline confirmation for destructive toggles** — for settings toggles that have immediate, board-wide, non-reversible effects (e.g. enabling hard WIP enforcement), show an inline confirmation row before committing the change. On toggle click, replace the toggle row with a text prompt + Confirm + Cancel text buttons at `text-xs` scale (reuse the member-removal confirm pattern in `BoardSettingsModal`). On Cancel, revert the toggle. Do not use a modal-within-modal or a danger-zone text input for toggle-level confirmations.
 
