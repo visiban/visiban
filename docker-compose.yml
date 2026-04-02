@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: visiban
       POSTGRES_USER: visiban
-      POSTGRES_PASSWORD: visiban
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-visiban}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -31,7 +31,6 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://visiban:visiban@db:5432/visiban
       REDIS_URL: redis://redis:6379/0
       REDIS_CACHE_URL: redis://redis:6379/1
     volumes:

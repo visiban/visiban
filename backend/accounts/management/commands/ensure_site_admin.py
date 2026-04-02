@@ -50,28 +50,35 @@ class Command(BaseCommand):
         # Datadog, etc.) and any log retention system — a significant exposure
         # risk. The file is only readable by the process owner and should be
         # retrieved immediately then deleted.
+        _pw_to_stdout = False
         try:
             with open(_PASSWORD_FILE, "w") as fh:
                 fh.write(password + "\n")
             os.chmod(_PASSWORD_FILE, 0o600)
             password_location = f"written to {_PASSWORD_FILE}"
         except OSError as exc:
-            # Fall back to WARNING-level log if the file cannot be written.
-            # Logging at WARNING keeps it out of standard INFO streams while
-            # still surfacing it in environments that capture WARNING+.
+            # File write failed — fall back to management command stdout only.
+            # Do NOT log the credential via logger.*: log aggregators (CloudWatch,
+            # Datadog, etc.) capture WARNING+ and would persist the plaintext password.
+            # self.stdout goes to the terminal/container STDOUT of the command
+            # invocation itself and is not forwarded to log aggregators.
             logger.warning(
-                "VISIBAN INITIAL ADMIN PASSWORD (could not write to file: %s): %s",
+                "ensure_site_admin: could not write password file (%s). "
+                "Credential printed to command stdout only.",
                 exc,
-                password,
             )
-            password_location = "logged at WARNING level (file write failed)"
+            _pw_to_stdout = True
+            password_location = f"stdout (file write failed: {exc})"
 
         self.stdout.write("")
         self.stdout.write(self.style.WARNING("=" * 60))
         self.stdout.write(self.style.WARNING("  VISIBAN INITIAL ADMIN CREDENTIALS"))
         self.stdout.write(self.style.WARNING("=" * 60))
         self.stdout.write(f"  {action} site admin: {username}")
-        self.stdout.write(f"  Password:            [REDACTED — {password_location}]")
+        if _pw_to_stdout:
+            self.stdout.write(f"  Password:            {password}")
+        else:
+            self.stdout.write(f"  Password:            [REDACTED — {password_location}]")
         self.stdout.write(self.style.WARNING("=" * 60))
         self.stdout.write(self.style.WARNING("  Retrieve the password, then delete the file."))
         self.stdout.write(self.style.WARNING("  You will be required to change it on first login."))
