@@ -25,6 +25,8 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Poll the unread count every 30 s. Real-time push via UserConsumer is
+  // deferred to 1.1 — the polling interval is intentional until then.
   useEffect(() => {
     const fetchCount = () => getUnreadCount().then(setUnreadCount).catch(() => {});
     fetchCount();

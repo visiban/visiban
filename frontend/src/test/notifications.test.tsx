@@ -286,3 +286,39 @@ describe('Notification dropdown', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// Deep-link archived card — getCardStatus API contract
+// ---------------------------------------------------------------------------
+
+import { getCardStatus } from '../api/cards'
+import apiClient from '../api/client'
+
+vi.mock('../api/client', () => ({
+  default: {
+    get: vi.fn(),
+  },
+}))
+
+describe('getCardStatus', () => {
+  const mockedGet = vi.mocked(apiClient.get)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns { archived: true } for an archived card', async () => {
+    mockedGet.mockResolvedValueOnce({ data: { archived: true } } as never)
+    const result = await getCardStatus(1, 42)
+    expect(mockedGet).toHaveBeenCalledWith('/api/boards/1/cards/42/status/')
+    expect(result).toEqual({ archived: true })
+  })
+
+  it('returns null when the card does not exist (404)', async () => {
+    mockedGet.mockRejectedValueOnce(
+      Object.assign(new Error('Not found'), { response: { status: 404 } })
+    )
+    const result = await getCardStatus(1, 999)
+    expect(result).toBeNull()
+  })
+})

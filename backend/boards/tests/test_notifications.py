@@ -431,3 +431,105 @@ class NotificationActionTypeConstraintTests(TestCase):
         )
         # Should not raise
         n.full_clean()
+
+
+# ---------------------------------------------------------------------------
+# #437 — Board invite notification wiring
+# ---------------------------------------------------------------------------
+
+class BoardInviteNotificationTests(TestCase):
+    """Verify that adding a new member to a board creates a BOARD_INVITE notification."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(username="boardadmin", password="pass")
+        self.client.force_authenticate(self.admin)
+        self.board, _, _, _ = make_board(self.admin)
+
+    @patch("boards.broadcast.broadcast_board_event")
+    def test_adding_member_creates_board_invite_notification(self, _mock_broadcast):
+        """Adding a new member to a board must create a BOARD_INVITE notification."""
+        new_member = User.objects.create_user(
+            username="newmember", password="pass", notif_board_invite=True
+        )
+
+        resp = self.client.post(
+            f"/api/boards/{self.board.pk}/members/",
+            {"user_id": new_member.pk, "role": "member"},
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=new_member,
+                board=self.board,
+                action_type=Notification.ActionType.BOARD_INVITE,
+            ).exists()
+        )
+
+    @patch("boards.broadcast.broadcast_board_event")
+    def test_self_add_does_not_create_notification(self, _mock_broadcast):
+        """An admin adding themselves must not create a self-notification."""
+        # The admin is already a member from make_board — re-adding should not
+        # fire a self-notification regardless of the notif_board_invite pref.
+        resp = self.client.post(
+            f"/api/boards/{self.board.pk}/members/",
+            {"user_id": self.admin.pk, "role": "member"},
+        )
+
+        # 201 (upsert) or 200 both acceptable; key assertion is no notification
+        self.assertIn(resp.status_code, [200, 201])
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient=self.admin,
+                board=self.board,
+                action_type=Notification.ActionType.BOARD_INVITE,
+            ).count(),
+            0,
+        )
+
+    @patch("boards.broadcast.broadcast_board_event")
+    def test_opted_out_member_does_not_receive_notification(self, _mock_broadcast):
+        """A user with notif_board_invite=False must not receive a BOARD_INVITE notification."""
+        opted_out = User.objects.create_user(
+            username="optedout", password="pass", notif_board_invite=False
+        )
+
+        self.client.post(
+            f"/api/boards/{self.board.pk}/members/",
+            {"user_id": opted_out.pk, "role": "member"},
+        )
+
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient=opted_out,
+                action_type=Notification.ActionType.BOARD_INVITE,
+            ).count(),
+            0,
+        )
+
+    @patch("boards.broadcast.broadcast_board_event")
+    def test_role_update_does_not_create_duplicate_notification(self, _mock_broadcast):
+        """Updating an existing member's role must not fire a second BOARD_INVITE notification."""
+        existing = User.objects.create_user(
+            username="existing", password="pass", notif_board_invite=True
+        )
+        # First add — creates one notification
+        self.client.post(
+            f"/api/boards/{self.board.pk}/members/",
+            {"user_id": existing.pk, "role": "member"},
+        )
+        # Promote — should NOT create a second notification
+        self.client.post(
+            f"/api/boards/{self.board.pk}/members/",
+            {"user_id": existing.pk, "role": "admin"},
+        )
+
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient=existing,
+                board=self.board,
+                action_type=Notification.ActionType.BOARD_INVITE,
+            ).count(),
+            1,
+        )

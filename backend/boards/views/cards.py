@@ -266,6 +266,25 @@ class CardViewSet(viewsets.ModelViewSet):
             instance.delete()
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.deleted", {"card_uid": card_uid}))
 
+    @action(detail=True, methods=["get"], url_path="status")
+    def card_status(self, request, board_pk=None, pk=None):
+        """GET /api/boards/{board_pk}/cards/{pk}/status/
+
+        Returns the archived state of a card regardless of whether it has been
+        archived. This is used by the deep-link handler (``?card=``) to show a
+        contextual message when the target card is not in the active board view:
+        ``{"archived": true}`` means the card exists but is archived; a 404
+        response means the card does not belong to this board or has been hard-
+        deleted.
+
+        All board members (including viewers) may call this endpoint — it is a
+        read operation that exposes no sensitive data beyond what they already
+        have access to via the board full endpoint.
+        """
+        board, _ = self._board_and_role()
+        card = get_object_or_404(Card.objects.filter(board=board), pk=pk)
+        return Response({"archived": card.archived_at is not None})
+
     @action(detail=True, methods=["post"])
     def archive(self, request, board_pk=None, pk=None):
         """Soft-delete a card by setting archived_at to now.
