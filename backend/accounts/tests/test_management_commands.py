@@ -79,6 +79,31 @@ class EnsureSiteAdminTests(TestCase):
             if os.path.exists(pw_file):
                 os.remove(pw_file)
 
+    def test_password_printed_to_stdout_when_file_write_fails(self):
+        """When the password file cannot be written, the password is printed directly to stdout.
+
+        This covers the OSError fallback path: the banner must contain the actual
+        credential (so the operator can retrieve it) and must NOT contain "REDACTED"
+        (which would be useless if the file write is the only delivery mechanism).
+        """
+        # Patch _PASSWORD_FILE to a directory path so open(..., "w") raises OSError.
+        with patch(
+            "accounts.management.commands.ensure_site_admin._PASSWORD_FILE",
+            "/",  # opening a directory for writing always raises OSError
+        ):
+            out = StringIO()
+            call_command("ensure_site_admin", stdout=out)
+
+        output = out.getvalue()
+        # The generated password must appear somewhere in the banner.
+        # We cannot know the exact value, but we can confirm the banner does NOT
+        # fall back to the REDACTED placeholder — that only appears on the success path.
+        self.assertNotIn("REDACTED", output)
+        # The banner heading must still be present so the operator notices the output.
+        self.assertIn("VISIBAN INITIAL ADMIN CREDENTIALS", output)
+        # The admin user must have been created despite the file write failure.
+        self.assertTrue(User.objects.filter(username="admin", is_site_admin=True).exists())
+
 
 class SetSiteAdminTests(TestCase):
     """set_site_admin grants or revokes site admin status for an existing user."""

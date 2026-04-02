@@ -5,6 +5,16 @@ import { MemoryRouter } from 'react-router-dom'
 import Dashboard from '../pages/Dashboard'
 import type { User } from '../types'
 
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
+
 vi.mock('../api/boards', () => ({
   listBoards: vi.fn(),
   createBoard: vi.fn(),
@@ -59,6 +69,7 @@ describe('Dashboard', () => {
     vi.clearAllMocks()
     mockListBoards.mockResolvedValue([])
     mockListGroups.mockResolvedValue([])
+    mockNavigate.mockReset()
   })
 
   it('renders Groups and My Boards sections', async () => {
@@ -171,5 +182,47 @@ describe('Dashboard', () => {
     ])
     renderDashboard()
     expect(await screen.findByText('Engineering')).toBeInTheDocument()
+  })
+
+  describe('join group modal — token extraction', () => {
+    // The "Join a group with an invite link" button is rendered by OnboardingEmptyState,
+    // which is only shown when both boards and groups lists are empty (the default mock state).
+
+    it('navigates to /join/<token> when a full invite URL is pasted', async () => {
+      const user = userEvent.setup()
+      renderDashboard()
+
+      // Wait for the empty-state to appear, then open the join modal
+      await screen.findByText('Join a group with an invite link')
+      await user.click(screen.getByText('Join a group with an invite link'))
+
+      // The modal should now be open
+      expect(screen.getByText('Join a group')).toBeInTheDocument()
+
+      // Type a full invite URL — the handler must strip everything before /join/
+      const input = screen.getByPlaceholderText(/https:.*\/join\/abc123 or abc123/i)
+      await user.type(input, 'https://example.com/join/abc123')
+
+      await user.click(screen.getByRole('button', { name: 'Join' }))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/join/abc123')
+    })
+
+    it('navigates to /join/<token> when a bare token is pasted', async () => {
+      const user = userEvent.setup()
+      renderDashboard()
+
+      await screen.findByText('Join a group with an invite link')
+      await user.click(screen.getByText('Join a group with an invite link'))
+
+      expect(screen.getByText('Join a group')).toBeInTheDocument()
+
+      const input = screen.getByPlaceholderText(/https:.*\/join\/abc123 or abc123/i)
+      await user.type(input, 'xyz789')
+
+      await user.click(screen.getByRole('button', { name: 'Join' }))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/join/xyz789')
+    })
   })
 })
