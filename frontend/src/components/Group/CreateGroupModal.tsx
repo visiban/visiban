@@ -141,7 +141,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-3 mt-5">
+        <div className="flex items-center justify-end gap-3 mt-5">
           <button
             onClick={onClose}
             className="text-sm font-medium bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -190,8 +190,8 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
           {error && <span className="text-red-400">{error}</span>}
         </p>
       </div>
-      <div className="flex justify-end gap-3 mt-5">
-        <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
+      <div className="flex items-center justify-end gap-3 mt-5">
+        <button onClick={onClose} className="text-sm text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
         <button
           onClick={handleCreate}
           disabled={!name.trim() || saving || description.length > DESCRIPTION_MAX}
