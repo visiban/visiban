@@ -18,8 +18,6 @@ from ..models import (
     Board, BoardFavorite, BoardMembership, Column, Notification, SavedFilter, Swimlane,
 )
 from ..permissions import get_board_role, SITE_ADMIN
-
-_EVT_BOARD_UPDATED = "board.updated"
 from ..serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     SavedFilterSerializer,
@@ -30,6 +28,8 @@ from .analytics import BoardAnalyticsMixin
 from .import_export import BoardImportExportMixin
 
 logger = logging.getLogger(__name__)
+
+_EVT_BOARD_UPDATED = "board.updated"
 
 
 class BoardViewSet(

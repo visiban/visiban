@@ -23,6 +23,12 @@ from ..models import (
     Notification, Swimlane,
 )
 from ..permissions import SITE_ADMIN
+from ..serializers import (
+    CardSerializer, CardMovementSerializer, CardCommentSerializer,
+    CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
+    _card_queryset,
+)
+from ._helpers import get_board_for_user, _can_modify_others_content, _refetched_card_data
 
 # Broadcast event names — extracted to avoid string duplication.
 _EVT_CARD_UPDATED = "card.updated"
@@ -30,12 +36,6 @@ _EVT_CARD_UPDATED = "card.updated"
 # Permission error messages — extracted to avoid string duplication.
 _PERM_DENIED = "You do not have permission to perform this action."
 _VIEWER_DENIED = "Viewers cannot perform this action."
-from ..serializers import (
-    CardSerializer, CardMovementSerializer, CardCommentSerializer,
-    CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
-    _card_queryset,
-)
-from ._helpers import get_board_for_user, _can_modify_others_content, _refetched_card_data
 
 
 # ---------------------------------------------------------------------------
