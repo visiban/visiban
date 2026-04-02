@@ -23,6 +23,8 @@ interface Props {
   userDateFormat?: string;
   /** When true, the card is non-interactive: no drag, no hover lift, no onClick. Used on the share page. */
   readOnly?: boolean;
+  /** When true, renders a compact single-line card with reduced padding and fewer metadata fields. */
+  compact?: boolean;
 }
 
 // Custom comparator for React.memo — avoids re-renders when the card object
@@ -68,11 +70,12 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.hideLastMoved === next.hideLastMoved &&
     prev.userTimezone === next.userTimezone &&
     prev.userDateFormat === next.userDateFormat &&
-    prev.readOnly === next.readOnly
+    prev.readOnly === next.readOnly &&
+    prev.compact === next.compact
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false }: Props) {
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, compact = false }: Props) {
   // useDraggable must be called unconditionally (hook rules). When readOnly,
   // we do not attach its ref or event listeners so the card is non-draggable.
   const draggable = useDraggable({ id: card.id, disabled: readOnly });
@@ -155,90 +158,95 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           )}
         </div>
       )}
-      <div className="px-2.5 py-2">
-        <p className="text-sm text-slate-200 leading-snug line-clamp-2">{card.title}</p>
+      <div className={`px-2.5 ${compact ? "py-1.5" : "py-2"}`}>
+        <p className={`leading-snug ${compact ? "text-xs text-slate-200 line-clamp-1" : "text-sm text-slate-200 line-clamp-2"}`}>{card.title}</p>
 
         {/* Description exists — indicator only; full content shown in card detail */}
 
         {hasMetadata && (
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
-            {/* Description indicator */}
-            {card.description && (
-              <svg className="w-2.5 h-2.5 text-slate-500 shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
-                <title>Has description</title>
-                <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
-              </svg>
-            )}
-            {/* Label pills — truncated full name, up to 3 then overflow */}
-            {!hideLabels && card.labels.slice(0, 3).map((label) => {
-              const display = label.name.length > 8 ? label.name.slice(0, 7) + "…" : label.name;
-              return (
-                <span
-                  key={label.id}
-                  className="text-[9px] font-semibold px-1 py-0.5 rounded leading-none shrink-0"
-                  style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
-                  title={label.name}
-                >
-                  {display}
-                </span>
-              );
-            })}
-            {!hideLabels && card.labels.length > 3 && (
-              <span className="text-[9px] text-slate-400 shrink-0">+{card.labels.length - 3}</span>
+            {/* In compact mode only show: stale indicator, recently moved dot, priority badge (medium+), assignee */}
+            {!compact && (
+              <>
+                {/* Description indicator */}
+                {card.description && (
+                  <svg className="w-2.5 h-2.5 text-slate-500 shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
+                    <title>Has description</title>
+                    <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
+                  </svg>
+                )}
+                {/* Label pills — truncated full name, up to 3 then overflow */}
+                {!hideLabels && card.labels.slice(0, 3).map((label) => {
+                  const display = label.name.length > 8 ? label.name.slice(0, 7) + "…" : label.name;
+                  return (
+                    <span
+                      key={label.id}
+                      className="text-[9px] font-semibold px-1 py-0.5 rounded leading-none shrink-0"
+                      style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
+                      title={label.name}
+                    >
+                      {display}
+                    </span>
+                  );
+                })}
+                {!hideLabels && card.labels.length > 3 && (
+                  <span className="text-[9px] text-slate-400 shrink-0">+{card.labels.length - 3}</span>
+                )}
+
+                {/* Checklist */}
+                {card.checklist_total > 0 && (
+                  <span
+                    className={`text-[10px] font-medium shrink-0 ${
+                      card.checklist_done === card.checklist_total ? "text-green-500" : "text-slate-400"
+                    }`}
+                    title={`${card.checklist_done}/${card.checklist_total} checklist items`}
+                  >
+                    ✓{card.checklist_done}/{card.checklist_total}
+                  </span>
+                )}
+
+                {/* Attachments */}
+                {card.attachment_count > 0 && (
+                  <span className="text-[10px] text-slate-400 shrink-0" title={`${card.attachment_count} attachment(s)`}>
+                    📎{card.attachment_count}
+                  </span>
+                )}
+
+                {/* Due date */}
+                {!hideDueDate && dueInfo && (
+                  <span
+                    className={`text-[10px] font-medium shrink-0 ${dueInfo.overdue ? "text-red-400" : "text-slate-400"}`}
+                    title={`Due ${card.due_date}`}
+                  >
+                    {dueInfo.label}
+                  </span>
+                )}
+
+                {/* Weight (only shown when > 1) */}
+                {card.weight > 1 && (
+                  <span className="text-[10px] text-slate-300 font-medium shrink-0" title={`Weight: ${card.weight}`}>
+                    {card.weight}
+                  </span>
+                )}
+              </>
             )}
 
-            {/* Checklist */}
-            {card.checklist_total > 0 && (
-              <span
-                className={`text-[10px] font-medium shrink-0 ${
-                  card.checklist_done === card.checklist_total ? "text-green-500" : "text-slate-400"
-                }`}
-                title={`${card.checklist_done}/${card.checklist_total} checklist items`}
-              >
-                ✓{card.checklist_done}/{card.checklist_total}
-              </span>
-            )}
-
-            {/* Attachments */}
-            {card.attachment_count > 0 && (
-              <span className="text-[10px] text-slate-400 shrink-0" title={`${card.attachment_count} attachment(s)`}>
-                📎{card.attachment_count}
-              </span>
-            )}
-
-            {/* Due date */}
-            {!hideDueDate && dueInfo && (
-              <span
-                className={`text-[10px] font-medium shrink-0 ${dueInfo.overdue ? "text-red-400" : "text-slate-400"}`}
-                title={`Due ${card.due_date}`}
-              >
-                {dueInfo.label}
-              </span>
-            )}
-
-            {/* Weight (only shown when > 1) */}
-            {card.weight > 1 && (
-              <span className="text-[10px] text-slate-300 font-medium shrink-0" title={`Weight: ${card.weight}`}>
-                {card.weight}
-              </span>
-            )}
-
-            {/* Stale indicator */}
+            {/* Stale indicator — shown in both modes */}
             {card.is_stale && (
               <span title="Stale — no movement recently" className="text-amber-400 text-[10px] leading-none shrink-0">⏱</span>
             )}
 
-            {/* Recently moved dot — always visible when condition is true (<24h, not stale) */}
+            {/* Recently moved dot — shown in both modes (<24h, not stale) */}
             {isRecent && !card.is_stale && (
               <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="Recently moved" />
             )}
 
-            {/* Last-moved text label — for cards moved ≥24h ago */}
-            {movedLabel && (
+            {/* Last-moved text label — expanded mode only (≥24h ago) */}
+            {!compact && movedLabel && (
               <span className="text-[10px] text-slate-500 shrink-0">{movedLabel}</span>
             )}
 
-            {/* Priority badge — always visible for medium and above */}
+            {/* Priority badge — shown in both modes for medium and above */}
             {!hidePriority && card.priority !== "low" && (
               <span
                 className="text-[9px] font-semibold shrink-0 capitalize px-1 py-0.5 rounded leading-none"
@@ -249,7 +257,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
               </span>
             )}
 
-            {/* Assignee avatar */}
+            {/* Assignee avatar — shown in both modes */}
             {!hideAssignee && card.assignee && (
               <Avatar user={card.assignee} size="xs" className="ml-auto" />
             )}

@@ -493,25 +493,32 @@ class AdminUserDeactivateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Bulk-fetch all transfer targets in 2 queries rather than 2 per entry.
+            transfer_user_ids = {t["transfer_to"] for t in transfers}
+            transfer_board_ids = {t["board_id"] for t in transfers}
+            users_by_id = {
+                u.pk: u
+                for u in User.objects.filter(pk__in=transfer_user_ids, is_active=True)
+            }
+            boards_by_id = {
+                b.id: b for b in Board.objects.filter(pk__in=transfer_board_ids)
+            }
+
             for t in transfers:
                 if t["transfer_to"] == target.pk:
                     return Response(
                         {"detail": "Cannot transfer board ownership to the user being deactivated."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                try:
-                    to_user = User.objects.get(pk=t["transfer_to"], is_active=True)
-                except User.DoesNotExist:
+                to_user = users_by_id.get(t["transfer_to"])
+                if to_user is None:
                     return Response(
                         {"detail": f"Transfer target {t['transfer_to']} not found or inactive."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 # Use get_board_role to honor group-inherited memberships, not
                 # just direct BoardMembership rows.
-                try:
-                    board_obj = Board.objects.get(pk=t["board_id"])
-                except Board.DoesNotExist:
-                    board_obj = None
+                board_obj = boards_by_id.get(t["board_id"])
                 if board_obj is None or get_board_role(to_user, board_obj) is None:
                     board_name = next(
                         (b["name"] for b in owned_boards if b["id"] == t["board_id"]),
