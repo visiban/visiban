@@ -157,6 +157,13 @@ vi.mock('../hooks/useSavedFilters', () => ({
 vi.mock('../components/Board/MovementHistoryView', () => ({
   default: () => <div data-testid="movement-history-view">Movement History</div>,
 }))
+vi.mock('../hooks/useCardSearch', () => ({
+  useCardSearch: () => ({ searchMatchIds: null, isSearching: false }),
+}))
+vi.mock('../api/cards', () => ({
+  getCardStatus: vi.fn(),
+}))
+import { getCardStatus } from '../api/cards'
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -232,6 +239,7 @@ const defaultProps = () => ({})
 describe('BoardView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getCardStatus).mockResolvedValue({ archived: false })
     mockSearchParams = new URLSearchParams()
     localStorage.clear()
     mockBoardContextValue = defaultContext()
@@ -462,18 +470,18 @@ describe('BoardView', () => {
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
-  it('?card= param shows "Card not found" banner when card is missing', () => {
+  it('?card= param shows "Card not found" banner when card is missing', async () => {
     mockSearchParams = new URLSearchParams('card=999')
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText(/Card not found/)).toBeInTheDocument()
+    expect(await screen.findByText(/Card not found/)).toBeInTheDocument()
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
   it('"Card not found" banner auto-dismisses after 4s', async () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     mockSearchParams = new URLSearchParams('card=999')
     render(<BoardView {...defaultProps()} />)
-    expect(screen.getByText(/Card not found/)).toBeInTheDocument()
+    expect(await screen.findByText(/Card not found/)).toBeInTheDocument()
     await act(async () => { vi.advanceTimersByTime(4000) })
     expect(screen.queryByText(/Card not found/)).not.toBeInTheDocument()
     vi.useRealTimers()

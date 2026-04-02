@@ -58,7 +58,7 @@ function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
       onClick={() => onChange({ ...filters, assigneeIds: isActive ? [] : [currentUser.id] })}
       aria-pressed={isActive}
       title={isActive ? "Remove My cards filter" : "Show only cards assigned to me"}
-      className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1.5 transition shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
+      className={`bg-slate-800 border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
         isActive
           ? "border-blue-400 text-blue-400"
           : "border-slate-600 text-slate-300 hover:border-slate-400"

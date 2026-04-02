@@ -98,3 +98,18 @@ export const deleteChecklistItem = (boardId: number, cardId: number, itemId: num
 export const searchCards = (boardId: number, query: string, signal?: AbortSignal): Promise<Card[]> =>
   client.get<Card[]>(`/api/boards/${boardId}/cards/`, { params: { search: query }, signal })
     .then((r) => r.data);
+
+export interface CardStatus {
+  archived: boolean;
+}
+
+/**
+ * Fetches minimal status for a card that is not present in the live board state.
+ * Used to distinguish between deleted cards and archived ones so the UI can show
+ * a contextual "Card not found" message. Returns null on network error (fail-silent).
+ */
+export const getCardStatus = (boardId: number, cardId: number): Promise<CardStatus | null> =>
+  client
+    .get<CardStatus>(`/api/boards/${boardId}/cards/${cardId}/status/`)
+    .then((r) => r.data)
+    .catch(() => null);
