@@ -97,8 +97,17 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             # ColumnViewSet.reorder which requires a two-pass approach because
             # Column has unique_together = ["board", "position"].
             Board.objects.select_for_update().get(pk=board.pk)
-            for pos, swimlane_id in enumerate(order):
-                Swimlane.objects.filter(board=board, pk=swimlane_id).update(position=pos)
+            # bulk_update replaces N single-row UPDATEs with one query regardless of
+            # swimlane count.  Swimlane has no unique_together on position so a single
+            # pass is safe (contrast with ColumnViewSet.reorder which needs two passes).
+            # Cast IDs to int — request JSON sends strings, DB PKs are ints.
+            order_ints = [int(sid) for sid in order]
+            lanes = list(Swimlane.objects.filter(board=board, pk__in=order_ints).only("id", "position"))
+            id_to_lane = {sl.pk: sl for sl in lanes}
+            for pos, swimlane_id in enumerate(order_ints):
+                if swimlane_id in id_to_lane:
+                    id_to_lane[swimlane_id].position = pos
+            Swimlane.objects.bulk_update(list(id_to_lane.values()), ["position"])
             lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlanes.reordered", {"swimlanes": list(lanes_data)}))

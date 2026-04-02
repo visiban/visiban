@@ -80,14 +80,24 @@ class ColumnViewSet(viewsets.ModelViewSet):
             raise PermissionDenied
         order = request.data.get("order", [])  # list of column IDs in new order
         with transaction.atomic():
-            # Two-pass update to avoid unique_together(board, position) violations.
-            # First pass: shift to high positions so no two columns share a position mid-update.
+            # Two-pass bulk_update to avoid unique_together(board, position) violations.
+            # First pass: shift all positions to high values so no two columns share a
+            # position mid-update.  Second pass: assign final positions.
+            # Using bulk_update reduces 2N single-row UPDATEs to 2 queries regardless
+            # of column count.
             count = board.columns.count()
-            for i, col_id in enumerate(order):
-                Column.objects.filter(board=board, pk=col_id).update(position=count + i)
-            # Second pass: assign final positions.
-            for pos, col_id in enumerate(order):
-                Column.objects.filter(board=board, pk=col_id).update(position=pos)
+            # Cast IDs to int — request JSON sends strings, DB PKs are ints.
+            order_ints = [int(cid) for cid in order]
+            cols = list(Column.objects.filter(board=board, pk__in=order_ints).only("id", "position"))
+            id_to_col = {c.pk: c for c in cols}
+            for i, col_id in enumerate(order_ints):
+                if col_id in id_to_col:
+                    id_to_col[col_id].position = count + i
+            Column.objects.bulk_update([id_to_col[cid] for cid in order_ints if cid in id_to_col], ["position"])
+            for pos, col_id in enumerate(order_ints):
+                if col_id in id_to_col:
+                    id_to_col[col_id].position = pos
+            Column.objects.bulk_update([id_to_col[cid] for cid in order_ints if cid in id_to_col], ["position"])
             cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "columns.reordered", {"columns": list(cols_data)}))

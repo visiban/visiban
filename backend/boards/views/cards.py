@@ -447,12 +447,18 @@ class CardViewSet(viewsets.ModelViewSet):
         that a failure at any step rolls back all side-effects rather than leaving
         the card saved but with a missing activity trail or notification.
         """
-        _, role = self._board_and_role()
+        board, role = self._board_and_role()
         # Allow-list: same pattern as perform_create — safer than block-list.
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         partial = kwargs.pop("partial", False)
         card = self.get_object()
+        # Ownership gate: members may only edit cards they created, unless
+        # they have the moderator entitlement (#362). Mirrors the check in
+        # perform_destroy, archive, and unarchive.
+        if card.created_by_id != request.user.id:
+            if not _can_modify_others_content(board, role, request.user):
+                raise PermissionDenied("You can only edit cards you created.")
         with transaction.atomic():
             # Snapshot before update
             old_title = card.title
@@ -461,7 +467,7 @@ class CardViewSet(viewsets.ModelViewSet):
             old_assignee_id = card.assignee_id
             old_assignee_name = card.assignee.username if card.assignee else "Unassigned"
             old_description = card.description
-            old_label_ids = set(card.labels.values_list("id", flat=True))
+            old_label_ids = {label.id for label in card.labels.all()}
             old_due_date = card.due_date.isoformat() if card.due_date else ""
 
             serializer = self.get_serializer(card, data=request.data, partial=partial)
@@ -514,7 +520,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 # description is already committed when notifications are created.
                 _card, _actor, _old, _new = card, request.user, old_description, card.description
                 transaction.on_commit(lambda: notify_new_mentions(_card, _actor, _old, _new))
-            new_label_ids = set(card.labels.values_list("id", flat=True))
+            new_label_ids = {label.id for label in card.labels.all()}
             if old_label_ids != new_label_ids:
                 added = new_label_ids - old_label_ids
                 removed = old_label_ids - new_label_ids

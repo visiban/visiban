@@ -147,6 +147,82 @@ class CollaboratorPermissionBoundaryTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class MemberCardOwnershipTests(TestCase):
+    """Members may only edit cards they created, unless they are moderators."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_co", password="pass")
+        self.member = User.objects.create_user(username="member_co", password="pass")
+        self.moderator = User.objects.create_user(username="mod_co", password="pass")
+        self.board, self.col, self.col2, self.swim = _make_board(self.owner)
+        BoardMembership.objects.create(
+            board=self.board, user=self.member, role=BoardMembership.Role.MEMBER
+        )
+        BoardMembership.objects.create(
+            board=self.board, user=self.moderator, role=BoardMembership.Role.MEMBER,
+            is_moderator=True,
+        )
+
+    @patch(PATCH_BROADCAST)
+    def test_member_cannot_edit_card_created_by_another(self, _mock):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Owner Card", created_by=self.owner, position=0,
+        )
+        client = APIClient()
+        client.force_authenticate(self.member)
+        resp = client.patch(
+            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            {"title": "Hijacked"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch(PATCH_BROADCAST)
+    def test_member_can_edit_own_card(self, _mock):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="My Card", created_by=self.member, position=0,
+        )
+        client = APIClient()
+        client.force_authenticate(self.member)
+        resp = client.patch(
+            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            {"title": "Renamed"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["title"], "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_moderator_can_edit_card_created_by_another(self, _mock):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Owner Card", created_by=self.owner, position=0,
+        )
+        client = APIClient()
+        client.force_authenticate(self.moderator)
+        resp = client.patch(
+            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            {"title": "Moderated"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["title"], "Moderated")
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_edit_card_created_by_another(self, _mock):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Member Card", created_by=self.member, position=0,
+        )
+        client = APIClient()
+        client.force_authenticate(self.owner)
+        resp = client.patch(
+            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            {"title": "Admin Edit"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["title"], "Admin Edit")
+
+
 class SiteAdminMembershipProtectionTests(TestCase):
     """Attempting to remove or demote a site_admin from board members should be blocked."""
 
