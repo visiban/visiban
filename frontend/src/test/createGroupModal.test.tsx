@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CreateGroupModal from '../components/Group/CreateGroupModal'
 import type { Group } from '../types'
@@ -17,7 +17,7 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
     id: 1,
     name: 'Engineering',
     description: '',
-    owner: { id: 1, username: 'admin', display_name: 'Admin', avatar_url: '', email: '' },
+    owner: { id: 1, username: 'admin', display_name: 'Admin', avatar_url: '' },
     parent: null,
     parent_name: null,
     member_count: 1,
@@ -276,10 +276,11 @@ describe('CreateGroupModal', () => {
     const user = userEvent.setup()
 
     await user.type(screen.getByPlaceholderText('e.g. Engineering'), 'Valid Name')
-    await user.type(
-      screen.getByPlaceholderText('What is this group for?'),
-      'x'.repeat(501),
-    )
+    // Use fireEvent.change for the large string — userEvent.type fires one event
+    // per character and is too slow for 500+ chars in CI's default 5 s timeout.
+    fireEvent.change(screen.getByPlaceholderText('What is this group for?'), {
+      target: { value: 'x'.repeat(501) },
+    })
 
     expect(screen.getByRole('button', { name: /create/i })).toBeDisabled()
   })
