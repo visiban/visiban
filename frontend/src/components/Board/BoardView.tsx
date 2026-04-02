@@ -460,7 +460,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const todayStr = todayInTimezone(userTimezone);
 
     // filterCards handles the server search intersection via its searchResults param.
-    return new Set(filterCards(board.cards, filters, searchMatchIds, todayStr));
+    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr));
   })();
 
   const handleColumnAdded = useCallback((col: Column) => {
