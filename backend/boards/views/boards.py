@@ -18,6 +18,8 @@ from ..models import (
     Board, BoardFavorite, BoardMembership, Column, Notification, SavedFilter, Swimlane,
 )
 from ..permissions import get_board_role, SITE_ADMIN
+
+_EVT_BOARD_UPDATED = "board.updated"
 from ..serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     SavedFilterSerializer,
@@ -112,7 +114,7 @@ class BoardViewSet(
             board_id = board.id
             board_data = BoardSerializer(board, context={"request": self.request}).data
             transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
+                lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_data)
             )
 
     def destroy(self, request, *args, **kwargs):
@@ -173,7 +175,7 @@ class BoardViewSet(
             board_id = board.pk
             board_summary = BoardSerializer(board, context={"request": request}).data
             transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_summary)
+                lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_summary)
             )
         return Response(response_data)
 
@@ -202,7 +204,7 @@ class BoardViewSet(
             board_id = board.id
             board_data = BoardSerializer(board, context={"request": request}).data
             transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, "board.updated", board_data)
+                lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_data)
             )
         return Response(board_data)
 

@@ -322,25 +322,15 @@ class AdminUserDetailView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        if "is_active" in validated:
-            target.is_active = validated["is_active"]
-            update_fields.append("is_active")
-
-        if "is_site_admin" in validated:
-            target.is_site_admin = validated["is_site_admin"]
-            update_fields.append("is_site_admin")
-
-        if "can_access_all_content" in validated:
-            target.can_access_all_content = validated["can_access_all_content"]
-            update_fields.append("can_access_all_content")
-
-        if "must_change_password" in validated:
-            target.must_change_password = validated["must_change_password"]
-            update_fields.append("must_change_password")
-
-        if "has_completed_tour" in validated:
-            target.has_completed_tour = validated["has_completed_tour"]
-            update_fields.append("has_completed_tour")
+        # Apply each validated field to the target user.
+        _PATCHABLE_FIELDS = (
+            "is_active", "is_site_admin", "can_access_all_content",
+            "must_change_password", "has_completed_tour",
+        )
+        for field in _PATCHABLE_FIELDS:
+            if field in validated:
+                setattr(target, field, validated[field])
+                update_fields.append(field)
 
         if update_fields:
             target.save(update_fields=update_fields)
@@ -443,6 +433,63 @@ class AdminUserDeactivateView(APIView):
     """
     permission_classes = _ADMIN_PERMISSIONS
 
+    def _validate_transfers(self, transfers, target, owned_boards):
+        """Validate ownership transfer entries. Returns an error Response or None."""
+        from boards.models import Board
+
+        owned_ids = {b["id"] for b in owned_boards}
+        transferred_ids = {t["board_id"] for t in transfers}
+        missing = owned_ids - transferred_ids
+        if missing:
+            missing_names = [b["name"] for b in owned_boards if b["id"] in missing]
+            return Response(
+                {"detail": f"Missing transfer target for: {', '.join(missing_names)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Bulk-fetch all transfer targets in 2 queries rather than 2 per entry.
+        transfer_user_ids = {t["transfer_to"] for t in transfers}
+        transfer_board_ids = {t["board_id"] for t in transfers}
+        users_by_id = {
+            u.pk: u
+            for u in User.objects.filter(pk__in=transfer_user_ids, is_active=True)
+        }
+        boards_by_id = {
+            b.id: b for b in Board.objects.filter(pk__in=transfer_board_ids)
+        }
+
+        for t in transfers:
+            if t["transfer_to"] == target.pk:
+                return Response(
+                    {"detail": "Cannot transfer board ownership to the user being deactivated."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            to_user = users_by_id.get(t["transfer_to"])
+            if to_user is None:
+                return Response(
+                    {"detail": f"Transfer target {t['transfer_to']} not found or inactive."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Use get_board_role to honor group-inherited memberships, not
+            # just direct BoardMembership rows.
+            board_obj = boards_by_id.get(t["board_id"])
+            if board_obj is None or get_board_role(to_user, board_obj) is None:
+                board_name = next(
+                    (b["name"] for b in owned_boards if b["id"] == t["board_id"]),
+                    str(t["board_id"]),
+                )
+                return Response(
+                    {"detail": f"Transfer target is not a member of '{board_name}'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # All transfers valid — execute in bulk.
+        for t in transfers:
+            Board.objects.filter(id=t["board_id"], owner=target).update(
+                owner_id=t["transfer_to"]
+            )
+        return None
+
     @transaction.atomic
     def post(self, request, pk):
         try:
@@ -472,7 +519,6 @@ class AdminUserDeactivateView(APIView):
         transfers = serializer.validated_data.get("transfers", [])
 
         if owned_boards and not transfers:
-            # No transfer data — return 409 so the UI shows the offboarding modal.
             return Response(
                 {
                     "code": "owned_boards",
@@ -483,57 +529,9 @@ class AdminUserDeactivateView(APIView):
             )
 
         if owned_boards:
-            owned_ids = {b["id"] for b in owned_boards}
-            transferred_ids = {t["board_id"] for t in transfers}
-            missing = owned_ids - transferred_ids
-            if missing:
-                missing_names = [b["name"] for b in owned_boards if b["id"] in missing]
-                return Response(
-                    {"detail": f"Missing transfer target for: {', '.join(missing_names)}."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Bulk-fetch all transfer targets in 2 queries rather than 2 per entry.
-            transfer_user_ids = {t["transfer_to"] for t in transfers}
-            transfer_board_ids = {t["board_id"] for t in transfers}
-            users_by_id = {
-                u.pk: u
-                for u in User.objects.filter(pk__in=transfer_user_ids, is_active=True)
-            }
-            boards_by_id = {
-                b.id: b for b in Board.objects.filter(pk__in=transfer_board_ids)
-            }
-
-            for t in transfers:
-                if t["transfer_to"] == target.pk:
-                    return Response(
-                        {"detail": "Cannot transfer board ownership to the user being deactivated."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                to_user = users_by_id.get(t["transfer_to"])
-                if to_user is None:
-                    return Response(
-                        {"detail": f"Transfer target {t['transfer_to']} not found or inactive."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                # Use get_board_role to honor group-inherited memberships, not
-                # just direct BoardMembership rows.
-                board_obj = boards_by_id.get(t["board_id"])
-                if board_obj is None or get_board_role(to_user, board_obj) is None:
-                    board_name = next(
-                        (b["name"] for b in owned_boards if b["id"] == t["board_id"]),
-                        str(t["board_id"]),
-                    )
-                    return Response(
-                        {"detail": f"Transfer target is not a member of '{board_name}'."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-            # All transfers valid — execute in bulk.
-            for t in transfers:
-                Board.objects.filter(id=t["board_id"], owner=target).update(
-                    owner_id=t["transfer_to"]
-                )
+            error = self._validate_transfers(transfers, target, owned_boards)
+            if error is not None:
+                return error
 
         target.is_active = False
         target.save(update_fields=["is_active"])

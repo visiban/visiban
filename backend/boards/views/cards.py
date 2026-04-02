@@ -23,6 +23,13 @@ from ..models import (
     Notification, Swimlane,
 )
 from ..permissions import SITE_ADMIN
+
+# Broadcast event names — extracted to avoid string duplication.
+_EVT_CARD_UPDATED = "card.updated"
+
+# Permission error messages — extracted to avoid string duplication.
+_PERM_DENIED = "You do not have permission to perform this action."
+_VIEWER_DENIED = "Viewers cannot perform this action."
 from ..serializers import (
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
@@ -217,7 +224,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # A block-list (VIEWER, COLLABORATOR) would silently allow any future
         # role added to the system — the allow-list is the safe default.
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("You do not have permission to perform this action.")
+            raise PermissionDenied(_PERM_DENIED)
         column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
         if not column.allow_card_creation:
             raise ValidationError({"column": "Card creation is not allowed in this column."})
@@ -254,7 +261,7 @@ class CardViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         # Allow-list: same pattern as perform_create — safer than block-list.
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("You do not have permission to perform this action.")
+            raise PermissionDenied(_PERM_DENIED)
         # Ownership gate: members may only delete cards they created, unless
         # they have the moderator entitlement (#362).
         if instance.created_by_id != self.request.user.id:
@@ -566,7 +573,7 @@ class CardViewSet(viewsets.ModelViewSet):
 
             board_id = card.board_id
             card_data = serializer.data
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
@@ -804,7 +811,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # comment on cards.  See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
-                {"detail": "Viewers cannot perform this action."},
+                {"detail": _VIEWER_DENIED},
                 status=status.HTTP_403_FORBIDDEN,
             )
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
@@ -817,7 +824,7 @@ class CardViewSet(viewsets.ModelViewSet):
             )
             card_data = _refetched_card_data(card, request, board)
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
             # Parse @username mentions and notify each mentioned board member.
             # Comments don't need a re-notification guard — each comment is a new event.
             mentioned_usernames = extract_mentions(comment.body)
@@ -849,7 +856,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
-                {"detail": "Viewers cannot perform this action."},
+                {"detail": _VIEWER_DENIED},
                 status=status.HTTP_403_FORBIDDEN,
             )
         card = get_object_or_404(Card, pk=pk, board=board)
@@ -866,7 +873,7 @@ class CardViewSet(viewsets.ModelViewSet):
             comment.delete()
             card_data = _refetched_card_data(card, request, board)
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get", "post"], url_path="attachments")
@@ -885,7 +892,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # upload attachments.  See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
-                {"detail": "Viewers cannot perform this action."},
+                {"detail": _VIEWER_DENIED},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -931,7 +938,7 @@ class CardViewSet(viewsets.ModelViewSet):
             card.refresh_from_db()
             card_data = _refetched_card_data(card, request, board)
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         serializer = CardAttachmentSerializer(attachment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -943,7 +950,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # See docs/features/rbac/roles.md permission table.
         if role == BoardMembership.Role.VIEWER:
             return Response(
-                {"detail": "Viewers cannot perform this action."},
+                {"detail": _VIEWER_DENIED},
                 status=status.HTTP_403_FORBIDDEN,
             )
         card = get_object_or_404(Card, pk=pk, board=board)
@@ -962,7 +969,7 @@ class CardViewSet(viewsets.ModelViewSet):
             attachment.delete()
             card_data = _refetched_card_data(card, request, board)
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get", "post"], url_path="checklist")
@@ -979,7 +986,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # access rather than inheriting it silently.
         # SITE_ADMIN access is handled upstream by can_access_all_content.
         if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("You do not have permission to perform this action.")
+            raise PermissionDenied(_PERM_DENIED)
         serializer = CardChecklistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         position = card.checklist_items.count()
@@ -991,7 +998,7 @@ class CardViewSet(viewsets.ModelViewSet):
             )
             card_data = _refetched_card_data(card, request, board)
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
@@ -1004,7 +1011,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # access rather than inheriting it silently.
         # SITE_ADMIN access is handled upstream by can_access_all_content.
         if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("You do not have permission to perform this action.")
+            raise PermissionDenied(_PERM_DENIED)
         card = get_object_or_404(Card, pk=pk, board=board)
         item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
         if request.method == "DELETE":
@@ -1016,7 +1023,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 item.delete()
                 card_data = _refetched_card_data(card, request, board)
                 board_id = board.id
-                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
             return Response(status=status.HTTP_204_NO_CONTENT)
         old_checked = item.is_checked
         serializer = CardChecklistSerializer(item, data=request.data, partial=True)
@@ -1035,5 +1042,5 @@ class CardViewSet(viewsets.ModelViewSet):
                 )
             card_data = _refetched_card_data(card, request, board)
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.updated", card_data))
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(serializer.data)
