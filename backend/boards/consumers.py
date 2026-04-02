@@ -49,7 +49,7 @@ class BoardConsumer(AsyncWebsocketConsumer):
                 await asyncio.sleep(PING_INTERVAL)
                 await self.send(text_data=json.dumps({"event": "ping"}))
         except asyncio.CancelledError:
-            pass
+            raise
 
     async def receive(self, text_data):
         pass  # server-push only
