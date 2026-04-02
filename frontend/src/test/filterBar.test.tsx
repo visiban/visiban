@@ -116,3 +116,55 @@ describe('FilterBar', () => {
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, search: '' })
   })
 })
+
+describe('FilterBar — MyCardsButton', () => {
+  it('does not render My cards button when currentUser is not provided', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    expect(screen.queryByText('My cards')).not.toBeInTheDocument()
+  })
+
+  it('does not render My cards button when currentUser is null', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} currentUser={null} />)
+    expect(screen.queryByText('My cards')).not.toBeInTheDocument()
+  })
+
+  it('renders My cards button when currentUser is provided', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} currentUser={fakeUser} />)
+    expect(screen.getByText('My cards')).toBeInTheDocument()
+  })
+
+  it('clicking My cards sets assigneeIds to currentUser.id', async () => {
+    const onChange = vi.fn()
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={onChange} currentUser={fakeUser} />)
+    await userEvent.setup().click(screen.getByText('My cards'))
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, assigneeIds: [fakeUser.id] })
+  })
+
+  it('clicking My cards again clears assigneeIds', async () => {
+    const onChange = vi.fn()
+    const activeFilters: FilterState = { ...EMPTY_FILTER, assigneeIds: [fakeUser.id] }
+    render(<FilterBar board={makeBoard()} filters={activeFilters} onChange={onChange} currentUser={fakeUser} />)
+    await userEvent.setup().click(screen.getByText('My cards'))
+    expect(onChange).toHaveBeenCalledWith({ ...activeFilters, assigneeIds: [] })
+  })
+
+  it('My cards button has aria-pressed=true when filter is active', () => {
+    const activeFilters: FilterState = { ...EMPTY_FILTER, assigneeIds: [fakeUser.id] }
+    render(<FilterBar board={makeBoard()} filters={activeFilters} onChange={vi.fn()} currentUser={fakeUser} />)
+    const btn = screen.getByText('My cards').closest('button')
+    expect(btn).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('My cards button has aria-pressed=false when filter is not active', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} currentUser={fakeUser} />)
+    const btn = screen.getByText('My cards').closest('button')
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('My cards button is not active when multiple assignees are selected', () => {
+    const multiFilters: FilterState = { ...EMPTY_FILTER, assigneeIds: [fakeUser.id, 99] }
+    render(<FilterBar board={makeBoard()} filters={multiFilters} onChange={vi.fn()} currentUser={fakeUser} />)
+    const btn = screen.getByText('My cards').closest('button')
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
+  })
+})
