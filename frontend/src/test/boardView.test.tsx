@@ -95,9 +95,9 @@ vi.mock('../components/Board/ColumnHeader', () => ({
 }))
 // SwimlaneRow mock renders name + focus/exit buttons so focus tests can fire onFocus/onExitFocus via click.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onFocus, onExitFocus, isFocused }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean }) => {
+  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)}>
+      <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -106,7 +106,7 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
   },
 }))
 vi.mock('../components/Card/CardItem', () => ({
-  default: ({ card }: { card: { title: string } }) => <div>{card.title}</div>,
+  default: ({ card, compact }: { card: { title: string }; compact?: boolean }) => <div data-compact={String(compact ?? false)}>{card.title}</div>,
 }))
 vi.mock('../components/Card/CardDetail', () => ({
   default: ({ card, onClose }: { card: { title: string }; onClose: () => void }) => <div data-testid="card-detail">{card.title}<button onClick={onClose}>Close Detail</button></div>,

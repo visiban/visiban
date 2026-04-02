@@ -35,6 +35,7 @@ import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
+import { useCardLayoutPref } from "../../hooks/useCardLayoutPref";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
@@ -154,6 +155,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const validColumnIds = useMemo(() => new Set(board.columns.map((c) => c.id)), [board.columns]);
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
   const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
+  const [cardLayout, setCardLayout] = useCardLayoutPref();
 
   // Wrap in useMemo so downstream memos don't re-run on every render due to new Set instances
   const hiddenColumnIds = useMemo(() => new Set(viewPrefs.hiddenColumnIds), [viewPrefs.hiddenColumnIds]);
@@ -798,6 +800,34 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </span>
           )}
         </button>
+        <button
+          onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+          aria-pressed={cardLayout === "compact"}
+          title={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
+          aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
+          className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            cardLayout === "compact"
+              ? "text-blue-400 bg-blue-500/10"
+              : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+          }`}
+        >
+          {cardLayout === "compact" ? (
+            // Single-column list icon — signals "go back to expanded single-card view"
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="5" rx="1" />
+              <rect x="3" y="10" width="18" height="5" rx="1" />
+              <rect x="3" y="17" width="18" height="4" rx="1" />
+            </svg>
+          ) : (
+            // 2x2 tile grid icon — signals "switch to compact tile grid"
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+          )}
+        </button>
 
         <div className="w-px h-4 bg-slate-700 self-center shrink-0 ml-auto" />
         <button
@@ -1057,6 +1087,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       hideLastMoved={viewPrefs.hideLastMoved}
                       userTimezone={userTimezone}
                       userDateFormat={userDateFormat}
+                      compact={cardLayout === "compact"}
                     />
                   </React.Fragment>
                 ));
@@ -1097,7 +1128,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} />}
+          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} />}
           {activeColumn && (
             <div className="px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2">

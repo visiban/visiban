@@ -1,6 +1,6 @@
 import { useState, memo } from "react";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, Column, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
 import { createCard } from "../../api/cards";
@@ -26,9 +26,10 @@ interface Props {
   userTimezone?: string;
   userDateFormat?: string;
   width?: number;
+  compact?: boolean;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width, compact }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -65,8 +66,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
           {cards.length}
         </span>
       )}
-      <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-1.5">
+      <SortableContext items={cards.map((c) => c.id)} strategy={compact ? rectSortingStrategy : verticalListSortingStrategy}>
+        <div className={compact ? "grid grid-cols-2 gap-1.5" : "flex flex-col gap-1.5"}>
           {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (
             <CardItem
               key={card.id}
@@ -82,6 +83,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               hideLastMoved={hideLastMoved}
               userTimezone={userTimezone}
               userDateFormat={userDateFormat}
+              compact={compact}
             />
           ))}
         </div>

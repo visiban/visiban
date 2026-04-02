@@ -17,8 +17,8 @@ vi.mock('@dnd-kit/sortable', () => ({
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
 
 vi.mock('../components/Card/CardItem', () => ({
-  default: ({ card, onClick }: { card: Card; onClick?: () => void }) => (
-    <div data-testid={`card-${card.id}`} onClick={onClick}>{card.title}</div>
+  default: ({ card, onClick, compact }: { card: Card; onClick?: () => void; compact?: boolean }) => (
+    <div data-testid={`card-${card.id}`} data-compact={String(compact ?? false)} onClick={onClick}>{card.title}</div>
   ),
 }))
 
