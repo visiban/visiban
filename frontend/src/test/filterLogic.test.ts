@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { filterCards } from '../utils/filterCards'
 import { countActiveFilters, EMPTY_FILTER } from '../components/Board/FilterBar'
-import type { FilterState } from '../components/Board/FilterBar'
 import type { Card, Priority, User } from '../types'
 
 // ---- Test helpers ----
