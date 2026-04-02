@@ -46,7 +46,7 @@ describe('ForceChangePasswordModal', () => {
   })
 
   it('shows client-side error when passwords do not match', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     render(<ForceChangePasswordModal user={baseUser} onChanged={onChanged} />)
 
     await user.type(screen.getByLabelText(/^temporary password/i),'oldpassword123')

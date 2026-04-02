@@ -13,7 +13,7 @@ import client from '../api/client'
 import {
   listGroups, createGroup, getGroup, updateGroup, deleteGroup,
   getGroupMembers, removeGroupMember, updateGroupMemberRole,
-  getSubgroups, getGroupBoards, createGroupBoard,
+  getSubgroups, getGroupBoards, getGroupDescendantBoards, createGroupBoard,
   listInviteLinks, createInviteLink, revokeInviteLink,
   resolveJoinToken, joinGroup,
 } from '../api/groups'
@@ -96,6 +96,14 @@ describe('groups API', () => {
     const result = await getGroupBoards(1)
     expect(mockClient.get).toHaveBeenCalledWith('/api/groups/1/boards/')
     expect(result).toEqual([])
+  })
+
+  it('getGroupDescendantBoards fetches descendant boards', async () => {
+    const boards = [{ id: 1, name: 'Board A' }, { id: 2, name: 'Board B' }]
+    mockClient.get.mockResolvedValue({ data: boards })
+    const result = await getGroupDescendantBoards(1)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/groups/1/descendant-boards/')
+    expect(result).toEqual(boards)
   })
 
   it('createGroupBoard posts board data', async () => {

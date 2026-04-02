@@ -9,6 +9,7 @@ vi.mock('../api/groups', () => ({
   getGroupMembers: vi.fn(),
   getSubgroups: vi.fn(),
   getGroupBoards: vi.fn(),
+  getGroupDescendantBoards: vi.fn().mockResolvedValue([]),
   createGroupBoard: vi.fn(),
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
@@ -35,12 +36,13 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, updateGroup } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup } from '../api/groups'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
 const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
+const mockGetGroupDescendantBoards = getGroupDescendantBoards as ReturnType<typeof vi.fn>
 const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
@@ -450,5 +452,41 @@ describe('GroupDetail', () => {
     expect(await screen.findByText(/You've joined/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '×' }))
     expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
+  })
+
+  it('toggling showSubgroupBoards calls getGroupDescendantBoards with the group ID', async () => {
+    // The component issues a single getGroupDescendantBoards(groupId) request when the
+    // toggle is turned on — avoiding the previous N+1 pattern of one getGroupBoards call
+    // per direct subgroup. This test verifies that N+1 fix is exercised.
+    const subgroup = {
+      id: 5, name: 'Frontend', owner: fakeUser, parent: 1, parent_name: 'Engineering',
+      member_count: 1, board_count: 1, subgroup_count: 0, created_at: '',
+    }
+    const subgroupBoard = {
+      id: 10, name: 'Subgroup Sprint', description: '', owner: fakeUser,
+      group: 5, group_name: 'Frontend', member_count: 1, created_at: '', updated_at: '',
+    }
+
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([subgroup])
+    mockGetGroupBoards.mockResolvedValue([]) // group's own boards (no duplicates to exclude)
+    mockGetGroupDescendantBoards.mockResolvedValue([subgroupBoard])
+
+    renderGroupDetail()
+
+    // Wait for load — toggle is only rendered when subgroups exist
+    const toggle = await screen.findByRole('switch')
+    expect(toggle).toBeInTheDocument()
+
+    // Toggle on
+    fireEvent.click(toggle)
+
+    // The subgroup's board should appear under the toggle section
+    expect(await screen.findByText('Subgroup Sprint')).toBeInTheDocument()
+
+    // A single call with the root group ID — not one per subgroup
+    expect(mockGetGroupDescendantBoards).toHaveBeenCalledWith(1)
+    expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1)
   })
 })

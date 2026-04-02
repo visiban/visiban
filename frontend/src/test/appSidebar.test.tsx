@@ -438,4 +438,105 @@ describe('AppSidebar', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
     expect(screen.getByTestId('create-group-modal')).toBeInTheDocument()
   })
+
+  // ── Recent boards section ─────────────────────────────────────────────────
+
+  it('shows RECENT section when localStorage has entries', async () => {
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 42, name: 'Sprint Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.getByText('Recent')).toBeInTheDocument()
+    expect(screen.getByText('Sprint Board')).toBeInTheDocument()
+  })
+
+  it('does not show RECENT section when localStorage is empty', async () => {
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Recent')).not.toBeInTheDocument()
+  })
+
+  it('Recent section shows group breadcrumb when groupAncestors is present', async () => {
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 42, name: 'Design System', groupAncestors: ['Engineering'] },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.getByText('Design System')).toBeInTheDocument())
+    expect(screen.getByText('Engineering')).toBeInTheDocument()
+  })
+
+  it('Recent board link points to the correct board URL', async () => {
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 55, name: 'My Recent Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('My Recent Board'))
+    const link = screen.getByText('My Recent Board').closest('a')
+    expect(link?.getAttribute('href')).toBe('/boards/55')
+  })
+
+  it('active recent board is highlighted', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 42, name: 'Sprint Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Sprint Board'))
+    const link = screen.getByText('Sprint Board').closest('a')
+    expect(link?.className).toMatch(/blue/)
+  })
+
+  it('shows Recent trigger in collapsed rail when recent boards exist', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 42, name: 'Sprint Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument())
+    expect(screen.getByTitle('Recent boards')).toBeInTheDocument()
+  })
+
+  it('clicking Recent trigger opens flyout listing recent boards', async () => {
+    localStorage.setItem('sidebar-collapsed', 'true')
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 42, name: 'Sprint Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Recent boards'))
+    await userEvent.setup().click(screen.getByTitle('Recent boards'))
+    expect(screen.getByTestId('collapsed-flyout')).toBeInTheDocument()
+    expect(screen.getByText('Sprint Board')).toBeInTheDocument()
+  })
+
+  // ── Auto-expand ancestors ──────────────────────────────────────────────────
+
+  it('auto-expands ancestor groups on mount when navigating to a board URL', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
+    render(<AppSidebar user={fakeUser} />)
+    // Wait for the auto-expand effect to fire and render the board under group Alpha
+    await waitFor(() => screen.getByText('Sprint Board'))
+  })
+
+  it('does not auto-expand when the active route is not a board', async () => {
+    mockUseLocation.mockReturnValue({ pathname: '/groups/10' })
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByText('Alpha'))
+    // Sprint Board should not be visible (group not expanded)
+    expect(screen.queryByText('Sprint Board')).not.toBeInTheDocument()
+  })
 })

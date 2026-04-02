@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User, Group, Board } from "../../types";
 import { listGroups, listStarredGroups } from "../../api/groups";
@@ -8,6 +8,7 @@ import CreateGroupModal from "../Group/CreateGroupModal";
 import CollapsedFlyout from "../Common/CollapsedFlyout";
 import { buildSidebarTree } from "../../utils/groupTree";
 import type { SidebarTreeNode } from "../../utils/groupTree";
+import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
 
 interface Props {
   user: User;
@@ -40,10 +41,18 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
+  const { recentBoards, recordVisit } = useRecentBoardsPref();
+
+  // Track whether the ancestor auto-expand has fired for the initial mount.
+  // We only want this to run once so subsequent navigations don't force the
+  // sidebar open — the user should be able to collapse groups freely after that.
+  const ancestorExpandDoneRef = useRef(false);
+
   // Flyout anchors — null means closed; capturing at click time avoids stale rects.
   const [favoritesAnchor, setFavoritesAnchor] = useState<{ top: number; left: number } | null>(null);
   const [groupsAnchor, setGroupsAnchor] = useState<{ top: number; left: number } | null>(null);
   const [personalAnchor, setPersonalAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [recentAnchor, setRecentAnchor] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     Promise.all([listGroups(), listBoards()])
@@ -54,6 +63,58 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Auto-expand ancestors of the active board once — fires after the initial
+  // data load so deep links open with the correct group path already visible.
+  useEffect(() => {
+    if (loading || ancestorExpandDoneRef.current) return;
+    const match = location.pathname.match(/\/boards\/(\d+)/);
+    if (!match) return;
+    const boardId = Number(match[1]);
+    const activeBoard = boards.find((b) => b.id === boardId);
+    if (!activeBoard || activeBoard.group === null) return;
+
+    // Walk up the group parent chain to collect all ancestor IDs.
+    const groupById = new Map(groups.map((g) => [g.id, g]));
+    const ancestorIds: number[] = [];
+    let current = groupById.get(activeBoard.group);
+    while (current) {
+      ancestorIds.push(current.id);
+      current = current.parent !== null ? groupById.get(current.parent) : undefined;
+    }
+
+    if (ancestorIds.length > 0) {
+      setExpandedGroups((prev) => {
+        const next = new Set([...prev, ...ancestorIds]);
+        localStorage.setItem("sidebar-groups-expanded", JSON.stringify([...next]));
+        return next;
+      });
+    }
+    ancestorExpandDoneRef.current = true;
+  // location.pathname is intentionally included so this fires once after the
+  // first load that sees the correct pathname.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, boards, groups]);
+
+  // Record board visits for the Recent section whenever the user navigates to a board.
+  useEffect(() => {
+    const match = location.pathname.match(/\/boards\/(\d+)/);
+    if (!match) return;
+    const boardId = Number(match[1]);
+    const board = boards.find((b) => b.id === boardId);
+    if (!board) return;
+    const parentGroupName = board.group !== null
+      ? groups.find((g) => g.id === board.group)?.name
+      : undefined;
+    recordVisit({
+      id: board.id,
+      name: board.name,
+      groupAncestors: parentGroupName ? [parentGroupName] : [],
+    });
+  // boards/groups are not listed to avoid re-recording on every state update;
+  // we only want to fire when the pathname changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   useEffect(() => {
     listStarredBoards().then(setStarredBoards).catch(() => {});
@@ -70,6 +131,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
       setFavoritesAnchor(null);
       setGroupsAnchor(null);
       setPersonalAnchor(null);
+      setRecentAnchor(null);
     }
   }, [collapsed]);
 
@@ -108,12 +170,14 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   const isActiveFavoriteBoard = activeBoardId !== null && starredBoards.some((b) => b.id === activeBoardId);
   const isActiveGroupBoard = activeBoardId !== null && boards.some((b) => b.id === activeBoardId && b.group !== null);
   const isActivePersonalBoard = activeBoardId !== null && personalBoards.some((b) => b.id === activeBoardId);
+  const isActiveRecentBoard = activeBoardId !== null && recentBoards.some((b) => b.id === activeBoardId);
 
   const openFavorites = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (favoritesAnchor) { setFavoritesAnchor(null); return; }
     const rect = e.currentTarget.getBoundingClientRect();
     setGroupsAnchor(null);
     setPersonalAnchor(null);
+    setRecentAnchor(null);
     setFavoritesAnchor({ top: rect.top, left: rect.right });
   };
 
@@ -122,6 +186,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
     const rect = e.currentTarget.getBoundingClientRect();
     setFavoritesAnchor(null);
     setPersonalAnchor(null);
+    setRecentAnchor(null);
     setGroupsAnchor({ top: rect.top, left: rect.right });
   };
 
@@ -130,7 +195,17 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
     const rect = e.currentTarget.getBoundingClientRect();
     setFavoritesAnchor(null);
     setGroupsAnchor(null);
+    setRecentAnchor(null);
     setPersonalAnchor({ top: rect.top, left: rect.right });
+  };
+
+  const openRecent = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (recentAnchor) { setRecentAnchor(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFavoritesAnchor(null);
+    setGroupsAnchor(null);
+    setPersonalAnchor(null);
+    setRecentAnchor({ top: rect.top, left: rect.right });
   };
 
   const sidebarWidth = collapsed ? "w-12" : "w-56";
@@ -256,7 +331,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
         {!loading && (
           <>
             {/* ── Separator: utility nav → content nav ── */}
-            {collapsed && (hasFavorites || sidebarTree.length > 0 || personalBoards.length > 0) && (
+            {collapsed && (hasFavorites || recentBoards.length > 0 || sidebarTree.length > 0 || personalBoards.length > 0) && (
               <div className="mx-2 my-1.5">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
@@ -304,7 +379,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             )}
 
             {/* ── Expanded separator ── */}
-            {!collapsed && (starredBoards.length > 0) && (starredGroups.length > 0 || sidebarTree.length > 0 || personalBoards.length > 0) && (
+            {!collapsed && (starredBoards.length > 0) && (starredGroups.length > 0 || sidebarTree.length > 0 || personalBoards.length > 0 || recentBoards.length > 0) && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
@@ -334,12 +409,60 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
               </div>
             )}
 
-            {/* ── Expanded separator: favorites → groups/personal ── */}
-            {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0) && (sidebarTree.length > 0 || personalBoards.length > 0) && (
+            {/* ── Expanded separator: favorites → recent ── */}
+            {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0) && recentBoards.length > 0 && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
               </div>
+            )}
+
+            {/* ── Expanded: Recent boards ── */}
+            {!collapsed && recentBoards.length > 0 && (
+              <div>
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Recent
+                </div>
+                {recentBoards.map((entry) => (
+                  <RecentBoardItem
+                    key={entry.id}
+                    entry={entry}
+                    active={entry.id === activeBoardId}
+                    onNavigate={collapse}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ── Expanded separator: (favorites or recent) → groups/personal ── */}
+            {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0 || recentBoards.length > 0) && (sidebarTree.length > 0 || personalBoards.length > 0) && (
+              <div className="mx-4 my-1">
+                <div className="h-px bg-slate-900" />
+                <div className="h-px bg-slate-600/50" />
+              </div>
+            )}
+
+            {/* ── Collapsed: Recent boards flyout trigger ── */}
+            {collapsed && recentBoards.length > 0 && (
+              <button
+                onClick={openRecent}
+                onMouseDown={(e) => { if (recentAnchor) e.stopPropagation(); }}
+                title="Recent boards"
+                aria-haspopup="true"
+                aria-expanded={recentAnchor !== null}
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  recentAnchor
+                    ? "text-slate-200 bg-slate-700"
+                    : isActiveRecentBoard
+                    ? "text-blue-400 bg-blue-600/20"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                {/* Clock icon */}
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
             )}
 
             {/* ── Collapsed: Groups flyout trigger — single icon regardless of how many groups ── */}
@@ -379,7 +502,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             ))}
 
             {/* ── Separator: groups → personal boards ── */}
-            {personalBoards.length > 0 && (sidebarTree.length > 0 || starredBoards.length > 0 || starredGroups.length > 0) && (
+            {personalBoards.length > 0 && (sidebarTree.length > 0 || starredBoards.length > 0 || starredGroups.length > 0 || recentBoards.length > 0) && (
               <div className="mx-4 my-1">
                 <div className="h-px bg-slate-900" />
                 <div className="h-px bg-slate-600/50" />
@@ -533,7 +656,65 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
           onNavigate={collapse}
         />
       )}
+
+      {/* Recent boards flyout portal */}
+      {collapsed && recentAnchor && recentBoards.length > 0 && (
+        <CollapsedFlyout
+          title="Recent boards"
+          sections={[{
+            title: "Recent",
+            items: recentBoards.map((b) => ({
+              id: b.id,
+              name: b.name,
+              href: `/boards/${b.id}`,
+              active: b.id === activeBoardId,
+            })),
+          }]}
+          anchor={recentAnchor}
+          onClose={() => setRecentAnchor(null)}
+          onNavigate={collapse}
+        />
+      )}
     </aside>
+  );
+}
+
+function RecentBoardItem({
+  entry,
+  active,
+  onNavigate,
+}: {
+  entry: { id: number; name: string; groupAncestors?: string[] };
+  active: boolean;
+  onNavigate: () => void;
+}) {
+  const parentName = entry.groupAncestors?.[0];
+  return (
+    <Link
+      to={`/boards/${entry.id}`}
+      onClick={onNavigate}
+      className={`flex flex-col pr-3 py-1.5 text-sm transition truncate ${
+        active ? "bg-blue-600/20" : "hover:bg-slate-800"
+      }`}
+      title={entry.name}
+    >
+      <span
+        className={`flex items-center gap-1.5 pl-5 truncate ${
+          active ? "text-blue-400 font-medium" : "text-slate-400 hover:text-white"
+        }`}
+      >
+        {/* Clock icon */}
+        <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span className="truncate">{entry.name}</span>
+      </span>
+      {parentName && (
+        <span className="pl-[22px] pr-3 pb-0.5 text-xs text-slate-500 truncate leading-tight">
+          {parentName}
+        </span>
+      )}
+    </Link>
   );
 }
 
