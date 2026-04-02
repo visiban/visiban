@@ -330,10 +330,10 @@ describe('CreateGroupModal', () => {
   it('shows ancestor breadcrumb in post-creation state for subgroups', async () => {
     const subgroup = { id: 5, name: 'Platform', parent: 3 }
     mockCreateGroup.mockResolvedValue(subgroup)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parent = {
       ...fakeBoard, id: 3, name: 'Engineering',
       ancestors: [{ id: 1, name: 'Acme Corp' }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any
 
     render(<CreateGroupModal parentGroup={parent} onCreated={vi.fn()} onClose={vi.fn()} />)
