@@ -9,6 +9,7 @@ const SHORTCUTS = [
   { key: "/", description: "Open filters and focus search" },
   { key: "?", description: "Show this help" },
   { key: "Esc", description: "Close card or dialog; go back when nothing is open" },
+  { key: "Space + drag", description: "Pan the board" },
 ];
 
 export default function KeyboardShortcutsOverlay({ onClose }: Props) {

@@ -31,6 +31,7 @@ import BoardSettingsModal from "./BoardSettingsModal";
 import FilterBar, { countActiveFilters } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
+import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
@@ -765,126 +766,155 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   return (
     <>
-      {/* Primary toolbar row */}
+      {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
       <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 gap-2">
+        {/* Zone 1: View navigation */}
         <ViewToggle view={view} onChange={setView} />
-        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
-        <button
-          onClick={() => {
-            // Exit focus mode first — expanding or collapsing everything
-            // contradicts focus, which hides all other swimlanes.
-            if (focusedSwimlaneId !== null) exitFocus();
-            if (allExpanded) {
-              collapseAllColumns(board.columns.map(c => c.id));
-              collapseAllSwimlanes(board.swimlanes.map(s => s.id));
-            } else {
-              expandAllColumns();
-              expandAllSwimlanes();
-            }
-          }}
-          className="text-xs text-slate-300 hover:text-white hover:bg-slate-700/50 px-2 py-1 rounded transition shrink-0"
-          title={allExpanded ? "Collapse all columns and swimlanes" : "Expand all columns and swimlanes"}
-        >
-          {allExpanded ? "Collapse" : "Expand"}
-        </button>
-        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
-        <button
-          data-tour-step="filter"
-          onClick={() => setShowFilters((v) => !v)}
-          className={`text-xs px-2 py-1 rounded transition shrink-0 ${showFilters ? "text-blue-400 bg-blue-500/10" : "text-slate-300 hover:text-white hover:bg-slate-700/50"}`}
-        >
-          {showFilters ? "Hide filters" : "Filters"}
-          {!showFilters && activeCount > 0 && (
-            <span className="ml-1.5 bg-blue-500/20 text-blue-400 rounded-full px-1.5 py-0.5 font-medium">
-              {activeCount}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
-          aria-pressed={cardLayout === "compact"}
-          title={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
-          aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
-          className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            cardLayout === "compact"
-              ? "text-blue-400 bg-blue-500/10"
-              : "text-slate-300 hover:text-white hover:bg-slate-700/50"
-          }`}
-        >
-          {cardLayout === "compact" ? (
-            // Single-column list icon — signals "go back to expanded single-card view"
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="5" rx="1" />
-              <rect x="3" y="10" width="18" height="5" rx="1" />
-              <rect x="3" y="17" width="18" height="4" rx="1" />
-            </svg>
-          ) : (
-            // 2x2 tile grid icon — signals "switch to compact tile grid"
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
-            </svg>
-          )}
-        </button>
 
-        <div className="w-px h-4 bg-slate-700 self-center shrink-0 ml-auto" />
-        <button
-          onClick={() => setShowArchived((v) => !v)}
-          className={`text-xs px-2 py-1 rounded transition shrink-0 ${showArchived ? "text-amber-400 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
-          title="View archived cards"
-        >
-          Archived
-        </button>
-        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
-        <button
-          onClick={() => setShowShortcuts((v) => !v)}
-          className="text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 px-2 py-1 rounded transition font-mono shrink-0"
-          title="Keyboard shortcuts (?)"
-        >
-          ?
-        </button>
-        <span
-          className="text-xs text-slate-600 select-none shrink-0 hidden xl:inline"
-          title="Hold Space and drag to pan the board"
-        >
-          <kbd className="font-mono">Space</kbd> + drag to pan
-        </span>
-        {isAdmin && (
-          <>
-            <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
+        {/* Divider 1 */}
+        <div className="w-px h-4 bg-slate-700 mx-1" aria-hidden="true" />
+
+        {/* Zone 2: Board controls */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              // Exit focus mode first — expanding or collapsing everything
+              // contradicts focus, which hides all other swimlanes.
+              if (focusedSwimlaneId !== null) exitFocus();
+              if (allExpanded) {
+                collapseAllColumns(board.columns.map(c => c.id));
+                collapseAllSwimlanes(board.swimlanes.map(s => s.id));
+              } else {
+                expandAllColumns();
+                expandAllSwimlanes();
+              }
+            }}
+            className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label={allExpanded ? "Collapse all columns and swimlanes" : "Expand all columns and swimlanes"}
+          >
+            {allExpanded ? "Collapse" : "Expand"}
+          </button>
+          <button
+            data-tour-step="filter"
+            onClick={() => setShowFilters((v) => !v)}
+            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${showFilters ? "text-blue-400 bg-blue-500/10" : "text-slate-300 hover:text-white hover:bg-slate-700"}`}
+            aria-pressed={showFilters || activeCount > 0}
+            aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
+          >
+            {showFilters ? "Hide filters" : "Filters"}
+            {!showFilters && activeCount > 0 && (
+              <span className="ml-1.5 bg-blue-500/20 text-blue-400 rounded-full px-1.5 py-0.5 font-medium">
+                {activeCount}
+              </span>
+            )}
+          </button>
+          <Tooltip content={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}>
             <button
-              onClick={() => setShowSettings(true)}
-              className="text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 px-2 py-1 rounded transition shrink-0"
+              onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+              aria-pressed={cardLayout === "compact"}
+              aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
+              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                cardLayout === "compact"
+                  ? "text-blue-400 bg-blue-500/10"
+                  : "text-slate-300 hover:text-white hover:bg-slate-700"
+              }`}
             >
-              Settings
+              {cardLayout === "compact" ? (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="5" rx="1" />
+                  <rect x="3" y="10" width="18" height="5" rx="1" />
+                  <rect x="3" y="17" width="18" height="4" rx="1" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+              )}
             </button>
-          </>
-        )}
-        <div className="w-px h-4 bg-slate-700 self-center shrink-0" />
-        <span
-          className={`flex items-center gap-1 text-xs font-medium shrink-0 ${
-            socketStatus === "connected" ? "text-green-400"
-            : socketStatus === "reconnecting" || socketStatus === "connecting" ? "text-amber-400"
-            : "text-slate-500"
-          }`}
-          title={
-            socketStatus === "connected" ? "Live — real-time updates active"
-            : socketStatus === "reconnecting" ? "Reconnecting…"
-            : socketStatus === "connecting" ? "Connecting…"
-            : "Offline — real-time updates unavailable"
-          }
-        >
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-            socketStatus === "connected" ? "bg-green-400 animate-pulse"
-            : socketStatus === "reconnecting" || socketStatus === "connecting" ? "bg-amber-400 animate-pulse"
-            : "bg-slate-500"
-          }`} />
-          {socketStatus === "connected" ? "Live"
-           : socketStatus === "reconnecting" || socketStatus === "connecting" ? "Reconnecting…"
-           : "Offline"}
-        </span>
+          </Tooltip>
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${showArchived ? "text-amber-400 bg-amber-500/10" : "text-slate-300 hover:text-white hover:bg-slate-700"}`}
+            aria-pressed={showArchived}
+            aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
+          >
+            Archived
+          </button>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Divider 2 */}
+        <div className="w-px h-4 bg-slate-700 mx-1" aria-hidden="true" />
+
+        {/* Zone 3: Utilities + status */}
+        <div className="flex items-center gap-1">
+          <Tooltip content="Keyboard shortcuts">
+            <button
+              onClick={() => setShowShortcuts((v) => !v)}
+              className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Keyboard shortcuts"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                <rect x="2" y="6" width="20" height="12" rx="2" />
+                <line x1="6" y1="10" x2="6" y2="10.01" />
+                <line x1="10" y1="10" x2="10" y2="10.01" />
+                <line x1="14" y1="10" x2="14" y2="10.01" />
+                <line x1="18" y1="10" x2="18" y2="10.01" />
+                <line x1="8" y1="14" x2="16" y2="14" />
+              </svg>
+            </button>
+          </Tooltip>
+          {isAdmin && (
+            <Tooltip content="Board settings">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Board settings"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                </svg>
+              </button>
+            </Tooltip>
+          )}
+          <span
+            className={`flex items-center gap-1 text-xs font-medium shrink-0 ml-1 ${
+              socketStatus === "connected" ? "text-green-400"
+              : socketStatus === "reconnecting" || socketStatus === "connecting" ? "text-amber-400"
+              : "text-slate-500"
+            }`}
+            role="status"
+            aria-label={
+              socketStatus === "connected" ? "Real-time updates active"
+              : socketStatus === "reconnecting" ? "Reconnecting"
+              : socketStatus === "connecting" ? "Connecting"
+              : "Real-time updates unavailable"
+            }
+            title={
+              socketStatus === "connected" ? "Live — real-time updates active"
+              : socketStatus === "reconnecting" ? "Reconnecting…"
+              : socketStatus === "connecting" ? "Connecting…"
+              : "Offline — real-time updates unavailable"
+            }
+          >
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              socketStatus === "connected" ? "bg-green-400 animate-pulse"
+              : socketStatus === "reconnecting" || socketStatus === "connecting" ? "bg-amber-400 animate-pulse"
+              : "bg-slate-500"
+            }`} />
+            <span className="hidden lg:inline">
+              {socketStatus === "connected" ? "Live"
+               : socketStatus === "reconnecting" || socketStatus === "connecting" ? "Reconnecting…"
+               : "Offline"}
+            </span>
+          </span>
+        </div>
       </div>
 
       {/* Filter row — own row so it doesn't compress the toolbar */}

@@ -116,6 +116,10 @@ vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
     <div data-testid="shortcuts-overlay"><button onClick={onClose}>Close Shortcuts</button></div>
   ),
 }))
+vi.mock('../components/Common/Tooltip', () => ({
+  default: ({ content, children }: { content: string; children: React.ReactElement }) =>
+    React.cloneElement(children, { 'data-tooltip': content }),
+}))
 vi.mock('../components/Board/BulkActionToolbar', () => ({
   default: () => <div data-testid="bulk-toolbar" />,
 }))
@@ -205,14 +209,14 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
 }
 
 // ---------------------------------------------------------------------------
-// Helper: find the layout toggle button by its title attribute
+// Helper: find the layout toggle button by its aria-label attribute
 // ---------------------------------------------------------------------------
 function getToggleButton(): HTMLElement {
-  // In expanded state the title is "Switch to compact card layout";
+  // In expanded state the label is "Switch to compact card layout";
   // in compact state it is "Switch to expanded card layout".
   return (
-    screen.queryByTitle('Switch to compact card layout') ??
-    screen.getByTitle('Switch to expanded card layout')
+    screen.queryByLabelText('Switch to compact card layout') ??
+    screen.getByLabelText('Switch to expanded card layout')
   )
 }
 
@@ -244,15 +248,15 @@ describe('BoardView — card layout toggle button', () => {
     expect(getToggleButton()).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('title is "Switch to compact card layout" in expanded mode', () => {
+  it('aria-label is "Switch to compact card layout" in expanded mode', () => {
     render(<BoardView />)
-    expect(screen.getByTitle('Switch to compact card layout')).toBeInTheDocument()
+    expect(screen.getByLabelText('Switch to compact card layout')).toBeInTheDocument()
   })
 
-  it('title is "Switch to expanded card layout" when in compact mode', () => {
+  it('aria-label is "Switch to expanded card layout" when in compact mode', () => {
     localStorage.setItem(LAYOUT_KEY, 'compact')
     render(<BoardView />)
-    expect(screen.getByTitle('Switch to expanded card layout')).toBeInTheDocument()
+    expect(screen.getByLabelText('Switch to expanded card layout')).toBeInTheDocument()
   })
 
   it('clicking the toggle switches from expanded to compact', async () => {
@@ -287,22 +291,19 @@ describe('BoardView — card layout toggle button', () => {
   it('tooltip text updates to "Switch to expanded card layout" after switching to compact', async () => {
     render(<BoardView />)
     await userEvent.setup().click(getToggleButton())
-    expect(screen.getByTitle('Switch to expanded card layout')).toBeInTheDocument()
-    expect(screen.queryByTitle('Switch to compact card layout')).not.toBeInTheDocument()
+    expect(getToggleButton().getAttribute('data-tooltip')).toBe('Switch to expanded card layout')
   })
 
   it('tooltip text updates to "Switch to compact card layout" after switching back to expanded', async () => {
     localStorage.setItem(LAYOUT_KEY, 'compact')
     render(<BoardView />)
     await userEvent.setup().click(getToggleButton())
-    expect(screen.getByTitle('Switch to compact card layout')).toBeInTheDocument()
-    expect(screen.queryByTitle('Switch to expanded card layout')).not.toBeInTheDocument()
+    expect(getToggleButton().getAttribute('data-tooltip')).toBe('Switch to compact card layout')
   })
 
-  it('toggle button is accessible by its title via getByTitle', () => {
+  it('toggle button is accessible by its aria-label', () => {
     render(<BoardView />)
-    // Verifies the button can be found by a screen reader via its accessible name
-    const btn = screen.getByTitle('Switch to compact card layout')
+    const btn = screen.getByLabelText('Switch to compact card layout')
     expect(btn.tagName).toBe('BUTTON')
   })
 
