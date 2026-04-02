@@ -78,14 +78,14 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
     <ModalWrapper open={true} onClose={onClose} title={title} maxWidth="max-w-sm">
       <div className="flex flex-col gap-3">
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Name *</label>
+          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Name *</label>
           <input
             ref={inputRef}
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); descriptionRef.current?.focus(); }
+              if (e.key === "Enter") { e.preventDefault(); handleSave(); }
             }}
             placeholder="e.g. Engineering"
             className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 transition"
@@ -93,7 +93,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         </div>
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-xs text-slate-400">Description <span className="text-slate-600">(optional)</span></label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide">Description <span className="text-slate-600">(optional)</span></label>
             <span className={`text-xs ${descriptionCountColor}`}>{description.length}/{DESCRIPTION_MAX}</span>
           </div>
           <textarea
@@ -111,12 +111,12 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
           {successMessage && <span className="text-green-400">{successMessage}</span>}
         </p>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
-        <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">{successMessage ? "Close" : "Cancel"}</button>
+      <div className="flex justify-end gap-3 mt-5">
+        <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500">{successMessage ? "Close" : "Cancel"}</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving || description.length > DESCRIPTION_MAX}
-          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm font-medium bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {saving ? "Creating…" : "Create"}
         </button>

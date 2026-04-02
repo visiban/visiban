@@ -239,8 +239,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); }}
         />
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setJoiningGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5">Cancel</button>
-          <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 rounded-lg">Join</button>
+          <button onClick={() => setJoiningGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
+          <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Join</button>
         </div>
       </ModalWrapper>
 
@@ -279,14 +279,14 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                className="text-slate-400 text-sm hover:text-white px-3 py-1.5"
+                className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteBoard(confirmDeleteId)}
                 disabled={!canDelete}
-                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded-lg transition"
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Delete
               </button>
