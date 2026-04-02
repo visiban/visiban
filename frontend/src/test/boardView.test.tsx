@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, act, fireEvent } from '@testing-library/react'
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
@@ -163,7 +163,9 @@ vi.mock('../hooks/useCardSearch', () => ({
 vi.mock('../api/cards', () => ({
   getCardStatus: vi.fn(),
 }))
+
 import { getCardStatus } from '../api/cards'
+const mockedGetCardStatus = vi.mocked(getCardStatus)
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -243,6 +245,8 @@ describe('BoardView', () => {
     mockSearchParams = new URLSearchParams()
     localStorage.clear()
     mockBoardContextValue = defaultContext()
+    // Default: getCardStatus returns null (card deleted/unknown)
+    mockedGetCardStatus.mockResolvedValue(null)
   })
 
   it('renders view toggle buttons', () => {
@@ -470,18 +474,32 @@ describe('BoardView', () => {
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
-  it('?card= param shows "Card not found" banner when card is missing', async () => {
+  it('?card= param shows "Card not found" banner when card is deleted', async () => {
+    mockedGetCardStatus.mockResolvedValue(null)
     mockSearchParams = new URLSearchParams('card=999')
     render(<BoardView {...defaultProps()} />)
-    expect(await screen.findByText(/Card not found/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/Card not found/)).toBeInTheDocument())
+    expect(mockSetSearchParams).toHaveBeenCalled()
+  })
+
+  it('?card= param shows "This card has been archived" when card is archived', async () => {
+    mockedGetCardStatus.mockResolvedValue({ archived: true })
+    mockSearchParams = new URLSearchParams('card=999')
+    render(<BoardView {...defaultProps()} />)
+    await waitFor(() =>
+      expect(screen.getByText('This card has been archived.')).toBeInTheDocument()
+    )
     expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
   it('"Card not found" banner auto-dismisses after 4s', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.useFakeTimers()
+    mockedGetCardStatus.mockResolvedValue(null)
     mockSearchParams = new URLSearchParams('card=999')
     render(<BoardView {...defaultProps()} />)
-    expect(await screen.findByText(/Card not found/)).toBeInTheDocument()
+    // Wait for the async getCardStatus to settle before checking for the banner
+    await act(async () => { await Promise.resolve() })
+    expect(screen.getByText(/Card not found/)).toBeInTheDocument()
     await act(async () => { vi.advanceTimersByTime(4000) })
     expect(screen.queryByText(/Card not found/)).not.toBeInTheDocument()
     vi.useRealTimers()
