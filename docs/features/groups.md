@@ -124,8 +124,6 @@ The **Create Group** modal has two fields:
 | **Name** | Required. The group's display name. |
 | **Description** | Optional. A short summary of the group's purpose. A character counter is shown below the field as you type. |
 
-After creating a top-level group, the modal transitions to a **post-creation state** where you can immediately add subgroups without navigating away. Type a subgroup name, click **+ Add** (or press Enter), and repeat as needed. Each subgroup is created instantly. Click **Done** when finished.
+After creating a group or subgroup, the modal transitions to a **post-creation state** where you can immediately add subgroups without navigating away. Type a subgroup name, click **+ Add** (or press Enter), and repeat as needed. Each subgroup is created instantly. Click **Done** when finished.
 
-When creating a **subgroup** from a group's detail page, the modal closes immediately after creation — you are already on the parent group page and can see the new subgroup in the list.
-
-This flow lets you set up an entire group hierarchy (e.g. "Engineering" with "Frontend", "Backend", "Platform" subgroups) in a single session.
+This flow works at every level of the hierarchy — you can create "Engineering", add "Frontend" and "Backend" as subgroups, and even add sub-subgroups to those, all without leaving the modal.

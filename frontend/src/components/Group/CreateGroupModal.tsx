@@ -43,16 +43,11 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         parent: parentGroup?.id ?? null,
       });
       onCreated(group);
-      if (parentGroup) {
-        // Subgroup mode: close immediately
-        onClose();
-      } else {
-        // Top-level group: transition to post-creation state
-        setCreatedGroup(group);
-        setPhase("post-creation");
-        // Focus the subgroup input after React renders
-        setTimeout(() => subgroupInputRef.current?.focus(), 0);
-      }
+      // Transition to post-creation state so the user can add subgroups
+      // (or sub-subgroups when parentGroup is set) in one flow.
+      setCreatedGroup(group);
+      setPhase("post-creation");
+      setTimeout(() => subgroupInputRef.current?.focus(), 0);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string; name?: string[] } } })?.response?.data;
       setError(detail?.detail ?? detail?.name?.[0] ?? "Failed to create group.");

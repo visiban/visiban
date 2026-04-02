@@ -271,7 +271,7 @@ describe('CreateGroupModal', () => {
     expect(screen.getByText('Done')).toBeInTheDocument()
   })
 
-  it('closes immediately when creating a subgroup', async () => {
+  it('transitions to post-creation state when creating a subgroup', async () => {
     const subgroup = { id: 2, name: 'Backend', parent: 1 }
     mockCreateGroup.mockResolvedValue(subgroup)
     const onCreated = vi.fn()
@@ -286,8 +286,11 @@ describe('CreateGroupModal', () => {
 
     await waitFor(() => {
       expect(onCreated).toHaveBeenCalledWith(subgroup)
-      expect(onClose).toHaveBeenCalled()
     })
+    // Should show post-creation state for adding sub-subgroups
+    expect(screen.getByText(/Backend created/)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Subgroup name')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('adds subgroups in post-creation state', async () => {
