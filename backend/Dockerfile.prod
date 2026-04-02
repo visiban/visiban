@@ -13,11 +13,18 @@ COPY . .
 
 RUN python manage.py collectstatic --noinput
 
+# Run as non-root for defense in depth.
+RUN addgroup --system --gid 1001 visiban \
+    && adduser --system --uid 1001 --ingroup visiban visiban \
+    && chown -R visiban:visiban /app
+
 EXPOSE 8000
 
 # /app/media holds user-uploaded attachments. Declare it as a volume so that
 # container image rebuilds do not silently destroy uploads. In production the
 # volume is mounted explicitly in docker-compose.prod.yml.
 VOLUME ["/app/media"]
+
+USER visiban
 
 CMD ["sh", "-c", "python manage.py migrate && python manage.py ensure_site_admin && daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"]

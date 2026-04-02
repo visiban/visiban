@@ -1,0 +1,8 @@
+.env
+.env.*
+.git
+.gitignore
+node_modules
+dist
+coverage
+.sonar
