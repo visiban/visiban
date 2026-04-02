@@ -281,12 +281,8 @@ class CardViewSet(viewsets.ModelViewSet):
         read operation that exposes no sensitive data beyond what they already
         have access to via the board full endpoint.
         """
-        board = self._board()
-        try:
-            card = Card.objects.filter(board=board).only("id", "archived_at").get(pk=pk)
-        except Card.DoesNotExist:
-            from rest_framework import status as drf_status
-            return Response({"detail": "Not found."}, status=drf_status.HTTP_404_NOT_FOUND)
+        board, _ = self._board_and_role()
+        card = get_object_or_404(Card.objects.filter(board=board), pk=pk)
         return Response({"archived": card.archived_at is not None})
 
     @action(detail=True, methods=["post"])

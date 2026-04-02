@@ -67,18 +67,6 @@ export const deleteCardAttachment = (boardId: number, cardId: number, attachment
 export const archiveCard = (boardId: number, cardId: number) =>
   client.post<Card>(`/api/boards/${boardId}/cards/${cardId}/archive/`).then((r) => r.data);
 
-/**
- * Check whether a specific card (by ID) exists on this board and, if so,
- * whether it has been archived. Used by the ?card= deep-link handler to show
- * a contextual "archived" vs "not found" toast rather than a generic message.
- * Returns null if the card does not belong to this board or has been deleted.
- */
-export const getCardStatus = (boardId: number, cardId: number): Promise<{ archived: boolean } | null> =>
-  client
-    .get<{ archived: boolean }>(`/api/boards/${boardId}/cards/${cardId}/status/`)
-    .then((r) => r.data)
-    .catch(() => null);
-
 export const unarchiveCard = (boardId: number, cardId: number) =>
   client.post<Card>(`/api/boards/${boardId}/cards/${cardId}/unarchive/`).then((r) => r.data);
 
