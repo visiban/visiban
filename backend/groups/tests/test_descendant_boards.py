@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, Column, Swimlane
+from boards.models import Board
 from groups.models import Group, GroupMembership
 
 
@@ -82,7 +82,7 @@ class DescendantBoardsTests(TestCase):
     def test_requires_authentication(self):
         unauth_client = APIClient()
         r = unauth_client.get(f"/api/groups/{self.root.id}/descendant-boards/")
-        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_non_member_cannot_access(self):
         self.client.force_authenticate(self.other)

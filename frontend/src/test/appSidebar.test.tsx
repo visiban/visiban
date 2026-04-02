@@ -528,9 +528,8 @@ describe('AppSidebar', () => {
   it('auto-expands ancestor groups on mount when navigating to a board URL', async () => {
     mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => screen.getByText('Alpha'))
-    // Group 10 (Alpha) should be expanded because board 42 belongs to it
-    expect(screen.getByText('Sprint Board')).toBeInTheDocument()
+    // Wait for the auto-expand effect to fire and render the board under group Alpha
+    await waitFor(() => screen.getByText('Sprint Board'))
   })
 
   it('does not auto-expand when the active route is not a board', async () => {
