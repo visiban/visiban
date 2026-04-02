@@ -113,7 +113,7 @@ The star button (☆/★) in the group detail page header lets you mark frequent
 
 The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions.
 
-The **+ New board** and **+ New group** buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required. After creating, you are taken directly to the new board or group.
+The **+ New board** and **+ New group** buttons in the sidebar footer open their respective creation dialogs immediately — no navigation required.
 
 ### Create Group modal
 
@@ -123,3 +123,9 @@ The **Create Group** modal has two fields:
 |---|---|
 | **Name** | Required. The group's display name. |
 | **Description** | Optional. A short summary of the group's purpose. A character counter is shown below the field as you type. |
+
+After creating a top-level group, the modal transitions to a **post-creation state** where you can immediately add subgroups without navigating away. Type a subgroup name, click **+ Add** (or press Enter), and repeat as needed. Each subgroup is created instantly. Click **Done** when finished.
+
+When creating a **subgroup** from a group's detail page, the modal closes immediately after creation — you are already on the parent group page and can see the new subgroup in the list.
+
+This flow lets you set up an entire group hierarchy (e.g. "Engineering" with "Frontend", "Backend", "Platform" subgroups) in a single session.
