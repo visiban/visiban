@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
-import type { CollisionDetection, DragEndEvent } from '@dnd-kit/core'
+import type { CollisionDetection, DragEndEvent as _DragEndEvent } from '@dnd-kit/core'
 
 const LAYOUT_KEY = 'user:prefs:card-layout'
 
