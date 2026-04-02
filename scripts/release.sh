@@ -65,7 +65,7 @@ if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
 fi
 
 # Assemble any pending changelog fragments into CHANGELOG.md before rotating
-if [ -d changelog.d ]; then
+if [[ -d changelog.d ]]; then
   scripts/assemble-changelog.sh || { echo "Error: changelog assembly failed" >&2; exit 1; }
 fi
 

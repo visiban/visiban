@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # Load .env so DOMAIN and CERTBOT_EMAIL are available
-if [ ! -f .env ]; then
+if [[ ! -f .env ]]; then
   echo "ERROR: .env file not found. Copy .env.example and fill in the required values."
   exit 1
 fi
@@ -29,7 +29,7 @@ DOMAIN="${DOMAIN}" envsubst '${DOMAIN}' < nginx/app.conf.template > nginx/app.co
 echo "==> Building application images..."
 docker compose -f docker-compose.prod.yml build
 
-if [ -d "certbot/conf/live/${DOMAIN}" ]; then
+if [[ -d "certbot/conf/live/${DOMAIN}" ]]; then
   echo "==> Certificate already exists — skipping issuance."
 else
   echo "==> Requesting Let's Encrypt certificate for ${DOMAIN}..."
