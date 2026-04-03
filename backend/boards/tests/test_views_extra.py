@@ -413,6 +413,119 @@ class AnalyticsDwellTimeTests(TestCase):
         # Dwell should be non-null because to_column_name resolves the column
         self.assertIsNotNone(sw["avg_days_per_column"].get(self.col.name))
 
+    # ── Age mode tests ────────────────────────────────────────────────────────
+
+    def test_age_avg_days_per_column_reflects_current_dwell(self):
+        """age_avg_days_per_column shows how long a card has been in its current
+        column regardless of the period window."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=20))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        age = sw["age_avg_days_per_column"].get(self.col.name)
+        # Card has been in col for ~20 days — age should reflect that, not the 7d window.
+        self.assertIsNotNone(age)
+        self.assertAlmostEqual(age, 20.0, delta=0.5)
+
+    def test_age_excludes_cards_in_done_columns(self):
+        """Cards in done columns must not appear in age_avg_days_per_column."""
+        # Mark col2 as done
+        self.col2.is_done = True
+        self.col2.save(update_fields=["is_done"])
+        card = _make_card(self.board, self.col2, self.swim, self.user)
+        now = timezone.now()
+        # Move card into col (non-done) first, then done col
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=30))
+        self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=5))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=90")
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        # col2 is done — excluded from age tracking
+        self.assertNotIn(self.col2.name, sw.get("age_avg_days_per_column", {}))
+
+    def test_age_excludes_archived_cards(self):
+        """Archived cards must not contribute to age_avg_days_per_column."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
+        card.archived_at = now - datetime.timedelta(days=2)
+        card.save(update_fields=["archived_at"])
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        self.assertIsNone(sw["age_avg_days_per_column"].get(self.col.name))
+
+    # ── Throughput mode tests ─────────────────────────────────────────────────
+
+    def test_throughput_avg_days_reflects_cards_that_exited_in_window(self):
+        """throughput_avg_days_per_column includes cards that moved out of col
+        within the period, using actual entry timestamps."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        # Card entered col 20 days ago, exited 5 days ago → throughput dwell = ~15d
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=20))
+        self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=5))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        t_avg = sw["throughput_avg_days_per_column"].get(self.col.name)
+        self.assertIsNotNone(t_avg)
+        self.assertAlmostEqual(t_avg, 15.0, delta=0.5)
+
+    def test_throughput_card_count_matches_transitions(self):
+        """throughput_card_count_per_column reflects the number of cards that
+        exited the column within the window."""
+        now = timezone.now()
+        for _ in range(3):
+            card = _make_card(self.board, self.col, self.swim, self.user)
+            self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
+            self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=3))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        count = sw["throughput_card_count_per_column"].get(self.col.name, 0)
+        self.assertEqual(count, 3)
+
+    def test_throughput_null_when_no_exits_in_window(self):
+        """throughput_avg_days_per_column is null for a column where no cards
+        exited within the period, and card count is 0."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        # Card entered col 10 days ago and is still there (no exit within window)
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        # col2 had no exits — throughput should be null, count 0
+        self.assertIsNone(sw["throughput_avg_days_per_column"].get(self.col2.name))
+        self.assertEqual(sw["throughput_card_count_per_column"].get(self.col2.name, 0), 0)
+
+    def test_backward_compat_avg_days_per_column_still_present(self):
+        """avg_days_per_column must remain in the response for backward compat."""
+        card = _make_card(self.board, self.col, self.swim, self.user)
+        now = timezone.now()
+        self._movement(card, self.col, self.swim, now - datetime.timedelta(days=5))
+
+        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        data = r.json()
+        sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
+        self.assertIn("avg_days_per_column", sw)
+        self.assertIn("is_outlier", sw)
+        self.assertIn("age_avg_days_per_column", sw)
+        self.assertIn("throughput_avg_days_per_column", sw)
+        self.assertIn("throughput_card_count_per_column", sw)
+        self.assertIn("age_is_outlier", sw)
+        self.assertIn("throughput_is_outlier", sw)
+
 
 # ---------------------------------------------------------------------------
 # Site admin board queryset
