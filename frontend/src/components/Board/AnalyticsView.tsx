@@ -58,14 +58,14 @@ function loadViewMode(boardId: number): ViewMode {
   try {
     const v = localStorage.getItem(`board:${boardId}:analytics-view-mode`);
     if (v === "age" || v === "throughput") return v;
-  } catch {}
+  } catch { /* localStorage unavailable — fall back to default */ }
   return "age";
 }
 
 function saveViewMode(boardId: number, mode: ViewMode) {
   try {
     localStorage.setItem(`board:${boardId}:analytics-view-mode`, mode);
-  } catch {}
+  } catch { /* localStorage unavailable — silently skip */ }
 }
 
 function exportCsv(data: AnalyticsData, mode: ViewMode) {
