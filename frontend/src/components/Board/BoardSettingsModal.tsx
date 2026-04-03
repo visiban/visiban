@@ -323,7 +323,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     </div>
 
-                    {isAdmin && (m.role === "member" || m.role === "admin") && (
+                    {isAdmin && m.role === "member" && (
                       <div className="mt-1 pl-9 flex items-center gap-2">
                         <label className="flex items-center gap-1.5 cursor-pointer select-none">
                           <input

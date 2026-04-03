@@ -660,9 +660,9 @@ describe('BoardSettingsModal — Moderator toggle', () => {
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'member', is_moderator: true, joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
-    // Both admin and member rows have a moderator checkbox; Bob's is the second one
+    // Only member-role rows have a moderator checkbox; Bob (member) has the only one
     const checkboxes = screen.getAllByRole('checkbox')
-    await user.click(checkboxes[1])
+    await user.click(checkboxes[0])
 
     expect(mockSetBoardMember).toHaveBeenCalledWith(1, 2, 'member', true)
   })
