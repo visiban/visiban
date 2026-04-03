@@ -304,7 +304,7 @@ class AnalyticsDwellTimeTests(TestCase):
 
     def test_card_entered_before_window_still_shows_dwell_time(self):
         """A card placed in a column 45 days ago should appear in the 30d heatmap
-        with ~30 days of dwell time (capped at the window start)."""
+        with ~45 days of actual dwell time (entry timestamp, no window clamping)."""
         card = _make_card(self.board, self.col, self.swim, self.user)
         now = timezone.now()
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=45))
@@ -313,10 +313,10 @@ class AnalyticsDwellTimeTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
-        # Should be ~30 days, not null — the card is still in col right now
+        # Should be ~45 days (actual dwell), not null and not clamped to 30
         avg = sw["avg_days_per_column"].get(self.col.name)
         self.assertIsNotNone(avg)
-        self.assertAlmostEqual(avg, 30.0, delta=0.5)
+        self.assertAlmostEqual(avg, 45.0, delta=0.5)
 
     def test_card_fully_before_window_excluded(self):
         """A card that entered and exited a column entirely before the window

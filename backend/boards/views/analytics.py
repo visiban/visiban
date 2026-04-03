@@ -132,10 +132,11 @@ class BoardAnalyticsMixin:
 
         Dwell time is measured as the number of days a card spent in each column:
         the gap between consecutive movement timestamps (or "now" for the current
-        position). Period-cutoff math uses ``effective_entry = max(mv.moved_at,
-        period_cutoff)`` so cards that entered a column before the selected window
-        correctly contribute only the in-window portion of their dwell time rather
-        than showing zero.
+        position). The period window controls *which transitions to include* — only
+        transitions that exited within the window (or are currently active) are
+        counted — but dwell is always measured from the card's actual entry
+        timestamp. This ensures a card that entered a column 45 days ago shows 45d
+        on a 30d view rather than the ≥30d cap sentinel (see issue #575).
 
         ``is_outlier`` is ``True`` when a swimlane/column cell's average dwell time
         meets or exceeds ``staleness_threshold_days`` (previously used a 2x board
@@ -259,12 +260,15 @@ class BoardAnalyticsMixin:
                     # Skip movements that ended entirely before the analysis window.
                     if exit_ <= period_cutoff:
                         continue
-                    # Clamp the entry to the period cutoff so cards that entered a column
-                    # before the window still contribute their in-window dwell time.
-                    # Without this, a card sitting in "In Progress" for 60 days would show
-                    # no data in the 7d or 30d views — even though it is actively dwelling.
-                    effective_entry = max(mv.moved_at, period_cutoff)
-                    dwell_days = (exit_ - effective_entry).total_seconds() / 86400
+                    # Use the card's actual entry timestamp so dwell reflects real time
+                    # spent in the column, not just the in-window portion. The period
+                    # parameter controls which transitions to include (only those that
+                    # exited within the window, or are currently active), but dwell is
+                    # always measured from the true entry time. This avoids the
+                    # "≥Nd cap" artifact where clamping to period_cutoff made every
+                    # currently-dwelling card contribute exactly N days and the average
+                    # saturate at the cap — see issue #575.
+                    dwell_days = (exit_ - mv.moved_at).total_seconds() / 86400
                     col_dwells[col_name].append(dwell_days)
                     all_col_dwells[col_name].append(dwell_days)
                 # Velocity: only count cards whose last movement fell within the window,

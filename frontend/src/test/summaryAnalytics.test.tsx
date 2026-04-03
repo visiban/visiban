@@ -486,7 +486,7 @@ describe('AnalyticsView', () => {
     expect(screen.queryByText(/done column/i)).not.toBeInTheDocument()
   })
 
-  it('shows capped value with ≥ prefix when avg equals period length', async () => {
+  it('does not show ≥ prefix when avg equals period length', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
@@ -504,6 +504,7 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect(await screen.findByText('≥30d')).toBeInTheDocument()
+    expect(await screen.findByText('Customer A')).toBeInTheDocument()
+    expect(screen.queryByText('≥30d')).not.toBeInTheDocument()
   })
 })

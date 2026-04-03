@@ -138,13 +138,12 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                   <td className="py-1.5 pr-4 font-medium text-slate-200 sticky left-0 bg-slate-900">{sw.name}</td>
                   {activeCols.map((col) => {
                     const avg = sw.avg_days_per_column[col];
-                    const capped = avg !== null && avg >= data.days;
                     return (
                       <td
                         key={col}
                         className={`py-1.5 px-3 text-center rounded text-xs ${cellColor(avg, threshold, warningPct)}`}
                       >
-                        {avg !== null ? `${capped ? "≥" : ""}${avg}d` : "—"}
+                        {avg !== null ? `${avg}d` : "—"}
                       </td>
                     );
                   })}

@@ -141,13 +141,13 @@ class BoardAnalyticsTests(TestCase):
         self.assertIn("90", r.json()["detail"])
 
     def test_analytics_period_filter_affects_dwell_times(self):
-        """Period window clamps dwell time so all periods show non-null heatmap data.
+        """Period window filters which transitions to include; dwell uses actual timestamps.
 
         A card that entered "Done" 60 days ago and is still there should:
         - Show ~5d dwell in "Backlog" for 90d (entered 65d ago, left 60d ago — within window)
         - Show null in "Backlog" for 7d (entire Backlog dwell was >7 days ago — skipped)
-        - Show ~7d dwell in "Done" for 7d (clamped: entered 60d ago but window is 7d)
-        - Show ~60d dwell in "Done" for 90d (full dwell since entry)
+        - Show ~60d dwell in "Done" for 7d (actual dwell since entry, no window clamping)
+        - Show ~60d dwell in "Done" for 90d (same actual dwell)
         """
         col2 = Column.objects.create(board=self.board, name="Done", position=1)
         card = Card.objects.create(
@@ -192,13 +192,12 @@ class BoardAnalyticsTests(TestCase):
         self.assertIsNotNone(medians_90.get("Backlog"), "90d should include the ~5d Backlog dwell")
 
         # Done dwell: card entered 60d ago and is still there.
-        # 7d clamps entry to period_cutoff — dwell ≈ 7 days (non-null).
-        self.assertIsNotNone(medians_7.get("Done"), "7d should show clamped dwell for card still in Done")
-        # 90d uses full entry time — dwell ≈ 60 days.
-        self.assertIsNotNone(medians_90.get("Done"), "90d should show full dwell for card still in Done")
+        # Both windows should use the actual entry time — dwell ≈ 60 days in each case.
+        self.assertIsNotNone(medians_7.get("Done"), "7d should show actual dwell for card still in Done")
+        self.assertIsNotNone(medians_90.get("Done"), "90d should show actual dwell for card still in Done")
         done_7 = medians_7["Done"]
         done_90 = medians_90["Done"]
-        self.assertLess(done_7, done_90, "clamped 7d dwell should be less than unclamped 90d dwell")
+        self.assertAlmostEqual(done_7, done_90, delta=0.5, msg="both periods should reflect the same actual 60d dwell")
 
 
 class BoardMembersTests(TestCase):
