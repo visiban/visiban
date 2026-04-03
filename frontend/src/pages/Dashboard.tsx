@@ -78,7 +78,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const handleJoinGroup = () => setJoiningGroup(true);
 
   const handleJoinSubmit = () => {
-    const token = joinToken.trim().replace(/.*\/join\//, "");
+    const raw = joinToken.trim();
+    // Use split instead of a regex to avoid catastrophic backtracking on
+    // adversarial input (ReDoS). Takes whatever follows the last /join/ segment,
+    // or the whole string if the user pasted a bare token.
+    const token = raw.split("/join/").pop() ?? raw;
     if (token) navigate(`/join/${token}`);
   };
 

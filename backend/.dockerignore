@@ -16,3 +16,13 @@ media/
 venv
 *.egg-info
 .sonar
+# Private keys and certificates
+*.pem
+*.key
+*.crt
+*.p12
+# Local overrides that may contain credentials
+local_settings.py
+# Log files
+*.log
+logs/

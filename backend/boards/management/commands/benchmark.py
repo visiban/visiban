@@ -15,6 +15,8 @@ through the Django test client, then deletes the board.
 Budgets are set conservatively — a regression that adds an N+1 will immediately
 exceed the budget and the command exits non-zero.
 """
+import secrets
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import connection, reset_queries
@@ -187,7 +189,7 @@ class Command(BaseCommand):
         user = User.objects.create_user(
             username="bench_user",
             email="bench@example.com",
-            password="x",
+            password=secrets.token_urlsafe(16),
         )
         board = Board.objects.create(name="__benchmark__", owner=user)
         BoardMembership.objects.create(board=board, user=user, role="admin")

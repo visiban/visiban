@@ -12,16 +12,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run as non-root for defense in depth.
+# Create /app/media explicitly so it is owned by the service user before
+# the VOLUME directive fires. Without mkdir here, Docker creates the mount
+# point as root:root (world-readable) because the chown -R runs before the
+# directory exists.
 RUN addgroup --system --gid 1001 visiban \
     && adduser --system --uid 1001 --ingroup visiban visiban \
+    && mkdir -p /app/media \
     && chown -R visiban:visiban /app
-
-EXPOSE 8000
 
 # /app/media holds user-uploaded attachments. Declare it as a volume so that
 # container image rebuilds do not silently destroy uploads. In production the
 # volume is mounted explicitly in docker-compose.prod.yml.
 VOLUME ["/app/media"]
+
+EXPOSE 8000
 
 USER visiban
 
