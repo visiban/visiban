@@ -58,7 +58,7 @@ from boards.models import (
     Swimlane,
 )
 
-SEED_ANCHOR_DATE = datetime.date(2026, 3, 15)
+SEED_ANCHOR_DATE = datetime.date(2026, 4, 1)
 BOARD_NAME_PREFIX = "Template:"
 
 DEMO_USERS = [

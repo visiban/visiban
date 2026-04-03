@@ -274,8 +274,14 @@ class BoardAnalyticsMixin:
                     effective_entry_clamped = max(mv.moved_at, period_cutoff)
                     col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
                     all_col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
-                    # throughput_avg_days_per_column: actual entry timestamp, no clamping.
-                    throughput_dwells[col_name].append((exit_ - mv.moved_at).total_seconds() / 86400)
+                    # throughput_avg_days_per_column: only cards that actually exited this
+                    # column during the period (next movement exists, or card was archived).
+                    # Currently-dwelling cards (exit_ == now, no next movement) are excluded —
+                    # they haven't left yet, so counting them would make throughput identical
+                    # to age mode and inflate averages with in-progress dwell time.
+                    card_exited = i + 1 < len(movements) or card.archived_at is not None
+                    if card_exited:
+                        throughput_dwells[col_name].append((exit_ - mv.moved_at).total_seconds() / 86400)
 
                 # ── Age pass (currently-dwelling cards, snapshot of "now") ────────
                 # Only for non-archived cards in non-done columns.
