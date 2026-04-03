@@ -111,3 +111,73 @@ class BoardConsumerPingTests(TestCase):
             assert consumer._ping_task is None
 
         asyncio.get_event_loop().run_until_complete(run())
+
+    def test_connect_access_denied_closes_with_4003(self):
+        """connect() should close with code 4003 when _has_access returns False."""
+        consumer = self._make_consumer()
+
+        async def run():
+            with patch.object(consumer, "_has_access", return_value=False):
+                await consumer.connect()
+            consumer.close.assert_called_once_with(code=4003)
+            assert consumer._ping_task is None
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+    def test_board_event_sends_payload(self):
+        """board_event() should forward the payload as JSON text."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 42
+
+        payload = {"event": "card.moved", "data": {"card_id": 7}}
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            consumer.send.assert_called_once_with(
+                text_data=json.dumps(payload)
+            )
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+    def test_board_event_member_removed_closes_connection(self):
+        """board_event() should close the socket when the current user is removed."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 99
+
+        payload = {"event": "member.removed", "data": {"user_id": 99}}
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            consumer.close.assert_called_once()
+            consumer.send.assert_not_called()
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+    def test_board_event_member_removed_other_user_not_closed(self):
+        """board_event() should NOT close when a *different* user is removed."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 1
+
+        payload = {"event": "member.removed", "data": {"user_id": 2}}
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            consumer.close.assert_not_called()
+            consumer.send.assert_called_once_with(text_data=json.dumps(payload))
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+    def test_has_access_board_not_found_returns_false(self):
+        """_has_access() should return False when the board does not exist."""
+        from unittest.mock import MagicMock
+        from boards.consumers import BoardConsumer
+
+        consumer = BoardConsumer()
+        user = MagicMock()
+
+        async def run():
+            # Use a board_id that cannot exist (negative PK).
+            result = await consumer._has_access(user, -1)
+            assert result is False
+
+        asyncio.get_event_loop().run_until_complete(run())
