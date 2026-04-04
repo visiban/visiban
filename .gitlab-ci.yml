@@ -219,13 +219,13 @@ backend-test:
     - name: redis:7-alpine
       alias: redis
   variables:
-    POSTGRES_DB: visiban_test
-    POSTGRES_USER: visiban
-    POSTGRES_PASSWORD: ci_password
-    DATABASE_URL: "postgres://visiban:ci_password@postgres:5432/visiban_test"
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
     REDIS_URL: "redis://redis:6379/0"
     REDIS_CACHE_URL: "redis://redis:6379/1"
-    DJANGO_SECRET_KEY: "ci-secret-key-not-for-production"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
   cache:
@@ -296,9 +296,9 @@ migration-check:
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   variables:
-    DATABASE_URL: "postgres://fake:fake@localhost:5432/fake"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@localhost:5432/${CI_POSTGRES_DB}"
     REDIS_URL: "redis://localhost:6379/0"
-    DJANGO_SECRET_KEY: "ci-secret-key-not-for-production"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
   before_script:
@@ -320,9 +320,9 @@ backend-schema-validate:
     - changes:
         - backend/**/*
   variables:
-    DATABASE_URL: "postgres://fake:fake@localhost:5432/fake"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@localhost:5432/${CI_POSTGRES_DB}"
     REDIS_URL: "redis://localhost:6379/0"
-    DJANGO_SECRET_KEY: "ci-secret-key-not-for-production"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
   before_script:
@@ -1075,13 +1075,13 @@ seed-export-check:
     - name: redis:7-alpine
       alias: redis
   variables:
-    POSTGRES_DB: visiban_test
-    POSTGRES_USER: visiban
-    POSTGRES_PASSWORD: ci_password
-    DATABASE_URL: "postgres://visiban:ci_password@postgres:5432/visiban_test"
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
     REDIS_URL: "redis://redis:6379/0"
     REDIS_CACHE_URL: "redis://redis:6379/1"
-    DJANGO_SECRET_KEY: "ci-secret-key-not-for-production"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
   before_script:
