@@ -209,6 +209,30 @@ class SeedMovementHistoryTests(TestCase):
         )
         self.assertEqual(future.count(), 0, "Some movements have future timestamps")
 
+    def test_most_recent_movements_within_30_day_window(self):
+        """The most recent movement per card must fall within the last 30 days.
+
+        Regression guard: when _add_movement_history used a hardcoded
+        SEED_ANCHOR_DATE the movements aged out of the 7d/30d analytics
+        windows as time passed, causing Throughput to show all dashes.
+        """
+        import datetime
+        from django.utils import timezone
+        cutoff = timezone.now() - datetime.timedelta(days=30)
+        # Find cards in non-backlog columns (they have stage transitions).
+        leftmost_col = self.board.columns.order_by("position").first()
+        non_backlog_cards = self.board.cards.exclude(column=leftmost_col)
+        stale_count = 0
+        for card in non_backlog_cards:
+            latest = CardMovement.objects.filter(card=card).order_by("-moved_at").first()
+            if latest and latest.moved_at < cutoff:
+                stale_count += 1
+        self.assertEqual(
+            stale_count,
+            0,
+            f"{stale_count} non-backlog cards have their latest movement outside the 30d analytics window",
+        )
+
 
 # ---------------------------------------------------------------------------
 # Due dates
