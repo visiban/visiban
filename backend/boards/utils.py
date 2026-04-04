@@ -67,14 +67,16 @@ def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
     if not added_usernames:
         return
 
-    eff_ids = _get_effective_member_ids(card.board)
-
     # Re-fetch to get the latest mentioned_user_ids — the lambda closure captures
     # the card object at on_commit registration time, which may be stale.
+    # select_related("board") avoids a deferred FK hit when _get_effective_member_ids
+    # and the Notification bulk_create both access fresh_card.board below.
     try:
-        fresh_card = Card.objects.get(pk=card.pk)
+        fresh_card = Card.objects.select_related("board").get(pk=card.pk)
     except Card.DoesNotExist:
         return
+
+    eff_ids = _get_effective_member_ids(fresh_card.board)
 
     already_notified = set(fresh_card.mentioned_user_ids or [])
     # Case-insensitive username lookup: @mentions typed in any casing
