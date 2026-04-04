@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextStyle from "@tiptap/extension-text-style";
@@ -87,16 +88,18 @@ function ColorPicker({
     const handler = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
-    const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", keyHandler);
     return () => {
       document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", keyHandler);
     };
   }, [open]);
+
+  // Priority 33 — above RichTextEditor edit-mode cancel (31) so Escape closes the
+  // color picker without also exiting edit mode in the same keypress.
+  useEscapeStack(() => {
+    if (!open) return false;
+    setOpen(false);
+  }, 33);
 
   // Any non-empty color value (including White) means a color is actively set.
   // Previously excluded #f1f5f9 (White) from the active state, causing the
@@ -188,6 +191,9 @@ export default function RichTextEditor({
   // Keep the latest members list accessible in the suggestion closure without
   // recreating the Tiptap editor whenever the members prop changes.
   const membersRef = useRef<BoardMembership[] | undefined>(members);
+  // Set to true for one microtask tick when the mention-suggestion popup handles
+  // an Escape key. Prevents the same keypress from also cancelling edit mode.
+  const mentionJustClosedRef = useRef(false);
   useEffect(() => {
     membersRef.current = members;
   }, [members]);
@@ -261,6 +267,11 @@ export default function RichTextEditor({
               onKeyDown({ event }) {
                 if (event.key === "Escape") {
                   popup?.remove();
+                  // Signal that this Escape was consumed by the mention popup so
+                  // the useEscapeStack handler at priority 31 doesn't also cancel
+                  // edit mode in the same keypress.
+                  mentionJustClosedRef.current = true;
+                  setTimeout(() => { mentionJustClosedRef.current = false; }, 0);
                   return true;
                 }
                 return component.ref?.onKeyDown({ event }) ?? false;
@@ -314,6 +325,16 @@ export default function RichTextEditor({
     editor?.commands.setContent(originalValueRef.current);
     setIsEditing(false);
   }, [editor]);
+
+  // Priority 31 — fires after ColorPicker (33) but before CardDetail panel-close (30).
+  // First Escape while editing cancels the edit; second Escape then closes the panel.
+  // When the mention suggestion popup just consumed an Escape, the flag short-circuits
+  // this handler so only the popup is dismissed (not the edit mode too).
+  useEscapeStack(() => {
+    if (mentionJustClosedRef.current) return; // mention popup was just closed, stop chain
+    if (!isEditing) return false; // not editing — pass to lower-priority handlers
+    handleCancel();
+  }, 31);
 
   const currentColor = (editor?.getAttributes("textStyle").color as string) ?? "";
 
@@ -449,10 +470,12 @@ export default function RichTextEditor({
 
       {/* Editor area.
           onKeyDown stopPropagation prevents board-level single-key shortcuts
-          (e.g. "f" for filter) from firing while the user is typing here. */}
+          (e.g. "f" for filter) from firing while the user is typing here.
+          Escape is intentionally excluded so it reaches useEscapeStack — first
+          press cancels edit mode (priority 31), second press closes the panel (30). */}
       <EditorContent
         editor={editor}
-        onKeyDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key !== "Escape") e.stopPropagation(); }}
         className={[
           "w-full text-sm bg-slate-900 border border-blue-400 rounded-b-lg px-3 py-2",
           "outline-none",

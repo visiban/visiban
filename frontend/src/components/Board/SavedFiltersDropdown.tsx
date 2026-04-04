@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { FilterState } from "./FilterBar";
 import { countActiveFilters } from "./FilterBar";
 import type { SavedFilter } from "../../types";
@@ -43,6 +44,14 @@ export default function SavedFiltersDropdown({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useDropdownEscape(open, () => { setOpen(false); setSaveMode(false); }, triggerRef);
+
+  // Priority 27 — above useDropdownEscape (25) so save mode cancels first, keeping
+  // the dropdown open. A second Escape then closes the dropdown via priority 25.
+  useEscapeStack(() => {
+    if (!saveMode) return false;
+    setSaveMode(false);
+    setSaveError(null);
+  }, 27);
 
   // Close on outside click.
   useEffect(() => {
@@ -138,7 +147,8 @@ export default function SavedFiltersDropdown({
                 onChange={(e) => { setNewName(e.target.value); setSaveError(null); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") { e.preventDefault(); void handleSave(); }
-                  if (e.key === "Escape") { e.stopPropagation(); setSaveMode(false); setSaveError(null); }
+                  // Escape is handled by useEscapeStack at priority 27 (exits save mode)
+                  // followed by priority 25 (closes dropdown) on a second press.
                 }}
                 placeholder="Filter name…"
                 maxLength={100}
