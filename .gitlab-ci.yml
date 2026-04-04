@@ -301,11 +301,12 @@ migration-check:
     - name: postgres:17-alpine
       alias: postgres
   variables:
-    POSTGRES_DB: "${CI_POSTGRES_DB}"
-    POSTGRES_USER: "${CI_POSTGRES_USER}"
-    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
-    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
-    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    # Fixed credentials for the ephemeral CI-only container — no security concern.
+    POSTGRES_DB: "ci_migration"
+    POSTGRES_USER: "ci"
+    POSTGRES_PASSWORD: "ci"
+    DATABASE_URL: "postgres://ci:ci@postgres:5432/ci_migration"
+    DJANGO_SECRET_KEY: "ci-only-not-a-real-secret"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
   before_script:
