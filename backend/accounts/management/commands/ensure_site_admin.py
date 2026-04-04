@@ -52,9 +52,12 @@ class Command(BaseCommand):
         # retrieved immediately then deleted.
         _pw_to_stdout = False
         try:
-            with open(_PASSWORD_FILE, "w") as fh:
+            # Use os.open with O_CREAT so the file is created with mode 0o600
+            # atomically — avoids the TOCTOU window where a two-step open()+chmod()
+            # would leave the file world-readable between creation and restriction.
+            fd = os.open(_PASSWORD_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as fh:
                 fh.write(password + "\n")
-            os.chmod(_PASSWORD_FILE, 0o600)
             password_location = f"written to {_PASSWORD_FILE}"
         except OSError as exc:
             # File write failed — fall back to management command stdout only.
