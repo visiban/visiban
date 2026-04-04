@@ -1,0 +1,32 @@
+name: Bridge GitHub issue to GitLab
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitLab issue
+        id: create_issue
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            -H "PRIVATE-TOKEN: ${{ secrets.GITLAB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"title\": \"[GH#${{ github.event.issue.number }}] ${{ github.event.issue.title }}\",
+                 \"description\": \"Bridged from GitHub: ${{ github.event.issue.html_url }}\n\n---\n\n${{ github.event.issue.body }}\"}" \
+            "https://gitlab.com/api/v4/projects/${{ secrets.GITLAB_PROJECT_ID }}/issues")
+          GL_URL=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['web_url'])")
+          echo "gl_url=$GL_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on GitHub issue with GitLab link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Thanks for the report! This issue is tracked in GitLab where our development workflow lives:\n\n${{ steps.create_issue.outputs.gl_url }}\n\nFollow progress there. This GitHub issue remains open as a public reference.`
+            })
