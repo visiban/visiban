@@ -1,5 +1,7 @@
 # Contributing to Visiban
 
+**Where to report bugs and request features:** Open an issue here on GitHub — it will be automatically bridged to our GitLab tracker where development happens. You'll receive a comment with the GitLab link. You can follow progress on either platform.
+
 Thank you for taking the time to contribute. This document covers how to report bugs, request features, and submit code changes.
 
 ## Contents
