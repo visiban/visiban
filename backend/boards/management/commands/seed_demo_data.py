@@ -74,7 +74,7 @@ BOARD_NAME = "Visiban Demo Board"
 RANDOM_SEED = 42
 # Fixed reference date for due-date calculations — keeps the exported JSON/CSV
 # files git-stable regardless of when the command is run.
-SEED_ANCHOR_DATE = datetime.date(2026, 3, 15)
+SEED_ANCHOR_DATE = datetime.date(2026, 4, 1)
 
 # ── Demo users ────────────────────────────────────────────────────────────────
 

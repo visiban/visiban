@@ -57,7 +57,7 @@ class SeedStructureTests(TestCase):
         )
 
     def test_swimlane_count(self):
-        self.assertEqual(self.board.swimlanes.count(), 5)
+        self.assertEqual(self.board.swimlanes.count(), 11)
 
     def test_label_names(self):
         names = set(self.board.labels.values_list("name", flat=True))
@@ -411,9 +411,9 @@ class SeedExportTests(TestCase):
 
         for key in ("name", "columns", "swimlanes", "labels", "cards"):
             self.assertIn(key, data)
-        # sales_pipeline v2: 8 columns, 5 swimlanes, 4 labels
+        # sales_pipeline v3: 8 columns, 11 swimlanes, 4 labels
         self.assertEqual(len(data["columns"]), 8)
-        self.assertEqual(len(data["swimlanes"]), 5)
+        self.assertEqual(len(data["swimlanes"]), 11)
         self.assertEqual(len(data["labels"]), 4)
 
         # Every card must export its movement history

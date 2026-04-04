@@ -86,7 +86,10 @@ describe('SummaryView', () => {
 })
 
 describe('AnalyticsView', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
 
   it('shows loading state', () => {
     mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
@@ -100,16 +103,33 @@ describe('AnalyticsView', () => {
     expect(await screen.findByText('Failed to load analytics.')).toBeInTheDocument()
   })
 
-  it('renders analytics with period buttons', async () => {
+  it('renders Age/Throughput mode toggle', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
-      columns: ['To Do', 'Done'],
+      columns: ['To Do'],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByRole('group', { name: 'Analytics view mode' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Age' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Throughput' })).toBeInTheDocument()
+  })
+
+  it('defaults to age mode — period selector hidden', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
       swimlanes: [
         {
           id: 1, name: 'Customer A',
-          avg_days_per_column: { 'To Do': 5, 'Done': 1 },
-          is_outlier: { 'To Do': true, 'Done': false },
-          deal_velocity_days: 6,
+          avg_days_per_column: { 'To Do': 5 },
+          is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 8 },
+          age_is_outlier: { 'To Do': false },
+          deal_velocity_days: null,
           stalled_cards: [],
         },
       ],
@@ -118,11 +138,122 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await screen.findByText('Customer A')
+    // Period buttons are hidden in age mode
+    expect(screen.queryByText('7d')).not.toBeInTheDocument()
+    expect(screen.queryByText('30d')).not.toBeInTheDocument()
+    expect(screen.queryByText('90d')).not.toBeInTheDocument()
+  })
 
-    expect(await screen.findByText('Customer A')).toBeInTheDocument()
-    expect(screen.getByText('7d')).toBeInTheDocument()
-    expect(screen.getByText('30d')).toBeInTheDocument()
-    expect(screen.getByText('90d')).toBeInTheDocument()
+  it('switching to throughput mode shows period selector', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await screen.findByRole('button', { name: 'Throughput' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Throughput' }))
+    expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '30d' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '90d' })).toBeInTheDocument()
+  })
+
+  it('switching back to age mode hides period selector', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    const user = userEvent.setup()
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await screen.findByRole('button', { name: 'Throughput' })
+    await user.click(screen.getByRole('button', { name: 'Throughput' }))
+    expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Age' }))
+    expect(screen.queryByRole('button', { name: '7d' })).not.toBeInTheDocument()
+  })
+
+  it('description line appears only in throughput mode', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    const user = userEvent.setup()
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await screen.findByRole('button', { name: 'Age' })
+    expect(screen.queryByText(/exited in the last/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Throughput' }))
+    expect(screen.getByText(/exited in the last 30 days/)).toBeInTheDocument()
+  })
+
+  it('age mode renders age_avg_days_per_column values', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 99 },
+          is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 20 },
+          age_is_outlier: { 'To Do': false },
+          throughput_avg_days_per_column: { 'To Do': 5 },
+          throughput_is_outlier: { 'To Do': false },
+          throughput_card_count_per_column: { 'To Do': 3 },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    // Default age mode — shows 20d from age_avg_days_per_column
+    expect(await screen.findByText('20d')).toBeInTheDocument()
+    expect(screen.queryByText('5d')).not.toBeInTheDocument()
+    expect(screen.queryByText('99d')).not.toBeInTheDocument()
+  })
+
+  it('throughput mode renders throughput_avg_days_per_column values', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: ['To Do'],
+      swimlanes: [
+        {
+          id: 1, name: 'Customer A',
+          avg_days_per_column: { 'To Do': 99 },
+          is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 20 },
+          age_is_outlier: { 'To Do': false },
+          throughput_avg_days_per_column: { 'To Do': 5 },
+          throughput_is_outlier: { 'To Do': false },
+          throughput_card_count_per_column: { 'To Do': 3 },
+          deal_velocity_days: null,
+          stalled_cards: [],
+        },
+      ],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    await screen.findByRole('button', { name: 'Throughput' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Throughput' }))
+    // Throughput mode — shows 5d from throughput_avg_days_per_column
+    expect(screen.getByText('5d')).toBeInTheDocument()
+    expect(screen.queryByText('20d')).not.toBeInTheDocument()
   })
 
   it('renders heatmap column headers and cell values when movements exist (#361 regression guard)', async () => {
@@ -136,6 +267,8 @@ describe('AnalyticsView', () => {
           id: 1, name: 'Acme Corp',
           avg_days_per_column: { 'Backlog': 3, 'In Progress': 7, 'Done': null },
           is_outlier: { 'Backlog': false, 'In Progress': false, 'Done': false },
+          age_avg_days_per_column: { 'Backlog': 3, 'In Progress': 7, 'Done': null },
+          age_is_outlier: { 'Backlog': false, 'In Progress': false, 'Done': false },
           deal_velocity_days: 10,
           stalled_cards: [],
         },
@@ -153,8 +286,7 @@ describe('AnalyticsView', () => {
     // Swimlane row and cell values
     expect(screen.getByText('Acme Corp')).toBeInTheDocument()
     expect(screen.getByText('3d')).toBeInTheDocument()
-    // '7d' also appears as a period button — assert at least one instance exists
-    expect(screen.getAllByText('7d').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('7d')).toBeInTheDocument()
     // Null cell renders em-dash
     expect(screen.getByText('—')).toBeInTheDocument()
     // Velocity
@@ -184,7 +316,7 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="member" />)
-    await screen.findByText('Period:')
+    await screen.findByRole('button', { name: 'Age' })
     expect(screen.queryByText('Export CSV')).not.toBeInTheDocument()
   })
 
@@ -233,7 +365,7 @@ describe('AnalyticsView', () => {
     expect(onOpenCard).toHaveBeenCalledWith(42)
   })
 
-  it('changes period on button click', async () => {
+  it('changes period on button click in throughput mode', async () => {
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: [],
@@ -242,9 +374,11 @@ describe('AnalyticsView', () => {
       staleness_threshold_days: 14,
       stale_warning_pct: 50,
     })
+    const user = userEvent.setup()
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    await screen.findByText('Period:')
-    await userEvent.setup().click(screen.getByText('7d'))
+    await screen.findByRole('button', { name: 'Throughput' })
+    await user.click(screen.getByRole('button', { name: 'Throughput' }))
+    await user.click(screen.getByRole('button', { name: '7d' }))
     expect(mockGetBoardAnalytics).toHaveBeenCalledWith(1, 7)
   })
 
@@ -280,6 +414,8 @@ describe('AnalyticsView', () => {
           id: 1, name: 'Customer A',
           avg_days_per_column: { 'To Do': 14 },
           is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 14 },
+          age_is_outlier: { 'To Do': false },
           deal_velocity_days: null,
           stalled_cards: [],
         },
@@ -302,6 +438,8 @@ describe('AnalyticsView', () => {
           id: 1, name: 'Customer A',
           avg_days_per_column: { 'To Do': 8 },
           is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 8 },
+          age_is_outlier: { 'To Do': false },
           deal_velocity_days: null,
           stalled_cards: [],
         },
@@ -325,6 +463,8 @@ describe('AnalyticsView', () => {
           id: 1, name: 'Customer A',
           avg_days_per_column: { 'To Do': 3 },
           is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 3 },
+          age_is_outlier: { 'To Do': false },
           deal_velocity_days: null,
           stalled_cards: [],
         },
@@ -468,7 +608,7 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="member" />)
-    await screen.findByText('Period:')
+    await screen.findByRole('button', { name: 'Age' })
     expect(screen.queryByText(/done column/i)).not.toBeInTheDocument()
   })
 
@@ -482,11 +622,13 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="member" />)
-    await screen.findByText('Period:')
+    await screen.findByRole('button', { name: 'Age' })
     expect(screen.queryByText(/done column/i)).not.toBeInTheDocument()
   })
 
-  it('shows capped value with ≥ prefix when avg equals period length', async () => {
+  it('shows actual dwell value without ≥ prefix (#575 regression guard)', async () => {
+    // Regression guard: the ≥Nd cap introduced by #327 caused all heatmap cells to show
+    // "≥30d" even when the actual dwell was shorter. After #575, actual timestamps are used.
     mockGetBoardAnalytics.mockResolvedValue({
       days: 30,
       columns: ['To Do'],
@@ -495,6 +637,8 @@ describe('AnalyticsView', () => {
           id: 1, name: 'Customer A',
           avg_days_per_column: { 'To Do': 30 },
           is_outlier: { 'To Do': false },
+          age_avg_days_per_column: { 'To Do': 30 },
+          age_is_outlier: { 'To Do': false },
           deal_velocity_days: null,
           stalled_cards: [],
         },
@@ -504,6 +648,8 @@ describe('AnalyticsView', () => {
       stale_warning_pct: 50,
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
-    expect(await screen.findByText('≥30d')).toBeInTheDocument()
+    await screen.findByText('Customer A')
+    expect(screen.getByText('30d')).toBeInTheDocument()
+    expect(screen.queryByText('≥30d')).not.toBeInTheDocument()
   })
 })

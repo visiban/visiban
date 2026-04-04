@@ -10,8 +10,17 @@ interface StalledCard {
 interface SwimlaneStat {
   id: number;
   name: string;
+  /** @deprecated Use throughput_avg_days_per_column for period-filtered dwell. */
   avg_days_per_column: Record<string, number | null>;
+  /** @deprecated Use throughput_is_outlier. */
   is_outlier: Record<string, boolean>;
+  // Age mode — current dwell for cards presently in each column (snapshot of "now").
+  age_avg_days_per_column?: Record<string, number | null>;
+  age_is_outlier?: Record<string, boolean>;
+  // Throughput mode — dwell for cards that exited each column within the period.
+  throughput_avg_days_per_column?: Record<string, number | null>;
+  throughput_card_count_per_column?: Record<string, number>;
+  throughput_is_outlier?: Record<string, boolean>;
   deal_velocity_days: number | null;
   stalled_cards: StalledCard[];
 }
@@ -27,6 +36,7 @@ interface AnalyticsData {
 }
 
 type DaysOption = 7 | 30 | 90;
+type ViewMode = "age" | "throughput";
 
 interface Props {
   boardId: number;
@@ -35,6 +45,8 @@ interface Props {
   onOpenCard?: (cardId: number) => void;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function cellColor(avg: number | null, threshold: number, warningPct: number): string {
   if (avg === null) return "bg-slate-800 text-slate-500";
   if (avg >= threshold) return "bg-red-900/40 text-red-400 font-semibold";
@@ -42,31 +54,88 @@ function cellColor(avg: number | null, threshold: number, warningPct: number): s
   return "bg-green-900/30 text-green-400";
 }
 
-function exportCsv(data: AnalyticsData) {
+function loadViewMode(boardId: number): ViewMode {
+  try {
+    const v = localStorage.getItem(`board:${boardId}:analytics-view-mode`);
+    if (v === "age" || v === "throughput") return v;
+  } catch { /* localStorage unavailable — fall back to default */ }
+  return "age";
+}
+
+function saveViewMode(boardId: number, mode: ViewMode) {
+  try {
+    localStorage.setItem(`board:${boardId}:analytics-view-mode`, mode);
+  } catch { /* localStorage unavailable — silently skip */ }
+}
+
+function exportCsv(data: AnalyticsData, mode: ViewMode) {
   const doneCols = new Set(data.done_columns ?? []);
   const cols = data.columns.filter(c => !doneCols.has(c));
-  const header = ["Swimlane", ...cols.map((c) => `Avg days (${c})`), "Velocity (days)", "Stalled cards"];
-  const rows = data.swimlanes.map((sw) => [
-    sw.name,
-    ...cols.map((c) => sw.avg_days_per_column[c] ?? ""),
-    sw.deal_velocity_days ?? "",
-    sw.stalled_cards.length,
-  ]);
-  const csv = [header, ...rows].map((r) => r.map(String).join(",")).join("\n");
+  const modeLabel = mode === "age" ? "Current age" : `Throughput last ${data.days}d`;
+  const header = ["Swimlane", ...cols.map(c => `${modeLabel} (${c}, days)`), "Velocity (days)", "Stalled cards"];
+  const rows = data.swimlanes.map(sw => {
+    const avgMap = mode === "age"
+      ? (sw.age_avg_days_per_column ?? sw.avg_days_per_column)
+      : (sw.throughput_avg_days_per_column ?? sw.avg_days_per_column);
+    return [
+      sw.name,
+      ...cols.map(c => avgMap[c] ?? ""),
+      sw.deal_velocity_days ?? "",
+      sw.stalled_cards.length,
+    ];
+  });
+  const csv = [header, ...rows].map(r => r.map(String).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `analytics-${data.days}d.csv`;
+  a.download = `analytics-${mode}-${data.days}d.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  return (
+    <div
+      className="flex rounded overflow-hidden border border-slate-600"
+      role="group"
+      aria-label="Analytics view mode"
+    >
+      {(["age", "throughput"] as ViewMode[]).map((m, i) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          aria-pressed={mode === m}
+          className={`px-3 py-1 text-xs capitalize transition ${
+            i === 0 ? "border-r border-slate-600" : ""
+          } ${
+            mode === m
+              ? "bg-blue-600 text-white"
+              : "text-slate-400 hover:text-slate-300 hover:bg-slate-700"
+          }`}
+        >
+          {m === "age" ? "Age" : "Throughput"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: Props) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [days, setDays] = useState<DaysOption>(30);
+  const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const setMode = (m: ViewMode) => {
+    saveViewMode(boardId, m);
+    setModeState(m);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -84,47 +153,77 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
   const doneCols = new Set(data.done_columns ?? []);
   const activeCols = data.columns.filter(c => !doneCols.has(c));
 
-  const allStalled = data.swimlanes.flatMap((sw) =>
-    sw.stalled_cards.map((c) => ({ ...c, swimlane: sw.name }))
+  const allStalled = data.swimlanes.flatMap(sw =>
+    sw.stalled_cards.map(c => ({ ...c, swimlane: sw.name }))
   );
+
+  const getAvg = (sw: SwimlaneStat, col: string): number | null => {
+    if (mode === "age") return sw.age_avg_days_per_column?.[col] ?? null;
+    return sw.throughput_avg_days_per_column?.[col] ?? null;
+  };
+
+  const getTooltip = (sw: SwimlaneStat, col: string): string => {
+    if (mode === "age") {
+      const avg = getAvg(sw, col);
+      return avg !== null
+        ? `Average time cards have been in ${col} in this swimlane`
+        : `No active cards in ${col} for this swimlane`;
+    }
+    const count = sw.throughput_card_count_per_column?.[col] ?? 0;
+    const avg = getAvg(sw, col);
+    return count > 0 && avg !== null
+      ? `Avg ${avg}d — ${count} card${count !== 1 ? "s" : ""} exited ${col} in the last ${days} days`
+      : `No cards exited ${col} in the last ${days} days`;
+  };
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-slate-900">
       {/* Pinned top: toolbar + heatmap — always visible */}
       <div className="shrink-0 flex flex-col gap-4 px-4 pt-4">
         {/* Toolbar */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-400 font-medium">Period:</span>
-          {([7, 30, 90] as DaysOption[]).map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`text-xs px-3 py-1 rounded-full border transition ${
-                days === d
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "border-slate-600 text-slate-400 hover:border-blue-400"
-              }`}
-            >
-              {d}d
-            </button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <ViewModeToggle mode={mode} onChange={setMode} />
+          {mode === "throughput" && (
+            <>
+              {(([7, 30, 90] as DaysOption[]).map(d => (
+                <button
+                  key={d}
+                  onClick={() => setDays(d)}
+                  aria-pressed={days === d}
+                  className={`text-xs px-3 py-1 rounded-full border transition ${
+                    days === d
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-slate-600 text-slate-400 hover:border-blue-400"
+                  }`}
+                >
+                  {d}d
+                </button>
+              )))}
+            </>
+          )}
           {(currentUserRole === "admin" || currentUserRole === "site_admin") && (
             <button
-              onClick={() => data && exportCsv(data)}
+              onClick={() => data && exportCsv(data, mode)}
               className="ml-auto text-xs px-3 py-1 rounded border border-slate-600 text-slate-400 hover:bg-slate-700 transition"
             >
               Export CSV
             </button>
           )}
         </div>
+        {/* Description line — reserved height so toolbar doesn't jump */}
+        <p className="text-xs h-4 -mt-2 text-slate-500">
+          {mode === "throughput" && (
+            <span>Avg time in each stage for cards that exited in the last {days} days</span>
+          )}
+        </p>
 
         {/* Heatmap — capped vertically so it never consumes the full panel */}
         <div className="overflow-x-auto overflow-y-auto max-h-[40vh]">
-          <table className="text-sm border-collapse">
+          <table className="text-sm border-collapse" aria-label="Dwell time heatmap">
             <thead>
               <tr className="text-left text-xs text-slate-500 uppercase tracking-wider">
                 <th className="pb-2 pr-4 font-medium sticky left-0 bg-slate-900">Swimlane</th>
-                {activeCols.map((col) => (
+                {activeCols.map(col => (
                   <th key={col} className="pb-2 px-3 font-medium text-center min-w-[90px]">
                     {col}
                   </th>
@@ -133,18 +232,21 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
               </tr>
             </thead>
             <tbody>
-              {data.swimlanes.map((sw) => (
+              {data.swimlanes.map(sw => (
                 <tr key={sw.id} className="border-t border-slate-700">
-                  <td className="py-1.5 pr-4 font-medium text-slate-200 sticky left-0 bg-slate-900">{sw.name}</td>
-                  {activeCols.map((col) => {
-                    const avg = sw.avg_days_per_column[col];
-                    const capped = avg !== null && avg >= data.days;
+                  <td className="py-1.5 pr-4 font-medium text-slate-200 sticky left-0 bg-slate-900 max-w-[12rem] truncate" title={sw.name}>
+                    {sw.name}
+                  </td>
+                  {activeCols.map(col => {
+                    const avg = getAvg(sw, col);
+                    const tooltip = getTooltip(sw, col);
                     return (
                       <td
                         key={col}
                         className={`py-1.5 px-3 text-center rounded text-xs ${cellColor(avg, threshold, warningPct)}`}
+                        title={tooltip}
                       >
-                        {avg !== null ? `${capped ? "≥" : ""}${avg}d` : "—"}
+                        {avg !== null ? `${avg}d` : "—"}
                       </td>
                     );
                   })}
@@ -182,7 +284,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
             <div className="flex flex-col gap-1">
               {allStalled
                 .sort((a, b) => b.days_since_move - a.days_since_move)
-                .map((c) => (
+                .map(c => (
                   <button
                     key={c.id}
                     onClick={() => onOpenCard?.(c.id)}

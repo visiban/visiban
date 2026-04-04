@@ -204,6 +204,8 @@ class BoardAnalyticsMixin:
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
+        # Age aggregator: dwell for cards currently occupying each active column (all swimlanes).
+        all_age_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
 
         # Load cards within the analysis window and their movements in two
         # queries (cards + prefetch), then group by swimlane to avoid
@@ -211,6 +213,8 @@ class BoardAnalyticsMixin:
         # Include cards archived within the window so their dwell-time data
         # contributes to the heatmap.  Cards archived before the window would
         # inflate past-column counts without adding value to the selected view.
+        # Age mode needs all currently-active (non-archived) cards regardless of
+        # the period window, so we load the union.
         from django.db.models import Q as _Q
         all_cards = list(
             board.cards.filter(
@@ -223,7 +227,12 @@ class BoardAnalyticsMixin:
 
         for swimlane in board.swimlanes.order_by("position"):
             cards = cards_by_swimlane.get(swimlane.id, [])
+            # col_dwells: period-filtered, clamped entry — feeds avg_days_per_column (deprecated).
             col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
+            # throughput_dwells: period-filtered, actual entry — feeds throughput_avg_days_per_column.
+            throughput_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
+            # age_dwells: current dwell for non-archived, non-done cards — feeds age_avg_days_per_column.
+            age_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
             stalled_cards = []
             deal_velocity_days = []
 
@@ -233,6 +242,8 @@ class BoardAnalyticsMixin:
                 movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
                 if not movements:
                     continue
+
+                # ── Throughput pass (period-filtered transitions) ───────────────
                 for i, mv in enumerate(movements):
                     col_name = col_id_to_name.get(mv.to_column_id)
                     # Fall back to the denormalized name field when the FK no longer
@@ -259,24 +270,54 @@ class BoardAnalyticsMixin:
                     # Skip movements that ended entirely before the analysis window.
                     if exit_ <= period_cutoff:
                         continue
-                    # Clamp the entry to the period cutoff so cards that entered a column
-                    # before the window still contribute their in-window dwell time.
-                    # Without this, a card sitting in "In Progress" for 60 days would show
-                    # no data in the 7d or 30d views — even though it is actively dwelling.
-                    effective_entry = max(mv.moved_at, period_cutoff)
-                    dwell_days = (exit_ - effective_entry).total_seconds() / 86400
-                    col_dwells[col_name].append(dwell_days)
-                    all_col_dwells[col_name].append(dwell_days)
-                # Velocity: only count cards whose last movement fell within the window,
+                    # avg_days_per_column (deprecated): clamped entry for backward compat.
+                    effective_entry_clamped = max(mv.moved_at, period_cutoff)
+                    col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
+                    all_col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
+                    # throughput_avg_days_per_column: only cards that actually exited this
+                    # column during the period (next movement exists, or card was archived).
+                    # Currently-dwelling cards (exit_ == now, no next movement) are excluded —
+                    # they haven't left yet, so counting them would make throughput identical
+                    # to age mode and inflate averages with in-progress dwell time.
+                    card_exited = i + 1 < len(movements) or card.archived_at is not None
+                    if card_exited:
+                        throughput_dwells[col_name].append((exit_ - mv.moved_at).total_seconds() / 86400)
+
+                # ── Age pass (currently-dwelling cards, snapshot of "now") ────────
+                # Only for non-archived cards in non-done columns.
+                if card.archived_at is None and card.column_id not in done_col_ids:
+                    current_col_name = col_id_to_name.get(card.column_id)
+                    if current_col_name and current_col_name not in done_col_names:
+                        # Find the most recent movement into the card's current column.
+                        last_entry = next(
+                            (mv for mv in reversed(movements) if mv.to_column_id == card.column_id),
+                            None,
+                        )
+                        # Fallback: denormalized name when FK is stale.
+                        if last_entry is None:
+                            last_entry = next(
+                                (mv for mv in reversed(movements)
+                                 if mv.to_column_id not in col_id_to_name
+                                 and mv.to_column_name == current_col_name),
+                                None,
+                            )
+                        if last_entry is not None:
+                            age_days = (now - last_entry.moved_at).total_seconds() / 86400
+                            age_dwells[current_col_name].append(age_days)
+                            all_age_dwells[current_col_name].append(age_days)
+
+                # ── Velocity ──────────────────────────────────────────────────────
+                # Only count cards whose last movement fell within the window,
                 # so the metric reflects recent throughput rather than all-time history.
                 if len(movements) > 1 and movements[-1].moved_at >= period_cutoff:
                     deal_velocity_days.append(
                         (movements[-1].moved_at - movements[0].moved_at).total_seconds() / 86400
                     )
-                # Cards in done columns are excluded from stalled detection — they have
-                # completed the workflow. Note: done_col_ids reflects current is_done
-                # state, so a column later re-flagged as done retroactively excludes
-                # its cards from stalled detection.
+
+                # ── Stalled detection ────────────────────────────────────────────
+                # Cards in done columns are excluded — they have completed the workflow.
+                # Note: done_col_ids reflects current is_done state, so a column later
+                # re-flagged as done retroactively excludes its cards from stalled detection.
                 last_mv = movements[-1]
                 last_col_is_done = (
                     last_mv.to_column_id in done_col_ids
@@ -289,23 +330,32 @@ class BoardAnalyticsMixin:
                         "days_since_move": (now - movements[-1].moved_at).days,
                     })
 
-            avg_days = {
-                col.name: (
-                    round(sum(col_dwells[col.name]) / len(col_dwells[col.name]), 1)
-                    if col_dwells[col.name] else None
-                )
-                for col in active_columns
-            }
+            def _avg(vals: list[float]) -> float | None:
+                return round(sum(vals) / len(vals), 1) if vals else None
+
+            avg_days = {col.name: _avg(col_dwells[col.name]) for col in active_columns}
+            throughput_avg = {col.name: _avg(throughput_dwells[col.name]) for col in active_columns}
+            throughput_count = {col.name: len(throughput_dwells[col.name]) for col in active_columns}
+            age_avg = {col.name: _avg(age_dwells[col.name]) for col in active_columns}
+
             swimlane_results.append({
                 "id": swimlane.id,
                 "name": swimlane.name,
+                # Deprecated field — kept for backward compatibility; use throughput_avg_days_per_column.
                 "avg_days_per_column": avg_days,
+                "is_outlier": {},  # populated below
+                # Age mode: current dwell snapshot (cards presently in each column).
+                "age_avg_days_per_column": age_avg,
+                "age_is_outlier": {},  # populated below
+                # Throughput mode: dwell for cards that exited each column in the period.
+                "throughput_avg_days_per_column": throughput_avg,
+                "throughput_card_count_per_column": throughput_count,
+                "throughput_is_outlier": {},  # populated below
                 "deal_velocity_days": (
                     round(sum(deal_velocity_days) / len(deal_velocity_days), 1)
                     if deal_velocity_days else None
                 ),
                 "stalled_cards": stalled_cards,
-                "is_outlier": {},
             })
 
         board_medians = {
@@ -315,16 +365,29 @@ class BoardAnalyticsMixin:
             )
             for col in active_columns
         }
-        # is_outlier intentionally uses board.staleness_threshold_days (not effective_stalled_days)
-        # so that heatmap cell coloring is always anchored to the board's configured threshold,
-        # regardless of any stalled_days query-param override. The override affects only the
-        # stalled_cards list — it is an ad-hoc investigation tool, not a permanent display mode.
-        # Callers that pass stalled_days should not expect the heatmap colors to shift.
+        # is_outlier / age_is_outlier / throughput_is_outlier all use board.staleness_threshold_days
+        # (not effective_stalled_days) so heatmap cell coloring is anchored to the board's
+        # configured threshold regardless of any stalled_days query-param override.
+        threshold = board.staleness_threshold_days
         for sw in swimlane_results:
             sw["is_outlier"] = {
                 col.name: (
                     sw["avg_days_per_column"][col.name] is not None
-                    and sw["avg_days_per_column"][col.name] >= board.staleness_threshold_days
+                    and sw["avg_days_per_column"][col.name] >= threshold
+                )
+                for col in active_columns
+            }
+            sw["age_is_outlier"] = {
+                col.name: (
+                    sw["age_avg_days_per_column"][col.name] is not None
+                    and sw["age_avg_days_per_column"][col.name] >= threshold
+                )
+                for col in active_columns
+            }
+            sw["throughput_is_outlier"] = {
+                col.name: (
+                    sw["throughput_avg_days_per_column"][col.name] is not None
+                    and sw["throughput_avg_days_per_column"][col.name] >= threshold
                 )
                 for col in active_columns
             }

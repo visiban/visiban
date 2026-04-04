@@ -58,7 +58,7 @@ from boards.models import (
     Swimlane,
 )
 
-SEED_ANCHOR_DATE = datetime.date(2026, 3, 15)
+SEED_ANCHOR_DATE = datetime.date(2026, 4, 1)
 BOARD_NAME_PREFIX = "Template:"
 
 DEMO_USERS = [
@@ -455,6 +455,97 @@ TEMPLATE_DATA: dict[str, dict] = {
                         ],
                         "assignee_idx": 4,
                     },
+                ],
+            },
+            {
+                "name": "UK & Ireland",
+                "color": "#14B8A6",
+                "contact_email": "uk-sales@example.com",
+                "notes": "Strong professional services and legal verticals. Post-Brexit data residency questions common.",
+                "cards": [
+                    {"title": "London Law Firm — Case Board 40 Seats", "col_idx": 2, "priority": "high", "weight": 4, "labels": ["Enterprise"], "checklist": [{"text": "Send GDPR DPA", "is_checked": True}, {"text": "Book discovery with IT", "is_checked": False}], "comments": ["Legal vertical — very compliance-focused."], "assignee_idx": 2, "due_offset": 15},
+                    {"title": "Edinburgh Finance — 100 Seats", "col_idx": 4, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Send proposal", "is_checked": True}, {"text": "Confirm FCA compliance docs", "is_checked": False}], "comments": [], "assignee_idx": 0, "due_offset": 12},
+                    {"title": "Dublin SaaS Startup — 20 Seats", "col_idx": 1, "priority": "low", "weight": 2, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 3, "due_offset": 30},
+                    {"title": "Manchester Agency — Creative Workflow", "col_idx": 0, "priority": "low", "weight": 1, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 1, "due_offset": 50},
+                    {"title": "Leeds Pharma — Trial Tracking Board", "col_idx": 3, "priority": "medium", "weight": 3, "labels": ["Enterprise"], "checklist": [{"text": "Demo clinical trial template", "is_checked": True}, {"text": "Send follow-up", "is_checked": False}], "comments": [], "assignee_idx": 2, "due_offset": 11},
+                    {"title": "Glasgow Logistics — 60 Seats", "col_idx": 5, "priority": "medium", "weight": 3, "labels": ["SMB"], "checklist": [{"text": "Negotiate 2-year term", "is_checked": True}, {"text": "Get procurement approval", "is_checked": False}], "comments": [], "assignee_idx": 1, "due_offset": 9},
+                    {"title": "Bristol Tech Consultancy — Closed Won", "col_idx": 6, "priority": "medium", "weight": 3, "labels": ["Enterprise", "Renewal"], "checklist": [{"text": "Provision seats", "is_checked": True}], "comments": ["Reference customer in professional services."], "assignee_idx": 4, "due_offset": None},
+                    {"title": "Belfast Digital — Lost on Pricing", "col_idx": 7, "priority": "low", "weight": 1, "labels": ["SMB"], "checklist": [], "comments": ["Price-sensitive startup. Follow up at series B."], "assignee_idx": 3, "due_offset": None},
+                ],
+            },
+            {
+                "name": "DACH",
+                "color": "#F97316",
+                "contact_email": "dach-sales@example.com",
+                "notes": "Automotive and manufacturing. Very structured procurement. 90–120 day cycles common.",
+                "cards": [
+                    {"title": "Munich Automotive — Factory Kanban 300 Seats", "col_idx": 3, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Prepare shopfloor demo", "is_checked": True}, {"text": "Submit DSGVO DPA", "is_checked": False}], "comments": ["VP Manufacturing leading evaluation."], "assignee_idx": 0, "due_offset": 14},
+                    {"title": "Berlin SaaS Scale-up — 80 Seats", "col_idx": 2, "priority": "medium", "weight": 3, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 1, "due_offset": 18},
+                    {"title": "Hamburg Logistics — 150 Seats", "col_idx": 5, "priority": "high", "weight": 4, "labels": ["Enterprise"], "checklist": [{"text": "Negotiate annual contract", "is_checked": True}, {"text": "Confirm data centre location", "is_checked": False}], "comments": [], "assignee_idx": 0, "due_offset": 10},
+                    {"title": "Vienna Consulting — Advisory Pipeline", "col_idx": 0, "priority": "low", "weight": 2, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 3, "due_offset": 40},
+                    {"title": "Frankfurt Bank — 200-Seat Deal", "col_idx": 4, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Submit BaFin compliance docs", "is_checked": True}, {"text": "Finalise commercial terms", "is_checked": False}], "comments": ["Longest procurement cycle in pipeline."], "assignee_idx": 0, "due_offset": 20},
+                    {"title": "Stuttgart Engineering — Closed Won", "col_idx": 6, "priority": "medium", "weight": 4, "labels": ["Enterprise", "Renewal"], "checklist": [{"text": "Provision enterprise seats", "is_checked": True}], "comments": ["Great reference for automotive vertical."], "assignee_idx": 4, "due_offset": None},
+                    {"title": "Cologne Media — Lost to Budget Freeze", "col_idx": 7, "priority": "low", "weight": 1, "labels": ["SMB"], "checklist": [], "comments": ["Q1 budget freeze. Re-engage Q3."], "assignee_idx": 2, "due_offset": None},
+                ],
+            },
+            {
+                "name": "Nordics",
+                "color": "#6366F1",
+                "contact_email": "nordics-sales@example.com",
+                "notes": "Strong public sector and energy accounts. Data sovereignty requirements, often prefer EU-hosted.",
+                "cards": [
+                    {"title": "Oslo Energy — Renewable Project Board", "col_idx": 2, "priority": "high", "weight": 4, "labels": ["Enterprise"], "checklist": [{"text": "Submit Norwegian DPA", "is_checked": True}, {"text": "Book exec sponsor meeting", "is_checked": False}], "comments": [], "assignee_idx": 0, "due_offset": 15},
+                    {"title": "Stockholm SaaS — 50-Seat Startup Deal", "col_idx": 1, "priority": "medium", "weight": 2, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 3, "due_offset": 28},
+                    {"title": "Helsinki Banking — 120 Seats", "col_idx": 4, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Submit proposal", "is_checked": True}, {"text": "Get FIN-FSA compliance sign-off", "is_checked": False}], "comments": ["Compliance review is gating factor."], "assignee_idx": 0, "due_offset": 18},
+                    {"title": "Copenhagen Pharma — Clinical Boards", "col_idx": 3, "priority": "medium", "weight": 3, "labels": ["Enterprise"], "checklist": [{"text": "Demo clinical template", "is_checked": True}], "comments": [], "assignee_idx": 2, "due_offset": 12},
+                    {"title": "Reykjavik Biotech — Lab Boards", "col_idx": 5, "priority": "medium", "weight": 3, "labels": ["Enterprise"], "checklist": [{"text": "Agree commercial terms", "is_checked": True}, {"text": "Execute MSA", "is_checked": False}], "comments": [], "assignee_idx": 1, "due_offset": 8},
+                    {"title": "Aarhus Logistics — Closed Won", "col_idx": 6, "priority": "medium", "weight": 3, "labels": ["SMB", "Renewal"], "checklist": [{"text": "Onboard team", "is_checked": True}], "comments": ["Fast close — under 3 weeks."], "assignee_idx": 4, "due_offset": None},
+                    {"title": "Tampere Manufacturing — Lost", "col_idx": 7, "priority": "low", "weight": 1, "labels": ["SMB"], "checklist": [], "comments": ["Chose free-tier alternative."], "assignee_idx": 3, "due_offset": None},
+                ],
+            },
+            {
+                "name": "Middle East",
+                "color": "#EF4444",
+                "contact_email": "me-sales@example.com",
+                "notes": "Government and real estate verticals. Relationship-driven procurement. Arabic localisation sometimes required.",
+                "cards": [
+                    {"title": "Dubai Properties — Real Estate Project Board", "col_idx": 6, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Complete enterprise onboarding", "is_checked": True}], "comments": ["Landmark win for ME region."], "assignee_idx": 4, "due_offset": None},
+                    {"title": "Abu Dhabi Finance — Investment Pipeline 150 Seats", "col_idx": 4, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Send proposal in Arabic and English", "is_checked": True}, {"text": "Schedule C-suite review", "is_checked": False}], "comments": [], "assignee_idx": 0, "due_offset": 16},
+                    {"title": "Riyadh Government — Digital Ops Board", "col_idx": 2, "priority": "high", "weight": 4, "labels": ["Enterprise"], "checklist": [{"text": "Submit PDPL compliance docs", "is_checked": True}, {"text": "Confirm data residency in KSA", "is_checked": False}], "comments": ["Data residency is blocking."], "assignee_idx": 2, "due_offset": 20},
+                    {"title": "Kuwait Petroleum — Safety Tracking", "col_idx": 1, "priority": "medium", "weight": 3, "labels": ["Enterprise"], "checklist": [], "comments": [], "assignee_idx": 1, "due_offset": 25},
+                    {"title": "Doha Healthcare — Hospital Ops Board", "col_idx": 3, "priority": "medium", "weight": 3, "labels": ["Enterprise"], "checklist": [{"text": "Demo clinical workflow", "is_checked": True}, {"text": "Send HIPAA-equivalent docs", "is_checked": False}], "comments": [], "assignee_idx": 2, "due_offset": 14},
+                    {"title": "Muscat Engineering — Infra Project Board", "col_idx": 5, "priority": "medium", "weight": 3, "labels": ["SMB"], "checklist": [{"text": "Negotiate pricing", "is_checked": True}], "comments": [], "assignee_idx": 1, "due_offset": 11},
+                    {"title": "Bahrain Fintech — Compliance Workflow Lost", "col_idx": 7, "priority": "low", "weight": 1, "labels": ["Enterprise"], "checklist": [], "comments": ["Lost to incumbent vendor."], "assignee_idx": 2, "due_offset": None},
+                ],
+            },
+            {
+                "name": "Southeast Asia",
+                "color": "#84CC16",
+                "contact_email": "sea-sales@example.com",
+                "notes": "Fast-growing SaaS and fintech hubs in SG and ID. Government deals in PH and MY move slowly.",
+                "cards": [
+                    {"title": "Manila BPO — Operations Kanban 200 Seats", "col_idx": 5, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Draft 2-year MSA", "is_checked": True}, {"text": "Confirm seat count", "is_checked": False}], "comments": ["BPO vertical — reference customer potential."], "assignee_idx": 0, "due_offset": 9},
+                    {"title": "Kuala Lumpur Fintech — 80 Seats", "col_idx": 2, "priority": "medium", "weight": 3, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 1, "due_offset": 19},
+                    {"title": "Ho Chi Minh City Tech — 60 Seats", "col_idx": 3, "priority": "medium", "weight": 3, "labels": ["SMB"], "checklist": [{"text": "Run demo", "is_checked": True}, {"text": "Send proposal", "is_checked": False}], "comments": [], "assignee_idx": 2, "due_offset": 13},
+                    {"title": "Bangkok Logistics — Distribution Board", "col_idx": 1, "priority": "medium", "weight": 2, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 3, "due_offset": 27},
+                    {"title": "Jakarta E-commerce — 100-Seat Deal", "col_idx": 4, "priority": "high", "weight": 4, "labels": ["Enterprise"], "checklist": [{"text": "Submit proposal", "is_checked": True}, {"text": "Confirm PDPA docs", "is_checked": False}], "comments": [], "assignee_idx": 0, "due_offset": 16},
+                    {"title": "Cebu Software — Startup Deal Closed", "col_idx": 6, "priority": "low", "weight": 2, "labels": ["SMB"], "checklist": [{"text": "Provision seats", "is_checked": True}], "comments": ["Fast close — 6 days."], "assignee_idx": 4, "due_offset": None},
+                    {"title": "Yangon NGO — Program Tracker Lost", "col_idx": 7, "priority": "low", "weight": 1, "labels": ["SMB"], "checklist": [], "comments": ["Budget constraints — NGO pricing not available yet."], "assignee_idx": 2, "due_offset": None},
+                ],
+            },
+            {
+                "name": "Japan & Korea",
+                "color": "#A78BFA",
+                "contact_email": "jpkr-sales@example.com",
+                "notes": "Partner-led in Japan. Direct sales in Korea. Japanese deals require localised UI and JP-language support.",
+                "cards": [
+                    {"title": "Tokyo Manufacturing — QA Board 300 Seats", "col_idx": 4, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Translate proposal to Japanese", "is_checked": True}, {"text": "Partner review with SoftBank", "is_checked": False}], "comments": ["Partner-led through SoftBank."], "assignee_idx": 0, "due_offset": 20},
+                    {"title": "Seoul Gaming — Sprint Board License", "col_idx": 5, "priority": "medium", "weight": 3, "labels": ["SMB"], "checklist": [{"text": "Negotiate annual deal", "is_checked": True}, {"text": "Get final sign-off", "is_checked": False}], "comments": [], "assignee_idx": 1, "due_offset": 8},
+                    {"title": "Osaka Pharma — Drug Pipeline Board", "col_idx": 2, "priority": "high", "weight": 4, "labels": ["Enterprise"], "checklist": [{"text": "Submit PMDA compliance docs", "is_checked": True}, {"text": "Book discovery call", "is_checked": False}], "comments": [], "assignee_idx": 2, "due_offset": 17},
+                    {"title": "Nagoya Automotive — Production Kanban", "col_idx": 3, "priority": "high", "weight": 5, "labels": ["Enterprise", "Strategic"], "checklist": [{"text": "Prepare JIT workflow demo", "is_checked": True}, {"text": "Submit Toyota vendor docs", "is_checked": False}], "comments": ["Tier-1 supplier — high-value logo."], "assignee_idx": 0, "due_offset": 15},
+                    {"title": "Fukuoka Software — 80-Seat Deal Closed", "col_idx": 6, "priority": "medium", "weight": 3, "labels": ["Enterprise"], "checklist": [{"text": "Provision seats", "is_checked": True}], "comments": ["First Japan win via direct channel."], "assignee_idx": 4, "due_offset": None},
+                    {"title": "Incheon Logistics — Airport Ops Lost", "col_idx": 7, "priority": "low", "weight": 1, "labels": ["SMB"], "checklist": [], "comments": ["Went with locally-hosted alternative."], "assignee_idx": 3, "due_offset": None},
+                    {"title": "Daegu Retail — Store Ops 50 Seats", "col_idx": 0, "priority": "low", "weight": 2, "labels": ["SMB"], "checklist": [], "comments": [], "assignee_idx": 2, "due_offset": 38},
                 ],
             },
         ],
@@ -3613,12 +3704,13 @@ class Command(BaseCommand):
 
         # Build stage offsets working backwards from the anchor.
         # Most-recent transition lands 2–8 days before anchor; each prior stage
-        # adds 5–15 days so that dwell times look realistic.
+        # adds 7–25 days so dwell times look realistic and deep-pipeline cards
+        # reach back well beyond the 90-day analytics window.
         cumulative_days = random.randint(2, 8)
         stage_offsets = []
         for _ in range(col_idx):
             stage_offsets.append(cumulative_days)
-            cumulative_days += random.randint(5, 15)
+            cumulative_days += random.randint(7, 25)
         # Reverse so index 0 corresponds to the earliest (largest days_ago) move.
         stage_offsets.reverse()
 
