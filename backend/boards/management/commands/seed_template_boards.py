@@ -3692,13 +3692,15 @@ class Command(BaseCommand):
         auto_now_add=True ignores explicit values at create time, so moved_at is
         back-filled via update() after creation — same pattern as seed_demo_data.
 
-        Date anchoring: all timestamps are relative to SEED_ANCHOR_DATE so that
-        regenerated exports are git-stable regardless of when the command runs.
+        Date anchoring: movement timestamps are relative to today so that
+        analytics windows (7d, 30d, 90d) always show recent data after a
+        re-seed. SEED_ANCHOR_DATE is kept only for due-date calculations.
         """
+        today = datetime.date.today()
         anchor = datetime.datetime(
-            SEED_ANCHOR_DATE.year,
-            SEED_ANCHOR_DATE.month,
-            SEED_ANCHOR_DATE.day,
+            today.year,
+            today.month,
+            today.day,
             tzinfo=datetime.timezone.utc,
         )
 

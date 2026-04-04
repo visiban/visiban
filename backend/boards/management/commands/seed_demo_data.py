@@ -467,6 +467,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         random.seed(options["seed"])
+        # Movement timestamps use today's date in normal runs so analytics
+        # windows (7d, 30d, 90d) always show recent data. The --export path
+        # keeps SEED_ANCHOR_DATE so the committed JSON/CSV snapshots are
+        # git-stable and the CI seed-export-check job does not fail.
+        self._movement_anchor = SEED_ANCHOR_DATE if options["export"] else datetime.date.today()
 
         # Production guard: refuse to run on any non-DEBUG environment unless
         # --force is explicitly passed. This applies to both plain runs (which
@@ -641,10 +646,8 @@ class Command(BaseCommand):
                             author=random.choice(users),
                             body=body,
                         )
-                        # Anchor created_at to SEED_ANCHOR_DATE so regenerated exports are
-                        # git-stable across run dates (same pattern as movements/activities).
                         anchor = datetime.datetime(
-                            SEED_ANCHOR_DATE.year, SEED_ANCHOR_DATE.month, SEED_ANCHOR_DATE.day,
+                            self._movement_anchor.year, self._movement_anchor.month, self._movement_anchor.day,
                             tzinfo=datetime.timezone.utc,
                         )
                         comment_at = anchor - datetime.timedelta(days=random.randint(1, 60))
@@ -680,11 +683,12 @@ class Command(BaseCommand):
         """
         col_idx = pipeline.index(current_col)
 
-        # Anchor to SEED_ANCHOR_DATE so regenerated exports are deterministic.
+        # Anchor movements to self._movement_anchor (today in live runs,
+        # SEED_ANCHOR_DATE in --export runs) so analytics windows stay fresh.
         anchor = datetime.datetime(
-            SEED_ANCHOR_DATE.year,
-            SEED_ANCHOR_DATE.month,
-            SEED_ANCHOR_DATE.day,
+            self._movement_anchor.year,
+            self._movement_anchor.month,
+            self._movement_anchor.day,
             tzinfo=datetime.timezone.utc,
         )
         # Build cumulative days_ago from the anchor working backwards through stages.
@@ -767,11 +771,10 @@ class Command(BaseCommand):
             CardActivity.EventType.COMMENT_ADDED,
             CardActivity.EventType.WEIGHT_CHANGE,
         ])
-        # Anchor timestamp so exports are deterministic regardless of run date.
         anchor = datetime.datetime(
-            SEED_ANCHOR_DATE.year,
-            SEED_ANCHOR_DATE.month,
-            SEED_ANCHOR_DATE.day,
+            self._movement_anchor.year,
+            self._movement_anchor.month,
+            self._movement_anchor.day,
             tzinfo=datetime.timezone.utc,
         )
         activity_at = anchor - datetime.timedelta(days=random.randint(1, 30))
@@ -839,9 +842,8 @@ class Command(BaseCommand):
         """
         n = random.randint(7, 10)
         to_archive = random.sample(cards, min(n, len(cards)))
-        # Anchor to SEED_ANCHOR_DATE so regenerated exports are git-stable.
         anchor = datetime.datetime(
-            SEED_ANCHOR_DATE.year, SEED_ANCHOR_DATE.month, SEED_ANCHOR_DATE.day,
+            self._movement_anchor.year, self._movement_anchor.month, self._movement_anchor.day,
             tzinfo=datetime.timezone.utc,
         )
         for card in to_archive:

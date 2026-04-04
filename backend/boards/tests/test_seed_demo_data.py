@@ -184,6 +184,30 @@ class SeedMovementHistoryTests(TestCase):
         future_movements = CardMovement.objects.filter(moved_at__gte=now)
         self.assertEqual(future_movements.count(), 0)
 
+    def test_most_recent_movements_within_30_day_window(self):
+        """The most recent movement per non-backlog card must fall within the last 30 days.
+
+        Regression guard: when _add_movement_history used a hardcoded
+        SEED_ANCHOR_DATE the movements aged out of the 7d/30d analytics
+        windows over time, causing Throughput to show all dashes.
+        """
+        import datetime
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+        cutoff = timezone.now() - datetime.timedelta(days=30)
+        leftmost_col = board.columns.order_by("position").first()
+        non_backlog_cards = board.cards.exclude(column=leftmost_col)
+        stale_count = 0
+        for card in non_backlog_cards:
+            latest = CardMovement.objects.filter(card=card).order_by("-moved_at").first()
+            if latest and latest.moved_at < cutoff:
+                stale_count += 1
+        self.assertEqual(
+            stale_count,
+            0,
+            f"{stale_count} non-backlog cards have their latest movement outside the 30d analytics window",
+        )
+
 
 @override_settings(DEBUG=True)
 class SeedIdempotencyTests(TestCase):
