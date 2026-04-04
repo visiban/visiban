@@ -49,11 +49,17 @@ export default function ModalWrapper({
   const headingId = labelId ?? "modal-title";
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Escape key handling — only register when dismissable
-  useEscapeStack(
-    dismissable ? onClose : () => { /* intentionally blocked */ },
-    40,
-  );
+  // Escape key handling.
+  // The hook is called unconditionally (hooks cannot be conditional), so the handler
+  // must guard on `open` itself. When `open=false` it returns `false` to pass through
+  // to lower-priority handlers — otherwise a closed ModalWrapper (e.g. the
+  // delete/archive confirm dialog inside CardDetail) silently consumes every Escape
+  // at priority 40 and prevents the panel-close handler at priority 30 from firing.
+  useEscapeStack(() => {
+    if (!open) return false;          // modal not visible — pass to lower-priority handlers
+    if (!dismissable) return;         // modal locked — consume but do not close
+    onClose();
+  }, 40);
 
   // Focus trap: move focus into the panel on mount
   useEffect(() => {

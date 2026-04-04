@@ -155,6 +155,21 @@ describe('CardDetail', () => {
     expect(props.onClose).toHaveBeenCalledOnce()
   })
 
+  it('Escape key calls onClose', () => {
+    const props = defaultProps()
+    render(<CardDetail {...props} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(props.onClose).toHaveBeenCalledOnce()
+  })
+
+  it('clicking the backdrop calls onClose', async () => {
+    const props = defaultProps()
+    const { container } = render(<CardDetail {...props} />)
+    const backdrop = container.querySelector('.bg-black\\/40') as HTMLElement
+    await userEvent.setup().click(backdrop)
+    expect(props.onClose).toHaveBeenCalledOnce()
+  })
+
   it('renders details and history tabs', () => {
     render(<CardDetail {...defaultProps()} />)
     expect(screen.getByText('details')).toBeInTheDocument()
