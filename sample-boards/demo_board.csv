@@ -1,116 +1,116 @@
 title,column,swimlane,priority,due_date,weight,labels,assignee,checklist_total,checklist_done,comment_count,description_preview
-Fix due-date badge color for overdue cards,Backlog,Acme Corp,medium,2026-04-12,3,Feature,demo5,4,1,3,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
-Add custom notification rules per board,Backlog,Acme Corp,low,2026-03-23,6,Feature,,0,0,1,## Problem  The login flow redirects to `/dashboard` even when the user came fro
-Implement board copy feature,Backlog,Acme Corp,high,2026-03-05,1,,,0,0,3,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Fix due-date badge color for overdue cards,Backlog,Acme Corp,medium,2026-04-29,3,Feature,demo5,4,1,3,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
+Add custom notification rules per board,Backlog,Acme Corp,low,2026-04-09,6,Feature,,0,0,1,## Problem  The login flow redirects to `/dashboard` even when the user came fro
+Implement board copy feature,Backlog,Acme Corp,high,2026-03-22,1,,,0,0,3,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Add time-in-stage heatmap to analytics,Backlog,Acme Corp,high,,1,,demo2,4,1,1,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Document card weight feature,To Do,Acme Corp,medium,2026-02-22,4,,demo5,2,1,2,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Improve accessibility of drag handles,To Do,Acme Corp,high,2026-03-21,7,"Bug,Improvement",demo4,0,0,3,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Add read-only viewer role enforcement,To Do,Acme Corp,low,2026-03-27,1,,demo3,0,0,0,## Background  Users frequently miss due dates because there is no proactive not
-Clean up unused CSS utility classes,To Do,Acme Corp,medium,2026-04-07,5,Bug,demo5,4,3,2,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Remove deprecated /api/v1/ aliases,Doing,Acme Corp,urgent,2026-03-08,6,"Feature,Improvement",demo1,4,1,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Document card weight feature,To Do,Acme Corp,medium,2026-03-11,4,,demo5,2,1,2,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Improve accessibility of drag handles,To Do,Acme Corp,high,2026-04-07,7,"Bug,Improvement",demo4,0,0,3,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Add read-only viewer role enforcement,To Do,Acme Corp,low,2026-04-13,1,,demo3,0,0,0,## Background  Users frequently miss due dates because there is no proactive not
+Clean up unused CSS utility classes,To Do,Acme Corp,medium,2026-04-24,5,Bug,demo5,4,3,2,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Remove deprecated /api/v1/ aliases,Doing,Acme Corp,urgent,2026-03-25,6,"Feature,Improvement",demo1,4,1,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
 Fix Google OAuth callback 500 on new user,Done,Acme Corp,medium,,8,,,0,0,1,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Fix label color picker not closing on click-outside,Backlog,Beta Team,high,2026-04-10,2,"Bug,Feature",demo1,3,2,1,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Migrate CI from Docker-in-Docker to kaniko,Backlog,Beta Team,medium,2026-03-01,4,Improvement,demo4,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Add card position audit log,Backlog,Beta Team,medium,2026-04-03,7,,demo5,2,1,0,## Goal  Allow board admins to download a CSV of all card movements for external
-Fix drag-and-drop on touch screens,Backlog,Beta Team,medium,2026-02-21,8,Bug,demo1,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Add CSV export for board activity,To Do,Beta Team,medium,2026-04-02,2,,,0,0,1,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
+Fix label color picker not closing on click-outside,Backlog,Beta Team,high,2026-04-27,2,"Bug,Feature",demo1,3,2,1,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Migrate CI from Docker-in-Docker to kaniko,Backlog,Beta Team,medium,2026-03-18,4,Improvement,demo4,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Add card position audit log,Backlog,Beta Team,medium,2026-04-20,7,,demo5,2,1,0,## Goal  Allow board admins to download a CSV of all card movements for external
+Fix drag-and-drop on touch screens,Backlog,Beta Team,medium,2026-03-10,8,Bug,demo1,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Add CSV export for board activity,To Do,Beta Team,medium,2026-04-19,2,,,0,0,1,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
 Refactor swimlane reorder endpoint,To Do,Beta Team,medium,,4,Feature,demo1,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Investigate flaky test in test_concurrent_moves,To Do,Beta Team,medium,,7,,demo3,0,0,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
 Integrate Sentry for frontend error tracking,To Do,Beta Team,medium,,5,,demo3,2,1,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Add column-level WIP enforcement,Doing,Beta Team,medium,,3,,demo5,0,0,0,Dark-mode email templates should match the app's dark theme (`bg-gray-900` palet
-Fix card z-index overlap during drag,Doing,Beta Team,medium,2026-04-10,8,,demo1,0,0,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Add SAML SSO support (enterprise),Review,Beta Team,high,2026-04-03,7,,demo3,0,0,0,## Goal  Allow board admins to download a CSV of all card movements for external
-Add Terraform module for production infrastructure,Done,Beta Team,medium,2026-03-26,7,Bug,demo3,0,0,2,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
-Add column auto-archive after N days,Backlog,Cloudstride Ltd,medium,2026-03-26,8,Feature,demo3,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Fix card z-index overlap during drag,Doing,Beta Team,medium,2026-04-27,8,,demo1,0,0,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Add SAML SSO support (enterprise),Review,Beta Team,high,2026-04-20,7,,demo3,0,0,0,## Goal  Allow board admins to download a CSV of all card movements for external
+Add Terraform module for production infrastructure,Done,Beta Team,medium,2026-04-12,7,Bug,demo3,0,0,2,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Add column auto-archive after N days,Backlog,Cloudstride Ltd,medium,2026-04-12,8,Feature,demo3,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Add personal card favorites list,Backlog,Cloudstride Ltd,high,,5,,demo2,3,1,0,Dark-mode email templates should match the app's dark theme (`bg-gray-900` palet
-Add board export to PDF,Backlog,Cloudstride Ltd,low,2026-04-10,5,,demo1,0,0,1,## Goal  Allow board admins to download a CSV of all card movements for external
+Add board export to PDF,Backlog,Cloudstride Ltd,low,2026-04-27,5,,demo1,0,0,1,## Goal  Allow board admins to download a CSV of all card movements for external
 Fix dark mode contrast on disabled buttons,To Do,Cloudstride Ltd,medium,,8,,demo2,4,2,0,## Goal  Allow board admins to download a CSV of all card movements for external
-Fix WebSocket reconnect on token refresh,Doing,Cloudstride Ltd,high,2026-03-20,2,Feature,demo3,0,0,1,## Problem  The login flow redirects to `/dashboard` even when the user came fro
+Fix WebSocket reconnect on token refresh,Doing,Cloudstride Ltd,high,2026-04-06,2,Feature,demo3,0,0,1,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Investigate memory leak in frontend bundle,Doing,Cloudstride Ltd,high,,4,,demo4,0,0,3,## Goal  Allow board admins to download a CSV of all card movements for external
-Add offline mode banner,Doing,Cloudstride Ltd,low,2026-04-12,8,,,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Add offline mode banner,Doing,Cloudstride Ltd,low,2026-04-29,8,,,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
 Write migration guide from v0.9 to v1.0,Doing,Cloudstride Ltd,medium,,3,,demo3,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
-Add bulk archive action to card list,Review,Cloudstride Ltd,medium,2026-04-02,7,,demo3,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
-Fix notification bell count mismatch,Review,Cloudstride Ltd,urgent,2026-03-27,5,,demo2,0,0,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Add bulk archive action to card list,Review,Cloudstride Ltd,medium,2026-04-19,7,,demo3,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Fix notification bell count mismatch,Review,Cloudstride Ltd,urgent,2026-04-13,5,,demo2,0,0,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Document disaster recovery runbook,Done,Cloudstride Ltd,high,,5,,demo5,0,0,3,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Create Helm chart for staging deployment,Done,Cloudstride Ltd,medium,2026-04-05,8,Feature,,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Create Helm chart for staging deployment,Done,Cloudstride Ltd,medium,2026-04-22,8,Feature,,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
 Add read receipt to comments,Backlog,DevOps Guild,urgent,,8,,demo4,0,0,2,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
 Support dark mode in email notifications,Backlog,DevOps Guild,medium,,7,Bug,demo4,5,3,2,## Problem  The login flow redirects to `/dashboard` even when the user came fro
 Add priority filter to FilterBar,Backlog,DevOps Guild,high,,2,"Bug,Feature",demo3,3,0,1,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Add label filter to board view,To Do,DevOps Guild,medium,2026-04-07,4,"Bug,Improvement",demo2,4,1,3,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Add label filter to board view,To Do,DevOps Guild,medium,2026-04-24,4,"Bug,Improvement",demo2,4,1,3,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
 Add card age indicator,To Do,DevOps Guild,high,,6,,demo4,3,1,3,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Add pagination to movement history endpoint,To Do,DevOps Guild,low,,8,Improvement,,4,3,3,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Write load test for WebSocket connections at scale,To Do,DevOps Guild,high,2026-04-02,3,Feature,demo5,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Support @mentions in card descriptions,To Do,DevOps Guild,urgent,2026-02-21,6,,demo5,5,3,1,## Background  Users frequently miss due dates because there is no proactive not
+Write load test for WebSocket connections at scale,To Do,DevOps Guild,high,2026-04-19,3,Feature,demo5,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Support @mentions in card descriptions,To Do,DevOps Guild,urgent,2026-03-10,6,,demo5,5,3,1,## Background  Users frequently miss due dates because there is no proactive not
 Add card subtasks with progress bar,Doing,DevOps Guild,medium,,5,Bug,demo5,3,2,1,## Goal  Allow board admins to download a CSV of all card movements for external
 Implement board-level search,Done,DevOps Guild,urgent,,3,"Bug,Feature",demo5,0,0,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
-Add card timer for time tracking,Done,DevOps Guild,medium,2026-03-04,7,Feature,demo4,0,0,1,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
-Increase test coverage for CardMovement,Done,DevOps Guild,low,2026-03-20,5,,demo4,0,0,2,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Investigate slow card load on large boards,Backlog,Ember Studio,medium,2026-03-22,4,,demo3,0,0,2,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Add card timer for time tracking,Done,DevOps Guild,medium,2026-03-21,7,Feature,demo4,0,0,1,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
+Increase test coverage for CardMovement,Done,DevOps Guild,low,2026-04-06,5,,demo4,0,0,2,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Investigate slow card load on large boards,Backlog,Ember Studio,medium,2026-04-08,4,,demo3,0,0,2,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
 Add OAuth2 PKCE flow for mobile clients,Backlog,Ember Studio,high,,2,Feature,demo4,0,0,3,Dark-mode email templates should match the app's dark theme (`bg-gray-900` palet
-Fix keyboard navigation skipping collapsed swimlanes,Backlog,Ember Studio,medium,2026-03-25,6,"Feature,Improvement",,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Audit all endpoints for IDOR vulnerabilities,To Do,Ember Studio,medium,2026-02-19,7,Improvement,demo1,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
-Write performance test for /boards/{id}/full/,To Do,Ember Studio,urgent,2026-03-23,2,Improvement,demo1,0,0,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Fix keyboard navigation skipping collapsed swimlanes,Backlog,Ember Studio,medium,2026-04-11,6,"Feature,Improvement",,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Audit all endpoints for IDOR vulnerabilities,To Do,Ember Studio,medium,2026-03-08,7,Improvement,demo1,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Write performance test for /boards/{id}/full/,To Do,Ember Studio,urgent,2026-04-09,2,Improvement,demo1,0,0,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
 Improve error messages on 403 responses,Doing,Ember Studio,medium,,6,,,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Migrate from REST polling to Server-Sent Events,Doing,Ember Studio,high,2026-03-17,2,Bug,demo2,3,1,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Add multi-board dashboard view,Doing,Ember Studio,high,2026-04-14,6,Bug,demo1,0,0,3,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Migrate from REST polling to Server-Sent Events,Doing,Ember Studio,high,2026-04-03,2,Bug,demo2,3,1,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Add multi-board dashboard view,Doing,Ember Studio,high,2026-05-01,6,Bug,demo1,0,0,3,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
 Fix pagination cursors on Safari,Doing,Ember Studio,low,,2,"Bug,Feature",demo2,0,0,3,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Fix card weight not updating in swimlane rollup,Review,Ember Studio,low,2026-04-03,3,,,0,0,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Add card quick-add shortcut to swimlane,Review,Ember Studio,high,2026-03-03,8,,demo1,0,0,3,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Add invite-only registration toggle,Done,Ember Studio,high,2026-03-21,8,Improvement,demo5,0,0,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Benchmark board load with 1000+ cards,Backlog,Frontier AI,high,2026-04-10,5,Bug,,0,0,3,## Goal  Allow board admins to download a CSV of all card movements for external
+Fix card weight not updating in swimlane rollup,Review,Ember Studio,low,2026-04-20,3,,,0,0,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Add card quick-add shortcut to swimlane,Review,Ember Studio,high,2026-03-20,8,,demo1,0,0,3,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Add invite-only registration toggle,Done,Ember Studio,high,2026-04-07,8,Improvement,demo5,0,0,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Benchmark board load with 1000+ cards,Backlog,Frontier AI,high,2026-04-27,5,Bug,,0,0,3,## Goal  Allow board admins to download a CSV of all card movements for external
 Add column archival (soft delete),Backlog,Frontier AI,high,,1,Improvement,demo3,2,1,3,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
-Support emoji in card titles,Backlog,Frontier AI,high,2026-03-22,8,"Bug,Feature",,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
-Add attachment preview for PDFs,Backlog,Frontier AI,medium,2026-04-12,3,Bug,demo5,0,0,0,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
+Support emoji in card titles,Backlog,Frontier AI,high,2026-04-08,8,"Bug,Feature",,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Add attachment preview for PDFs,Backlog,Frontier AI,medium,2026-04-29,3,Bug,demo5,0,0,0,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
 Improve onboarding empty state copy,To Do,Frontier AI,medium,,8,,demo4,0,0,1,## Problem  The login flow redirects to `/dashboard` even when the user came fro
-Fix OAuth state param not validated on callback,Doing,Frontier AI,medium,2026-03-17,8,,demo5,0,0,3,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Fix date picker timezone offset,Review,Frontier AI,medium,2026-03-21,8,Feature,demo2,0,0,3,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
-Add board-level custom fields,Done,Frontier AI,urgent,2026-03-02,8,Feature,demo5,0,0,2,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Fix column separator drag on Firefox,Done,Frontier AI,medium,2026-03-04,6,"Bug,Feature",demo1,3,2,1,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
+Fix OAuth state param not validated on callback,Doing,Frontier AI,medium,2026-04-03,8,,demo5,0,0,3,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Fix date picker timezone offset,Review,Frontier AI,medium,2026-04-07,8,Feature,demo2,0,0,3,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Add board-level custom fields,Done,Frontier AI,urgent,2026-03-19,8,Feature,demo5,0,0,2,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Fix column separator drag on Firefox,Done,Frontier AI,medium,2026-03-21,6,"Bug,Feature",demo1,3,2,1,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
 Fix CSV import skipping blank description,Backlog,Growth Squad,high,,7,,demo4,5,2,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
 Set up staging environment seed job,Backlog,Growth Squad,medium,,8,Improvement,demo4,5,3,3,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Add swimlane color picker to edit modal,To Do,Growth Squad,medium,2026-04-08,6,Improvement,demo3,0,0,2,## Goal  Allow board admins to download a CSV of all card movements for external
+Add swimlane color picker to edit modal,To Do,Growth Squad,medium,2026-04-25,6,Improvement,demo3,0,0,2,## Goal  Allow board admins to download a CSV of all card movements for external
 Add card dependency linking,Doing,Growth Squad,high,,5,,demo3,0,0,1,## Background  Users frequently miss due dates because there is no proactive not
-Implement card weight rollup per swimlane,Doing,Growth Squad,medium,2026-03-26,5,,demo4,0,0,2,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
-Add group-level board visibility setting,Doing,Growth Squad,medium,2026-02-19,1,,demo1,5,3,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
-Fix checklist item delete losing position,Doing,Growth Squad,low,2026-04-05,1,Bug,demo4,0,0,2,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Implement card weight rollup per swimlane,Doing,Growth Squad,medium,2026-04-12,5,,demo4,0,0,2,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
+Add group-level board visibility setting,Doing,Growth Squad,medium,2026-03-08,1,,demo1,5,3,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
+Fix checklist item delete losing position,Doing,Growth Squad,low,2026-04-22,1,Bug,demo4,0,0,2,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Fix Dockerfile layer caching regression,Review,Growth Squad,high,,6,,demo5,2,2,1,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Add card duplication action,Review,Growth Squad,medium,2026-03-09,5,,demo5,3,1,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Add card duplication action,Review,Growth Squad,medium,2026-03-26,5,,demo5,3,1,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
 Reduce frontend bundle size below 200 KB gzipped,Review,Growth Squad,medium,,5,Bug,demo2,3,3,3,## Problem  The login flow redirects to `/dashboard` even when the user came fro
-Add keyboard shortcut to create card,Done,Growth Squad,high,2026-04-08,1,Improvement,demo5,0,0,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Fix board settings not saving on blur,Backlog,Hardrock Systems,high,2026-04-13,2,Feature,demo1,0,0,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Add health check endpoint for load balancer,Backlog,Hardrock Systems,medium,2026-04-09,5,"Feature,Improvement",demo4,0,0,0,## Background  Users frequently miss due dates because there is no proactive not
-Upgrade PostgreSQL from 15 to 16,Backlog,Hardrock Systems,medium,2026-03-31,5,"Bug,Feature",demo1,0,0,1,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
-Set up weekly demo data refresh job,Backlog,Hardrock Systems,low,2026-03-22,1,,demo3,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Add keyboard shortcut to create card,Done,Growth Squad,high,2026-04-25,1,Improvement,demo5,0,0,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Fix board settings not saving on blur,Backlog,Hardrock Systems,high,2026-04-30,2,Feature,demo1,0,0,0,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Add health check endpoint for load balancer,Backlog,Hardrock Systems,medium,2026-04-26,5,"Feature,Improvement",demo4,0,0,0,## Background  Users frequently miss due dates because there is no proactive not
+Upgrade PostgreSQL from 15 to 16,Backlog,Hardrock Systems,medium,2026-04-17,5,"Bug,Feature",demo1,0,0,1,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Set up weekly demo data refresh job,Backlog,Hardrock Systems,low,2026-04-08,1,,demo3,0,0,0,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
 Fix login redirect loop on mobile,Backlog,Hardrock Systems,high,,4,Bug,demo2,0,0,0,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
 Add Prometheus metrics endpoint,To Do,Hardrock Systems,medium,,3,Bug,demo4,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Update Python dependencies to latest patch,Doing,Hardrock Systems,low,,8,Feature,demo4,3,2,1,Dark-mode email templates should match the app's dark theme (`bg-gray-900` palet
-Implement card template system,Doing,Hardrock Systems,high,2026-03-02,4,Bug,demo1,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
-Set up Renovate for automated dependency PRs,Review,Hardrock Systems,high,2026-04-06,8,Bug,,0,0,3,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Implement card template system,Doing,Hardrock Systems,high,2026-03-19,4,Bug,demo1,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Set up Renovate for automated dependency PRs,Review,Hardrock Systems,high,2026-04-23,8,Bug,,0,0,3,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Set up OpenTelemetry tracing for API requests,Review,Hardrock Systems,high,,3,Feature,demo2,4,1,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
-Profile and optimize N+1 queries in analytics endpoint,Review,Hardrock Systems,high,2026-03-31,1,Bug,,4,1,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
-Add database connection pooling via pgBouncer,Done,Hardrock Systems,medium,2026-04-06,6,,demo1,0,0,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Fix comment timestamp showing UTC instead of local,Done,Hardrock Systems,medium,2026-03-22,2,"Bug,Improvement",demo5,4,3,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Profile and optimize N+1 queries in analytics endpoint,Review,Hardrock Systems,high,2026-04-17,1,Bug,,4,1,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Add database connection pooling via pgBouncer,Done,Hardrock Systems,medium,2026-04-23,6,,demo1,0,0,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Fix comment timestamp showing UTC instead of local,Done,Hardrock Systems,medium,2026-04-08,2,"Bug,Improvement",demo5,4,3,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
 Fix board member removal not revoking WebSocket access,Backlog,Indigo Labs,medium,,5,Improvement,demo5,3,2,2,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Write runbook for on-call rotation,To Do,Indigo Labs,low,2026-03-30,2,,demo2,0,0,3,## Goal  Allow board admins to download a CSV of all card movements for external
-Fix mobile layout overflow on narrow screens,To Do,Indigo Labs,low,2026-04-10,3,,demo3,0,0,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
-Add recurring card automation,To Do,Indigo Labs,medium,2026-04-07,6,Bug,,4,1,0,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
-Set up canary deploys in Kubernetes,To Do,Indigo Labs,high,2026-03-30,3,"Bug,Feature",demo3,2,0,2,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
-Add export to Markdown option,To Do,Indigo Labs,medium,2026-03-22,2,,demo5,0,0,2,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Set up preview environments for MRs,Doing,Indigo Labs,medium,2026-03-16,8,,demo3,0,0,3,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Add board access audit log for admins,Doing,Indigo Labs,high,2026-03-23,7,,demo1,2,2,2,## Goal  Allow board admins to download a CSV of all card movements for external
-Write end-to-end Playwright test suite,Done,Indigo Labs,high,2026-04-12,1,,demo4,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Write runbook for on-call rotation,To Do,Indigo Labs,low,2026-04-16,2,,demo2,0,0,3,## Goal  Allow board admins to download a CSV of all card movements for external
+Fix mobile layout overflow on narrow screens,To Do,Indigo Labs,low,2026-04-27,3,,demo3,0,0,0,Current coverage for `CardMovement` creation and the `from_*_name` denormalizati
+Add recurring card automation,To Do,Indigo Labs,medium,2026-04-24,6,Bug,,4,1,0,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
+Set up canary deploys in Kubernetes,To Do,Indigo Labs,high,2026-04-16,3,"Bug,Feature",demo3,2,0,2,The `/api/boards/{id}/full/` endpoint is the most-called endpoint in production 
+Add export to Markdown option,To Do,Indigo Labs,medium,2026-04-08,2,,demo5,0,0,2,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Set up preview environments for MRs,Doing,Indigo Labs,medium,2026-04-02,8,,demo3,0,0,3,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Add board access audit log for admins,Doing,Indigo Labs,high,2026-04-09,7,,demo1,2,2,2,## Goal  Allow board admins to download a CSV of all card movements for external
+Write end-to-end Playwright test suite,Done,Indigo Labs,high,2026-04-29,1,,demo4,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
 Implement rate limiting on auth endpoints,Done,Indigo Labs,medium,,6,Bug,demo3,0,0,0,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
-Write integration test for card move API,Done,Indigo Labs,medium,2026-04-10,6,"Bug,Improvement",demo3,4,2,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Add user activity heatmap to profile,Done,Indigo Labs,low,2026-04-14,3,,demo1,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
-Fix empty state not showing on fresh board,Backlog,Just Ship It,medium,2026-03-01,3,,demo5,0,0,3,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Add swimlane WIP limits,Backlog,Just Ship It,high,2026-02-27,4,Bug,demo4,2,1,1,## Goal  Allow board admins to download a CSV of all card movements for external
-Fix XSS via card title in notifications,Backlog,Just Ship It,low,2026-04-04,5,Bug,,0,0,2,The WebSocket connection silently dies when the Django backend rotates the JWT a
-Configure automated database backups to S3,To Do,Just Ship It,high,2026-03-23,4,,demo2,0,0,2,## Goal  Allow board admins to download a CSV of all card movements for external
-Fix stale WebSocket after board rename,To Do,Just Ship It,medium,2026-03-30,8,Bug,,4,2,1,## Background  Users frequently miss due dates because there is no proactive not
-Add board activity feed,To Do,Just Ship It,medium,2026-02-22,7,,demo3,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
-Optimize full-board query with select_related,To Do,Just Ship It,medium,2026-03-29,3,"Bug,Improvement",demo5,0,0,1,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Fix broken avatar URL for OAuth users,Doing,Just Ship It,medium,2026-03-25,2,"Bug,Feature",demo4,0,0,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Add Redis cache layer for board state,Doing,Just Ship It,medium,2026-03-23,5,"Feature,Improvement",demo4,4,2,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
-Add card voting and prioritization,Review,Just Ship It,high,2026-04-12,8,"Feature,Improvement",demo5,3,3,1,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
-Configure rate limiting on public API endpoints,Review,Just Ship It,low,2026-04-06,1,Bug,,0,0,3,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
-Add structured JSON logging for backend,Done,Just Ship It,low,2026-04-09,3,Bug,demo5,0,0,2,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche
+Write integration test for card move API,Done,Indigo Labs,medium,2026-04-27,6,"Bug,Improvement",demo3,4,2,3,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Add user activity heatmap to profile,Done,Indigo Labs,low,2026-05-01,3,,demo1,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Fix empty state not showing on fresh board,Backlog,Just Ship It,medium,2026-03-18,3,,demo5,0,0,3,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Add swimlane WIP limits,Backlog,Just Ship It,high,2026-03-16,4,Bug,demo4,2,1,1,## Goal  Allow board admins to download a CSV of all card movements for external
+Fix XSS via card title in notifications,Backlog,Just Ship It,low,2026-04-21,5,Bug,,0,0,2,The WebSocket connection silently dies when the Django backend rotates the JWT a
+Configure automated database backups to S3,To Do,Just Ship It,high,2026-04-09,4,,demo2,0,0,2,## Goal  Allow board admins to download a CSV of all card movements for external
+Fix stale WebSocket after board rename,To Do,Just Ship It,medium,2026-04-16,8,Bug,,4,2,1,## Background  Users frequently miss due dates because there is no proactive not
+Add board activity feed,To Do,Just Ship It,medium,2026-03-11,7,,demo3,0,0,0,Touch-based drag-and-drop is broken on iOS Safari 17. The `@dnd-kit/core` pointe
+Optimize full-board query with select_related,To Do,Just Ship It,medium,2026-04-15,3,"Bug,Improvement",demo5,0,0,1,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Fix broken avatar URL for OAuth users,Doing,Just Ship It,medium,2026-04-11,2,"Bug,Feature",demo4,0,0,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Add Redis cache layer for board state,Doing,Just Ship It,medium,2026-04-09,5,"Feature,Improvement",demo4,4,2,0,## Observed  Loading `/api/boards/{id}/full/` takes 2–3 s on a board with 800+ c
+Add card voting and prioritization,Review,Just Ship It,high,2026-04-29,8,"Feature,Improvement",demo5,3,3,1,Keyboard shortcut `N` (when focus is outside an input) should open a quick-add m
+Configure rate limiting on public API endpoints,Review,Just Ship It,low,2026-04-23,1,Bug,,0,0,3,"Add a ""Archive selected"" action to the bulk action toolbar. Archived cards shoul"
+Add structured JSON logging for backend,Done,Just Ship It,low,2026-04-26,3,Bug,demo5,0,0,2,## What  The `POST /api/boards/{board_id}/swimlanes/reorder/` endpoint re-fetche

@@ -142,7 +142,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Acme Corp",
-      "due_date": "2026-04-12",
+      "due_date": "2026-04-29",
       "weight": 3,
       "assignee": "demo5",
       "archived_at": null,
@@ -171,17 +171,17 @@
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo2",
-          "created_at": "2026-02-13T00:00:00+00:00"
+          "created_at": "2026-03-02T00:00:00+00:00"
         },
         {
           "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
           "author": "demo3",
-          "created_at": "2026-02-15T00:00:00+00:00"
+          "created_at": "2026-03-04T00:00:00+00:00"
         },
         {
           "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo3",
-          "created_at": "2026-03-07T00:00:00+00:00"
+          "created_at": "2026-03-24T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -190,7 +190,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-01-18T00:00:00+00:00",
+          "moved_at": "2026-02-04T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -204,7 +204,7 @@
       "priority": "low",
       "column": "Backlog",
       "swimlane": "Acme Corp",
-      "due_date": "2026-03-23",
+      "due_date": "2026-04-09",
       "weight": 6,
       "assignee": null,
       "archived_at": null,
@@ -216,7 +216,7 @@
         {
           "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
           "author": "demo5",
-          "created_at": "2026-02-06T00:00:00+00:00"
+          "created_at": "2026-02-23T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -225,7 +225,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -239,7 +239,7 @@
       "priority": "high",
       "column": "Backlog",
       "swimlane": "Acme Corp",
-      "due_date": "2026-03-05",
+      "due_date": "2026-03-22",
       "weight": 1,
       "assignee": null,
       "archived_at": null,
@@ -249,17 +249,17 @@
         {
           "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
           "author": "demo1",
-          "created_at": "2026-01-19T00:00:00+00:00"
+          "created_at": "2026-02-05T00:00:00+00:00"
         },
         {
           "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
           "author": "demo5",
-          "created_at": "2026-03-10T00:00:00+00:00"
+          "created_at": "2026-03-27T00:00:00+00:00"
         },
         {
           "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
           "author": "demo2",
-          "created_at": "2026-03-10T00:00:00+00:00"
+          "created_at": "2026-03-27T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -268,7 +268,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -309,7 +309,7 @@
         {
           "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
           "author": "demo2",
-          "created_at": "2026-01-17T00:00:00+00:00"
+          "created_at": "2026-02-03T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -318,7 +318,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_at": "2026-03-21T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -332,7 +332,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Acme Corp",
-      "due_date": "2026-02-22",
+      "due_date": "2026-03-11",
       "weight": 4,
       "assignee": "demo5",
       "archived_at": null,
@@ -351,12 +351,12 @@
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo1",
-          "created_at": "2026-02-27T00:00:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
         },
         {
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo3",
-          "created_at": "2026-02-27T00:00:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -365,7 +365,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -375,7 +375,7 @@
           "to_column": "To Do",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -389,7 +389,7 @@
       "priority": "high",
       "column": "To Do",
       "swimlane": "Acme Corp",
-      "due_date": "2026-03-21",
+      "due_date": "2026-04-07",
       "weight": 7,
       "assignee": "demo4",
       "archived_at": null,
@@ -402,17 +402,17 @@
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo5",
-          "created_at": "2026-02-14T00:00:00+00:00"
+          "created_at": "2026-03-03T00:00:00+00:00"
         },
         {
           "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
           "author": "demo1",
-          "created_at": "2026-02-27T00:00:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
         },
         {
           "body": "The Helm chart change needs a review from DevOps before we ship this.",
           "author": "demo2",
-          "created_at": "2026-03-10T00:00:00+00:00"
+          "created_at": "2026-03-27T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -421,7 +421,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -431,7 +431,7 @@
           "to_column": "To Do",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -445,7 +445,7 @@
       "priority": "low",
       "column": "To Do",
       "swimlane": "Acme Corp",
-      "due_date": "2026-03-27",
+      "due_date": "2026-04-13",
       "weight": 1,
       "assignee": "demo3",
       "archived_at": null,
@@ -458,7 +458,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -468,7 +468,7 @@
           "to_column": "To Do",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -482,7 +482,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Acme Corp",
-      "due_date": "2026-04-07",
+      "due_date": "2026-04-24",
       "weight": 5,
       "assignee": "demo5",
       "archived_at": null,
@@ -511,12 +511,12 @@
         {
           "body": "Merged the Helm review comments. Ready for QA.",
           "author": "demo4",
-          "created_at": "2026-02-07T00:00:00+00:00"
+          "created_at": "2026-02-24T00:00:00+00:00"
         },
         {
           "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
           "author": "demo1",
-          "created_at": "2026-03-07T00:00:00+00:00"
+          "created_at": "2026-03-24T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -525,7 +525,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -535,7 +535,7 @@
           "to_column": "To Do",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -549,7 +549,7 @@
       "priority": "urgent",
       "column": "Doing",
       "swimlane": "Acme Corp",
-      "due_date": "2026-03-08",
+      "due_date": "2026-03-25",
       "weight": 6,
       "assignee": "demo1",
       "archived_at": null,
@@ -582,7 +582,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -592,7 +592,7 @@
           "to_column": "To Do",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -602,7 +602,7 @@
           "to_column": "Doing",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -626,7 +626,7 @@
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo2",
-          "created_at": "2026-03-04T00:00:00+00:00"
+          "created_at": "2026-03-21T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -635,7 +635,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-01-04T00:00:00+00:00",
+          "moved_at": "2026-01-21T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -645,7 +645,7 @@
           "to_column": "To Do",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_at": "2026-02-19T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -655,7 +655,7 @@
           "to_column": "Doing",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -665,7 +665,7 @@
           "to_column": "Review",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -675,7 +675,7 @@
           "to_column": "Done",
           "from_swimlane": "Acme Corp",
           "to_swimlane": "Acme Corp",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -687,7 +687,7 @@
           "from_value": "",
           "to_value": "Blocked",
           "actor": "demo4",
-          "created_at": "2026-03-01T00:00:00+00:00"
+          "created_at": "2026-03-18T00:00:00+00:00"
         }
       ]
     },
@@ -697,7 +697,7 @@
       "priority": "high",
       "column": "Backlog",
       "swimlane": "Beta Team",
-      "due_date": "2026-04-10",
+      "due_date": "2026-04-27",
       "weight": 2,
       "assignee": "demo1",
       "archived_at": null,
@@ -723,7 +723,7 @@
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo3",
-          "created_at": "2026-02-25T00:00:00+00:00"
+          "created_at": "2026-03-14T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -732,7 +732,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-01-15T00:00:00+00:00",
+          "moved_at": "2026-02-01T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -746,7 +746,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Beta Team",
-      "due_date": "2026-03-01",
+      "due_date": "2026-03-18",
       "weight": 4,
       "assignee": "demo4",
       "archived_at": null,
@@ -761,7 +761,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-01-18T00:00:00+00:00",
+          "moved_at": "2026-02-04T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -775,7 +775,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Beta Team",
-      "due_date": "2026-04-03",
+      "due_date": "2026-04-20",
       "weight": 7,
       "assignee": "demo5",
       "archived_at": null,
@@ -797,7 +797,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_at": "2026-03-19T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -809,7 +809,7 @@
           "from_value": "",
           "to_value": "Updated per feedback.",
           "actor": "demo1",
-          "created_at": "2026-03-10T00:00:00+00:00"
+          "created_at": "2026-03-27T00:00:00+00:00"
         }
       ]
     },
@@ -819,7 +819,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Beta Team",
-      "due_date": "2026-02-21",
+      "due_date": "2026-03-10",
       "weight": 8,
       "assignee": "demo1",
       "archived_at": null,
@@ -834,7 +834,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-01-15T00:00:00+00:00",
+          "moved_at": "2026-02-01T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -848,7 +848,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Beta Team",
-      "due_date": "2026-04-02",
+      "due_date": "2026-04-19",
       "weight": 2,
       "assignee": null,
       "archived_at": null,
@@ -858,7 +858,7 @@
         {
           "body": "Deployed. Monitoring Sentry for regressions.",
           "author": "demo4",
-          "created_at": "2026-02-20T00:00:00+00:00"
+          "created_at": "2026-03-09T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -867,7 +867,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -877,7 +877,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -906,7 +906,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -916,7 +916,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -928,7 +928,7 @@
           "from_value": "6",
           "to_value": "8",
           "actor": "demo4",
-          "created_at": "2026-02-23T00:00:00+00:00"
+          "created_at": "2026-03-12T00:00:00+00:00"
         }
       ]
     },
@@ -951,7 +951,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -961,7 +961,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -973,7 +973,7 @@
           "from_value": "",
           "to_value": "Review",
           "actor": "demo3",
-          "created_at": "2026-02-18T00:00:00+00:00"
+          "created_at": "2026-03-07T00:00:00+00:00"
         }
       ]
     },
@@ -1005,7 +1005,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1015,7 +1015,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1042,7 +1042,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-01-27T00:00:00+00:00",
+          "moved_at": "2026-02-13T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1052,7 +1052,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1062,7 +1062,7 @@
           "to_column": "Doing",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1074,7 +1074,7 @@
           "from_value": "demo5",
           "to_value": "demo5",
           "actor": "demo1",
-          "created_at": "2026-02-27T00:00:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
         }
       ]
     },
@@ -1084,7 +1084,7 @@
       "priority": "medium",
       "column": "Doing",
       "swimlane": "Beta Team",
-      "due_date": "2026-04-10",
+      "due_date": "2026-04-27",
       "weight": 8,
       "assignee": "demo1",
       "archived_at": null,
@@ -1094,17 +1094,17 @@
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo4",
-          "created_at": "2026-01-15T00:00:00+00:00"
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo2",
-          "created_at": "2026-01-20T00:00:00+00:00"
+          "created_at": "2026-02-06T00:00:00+00:00"
         },
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo2",
-          "created_at": "2026-02-03T00:00:00+00:00"
+          "created_at": "2026-02-20T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -1113,7 +1113,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_at": "2026-02-18T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1123,7 +1123,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_at": "2026-03-18T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1133,7 +1133,7 @@
           "to_column": "Doing",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -1145,7 +1145,7 @@
           "from_value": "demo3",
           "to_value": "demo1",
           "actor": "demo4",
-          "created_at": "2026-03-13T00:00:00+00:00"
+          "created_at": "2026-03-30T00:00:00+00:00"
         }
       ]
     },
@@ -1155,7 +1155,7 @@
       "priority": "high",
       "column": "Review",
       "swimlane": "Beta Team",
-      "due_date": "2026-04-03",
+      "due_date": "2026-04-20",
       "weight": 7,
       "assignee": "demo3",
       "archived_at": null,
@@ -1168,7 +1168,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-01-13T00:00:00+00:00",
+          "moved_at": "2026-01-30T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1178,7 +1178,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_at": "2026-02-23T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1188,7 +1188,7 @@
           "to_column": "Doing",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1198,7 +1198,7 @@
           "to_column": "Review",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1212,7 +1212,7 @@
       "priority": "medium",
       "column": "Done",
       "swimlane": "Beta Team",
-      "due_date": "2026-03-26",
+      "due_date": "2026-04-12",
       "weight": 7,
       "assignee": "demo3",
       "archived_at": null,
@@ -1224,12 +1224,12 @@
         {
           "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo3",
-          "created_at": "2026-01-24T00:00:00+00:00"
+          "created_at": "2026-02-10T00:00:00+00:00"
         },
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo5",
-          "created_at": "2026-02-11T00:00:00+00:00"
+          "created_at": "2026-02-28T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -1238,7 +1238,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-01-16T00:00:00+00:00",
+          "moved_at": "2026-02-02T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1248,7 +1248,7 @@
           "to_column": "To Do",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1258,7 +1258,7 @@
           "to_column": "Doing",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1268,7 +1268,7 @@
           "to_column": "Review",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_at": "2026-03-17T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1278,7 +1278,7 @@
           "to_column": "Done",
           "from_swimlane": "Beta Team",
           "to_swimlane": "Beta Team",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-26T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1290,7 +1290,7 @@
           "from_value": "demo2",
           "to_value": "demo3",
           "actor": "demo2",
-          "created_at": "2026-03-02T00:00:00+00:00"
+          "created_at": "2026-03-19T00:00:00+00:00"
         }
       ]
     },
@@ -1300,7 +1300,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-03-26",
+      "due_date": "2026-04-12",
       "weight": 8,
       "assignee": "demo3",
       "archived_at": null,
@@ -1315,7 +1315,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_at": "2026-02-23T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1355,7 +1355,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_at": "2026-03-18T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1367,7 +1367,7 @@
           "from_value": "5",
           "to_value": "8",
           "actor": "demo3",
-          "created_at": "2026-02-19T00:00:00+00:00"
+          "created_at": "2026-03-08T00:00:00+00:00"
         }
       ]
     },
@@ -1377,7 +1377,7 @@
       "priority": "low",
       "column": "Backlog",
       "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-10",
+      "due_date": "2026-04-27",
       "weight": 5,
       "assignee": "demo1",
       "archived_at": null,
@@ -1387,7 +1387,7 @@
         {
           "body": "The Helm chart change needs a review from DevOps before we ship this.",
           "author": "demo1",
-          "created_at": "2026-02-01T00:00:00+00:00"
+          "created_at": "2026-02-18T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -1396,7 +1396,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_at": "2026-02-19T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1440,7 +1440,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1450,7 +1450,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1462,7 +1462,7 @@
           "from_value": "",
           "to_value": "Updated per feedback.",
           "actor": "demo2",
-          "created_at": "2026-02-26T00:00:00+00:00"
+          "created_at": "2026-03-15T00:00:00+00:00"
         }
       ]
     },
@@ -1472,7 +1472,7 @@
       "priority": "high",
       "column": "Doing",
       "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-03-20",
+      "due_date": "2026-04-06",
       "weight": 2,
       "assignee": "demo3",
       "archived_at": null,
@@ -1484,7 +1484,7 @@
         {
           "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
           "author": "demo4",
-          "created_at": "2026-03-07T00:00:00+00:00"
+          "created_at": "2026-03-24T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -1493,7 +1493,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1503,7 +1503,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_at": "2026-03-17T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1513,7 +1513,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1525,7 +1525,7 @@
           "from_value": "",
           "to_value": "Feature",
           "actor": "demo5",
-          "created_at": "2026-03-12T00:00:00+00:00"
+          "created_at": "2026-03-29T00:00:00+00:00"
         }
       ]
     },
@@ -1545,17 +1545,17 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo1",
-          "created_at": "2026-01-25T00:00:00+00:00"
+          "created_at": "2026-02-11T00:00:00+00:00"
         },
         {
           "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
           "author": "demo5",
-          "created_at": "2026-01-26T00:00:00+00:00"
+          "created_at": "2026-02-12T00:00:00+00:00"
         },
         {
           "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo5",
-          "created_at": "2026-03-11T00:00:00+00:00"
+          "created_at": "2026-03-28T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -1564,7 +1564,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_at": "2026-02-22T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1574,7 +1574,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1584,7 +1584,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-26T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1596,7 +1596,7 @@
           "from_value": "demo4",
           "to_value": "demo4",
           "actor": "demo1",
-          "created_at": "2026-03-14T00:00:00+00:00"
+          "created_at": "2026-03-31T00:00:00+00:00"
         }
       ]
     },
@@ -1606,7 +1606,7 @@
       "priority": "low",
       "column": "Doing",
       "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-12",
+      "due_date": "2026-04-29",
       "weight": 8,
       "assignee": null,
       "archived_at": null,
@@ -1619,7 +1619,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_at": "2026-02-18T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1629,7 +1629,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1639,7 +1639,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1651,7 +1651,7 @@
           "from_value": "",
           "to_value": "Updated per feedback.",
           "actor": "demo3",
-          "created_at": "2026-02-14T00:00:00+00:00"
+          "created_at": "2026-03-03T00:00:00+00:00"
         }
       ]
     },
@@ -1674,7 +1674,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_at": "2026-02-22T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -1684,7 +1684,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1694,7 +1694,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-27T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1706,7 +1706,7 @@
           "from_value": "",
           "to_value": "Urgent",
           "actor": "demo1",
-          "created_at": "2026-02-19T00:00:00+00:00"
+          "created_at": "2026-03-08T00:00:00+00:00"
         }
       ]
     },
@@ -1716,7 +1716,7 @@
       "priority": "medium",
       "column": "Review",
       "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-02",
+      "due_date": "2026-04-19",
       "weight": 7,
       "assignee": "demo3",
       "archived_at": null,
@@ -1729,7 +1729,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-01-29T00:00:00+00:00",
+          "moved_at": "2026-02-15T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1739,7 +1739,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1749,7 +1749,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_at": "2026-03-19T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -1759,7 +1759,7 @@
           "to_column": "Review",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1771,7 +1771,7 @@
           "from_value": "demo2",
           "to_value": "demo3",
           "actor": "demo3",
-          "created_at": "2026-02-27T00:00:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
         }
       ]
     },
@@ -1781,7 +1781,7 @@
       "priority": "urgent",
       "column": "Review",
       "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-03-27",
+      "due_date": "2026-04-13",
       "weight": 5,
       "assignee": "demo2",
       "archived_at": null,
@@ -1791,17 +1791,17 @@
         {
           "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo2",
-          "created_at": "2026-01-26T00:00:00+00:00"
+          "created_at": "2026-02-12T00:00:00+00:00"
         },
         {
           "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
           "author": "demo4",
-          "created_at": "2026-02-25T00:00:00+00:00"
+          "created_at": "2026-03-14T00:00:00+00:00"
         },
         {
           "body": "Merged the Helm review comments. Ready for QA.",
           "author": "demo2",
-          "created_at": "2026-03-02T00:00:00+00:00"
+          "created_at": "2026-03-19T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -1810,7 +1810,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_at": "2026-02-12T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1820,7 +1820,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1830,7 +1830,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_at": "2026-03-19T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -1840,7 +1840,7 @@
           "to_column": "Review",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1852,7 +1852,7 @@
           "from_value": "demo1",
           "to_value": "demo2",
           "actor": "demo5",
-          "created_at": "2026-03-06T00:00:00+00:00"
+          "created_at": "2026-03-23T00:00:00+00:00"
         }
       ]
     },
@@ -1872,17 +1872,17 @@
         {
           "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo2",
-          "created_at": "2026-01-29T00:00:00+00:00"
+          "created_at": "2026-02-15T00:00:00+00:00"
         },
         {
           "body": "@demo3 can you take a pass at the Helm config?",
           "author": "demo4",
-          "created_at": "2026-02-01T00:00:00+00:00"
+          "created_at": "2026-02-18T00:00:00+00:00"
         },
         {
           "body": "Merged the Helm review comments. Ready for QA.",
           "author": "demo4",
-          "created_at": "2026-02-14T00:00:00+00:00"
+          "created_at": "2026-03-03T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -1891,7 +1891,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-01-29T00:00:00+00:00",
+          "moved_at": "2026-02-15T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1901,7 +1901,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1911,7 +1911,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_at": "2026-03-14T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -1921,7 +1921,7 @@
           "to_column": "Review",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -1931,7 +1931,7 @@
           "to_column": "Done",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1945,7 +1945,7 @@
       "priority": "medium",
       "column": "Done",
       "swimlane": "Cloudstride Ltd",
-      "due_date": "2026-04-05",
+      "due_date": "2026-04-22",
       "weight": 8,
       "assignee": null,
       "archived_at": null,
@@ -1960,7 +1960,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-01-03T00:00:00+00:00",
+          "moved_at": "2026-01-20T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -1970,7 +1970,7 @@
           "to_column": "To Do",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-01-27T00:00:00+00:00",
+          "moved_at": "2026-02-13T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -1980,7 +1980,7 @@
           "to_column": "Doing",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -1990,7 +1990,7 @@
           "to_column": "Review",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2000,7 +2000,7 @@
           "to_column": "Done",
           "from_swimlane": "Cloudstride Ltd",
           "to_swimlane": "Cloudstride Ltd",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2024,12 +2024,12 @@
         {
           "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
           "author": "demo2",
-          "created_at": "2026-02-06T00:00:00+00:00"
+          "created_at": "2026-02-23T00:00:00+00:00"
         },
         {
           "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
           "author": "demo4",
-          "created_at": "2026-02-28T00:00:00+00:00"
+          "created_at": "2026-03-17T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2038,7 +2038,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_at": "2026-03-20T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2085,12 +2085,12 @@
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo4",
-          "created_at": "2026-01-16T00:00:00+00:00"
+          "created_at": "2026-02-02T00:00:00+00:00"
         },
         {
           "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
           "author": "demo3",
-          "created_at": "2026-01-30T00:00:00+00:00"
+          "created_at": "2026-02-16T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2099,7 +2099,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_at": "2026-03-18T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2139,7 +2139,7 @@
         {
           "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo3",
-          "created_at": "2026-01-18T00:00:00+00:00"
+          "created_at": "2026-02-04T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2148,7 +2148,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-01-18T00:00:00+00:00",
+          "moved_at": "2026-02-04T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2162,7 +2162,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "DevOps Guild",
-      "due_date": "2026-04-07",
+      "due_date": "2026-04-24",
       "weight": 4,
       "assignee": "demo2",
       "archived_at": null,
@@ -2192,17 +2192,17 @@
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo1",
-          "created_at": "2026-01-15T00:00:00+00:00"
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
           "author": "demo4",
-          "created_at": "2026-01-20T00:00:00+00:00"
+          "created_at": "2026-02-06T00:00:00+00:00"
         },
         {
           "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo5",
-          "created_at": "2026-01-26T00:00:00+00:00"
+          "created_at": "2026-02-12T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2211,7 +2211,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_at": "2026-02-28T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -2221,7 +2221,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2233,7 +2233,7 @@
           "from_value": "3",
           "to_value": "2",
           "actor": "demo2",
-          "created_at": "2026-03-06T00:00:00+00:00"
+          "created_at": "2026-03-23T00:00:00+00:00"
         }
       ]
     },
@@ -2266,17 +2266,17 @@
         {
           "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
           "author": "demo3",
-          "created_at": "2026-01-15T00:00:00+00:00"
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo4",
-          "created_at": "2026-01-22T00:00:00+00:00"
+          "created_at": "2026-02-08T00:00:00+00:00"
         },
         {
           "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
           "author": "demo3",
-          "created_at": "2026-01-26T00:00:00+00:00"
+          "created_at": "2026-02-12T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2285,7 +2285,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2295,7 +2295,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2307,7 +2307,7 @@
           "from_value": "",
           "to_value": "Ready for QA.",
           "actor": "demo2",
-          "created_at": "2026-02-15T00:00:00+00:00"
+          "created_at": "2026-03-04T00:00:00+00:00"
         }
       ]
     },
@@ -2346,17 +2346,17 @@
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo4",
-          "created_at": "2026-01-15T00:00:00+00:00"
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo3",
-          "created_at": "2026-02-01T00:00:00+00:00"
+          "created_at": "2026-02-18T00:00:00+00:00"
         },
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo4",
-          "created_at": "2026-03-07T00:00:00+00:00"
+          "created_at": "2026-03-24T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2365,7 +2365,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_at": "2026-03-17T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2375,7 +2375,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-27T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2387,7 +2387,7 @@
           "from_value": "7",
           "to_value": "8",
           "actor": "demo2",
-          "created_at": "2026-03-10T00:00:00+00:00"
+          "created_at": "2026-03-27T00:00:00+00:00"
         }
       ]
     },
@@ -2397,7 +2397,7 @@
       "priority": "high",
       "column": "To Do",
       "swimlane": "DevOps Guild",
-      "due_date": "2026-04-02",
+      "due_date": "2026-04-19",
       "weight": 3,
       "assignee": "demo5",
       "archived_at": null,
@@ -2412,7 +2412,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -2422,7 +2422,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2436,7 +2436,7 @@
       "priority": "urgent",
       "column": "To Do",
       "swimlane": "DevOps Guild",
-      "due_date": "2026-02-21",
+      "due_date": "2026-03-10",
       "weight": 6,
       "assignee": "demo5",
       "archived_at": null,
@@ -2467,7 +2467,7 @@
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo5",
-          "created_at": "2026-03-01T00:00:00+00:00"
+          "created_at": "2026-03-18T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2476,7 +2476,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -2486,7 +2486,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -2498,7 +2498,7 @@
           "from_value": "",
           "to_value": "Feature",
           "actor": "demo2",
-          "created_at": "2026-02-18T00:00:00+00:00"
+          "created_at": "2026-03-07T00:00:00+00:00"
         }
       ]
     },
@@ -2533,7 +2533,7 @@
         {
           "body": "Agreed. Moving to Backlog for now.",
           "author": "demo5",
-          "created_at": "2026-03-05T00:00:00+00:00"
+          "created_at": "2026-03-22T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2542,7 +2542,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_at": "2026-02-26T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -2552,7 +2552,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-04T00:00:00+00:00",
+          "moved_at": "2026-03-21T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -2562,7 +2562,7 @@
           "to_column": "Doing",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2592,7 +2592,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-01-21T00:00:00+00:00",
+          "moved_at": "2026-02-07T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2602,7 +2602,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_at": "2026-02-19T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -2612,7 +2612,7 @@
           "to_column": "Doing",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_at": "2026-03-03T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2622,7 +2622,7 @@
           "to_column": "Review",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_at": "2026-03-16T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2632,7 +2632,7 @@
           "to_column": "Done",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2646,7 +2646,7 @@
       "priority": "medium",
       "column": "Done",
       "swimlane": "DevOps Guild",
-      "due_date": "2026-03-04",
+      "due_date": "2026-03-21",
       "weight": 7,
       "assignee": "demo4",
       "archived_at": null,
@@ -2658,7 +2658,7 @@
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo3",
-          "created_at": "2026-02-28T00:00:00+00:00"
+          "created_at": "2026-03-17T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2667,7 +2667,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-01-15T00:00:00+00:00",
+          "moved_at": "2026-02-01T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2677,7 +2677,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_at": "2026-02-22T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -2687,7 +2687,7 @@
           "to_column": "Doing",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2697,7 +2697,7 @@
           "to_column": "Review",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-28T00:00:00+00:00",
+          "moved_at": "2026-03-17T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2707,7 +2707,7 @@
           "to_column": "Done",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2721,7 +2721,7 @@
       "priority": "low",
       "column": "Done",
       "swimlane": "DevOps Guild",
-      "due_date": "2026-03-20",
+      "due_date": "2026-04-06",
       "weight": 5,
       "assignee": "demo4",
       "archived_at": null,
@@ -2731,12 +2731,12 @@
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo5",
-          "created_at": "2026-02-22T00:00:00+00:00"
+          "created_at": "2026-03-11T00:00:00+00:00"
         },
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo1",
-          "created_at": "2026-03-03T00:00:00+00:00"
+          "created_at": "2026-03-20T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2745,7 +2745,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-01-15T00:00:00+00:00",
+          "moved_at": "2026-02-01T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2755,7 +2755,7 @@
           "to_column": "To Do",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2765,7 +2765,7 @@
           "to_column": "Doing",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2775,7 +2775,7 @@
           "to_column": "Review",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-03T00:00:00+00:00",
+          "moved_at": "2026-03-20T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2785,7 +2785,7 @@
           "to_column": "Done",
           "from_swimlane": "DevOps Guild",
           "to_swimlane": "DevOps Guild",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2799,7 +2799,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Ember Studio",
-      "due_date": "2026-03-22",
+      "due_date": "2026-04-08",
       "weight": 4,
       "assignee": "demo3",
       "archived_at": null,
@@ -2809,12 +2809,12 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo4",
-          "created_at": "2026-01-19T00:00:00+00:00"
+          "created_at": "2026-02-05T00:00:00+00:00"
         },
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo5",
-          "created_at": "2026-01-24T00:00:00+00:00"
+          "created_at": "2026-02-10T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2823,7 +2823,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_at": "2026-02-12T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -2835,7 +2835,7 @@
           "from_value": "",
           "to_value": "Urgent",
           "actor": "demo3",
-          "created_at": "2026-02-13T00:00:00+00:00"
+          "created_at": "2026-03-02T00:00:00+00:00"
         }
       ]
     },
@@ -2857,17 +2857,17 @@
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo2",
-          "created_at": "2026-02-17T00:00:00+00:00"
+          "created_at": "2026-03-06T00:00:00+00:00"
         },
         {
           "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
           "author": "demo1",
-          "created_at": "2026-03-01T00:00:00+00:00"
+          "created_at": "2026-03-18T00:00:00+00:00"
         },
         {
           "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
           "author": "demo5",
-          "created_at": "2026-03-11T00:00:00+00:00"
+          "created_at": "2026-03-28T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -2876,7 +2876,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -2890,7 +2890,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Ember Studio",
-      "due_date": "2026-03-25",
+      "due_date": "2026-04-11",
       "weight": 6,
       "assignee": null,
       "archived_at": null,
@@ -2906,7 +2906,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_at": "2026-02-23T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2918,7 +2918,7 @@
           "from_value": "",
           "to_value": "Looks good — moving forward.",
           "actor": "demo5",
-          "created_at": "2026-02-26T00:00:00+00:00"
+          "created_at": "2026-03-15T00:00:00+00:00"
         }
       ]
     },
@@ -2928,7 +2928,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Ember Studio",
-      "due_date": "2026-02-19",
+      "due_date": "2026-03-08",
       "weight": 7,
       "assignee": "demo1",
       "archived_at": null,
@@ -2943,7 +2943,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -2953,7 +2953,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -2965,7 +2965,7 @@
           "from_value": "",
           "to_value": "Review",
           "actor": "demo1",
-          "created_at": "2026-02-24T00:00:00+00:00"
+          "created_at": "2026-03-13T00:00:00+00:00"
         }
       ]
     },
@@ -2975,7 +2975,7 @@
       "priority": "urgent",
       "column": "To Do",
       "swimlane": "Ember Studio",
-      "due_date": "2026-03-23",
+      "due_date": "2026-04-09",
       "weight": 2,
       "assignee": "demo1",
       "archived_at": null,
@@ -2990,7 +2990,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3000,7 +3000,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3012,7 +3012,7 @@
           "from_value": "demo5",
           "to_value": "demo1",
           "actor": "demo3",
-          "created_at": "2026-03-09T00:00:00+00:00"
+          "created_at": "2026-03-26T00:00:00+00:00"
         }
       ]
     },
@@ -3035,7 +3035,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_at": "2026-02-12T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3045,7 +3045,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3055,7 +3055,7 @@
           "to_column": "Doing",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3069,7 +3069,7 @@
       "priority": "high",
       "column": "Doing",
       "swimlane": "Ember Studio",
-      "due_date": "2026-03-17",
+      "due_date": "2026-04-03",
       "weight": 2,
       "assignee": "demo2",
       "archived_at": null,
@@ -3097,7 +3097,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-01-27T00:00:00+00:00",
+          "moved_at": "2026-02-13T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3107,7 +3107,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3117,7 +3117,7 @@
           "to_column": "Doing",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3129,7 +3129,7 @@
           "from_value": "7",
           "to_value": "5",
           "actor": "demo1",
-          "created_at": "2026-02-21T00:00:00+00:00"
+          "created_at": "2026-03-10T00:00:00+00:00"
         }
       ]
     },
@@ -3139,7 +3139,7 @@
       "priority": "high",
       "column": "Doing",
       "swimlane": "Ember Studio",
-      "due_date": "2026-04-14",
+      "due_date": "2026-05-01",
       "weight": 6,
       "assignee": "demo1",
       "archived_at": null,
@@ -3151,17 +3151,17 @@
         {
           "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
           "author": "demo2",
-          "created_at": "2026-02-04T00:00:00+00:00"
+          "created_at": "2026-02-21T00:00:00+00:00"
         },
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo5",
-          "created_at": "2026-02-18T00:00:00+00:00"
+          "created_at": "2026-03-07T00:00:00+00:00"
         },
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo1",
-          "created_at": "2026-02-23T00:00:00+00:00"
+          "created_at": "2026-03-12T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3170,7 +3170,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-01-26T00:00:00+00:00",
+          "moved_at": "2026-02-12T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3180,7 +3180,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3190,7 +3190,7 @@
           "to_column": "Doing",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3217,17 +3217,17 @@
         {
           "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
           "author": "demo1",
-          "created_at": "2026-01-15T00:00:00+00:00"
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo4",
-          "created_at": "2026-01-17T00:00:00+00:00"
+          "created_at": "2026-02-03T00:00:00+00:00"
         },
         {
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo2",
-          "created_at": "2026-01-21T00:00:00+00:00"
+          "created_at": "2026-02-07T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3236,7 +3236,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_at": "2026-03-03T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3246,7 +3246,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_at": "2026-03-19T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3256,7 +3256,7 @@
           "to_column": "Doing",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3268,7 +3268,7 @@
           "from_value": "",
           "to_value": "Bug",
           "actor": "demo1",
-          "created_at": "2026-03-07T00:00:00+00:00"
+          "created_at": "2026-03-24T00:00:00+00:00"
         }
       ]
     },
@@ -3278,7 +3278,7 @@
       "priority": "low",
       "column": "Review",
       "swimlane": "Ember Studio",
-      "due_date": "2026-04-03",
+      "due_date": "2026-04-20",
       "weight": 3,
       "assignee": null,
       "archived_at": null,
@@ -3288,12 +3288,12 @@
         {
           "body": "Blocked on the auth token rotation ticket (#184). Can't fix the reconnect without a stable refresh API.",
           "author": "demo3",
-          "created_at": "2026-01-24T00:00:00+00:00"
+          "created_at": "2026-02-10T00:00:00+00:00"
         },
         {
           "body": "Agreed. Moving to Backlog for now.",
           "author": "demo3",
-          "created_at": "2026-02-23T00:00:00+00:00"
+          "created_at": "2026-03-12T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3302,7 +3302,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_at": "2026-02-23T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3312,7 +3312,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_at": "2026-03-16T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3322,7 +3322,7 @@
           "to_column": "Doing",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3332,7 +3332,7 @@
           "to_column": "Review",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3346,7 +3346,7 @@
       "priority": "high",
       "column": "Review",
       "swimlane": "Ember Studio",
-      "due_date": "2026-03-03",
+      "due_date": "2026-03-20",
       "weight": 8,
       "assignee": "demo1",
       "archived_at": null,
@@ -3356,17 +3356,17 @@
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo4",
-          "created_at": "2026-01-16T00:00:00+00:00"
+          "created_at": "2026-02-02T00:00:00+00:00"
         },
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo5",
-          "created_at": "2026-02-14T00:00:00+00:00"
+          "created_at": "2026-03-03T00:00:00+00:00"
         },
         {
           "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
           "author": "demo2",
-          "created_at": "2026-02-19T00:00:00+00:00"
+          "created_at": "2026-03-08T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3375,7 +3375,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-01-10T00:00:00+00:00",
+          "moved_at": "2026-01-27T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3385,7 +3385,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_at": "2026-02-24T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3395,7 +3395,7 @@
           "to_column": "Doing",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3405,7 +3405,7 @@
           "to_column": "Review",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3419,7 +3419,7 @@
       "priority": "high",
       "column": "Done",
       "swimlane": "Ember Studio",
-      "due_date": "2026-03-21",
+      "due_date": "2026-04-07",
       "weight": 8,
       "assignee": "demo5",
       "archived_at": null,
@@ -3434,7 +3434,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-01-04T00:00:00+00:00",
+          "moved_at": "2026-01-21T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3444,7 +3444,7 @@
           "to_column": "To Do",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-01-23T00:00:00+00:00",
+          "moved_at": "2026-02-09T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3454,7 +3454,7 @@
           "to_column": "Doing",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_at": "2026-02-19T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3464,7 +3464,7 @@
           "to_column": "Review",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3474,7 +3474,7 @@
           "to_column": "Done",
           "from_swimlane": "Ember Studio",
           "to_swimlane": "Ember Studio",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3488,7 +3488,7 @@
       "priority": "high",
       "column": "Backlog",
       "swimlane": "Frontier AI",
-      "due_date": "2026-04-10",
+      "due_date": "2026-04-27",
       "weight": 5,
       "assignee": null,
       "archived_at": null,
@@ -3500,17 +3500,17 @@
         {
           "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
           "author": "demo2",
-          "created_at": "2026-01-20T00:00:00+00:00"
+          "created_at": "2026-02-06T00:00:00+00:00"
         },
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo2",
-          "created_at": "2026-02-07T00:00:00+00:00"
+          "created_at": "2026-02-24T00:00:00+00:00"
         },
         {
           "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
           "author": "demo5",
-          "created_at": "2026-02-09T00:00:00+00:00"
+          "created_at": "2026-02-26T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3519,7 +3519,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_at": "2026-03-15T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3531,7 +3531,7 @@
           "from_value": "medium",
           "to_value": "high",
           "actor": "demo1",
-          "created_at": "2026-03-07T00:00:00+00:00"
+          "created_at": "2026-03-24T00:00:00+00:00"
         }
       ]
     },
@@ -3562,17 +3562,17 @@
         {
           "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
           "author": "demo5",
-          "created_at": "2026-01-23T00:00:00+00:00"
+          "created_at": "2026-02-09T00:00:00+00:00"
         },
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo5",
-          "created_at": "2026-02-08T00:00:00+00:00"
+          "created_at": "2026-02-25T00:00:00+00:00"
         },
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo3",
-          "created_at": "2026-03-10T00:00:00+00:00"
+          "created_at": "2026-03-27T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3581,7 +3581,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_at": "2026-02-26T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3593,7 +3593,7 @@
           "from_value": "",
           "to_value": "Bug",
           "actor": "demo4",
-          "created_at": "2026-03-06T00:00:00+00:00"
+          "created_at": "2026-03-23T00:00:00+00:00"
         }
       ]
     },
@@ -3603,7 +3603,7 @@
       "priority": "high",
       "column": "Backlog",
       "swimlane": "Frontier AI",
-      "due_date": "2026-03-22",
+      "due_date": "2026-04-08",
       "weight": 8,
       "assignee": null,
       "archived_at": null,
@@ -3619,7 +3619,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_at": "2026-02-08T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3633,7 +3633,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Frontier AI",
-      "due_date": "2026-04-12",
+      "due_date": "2026-04-29",
       "weight": 3,
       "assignee": "demo5",
       "archived_at": null,
@@ -3648,7 +3648,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-01-14T00:00:00+00:00",
+          "moved_at": "2026-01-31T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3660,7 +3660,7 @@
           "from_value": "8",
           "to_value": "3",
           "actor": "demo5",
-          "created_at": "2026-03-03T00:00:00+00:00"
+          "created_at": "2026-03-20T00:00:00+00:00"
         }
       ]
     },
@@ -3680,7 +3680,7 @@
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo3",
-          "created_at": "2026-02-25T00:00:00+00:00"
+          "created_at": "2026-03-14T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3689,7 +3689,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3699,7 +3699,7 @@
           "to_column": "To Do",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3713,7 +3713,7 @@
       "priority": "medium",
       "column": "Doing",
       "swimlane": "Frontier AI",
-      "due_date": "2026-03-17",
+      "due_date": "2026-04-03",
       "weight": 8,
       "assignee": "demo5",
       "archived_at": null,
@@ -3723,17 +3723,17 @@
         {
           "body": "Agreed. Moving to Backlog for now.",
           "author": "demo2",
-          "created_at": "2026-02-11T00:00:00+00:00"
+          "created_at": "2026-02-28T00:00:00+00:00"
         },
         {
           "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
           "author": "demo3",
-          "created_at": "2026-02-27T00:00:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
         },
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo1",
-          "created_at": "2026-03-13T00:00:00+00:00"
+          "created_at": "2026-03-30T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3742,7 +3742,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_at": "2026-02-23T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -3752,7 +3752,7 @@
           "to_column": "To Do",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3762,7 +3762,7 @@
           "to_column": "Doing",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3776,7 +3776,7 @@
       "priority": "medium",
       "column": "Review",
       "swimlane": "Frontier AI",
-      "due_date": "2026-03-21",
+      "due_date": "2026-04-07",
       "weight": 8,
       "assignee": "demo2",
       "archived_at": null,
@@ -3788,17 +3788,17 @@
         {
           "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
           "author": "demo5",
-          "created_at": "2026-01-22T00:00:00+00:00"
+          "created_at": "2026-02-08T00:00:00+00:00"
         },
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo4",
-          "created_at": "2026-02-19T00:00:00+00:00"
+          "created_at": "2026-03-08T00:00:00+00:00"
         },
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo2",
-          "created_at": "2026-03-13T00:00:00+00:00"
+          "created_at": "2026-03-30T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3807,7 +3807,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-01-10T00:00:00+00:00",
+          "moved_at": "2026-01-27T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3817,7 +3817,7 @@
           "to_column": "To Do",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_at": "2026-02-23T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3827,7 +3827,7 @@
           "to_column": "Doing",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3837,7 +3837,7 @@
           "to_column": "Review",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-27T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3851,7 +3851,7 @@
       "priority": "urgent",
       "column": "Done",
       "swimlane": "Frontier AI",
-      "due_date": "2026-03-02",
+      "due_date": "2026-03-19",
       "weight": 8,
       "assignee": "demo5",
       "archived_at": null,
@@ -3863,12 +3863,12 @@
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo4",
-          "created_at": "2026-02-13T00:00:00+00:00"
+          "created_at": "2026-03-02T00:00:00+00:00"
         },
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo5",
-          "created_at": "2026-02-20T00:00:00+00:00"
+          "created_at": "2026-03-09T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3877,7 +3877,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2025-12-23T00:00:00+00:00",
+          "moved_at": "2026-01-09T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3887,7 +3887,7 @@
           "to_column": "To Do",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-01-21T00:00:00+00:00",
+          "moved_at": "2026-02-07T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -3897,7 +3897,7 @@
           "to_column": "Doing",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_at": "2026-02-20T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -3907,7 +3907,7 @@
           "to_column": "Review",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3917,7 +3917,7 @@
           "to_column": "Done",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-27T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3931,7 +3931,7 @@
       "priority": "medium",
       "column": "Done",
       "swimlane": "Frontier AI",
-      "due_date": "2026-03-04",
+      "due_date": "2026-03-21",
       "weight": 6,
       "assignee": "demo1",
       "archived_at": null,
@@ -3957,7 +3957,7 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo5",
-          "created_at": "2026-03-05T00:00:00+00:00"
+          "created_at": "2026-03-22T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -3966,7 +3966,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2025-12-31T00:00:00+00:00",
+          "moved_at": "2026-01-17T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -3976,7 +3976,7 @@
           "to_column": "To Do",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_at": "2026-02-10T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3986,7 +3986,7 @@
           "to_column": "Doing",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_at": "2026-02-26T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -3996,7 +3996,7 @@
           "to_column": "Review",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -4006,7 +4006,7 @@
           "to_column": "Done",
           "from_swimlane": "Frontier AI",
           "to_swimlane": "Frontier AI",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-27T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -4051,12 +4051,12 @@
         {
           "body": "Deployed. Monitoring Sentry for regressions.",
           "author": "demo3",
-          "created_at": "2026-02-05T00:00:00+00:00"
+          "created_at": "2026-02-22T00:00:00+00:00"
         },
         {
           "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
           "author": "demo3",
-          "created_at": "2026-02-10T00:00:00+00:00"
+          "created_at": "2026-02-27T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4065,7 +4065,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_at": "2026-02-05T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4077,7 +4077,7 @@
           "from_value": "",
           "to_value": "Bug",
           "actor": "demo1",
-          "created_at": "2026-03-04T00:00:00+00:00"
+          "created_at": "2026-03-21T00:00:00+00:00"
         }
       ]
     },
@@ -4120,17 +4120,17 @@
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo3",
-          "created_at": "2026-02-03T00:00:00+00:00"
+          "created_at": "2026-02-20T00:00:00+00:00"
         },
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo2",
-          "created_at": "2026-02-25T00:00:00+00:00"
+          "created_at": "2026-03-14T00:00:00+00:00"
         },
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo4",
-          "created_at": "2026-03-02T00:00:00+00:00"
+          "created_at": "2026-03-19T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4139,7 +4139,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4153,7 +4153,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Growth Squad",
-      "due_date": "2026-04-08",
+      "due_date": "2026-04-25",
       "weight": 6,
       "assignee": "demo3",
       "archived_at": null,
@@ -4165,12 +4165,12 @@
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo5",
-          "created_at": "2026-02-14T00:00:00+00:00"
+          "created_at": "2026-03-03T00:00:00+00:00"
         },
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo5",
-          "created_at": "2026-02-25T00:00:00+00:00"
+          "created_at": "2026-03-14T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4179,7 +4179,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_at": "2026-03-15T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4189,7 +4189,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4213,7 +4213,7 @@
         {
           "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
           "author": "demo5",
-          "created_at": "2026-02-20T00:00:00+00:00"
+          "created_at": "2026-03-09T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4222,7 +4222,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-14T00:00:00+00:00",
+          "moved_at": "2026-03-03T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4232,7 +4232,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4242,7 +4242,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4256,7 +4256,7 @@
       "priority": "medium",
       "column": "Doing",
       "swimlane": "Growth Squad",
-      "due_date": "2026-03-26",
+      "due_date": "2026-04-12",
       "weight": 5,
       "assignee": "demo4",
       "archived_at": null,
@@ -4266,12 +4266,12 @@
         {
           "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
           "author": "demo1",
-          "created_at": "2026-02-24T00:00:00+00:00"
+          "created_at": "2026-03-13T00:00:00+00:00"
         },
         {
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo2",
-          "created_at": "2026-02-24T00:00:00+00:00"
+          "created_at": "2026-03-13T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4280,7 +4280,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_at": "2026-02-19T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4290,7 +4290,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_at": "2026-03-18T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4300,7 +4300,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4312,7 +4312,7 @@
           "from_value": "",
           "to_value": "Blocked",
           "actor": "demo5",
-          "created_at": "2026-02-13T00:00:00+00:00"
+          "created_at": "2026-03-02T00:00:00+00:00"
         }
       ]
     },
@@ -4322,7 +4322,7 @@
       "priority": "medium",
       "column": "Doing",
       "swimlane": "Growth Squad",
-      "due_date": "2026-02-19",
+      "due_date": "2026-03-08",
       "weight": 1,
       "assignee": "demo1",
       "archived_at": null,
@@ -4356,7 +4356,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_at": "2026-02-17T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4366,7 +4366,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_at": "2026-03-16T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4376,7 +4376,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-27T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4390,7 +4390,7 @@
       "priority": "low",
       "column": "Doing",
       "swimlane": "Growth Squad",
-      "due_date": "2026-04-05",
+      "due_date": "2026-04-22",
       "weight": 1,
       "assignee": "demo4",
       "archived_at": null,
@@ -4402,12 +4402,12 @@
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo2",
-          "created_at": "2026-01-14T00:00:00+00:00"
+          "created_at": "2026-01-31T00:00:00+00:00"
         },
         {
           "body": "@demo3 can you take a pass at the Helm config?",
           "author": "demo3",
-          "created_at": "2026-01-17T00:00:00+00:00"
+          "created_at": "2026-02-03T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4416,7 +4416,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4426,7 +4426,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -4436,7 +4436,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4448,7 +4448,7 @@
           "from_value": "3",
           "to_value": "8",
           "actor": "demo5",
-          "created_at": "2026-02-27T00:00:00+00:00"
+          "created_at": "2026-03-16T00:00:00+00:00"
         }
       ]
     },
@@ -4477,7 +4477,7 @@
         {
           "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
           "author": "demo1",
-          "created_at": "2026-03-11T00:00:00+00:00"
+          "created_at": "2026-03-28T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4486,7 +4486,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-01-13T00:00:00+00:00",
+          "moved_at": "2026-01-30T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4496,7 +4496,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_at": "2026-02-24T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4506,7 +4506,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_at": "2026-03-14T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4516,7 +4516,7 @@
           "to_column": "Review",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4530,7 +4530,7 @@
       "priority": "medium",
       "column": "Review",
       "swimlane": "Growth Squad",
-      "due_date": "2026-03-09",
+      "due_date": "2026-03-26",
       "weight": 5,
       "assignee": "demo5",
       "archived_at": null,
@@ -4556,7 +4556,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-01-28T00:00:00+00:00",
+          "moved_at": "2026-02-14T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4566,7 +4566,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4576,7 +4576,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-01T00:00:00+00:00",
+          "moved_at": "2026-03-18T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4586,7 +4586,7 @@
           "to_column": "Review",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4625,17 +4625,17 @@
         {
           "body": "Hotfix deployed. Frontier AI confirmed their pipeline is healthy again.",
           "author": "demo1",
-          "created_at": "2026-02-02T00:00:00+00:00"
+          "created_at": "2026-02-19T00:00:00+00:00"
         },
         {
           "body": "Root cause: Firefox handles `pointermove` differently when a CSS transition is active. Workaround: disable the resize transition during drag.",
           "author": "demo3",
-          "created_at": "2026-02-19T00:00:00+00:00"
+          "created_at": "2026-03-08T00:00:00+00:00"
         },
         {
           "body": "Can we scope this to the current quarter? It's a nice-to-have but not blocking anything.",
           "author": "demo5",
-          "created_at": "2026-02-28T00:00:00+00:00"
+          "created_at": "2026-03-17T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4644,7 +4644,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-01-30T00:00:00+00:00",
+          "moved_at": "2026-02-16T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4654,7 +4654,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4664,7 +4664,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_at": "2026-03-19T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4674,7 +4674,7 @@
           "to_column": "Review",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-26T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4688,7 +4688,7 @@
       "priority": "high",
       "column": "Done",
       "swimlane": "Growth Squad",
-      "due_date": "2026-04-08",
+      "due_date": "2026-04-25",
       "weight": 1,
       "assignee": "demo5",
       "archived_at": null,
@@ -4703,7 +4703,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-01-14T00:00:00+00:00",
+          "moved_at": "2026-01-31T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4713,7 +4713,7 @@
           "to_column": "To Do",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-02T00:00:00+00:00",
+          "moved_at": "2026-02-19T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -4723,7 +4723,7 @@
           "to_column": "Doing",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4733,7 +4733,7 @@
           "to_column": "Review",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-02-21T00:00:00+00:00",
+          "moved_at": "2026-03-10T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4743,7 +4743,7 @@
           "to_column": "Done",
           "from_swimlane": "Growth Squad",
           "to_swimlane": "Growth Squad",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-26T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4755,7 +4755,7 @@
           "from_value": "demo4",
           "to_value": "demo5",
           "actor": "demo1",
-          "created_at": "2026-03-14T00:00:00+00:00"
+          "created_at": "2026-03-31T00:00:00+00:00"
         }
       ]
     },
@@ -4765,7 +4765,7 @@
       "priority": "high",
       "column": "Backlog",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-04-13",
+      "due_date": "2026-04-30",
       "weight": 2,
       "assignee": "demo1",
       "archived_at": null,
@@ -4780,7 +4780,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -4794,7 +4794,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-04-09",
+      "due_date": "2026-04-26",
       "weight": 5,
       "assignee": "demo4",
       "archived_at": null,
@@ -4810,7 +4810,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4824,7 +4824,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-31",
+      "due_date": "2026-04-17",
       "weight": 5,
       "assignee": "demo1",
       "archived_at": null,
@@ -4837,7 +4837,7 @@
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo2",
-          "created_at": "2026-02-26T00:00:00+00:00"
+          "created_at": "2026-03-15T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4846,7 +4846,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -4860,7 +4860,7 @@
       "priority": "low",
       "column": "Backlog",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-22",
+      "due_date": "2026-04-08",
       "weight": 1,
       "assignee": "demo3",
       "archived_at": null,
@@ -4873,7 +4873,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_at": "2026-02-20T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -4902,7 +4902,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4931,7 +4931,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-04T00:00:00+00:00",
+          "moved_at": "2026-02-21T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -4941,7 +4941,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4980,7 +4980,7 @@
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo4",
-          "created_at": "2026-03-12T00:00:00+00:00"
+          "created_at": "2026-03-29T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -4989,7 +4989,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-11T00:00:00+00:00",
+          "moved_at": "2026-02-28T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -4999,7 +4999,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_at": "2026-03-14T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -5009,7 +5009,7 @@
           "to_column": "Doing",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-08T00:00:00+00:00",
+          "moved_at": "2026-03-25T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5023,7 +5023,7 @@
       "priority": "high",
       "column": "Doing",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-02",
+      "due_date": "2026-03-19",
       "weight": 4,
       "assignee": "demo1",
       "archived_at": null,
@@ -5038,7 +5038,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5048,7 +5048,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5058,7 +5058,7 @@
           "to_column": "Doing",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5070,7 +5070,7 @@
           "from_value": "demo4",
           "to_value": "demo1",
           "actor": "demo1",
-          "created_at": "2026-03-12T00:00:00+00:00"
+          "created_at": "2026-03-29T00:00:00+00:00"
         }
       ]
     },
@@ -5080,7 +5080,7 @@
       "priority": "high",
       "column": "Review",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-04-06",
+      "due_date": "2026-04-23",
       "weight": 8,
       "assignee": null,
       "archived_at": null,
@@ -5092,17 +5092,17 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo5",
-          "created_at": "2026-02-14T00:00:00+00:00"
+          "created_at": "2026-03-03T00:00:00+00:00"
         },
         {
           "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
           "author": "demo2",
-          "created_at": "2026-02-22T00:00:00+00:00"
+          "created_at": "2026-03-11T00:00:00+00:00"
         },
         {
           "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
           "author": "demo5",
-          "created_at": "2026-03-05T00:00:00+00:00"
+          "created_at": "2026-03-22T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5111,7 +5111,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-01-17T00:00:00+00:00",
+          "moved_at": "2026-02-03T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5121,7 +5121,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5131,7 +5131,7 @@
           "to_column": "Doing",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5141,7 +5141,7 @@
           "to_column": "Review",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5187,7 +5187,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_at": "2026-02-17T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5197,7 +5197,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-18T00:00:00+00:00",
+          "moved_at": "2026-03-07T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5207,7 +5207,7 @@
           "to_column": "Doing",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-23T00:00:00+00:00",
+          "moved_at": "2026-03-12T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5217,7 +5217,7 @@
           "to_column": "Review",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5229,7 +5229,7 @@
           "from_value": "",
           "to_value": "Blocked",
           "actor": "demo4",
-          "created_at": "2026-03-13T00:00:00+00:00"
+          "created_at": "2026-03-30T00:00:00+00:00"
         }
       ]
     },
@@ -5239,7 +5239,7 @@
       "priority": "high",
       "column": "Review",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-31",
+      "due_date": "2026-04-17",
       "weight": 1,
       "assignee": null,
       "archived_at": null,
@@ -5271,7 +5271,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-05T00:00:00+00:00",
+          "moved_at": "2026-02-22T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5281,7 +5281,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5291,7 +5291,7 @@
           "to_column": "Doing",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5301,7 +5301,7 @@
           "to_column": "Review",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -5315,7 +5315,7 @@
       "priority": "medium",
       "column": "Done",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-04-06",
+      "due_date": "2026-04-23",
       "weight": 6,
       "assignee": "demo1",
       "archived_at": null,
@@ -5325,17 +5325,17 @@
         {
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo4",
-          "created_at": "2026-01-30T00:00:00+00:00"
+          "created_at": "2026-02-16T00:00:00+00:00"
         },
         {
           "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
           "author": "demo5",
-          "created_at": "2026-02-15T00:00:00+00:00"
+          "created_at": "2026-03-04T00:00:00+00:00"
         },
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo1",
-          "created_at": "2026-02-23T00:00:00+00:00"
+          "created_at": "2026-03-12T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5344,7 +5344,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-01-09T00:00:00+00:00",
+          "moved_at": "2026-01-26T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5354,7 +5354,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_at": "2026-02-17T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -5364,7 +5364,7 @@
           "to_column": "Doing",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5374,7 +5374,7 @@
           "to_column": "Review",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5384,7 +5384,7 @@
           "to_column": "Done",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5398,7 +5398,7 @@
       "priority": "medium",
       "column": "Done",
       "swimlane": "Hardrock Systems",
-      "due_date": "2026-03-22",
+      "due_date": "2026-04-08",
       "weight": 2,
       "assignee": "demo5",
       "archived_at": null,
@@ -5428,12 +5428,12 @@
         {
           "body": "@demo3 can you take a pass at the Helm config?",
           "author": "demo4",
-          "created_at": "2026-01-25T00:00:00+00:00"
+          "created_at": "2026-02-11T00:00:00+00:00"
         },
         {
           "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
           "author": "demo4",
-          "created_at": "2026-03-08T00:00:00+00:00"
+          "created_at": "2026-03-25T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5442,7 +5442,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-01-22T00:00:00+00:00",
+          "moved_at": "2026-02-08T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5452,7 +5452,7 @@
           "to_column": "To Do",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_at": "2026-02-24T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5462,7 +5462,7 @@
           "to_column": "Doing",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5472,7 +5472,7 @@
           "to_column": "Review",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_at": "2026-03-16T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5482,7 +5482,7 @@
           "to_column": "Done",
           "from_swimlane": "Hardrock Systems",
           "to_swimlane": "Hardrock Systems",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -5521,12 +5521,12 @@
         {
           "body": "Deployed. Monitoring Sentry for regressions.",
           "author": "demo5",
-          "created_at": "2026-02-18T00:00:00+00:00"
+          "created_at": "2026-03-07T00:00:00+00:00"
         },
         {
           "body": "This has been sitting in Backlog for 3 weeks — can we prioritise it? It's blocking the Acme Corp demo.",
           "author": "demo4",
-          "created_at": "2026-03-03T00:00:00+00:00"
+          "created_at": "2026-03-20T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5535,7 +5535,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_at": "2026-02-10T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5549,7 +5549,7 @@
       "priority": "low",
       "column": "To Do",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-03-30",
+      "due_date": "2026-04-16",
       "weight": 2,
       "assignee": "demo2",
       "archived_at": null,
@@ -5559,17 +5559,17 @@
         {
           "body": "Taking a look at this now — I can reproduce it on iOS 16 as well.",
           "author": "demo5",
-          "created_at": "2026-02-04T00:00:00+00:00"
+          "created_at": "2026-02-21T00:00:00+00:00"
         },
         {
           "body": "Opened a follow-up: #221 — CSV export: add optional description column.",
           "author": "demo1",
-          "created_at": "2026-02-20T00:00:00+00:00"
+          "created_at": "2026-03-09T00:00:00+00:00"
         },
         {
           "body": "Confirmed fixed on my iPhone 14 after pulling the latest.",
           "author": "demo5",
-          "created_at": "2026-03-09T00:00:00+00:00"
+          "created_at": "2026-03-26T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5578,7 +5578,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-06T00:00:00+00:00",
+          "moved_at": "2026-02-23T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5588,7 +5588,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -5602,7 +5602,7 @@
       "priority": "low",
       "column": "To Do",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-04-10",
+      "due_date": "2026-04-27",
       "weight": 3,
       "assignee": "demo3",
       "archived_at": null,
@@ -5615,7 +5615,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5625,7 +5625,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5639,7 +5639,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-04-07",
+      "due_date": "2026-04-24",
       "weight": 6,
       "assignee": null,
       "archived_at": null,
@@ -5671,7 +5671,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_at": "2026-02-24T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5681,7 +5681,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5693,7 +5693,7 @@
           "from_value": "demo5",
           "to_value": "",
           "actor": "demo3",
-          "created_at": "2026-02-26T00:00:00+00:00"
+          "created_at": "2026-03-15T00:00:00+00:00"
         }
       ]
     },
@@ -5703,7 +5703,7 @@
       "priority": "high",
       "column": "To Do",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-03-30",
+      "due_date": "2026-04-16",
       "weight": 3,
       "assignee": "demo3",
       "archived_at": null,
@@ -5725,12 +5725,12 @@
         {
           "body": "The Helm chart change needs a review from DevOps before we ship this.",
           "author": "demo2",
-          "created_at": "2026-02-09T00:00:00+00:00"
+          "created_at": "2026-02-26T00:00:00+00:00"
         },
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo4",
-          "created_at": "2026-02-20T00:00:00+00:00"
+          "created_at": "2026-03-09T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5739,7 +5739,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_at": "2026-03-04T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5749,7 +5749,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -5761,7 +5761,7 @@
           "from_value": "medium",
           "to_value": "high",
           "actor": "demo1",
-          "created_at": "2026-03-14T00:00:00+00:00"
+          "created_at": "2026-03-31T00:00:00+00:00"
         }
       ]
     },
@@ -5771,7 +5771,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-03-22",
+      "due_date": "2026-04-08",
       "weight": 2,
       "assignee": "demo5",
       "archived_at": null,
@@ -5781,12 +5781,12 @@
         {
           "body": "The Helm chart change needs a review from DevOps before we ship this.",
           "author": "demo4",
-          "created_at": "2026-02-09T00:00:00+00:00"
+          "created_at": "2026-02-26T00:00:00+00:00"
         },
         {
           "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
           "author": "demo1",
-          "created_at": "2026-02-26T00:00:00+00:00"
+          "created_at": "2026-03-15T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5795,7 +5795,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5805,7 +5805,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5819,7 +5819,7 @@
       "priority": "medium",
       "column": "Doing",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-03-16",
+      "due_date": "2026-04-02",
       "weight": 8,
       "assignee": "demo3",
       "archived_at": null,
@@ -5829,17 +5829,17 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo1",
-          "created_at": "2026-01-24T00:00:00+00:00"
+          "created_at": "2026-02-10T00:00:00+00:00"
         },
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo2",
-          "created_at": "2026-01-28T00:00:00+00:00"
+          "created_at": "2026-02-14T00:00:00+00:00"
         },
         {
           "body": "Filed a hotfix MR. ETA 2h.",
           "author": "demo5",
-          "created_at": "2026-02-24T00:00:00+00:00"
+          "created_at": "2026-03-13T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5848,7 +5848,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5858,7 +5858,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5868,7 +5868,7 @@
           "to_column": "Doing",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5882,7 +5882,7 @@
       "priority": "high",
       "column": "Doing",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-03-23",
+      "due_date": "2026-04-09",
       "weight": 7,
       "assignee": "demo1",
       "archived_at": null,
@@ -5901,12 +5901,12 @@
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo2",
-          "created_at": "2026-01-27T00:00:00+00:00"
+          "created_at": "2026-02-13T00:00:00+00:00"
         },
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo3",
-          "created_at": "2026-02-26T00:00:00+00:00"
+          "created_at": "2026-03-15T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -5915,7 +5915,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-28T00:00:00+00:00",
+          "moved_at": "2026-02-14T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -5925,7 +5925,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5935,7 +5935,7 @@
           "to_column": "Doing",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -5949,7 +5949,7 @@
       "priority": "high",
       "column": "Done",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-04-12",
+      "due_date": "2026-04-29",
       "weight": 1,
       "assignee": "demo4",
       "archived_at": null,
@@ -5962,7 +5962,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_at": "2026-02-06T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5972,7 +5972,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-13T00:00:00+00:00",
+          "moved_at": "2026-03-02T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -5982,7 +5982,7 @@
           "to_column": "Doing",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-19T00:00:00+00:00",
+          "moved_at": "2026-03-08T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -5992,7 +5992,7 @@
           "to_column": "Review",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-24T00:00:00+00:00",
+          "moved_at": "2026-03-13T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6002,7 +6002,7 @@
           "to_column": "Done",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6014,7 +6014,7 @@
           "from_value": "7",
           "to_value": "2",
           "actor": "demo2",
-          "created_at": "2026-03-10T00:00:00+00:00"
+          "created_at": "2026-03-27T00:00:00+00:00"
         }
       ]
     },
@@ -6039,7 +6039,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-20T00:00:00+00:00",
+          "moved_at": "2026-02-06T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6049,7 +6049,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-31T00:00:00+00:00",
+          "moved_at": "2026-02-17T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6059,7 +6059,7 @@
           "to_column": "Doing",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-10T00:00:00+00:00",
+          "moved_at": "2026-02-27T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6069,7 +6069,7 @@
           "to_column": "Review",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-26T00:00:00+00:00",
+          "moved_at": "2026-03-15T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6079,7 +6079,7 @@
           "to_column": "Done",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6093,7 +6093,7 @@
       "priority": "medium",
       "column": "Done",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-04-10",
+      "due_date": "2026-04-27",
       "weight": 6,
       "assignee": "demo3",
       "archived_at": null,
@@ -6123,17 +6123,17 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo4",
-          "created_at": "2026-02-19T00:00:00+00:00"
+          "created_at": "2026-03-08T00:00:00+00:00"
         },
         {
           "body": "This is a P0 for the Frontier AI integration. Their pipeline ingests board data daily.",
           "author": "demo2",
-          "created_at": "2026-02-22T00:00:00+00:00"
+          "created_at": "2026-03-11T00:00:00+00:00"
         },
         {
           "body": "@demo3 can you take a pass at the Helm config?",
           "author": "demo4",
-          "created_at": "2026-02-25T00:00:00+00:00"
+          "created_at": "2026-03-14T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6142,7 +6142,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-14T00:00:00+00:00",
+          "moved_at": "2026-01-31T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6152,7 +6152,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_at": "2026-02-20T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6162,7 +6162,7 @@
           "to_column": "Doing",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6172,7 +6172,7 @@
           "to_column": "Review",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_at": "2026-03-14T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6182,7 +6182,7 @@
           "to_column": "Done",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6196,7 +6196,7 @@
       "priority": "low",
       "column": "Done",
       "swimlane": "Indigo Labs",
-      "due_date": "2026-04-14",
+      "due_date": "2026-05-01",
       "weight": 3,
       "assignee": "demo1",
       "archived_at": null,
@@ -6209,7 +6209,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-11T00:00:00+00:00",
+          "moved_at": "2026-01-28T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6219,7 +6219,7 @@
           "to_column": "To Do",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-01-25T00:00:00+00:00",
+          "moved_at": "2026-02-11T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6229,7 +6229,7 @@
           "to_column": "Doing",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-09T00:00:00+00:00",
+          "moved_at": "2026-02-26T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6239,7 +6239,7 @@
           "to_column": "Review",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6249,7 +6249,7 @@
           "to_column": "Done",
           "from_swimlane": "Indigo Labs",
           "to_swimlane": "Indigo Labs",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-26T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6263,7 +6263,7 @@
       "priority": "medium",
       "column": "Backlog",
       "swimlane": "Just Ship It",
-      "due_date": "2026-03-01",
+      "due_date": "2026-03-18",
       "weight": 3,
       "assignee": "demo5",
       "archived_at": null,
@@ -6273,17 +6273,17 @@
         {
           "body": "The CSV format question: should we include card description or just metadata? Description can be very long.",
           "author": "demo3",
-          "created_at": "2026-01-31T00:00:00+00:00"
+          "created_at": "2026-02-17T00:00:00+00:00"
         },
         {
           "body": "Reviewed. Two nits: the `delay` should be `300` not `250` per the dnd-kit docs, and the tolerance should be `8` for fat-finger friendliness. Otherwise LGTM.",
           "author": "demo4",
-          "created_at": "2026-02-02T00:00:00+00:00"
+          "created_at": "2026-02-19T00:00:00+00:00"
         },
         {
           "body": "Added `prefetch_related('memberships__user__groups')` — query count dropped from 28 to 4 on the large test board.",
           "author": "demo2",
-          "created_at": "2026-03-11T00:00:00+00:00"
+          "created_at": "2026-03-28T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6292,7 +6292,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-01-18T00:00:00+00:00",
+          "moved_at": "2026-02-04T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6306,7 +6306,7 @@
       "priority": "high",
       "column": "Backlog",
       "swimlane": "Just Ship It",
-      "due_date": "2026-02-27",
+      "due_date": "2026-03-16",
       "weight": 4,
       "assignee": "demo4",
       "archived_at": null,
@@ -6327,7 +6327,7 @@
         {
           "body": "The `django-silk` profile is attached. The N+1 is in `get_members()` as suspected — 14 extra queries for a 14-member board.",
           "author": "demo4",
-          "created_at": "2026-03-09T00:00:00+00:00"
+          "created_at": "2026-03-26T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6336,7 +6336,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-27T00:00:00+00:00",
+          "moved_at": "2026-03-16T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6350,7 +6350,7 @@
       "priority": "low",
       "column": "Backlog",
       "swimlane": "Just Ship It",
-      "due_date": "2026-04-04",
+      "due_date": "2026-04-21",
       "weight": 5,
       "assignee": null,
       "archived_at": null,
@@ -6362,12 +6362,12 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo4",
-          "created_at": "2026-01-27T00:00:00+00:00"
+          "created_at": "2026-02-13T00:00:00+00:00"
         },
         {
           "body": "Metadata only for the first version. We can add description as an opt-in column later.",
           "author": "demo1",
-          "created_at": "2026-02-23T00:00:00+00:00"
+          "created_at": "2026-03-12T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6376,7 +6376,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-02T00:00:00+00:00",
+          "moved_at": "2026-03-19T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6388,7 +6388,7 @@
           "from_value": "high",
           "to_value": "low",
           "actor": "demo4",
-          "created_at": "2026-02-28T00:00:00+00:00"
+          "created_at": "2026-03-17T00:00:00+00:00"
         }
       ]
     },
@@ -6398,7 +6398,7 @@
       "priority": "high",
       "column": "To Do",
       "swimlane": "Just Ship It",
-      "due_date": "2026-03-23",
+      "due_date": "2026-04-09",
       "weight": 4,
       "assignee": "demo2",
       "archived_at": null,
@@ -6408,12 +6408,12 @@
         {
           "body": "Merged the Helm review comments. Ready for QA.",
           "author": "demo1",
-          "created_at": "2026-02-06T00:00:00+00:00"
+          "created_at": "2026-02-23T00:00:00+00:00"
         },
         {
           "body": "Done. Left two comments on the chart — nothing blocking, just housekeeping.",
           "author": "demo1",
-          "created_at": "2026-02-25T00:00:00+00:00"
+          "created_at": "2026-03-14T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6422,7 +6422,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6432,7 +6432,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6444,7 +6444,7 @@
           "from_value": "high",
           "to_value": "high",
           "actor": "demo4",
-          "created_at": "2026-02-19T00:00:00+00:00"
+          "created_at": "2026-03-08T00:00:00+00:00"
         }
       ]
     },
@@ -6454,7 +6454,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Just Ship It",
-      "due_date": "2026-03-30",
+      "due_date": "2026-04-16",
       "weight": 8,
       "assignee": null,
       "archived_at": null,
@@ -6483,7 +6483,7 @@
         {
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo2",
-          "created_at": "2026-01-22T00:00:00+00:00"
+          "created_at": "2026-02-08T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6492,7 +6492,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-16T00:00:00+00:00",
+          "moved_at": "2026-03-05T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6502,7 +6502,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-12T00:00:00+00:00",
+          "moved_at": "2026-03-29T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6516,7 +6516,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Just Ship It",
-      "due_date": "2026-02-22",
+      "due_date": "2026-03-11",
       "weight": 7,
       "assignee": "demo3",
       "archived_at": null,
@@ -6529,7 +6529,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6539,7 +6539,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6553,7 +6553,7 @@
       "priority": "medium",
       "column": "To Do",
       "swimlane": "Just Ship It",
-      "due_date": "2026-03-29",
+      "due_date": "2026-04-15",
       "weight": 3,
       "assignee": "demo5",
       "archived_at": null,
@@ -6566,7 +6566,7 @@
         {
           "body": "Pushed a first draft to the branch. The main challenge is the scroll lock interaction.",
           "author": "demo1",
-          "created_at": "2026-01-23T00:00:00+00:00"
+          "created_at": "2026-02-09T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6575,7 +6575,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-12T00:00:00+00:00",
+          "moved_at": "2026-03-01T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6585,7 +6585,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-06T00:00:00+00:00",
+          "moved_at": "2026-03-23T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6599,7 +6599,7 @@
       "priority": "medium",
       "column": "Doing",
       "swimlane": "Just Ship It",
-      "due_date": "2026-03-25",
+      "due_date": "2026-04-11",
       "weight": 2,
       "assignee": "demo4",
       "archived_at": null,
@@ -6615,7 +6615,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-01-28T00:00:00+00:00",
+          "moved_at": "2026-02-14T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6625,7 +6625,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6635,7 +6635,7 @@
           "to_column": "Doing",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-10T00:00:00+00:00",
+          "moved_at": "2026-03-27T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6649,7 +6649,7 @@
       "priority": "medium",
       "column": "Doing",
       "swimlane": "Just Ship It",
-      "due_date": "2026-03-23",
+      "due_date": "2026-04-09",
       "weight": 5,
       "assignee": "demo4",
       "archived_at": null,
@@ -6682,7 +6682,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-08T00:00:00+00:00",
+          "moved_at": "2026-02-25T00:00:00+00:00",
           "moved_by": "demo2",
           "notes": "",
           "movement_type": "move"
@@ -6692,7 +6692,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-25T00:00:00+00:00",
+          "moved_at": "2026-03-14T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6702,7 +6702,7 @@
           "to_column": "Doing",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-09T00:00:00+00:00",
+          "moved_at": "2026-03-26T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6714,7 +6714,7 @@
           "from_value": "",
           "to_value": "Urgent",
           "actor": "demo1",
-          "created_at": "2026-02-13T00:00:00+00:00"
+          "created_at": "2026-03-02T00:00:00+00:00"
         }
       ]
     },
@@ -6724,7 +6724,7 @@
       "priority": "high",
       "column": "Review",
       "swimlane": "Just Ship It",
-      "due_date": "2026-04-12",
+      "due_date": "2026-04-29",
       "weight": 8,
       "assignee": "demo5",
       "archived_at": null,
@@ -6750,7 +6750,7 @@
         {
           "body": "QA sign-off. Deploying to staging.",
           "author": "demo4",
-          "created_at": "2026-01-23T00:00:00+00:00"
+          "created_at": "2026-02-09T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6759,7 +6759,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-01-24T00:00:00+00:00",
+          "moved_at": "2026-02-10T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6769,7 +6769,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-03T00:00:00+00:00",
+          "moved_at": "2026-02-20T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6779,7 +6779,7 @@
           "to_column": "Doing",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-20T00:00:00+00:00",
+          "moved_at": "2026-03-09T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6789,7 +6789,7 @@
           "to_column": "Review",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-07T00:00:00+00:00",
+          "moved_at": "2026-03-24T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6803,7 +6803,7 @@
       "priority": "low",
       "column": "Review",
       "swimlane": "Just Ship It",
-      "due_date": "2026-04-06",
+      "due_date": "2026-04-23",
       "weight": 1,
       "assignee": null,
       "archived_at": null,
@@ -6815,17 +6815,17 @@
         {
           "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
           "author": "demo3",
-          "created_at": "2026-01-27T00:00:00+00:00"
+          "created_at": "2026-02-13T00:00:00+00:00"
         },
         {
           "body": "Scope question: should this also cover the row separator?",
           "author": "demo3",
-          "created_at": "2026-03-04T00:00:00+00:00"
+          "created_at": "2026-03-21T00:00:00+00:00"
         },
         {
           "body": "Yes, same root cause. Fixing both in the same MR.",
           "author": "demo3",
-          "created_at": "2026-03-06T00:00:00+00:00"
+          "created_at": "2026-03-23T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6834,7 +6834,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-01-27T00:00:00+00:00",
+          "moved_at": "2026-02-13T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6844,7 +6844,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-17T00:00:00+00:00",
+          "moved_at": "2026-03-06T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6854,7 +6854,7 @@
           "to_column": "Doing",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-22T00:00:00+00:00",
+          "moved_at": "2026-03-11T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6864,7 +6864,7 @@
           "to_column": "Review",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-11T00:00:00+00:00",
+          "moved_at": "2026-03-28T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6878,7 +6878,7 @@
       "priority": "low",
       "column": "Done",
       "swimlane": "Just Ship It",
-      "due_date": "2026-04-09",
+      "due_date": "2026-04-26",
       "weight": 3,
       "assignee": "demo5",
       "archived_at": null,
@@ -6890,12 +6890,12 @@
         {
           "body": "I reproduced this on Firefox 124. The column separator drag stops working after the first drop.",
           "author": "demo2",
-          "created_at": "2026-01-15T00:00:00+00:00"
+          "created_at": "2026-02-01T00:00:00+00:00"
         },
         {
           "body": "I'll pick this up after the rc.5 release. Assigning to myself.",
           "author": "demo4",
-          "created_at": "2026-02-03T00:00:00+00:00"
+          "created_at": "2026-02-20T00:00:00+00:00"
         }
       ],
       "movements": [
@@ -6904,7 +6904,7 @@
           "to_column": "Backlog",
           "from_swimlane": "",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-01-19T00:00:00+00:00",
+          "moved_at": "2026-02-05T00:00:00+00:00",
           "moved_by": "demo1",
           "notes": "",
           "movement_type": "move"
@@ -6914,7 +6914,7 @@
           "to_column": "To Do",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-01T00:00:00+00:00",
+          "moved_at": "2026-02-18T00:00:00+00:00",
           "moved_by": "demo5",
           "notes": "",
           "movement_type": "move"
@@ -6924,7 +6924,7 @@
           "to_column": "Doing",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-07T00:00:00+00:00",
+          "moved_at": "2026-02-24T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
@@ -6934,7 +6934,7 @@
           "to_column": "Review",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-02-15T00:00:00+00:00",
+          "moved_at": "2026-03-04T00:00:00+00:00",
           "moved_by": "demo3",
           "notes": "",
           "movement_type": "move"
@@ -6944,7 +6944,7 @@
           "to_column": "Done",
           "from_swimlane": "Just Ship It",
           "to_swimlane": "Just Ship It",
-          "moved_at": "2026-03-05T00:00:00+00:00",
+          "moved_at": "2026-03-22T00:00:00+00:00",
           "moved_by": "demo4",
           "notes": "",
           "movement_type": "move"
