@@ -73,6 +73,8 @@ class EnsureSiteAdminTests(TestCase):
             with open(pw_file) as f:
                 password = f.read().strip()
             self.assertGreater(len(password), 10)
+            # File must be created with 0o600 permissions atomically (TOCTOU fix)
+            self.assertEqual(oct(os.stat(pw_file).st_mode & 0o777), oct(0o600))
             # Password should not appear in stdout
             self.assertNotIn(password, out.getvalue())
         finally:
