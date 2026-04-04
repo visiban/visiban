@@ -4,7 +4,7 @@ import datetime
 
 import django_filters
 from django.db import transaction
-from django.db.models import F, Q, Sum
+from django.db.models import F, Q, Sum, prefetch_related_objects
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -501,7 +501,11 @@ class CardViewSet(viewsets.ModelViewSet):
             self.perform_update(serializer)
             # OCC: bump version on every mutation so stale clients detect conflicts.
             Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
-            card.refresh_from_db()
+            # Only reload version — scoping fields= prevents clearing the labels
+            # prefetch cache, which would cause card.labels.all() below to re-query.
+            card.refresh_from_db(fields=["version"])
+            # Re-prefetch labels since perform_update may have changed the M2M.
+            prefetch_related_objects([card], "labels")
 
             activities = []
             ET = CardActivity.EventType
