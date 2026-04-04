@@ -284,7 +284,8 @@ backend-test-coverage:
     when: always
 
 # Checks that every model change has a corresponding migration file.
-# Does not connect to the database — pure filesystem + model introspection.
+# Uses SQLite so no database service or protected CI variables are needed —
+# makemigrations --check only needs to introspect the model graph, not run queries.
 migration-check:
   extends: .pip-cache
   stage: test
@@ -296,7 +297,7 @@ migration-check:
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   variables:
-    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@localhost:5432/${CI_POSTGRES_DB}"
+    DATABASE_URL: "sqlite:////tmp/migration_check.db"
     REDIS_URL: "redis://localhost:6379/0"
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
