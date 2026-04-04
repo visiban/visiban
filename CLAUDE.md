@@ -161,6 +161,12 @@ See [`frontend/CLAUDE.md`](frontend/CLAUDE.md) for all frontend UI and branding 
 
 - OSS (`visiban/visiban`) push-mirrors to enterprise (`visiban/visiban-enterprise`) automatically on every push — all branches and tags
 - The mirror uses a PAT belonging to `visiban-mirror-bot` (Maintainer on enterprise) — **token expires 2027-03-10**
+- OSS (`visiban/visiban`) also push-mirrors to GitHub (`github.com/visiban/visiban`) for public visibility and GHCR image publishing
+  - GitHub push mirror PAT (`visiban-gitlab-mirror`): **expiry date to be recorded when token was created**
+    - Scope: `repo` — used in GitLab Settings → Repository → Mirroring UI
+    - Also stored as `GITHUB_TOKEN` CI variable for the `github-release` job
+  - GitHub GHCR push PAT (`visiban-ghcr-push`): **expiry date to be recorded when token was created**
+    - Scope: `write:packages` — stored as `GHCR_TOKEN` in GitLab CI variables
 - GitLab emails project maintainers after 3 consecutive mirror failures; ensure at least one maintainer has notifications enabled
 - Enterprise-specific code lives exclusively in `enterprise/` — this directory is not present in OSS and will never be overwritten by the mirror
 - Enterprise-specific dependencies (if any) belong in `enterprise/requirements.txt` / `enterprise/package.json` and must pass the same GPL license checks as OSS deps

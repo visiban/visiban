@@ -2,6 +2,7 @@
 # then: docker compose -f docker-compose.prod.yml up -d
 #
 # Required .env variables (in addition to the standard ones):
+#   APP_VERSION=v1.0.0-rc.11   (image tag to pull; defaults to "latest" if unset)
 #   DOMAIN=yourdomain.com
 #   CERTBOT_EMAIL=admin@yourdomain.com
 
@@ -26,8 +27,7 @@ services:
     restart: unless-stopped
 
   backend:
-    build:
-      context: ./backend
+    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
     command: >
       sh -c "python manage.py collectstatic --noinput &&
              python manage.py migrate &&
@@ -49,17 +49,15 @@ services:
       redis:
         condition: service_started
 
-  # Builds the React app; exits after the build.
+  # Copies the pre-built frontend assets from the release image into the shared
+  # volume so nginx can serve them. Exits immediately after the copy completes.
   # nginx waits for this service to complete before starting.
   frontend-build:
-    build:
-      context: ./frontend
-      target: builder
-      args:
-        VITE_API_URL: ""
-    command: npm run build
+    image: ghcr.io/visiban/visiban/frontend:${APP_VERSION:-latest}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["cp -r /usr/share/nginx/html/. /dist/"]
     volumes:
-      - frontend-dist:/app/dist
+      - frontend-dist:/dist
 
   nginx:
     image: nginx:1.25-alpine

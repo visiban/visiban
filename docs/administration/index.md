@@ -4,6 +4,7 @@ Guides for running and maintaining a Visiban instance.
 
 | Guide | Description |
 |---|---|
+| [Configuration](configuration.md) | Required credentials reference for local development, CI pipeline, and production |
 | [Admin Panel](admin-panel.md) | Managing users, registration mode, and instance settings via the `/admin` UI |
 | [Site Admins](site-admins.md) | What site admins can do, how to grant and revoke site admin access |
 | [Django Admin](django-admin.md) | Using the built-in Django `/django-admin` panel for direct data management |

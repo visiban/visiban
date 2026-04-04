@@ -49,10 +49,14 @@ fi
 # so the Settings → About page reads the version from here.
 sed -i '' "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" frontend/package.json
 
-# Update README.md release badge — shields.io encodes hyphens as double-hyphens
-# e.g. v1.0.0-rc.9 → v1.0.0--rc.9 in the badge URL
-BADGE_VER=$(echo "$TAG" | sed 's/-/--/g')
-sed -i '' "s|^\[!\[release\].*$|[![release](https://img.shields.io/badge/release-${BADGE_VER}-blue)](https://gitlab.com/visiban/visiban/-/releases/${TAG})|" README.md
+# Update README.md Docker image version examples
+# The release badge is now a dynamic shields.io/github badge — no sed needed.
+# Matches lines like: docker pull ghcr.io/visiban/visiban/backend:v1.0.0-rc.10
+sed -i '' "s|ghcr.io/visiban/visiban/backend:v[^ ]*|ghcr.io/visiban/visiban/backend:${TAG}|g" README.md
+sed -i '' "s|ghcr.io/visiban/visiban/frontend:v[^ ]*|ghcr.io/visiban/visiban/frontend:${TAG}|g" README.md
+
+# Update docs/getting-started/installation.md APP_VERSION example
+sed -i '' "s|^APP_VERSION=.*|APP_VERSION=${VERSION}|" docs/getting-started/installation.md
 
 # Update docs/index.md release candidate banner
 # Matches lines like "**rc.8 is the current stable release candidate.**"
@@ -92,7 +96,13 @@ awk -v version="$VERSION" -v date="$TODAY" '
   { print }
 ' CHANGELOG.md > "$TMP" && mv "$TMP" CHANGELOG.md
 
-echo "Updated .env.example, docker-compose.yml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md"
+# Pin docker-compose.prod.yml and Helm chart to the release version so users
+# deploying from the tag get the exact matching image, not "latest".
+sed -i '' "s|ghcr.io/visiban/visiban/backend:.*\"|ghcr.io/visiban/visiban/backend:${TAG}\"|" docker-compose.prod.yml
+sed -i '' "s|ghcr.io/visiban/visiban/frontend:.*\"|ghcr.io/visiban/visiban/frontend:${TAG}\"|" docker-compose.prod.yml
+sed -i '' "s|^  tag: .*|  tag: \"${TAG}\"|" helm/visiban/values.yaml
+
+echo "Updated .env.example, docker-compose.yml, docker-compose.prod.yml, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md"
 
 # Verify version consistency across key files
 echo "Verifying version consistency..."
@@ -110,9 +120,15 @@ if ! grep -q "\"version\": \"${VERSION}\"" frontend/package.json; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# README.md badge must reference the tag
-if ! grep -q "${TAG}" README.md; then
-  echo "  WARN: README.md release badge does not reference ${TAG}" >&2
+# README.md docker pull examples must reference the tag
+if ! grep -q "ghcr.io/visiban/visiban/backend:${TAG}" README.md; then
+  echo "  WARN: README.md docker pull example does not reference ${TAG}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
+# docs/getting-started/installation.md must reference the version
+if ! grep -q "APP_VERSION=${VERSION}" docs/getting-started/installation.md; then
+  echo "  WARN: docs/getting-started/installation.md does not reference APP_VERSION=${VERSION}" >&2
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -125,12 +141,26 @@ if echo "$VERSION" | grep -qE 'rc\.[0-9]+'; then
   fi
 fi
 
+# docker-compose.prod.yml must reference the release tag
+if ! grep -q "visiban/backend:${TAG}" docker-compose.prod.yml; then
+  echo "  WARN: docker-compose.prod.yml does not reference backend image ${TAG}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
+# helm/visiban/values.yaml must reference the release tag
+if ! grep -q "tag: \"${TAG}\"" helm/visiban/values.yaml; then
+  echo "  WARN: helm/visiban/values.yaml does not reference image tag ${TAG}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
 if [[ "$ERRORS" -gt 0 ]]; then
   echo "  ${ERRORS} version consistency warning(s) — review before committing" >&2
 fi
 
 # Commit and push branch
-git add CHANGELOG.md .env.example docker-compose.yml frontend/package.json README.md docs/index.md
+git add CHANGELOG.md .env.example docker-compose.yml docker-compose.prod.yml \
+        frontend/package.json README.md docs/index.md docs/getting-started/installation.md \
+        helm/visiban/values.yaml
 git commit -m "chore: release ${TAG}"
 git push -u origin "$RELEASE_BRANCH"
 

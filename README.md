@@ -1,14 +1,27 @@
 # Visiban
 
-[![pipeline](https://gitlab.com/visiban/visiban/badges/main/pipeline.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
-[![coverage](https://gitlab.com/visiban/visiban/badges/main/coverage.svg)](https://gitlab.com/visiban/visiban/-/pipelines)
-[![release](https://img.shields.io/badge/release-v1.0.0--rc.10-blue)](https://gitlab.com/visiban/visiban/-/releases/v1.0.0-rc.10)
+[![pipeline](https://img.shields.io/gitlab/pipeline-status/visiban%2Fvisiban?branch=main&label=pipeline)](https://gitlab.com/visiban/visiban/-/pipelines)
+[![coverage](https://img.shields.io/gitlab/pipeline-coverage/visiban%2Fvisiban?branch=main&label=coverage)](https://gitlab.com/visiban/visiban/-/pipelines)
+[![release](https://img.shields.io/github/v/release/visiban/visiban?include_prereleases&label=release)](https://github.com/visiban/visiban/releases)
 [![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/next/)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 **Visiban is a self-hosted Kanban board for teams that track many independent entities through a shared pipeline.** Think customers moving through a sales process, accounts in an onboarding flow, or projects across delivery stages — each gets its own swimlane row, and the whole board gives you an at-a-glance view of where everything stands.
 
 Every card move is recorded automatically. You always know where something is _and_ how it got there.
+
+---
+
+## Where things live
+
+| | |
+|---|---|
+| **Source of truth** | [gitlab.com/visiban/visiban](https://gitlab.com/visiban/visiban) — development, CI/CD, and merge requests |
+| **Releases & containers** | [github.com/visiban/visiban](https://github.com/visiban/visiban) — release tags, GitHub Releases, and Docker images on GHCR |
+| **Bug reports & feature requests** | [GitLab Issues](https://gitlab.com/visiban/visiban/-/issues) — opening an issue on GitHub automatically bridges it there |
+| **Documentation** | [docs.visiban.com](https://docs.visiban.com/next/) |
+
+GitHub is a read-only mirror of the GitLab repository. All development happens on GitLab; GitHub is the public distribution point.
 
 ---
 
@@ -103,7 +116,31 @@ mkdocs serve --dev-addr=localhost:8001
 
 ## Contributing
 
-Bug reports, feature requests, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+**Bug reports and feature requests** go to [GitLab Issues](https://gitlab.com/visiban/visiban/-/issues). If you open an issue on GitHub it will be automatically bridged to GitLab — you'll receive a comment with the tracking link.
+
+**Merge requests** are accepted on GitLab only. GitHub pull requests cannot be merged (GitHub is a mirror).
+
+---
+
+## Docker images
+
+Release images are published to GitHub Container Registry and require no authentication:
+
+```bash
+docker pull ghcr.io/visiban/visiban/backend:latest
+docker pull ghcr.io/visiban/visiban/frontend:latest
+```
+
+Pin to a specific release for production:
+
+```bash
+docker pull ghcr.io/visiban/visiban/backend:v1.0.0-rc.10
+docker pull ghcr.io/visiban/visiban/frontend:v1.0.0-rc.10
+```
+
+All release tags are listed at [github.com/visiban/visiban/releases](https://github.com/visiban/visiban/releases).
 
 ---
 

@@ -93,6 +93,7 @@ nav:
     - API Versioning: architecture/api-versioning.md
   - Administration:
     - administration/index.md
+    - Configuration: administration/configuration.md
     - Site Admins: administration/site-admins.md
     - Admin Panel: administration/admin-panel.md
     - Authentication: administration/authentication.md
