@@ -1,5 +1,14 @@
 # Visiban — Claude Instructions
 
+## Personas
+
+- **Maya** (Project Manager, mid-size team): plans sprints, monitors progress, needs at-a-glance status across multiple simultaneous workstreams. Values: speed and overview. Pain: too many context switches, can't see the whole picture in one place.
+- **Jordan** (Senior Engineer, power user): lives in the board all day, uses keyboard shortcuts, relies on the audit trail for incident retrospectives. Values: accuracy, keyboard nav, full history. Pain: anything that interrupts flow or hides information.
+- **Sam** (Designer, occasional user): checks in a few times a week to update card status and add notes. Values: intuitive UI that requires no training. Pain: features that assume daily familiarity.
+- **Alex** (IT Admin): provisions users, manages SSO, monitors usage, handles onboarding. Values: control, visibility, low maintenance. Pain: anything requiring manual intervention at scale.
+
+---
+
 ## Secure code — always on
 
 When writing any backend code, apply these by default — no need to be asked:
