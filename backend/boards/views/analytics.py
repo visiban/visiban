@@ -335,6 +335,26 @@ class BoardAnalyticsMixin:
                     if card_exited:
                         throughput_dwells[col_name].append((exit_ - mv.moved_at).total_seconds() / 86400)
 
+                # ── Long-dwelling cards (no movements in the 2× buffer) ──────────
+                # Cards that have been sitting in their current column since before the
+                # buffer start have no entries in the prefetch but still need to
+                # contribute to col_dwells (deprecated avg_days_per_column).
+                # Their clamped dwell equals exactly `days` (entry clamped to
+                # period_cutoff, exit = now).  throughput_dwells is intentionally
+                # excluded — the card hasn't left the column during the period.
+                # The `_last_moved_at is not None` guard excludes newly-created cards
+                # that have never been moved (no movement record → dwell is not meaningful).
+                if (
+                    not movements
+                    and card._last_moved_at is not None
+                    and card.archived_at is None
+                    and card.column_id not in done_col_ids
+                ):
+                    stale_col_name = col_id_to_name.get(card.column_id)
+                    if stale_col_name and stale_col_name not in done_col_names:
+                        col_dwells[stale_col_name].append(float(days))
+                        all_col_dwells[stale_col_name].append(float(days))
+
                 # ── Age pass (currently-dwelling cards, snapshot of "now") ────────
                 # Only for non-archived cards in non-done columns.
                 # Uses _last_col_entry_at annotation (compiled into the main card SELECT)
