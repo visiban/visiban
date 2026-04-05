@@ -3,7 +3,17 @@
 !!! note "Available from 1.0"
     This guide covers upgrades from Visiban 1.0 onward. If you are migrating from a pre-1.0 release, follow the [1.0 release notes](#upgrading-to-100) below first.
 
-This page explains how to safely upgrade a self-hosted Visiban instance between releases. The standard path is: pull the new image, run database migrations, restart. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
+This page explains how to safely upgrade a self-hosted Visiban instance between releases.
+
+## Version compatibility quick-reference
+
+| Upgrading from | Upgrading to | Standard upgrade? | Notes |
+|---|---|---|---|
+| Any pre-1.0 beta or RC | 1.0.x | **No — maintenance window required** | Run the `groups/0003_placeholder` SQL fix first; `boards/0005` and `groups/0012` both require stopping backends before migration. See [Upgrading to 1.0.0](#upgrading-to-100). |
+| 1.0.x | 1.0.x (patch) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). |
+| 1.0.x | 1.1.x (minor) | Yes — zero-downtime | Follow the [standard upgrade steps](#standard-upgrade-steps). Check the [release-specific notes](#release-specific-upgrade-notes) for any migration-window exceptions. |
+
+Skipping minor versions (e.g. 1.0 → 1.2 directly) is supported — run all intermediate migrations in sequence. The standard upgrade command (`manage.py migrate`) handles this automatically. The standard path is: pull the new image, run database migrations, restart. The sections below cover what makes each step safe and what to watch out for in more complex deployments.
 
 ---
 
