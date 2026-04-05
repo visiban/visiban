@@ -339,7 +339,7 @@ describe('AnalyticsView', () => {
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('Stale Card')).toBeInTheDocument()
-    expect(screen.getByText('14d stalled')).toBeInTheDocument()
+    expect(screen.getByText('14d')).toBeInTheDocument()
   })
 
   it('calls onOpenCard when a stalled card row is clicked', async () => {

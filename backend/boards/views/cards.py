@@ -797,7 +797,7 @@ class CardViewSet(viewsets.ModelViewSet):
         movements = card.movements.select_related(
             "card", "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"
         )
-        return Response(CardMovementSerializer(movements, many=True).data)
+        return Response(CardMovementSerializer(movements, many=True, context={"request": request}).data)
 
     @action(detail=True, methods=["get"])
     def activities(self, request, board_pk=None, pk=None):

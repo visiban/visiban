@@ -124,9 +124,11 @@ function ColumnName({ id, name, columnIds }: { id: number | null; name: string |
 export default function CardMovementTimeline({ boardId, cardId, columnIds, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h" }: Props) {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [showAll, setShowAll] = useShowFullHistoryPref();
 
   useEffect(() => {
+    setError(false);
     Promise.all([
       getCardMovements(boardId, cardId),
       getCardActivities(boardId, cardId),
@@ -137,10 +139,11 @@ export default function CardMovementTimeline({ boardId, cardId, columnIds, userD
       ];
       combined.sort((a, b) => a.ts - b.ts);
       setEntries(combined);
-    }).finally(() => setLoading(false));
+    }).catch(() => setError(true)).finally(() => setLoading(false));
   }, [boardId, cardId]);
 
   if (loading) return <p className="text-sm text-slate-400">Loading history…</p>;
+  if (error) return <p className="text-sm text-red-400">Failed to load history.</p>;
   if (entries.length === 0) return <p className="text-sm text-slate-400">No activity yet.</p>;
 
   const rawVisible = showAll ? entries : entries.filter((e) => e.kind === "move");
