@@ -1,7 +1,7 @@
 # Visiban
 
-[![pipeline](https://img.shields.io/gitlab/pipeline-status/visiban%2Fvisiban?branch=main&label=pipeline)](https://gitlab.com/visiban/visiban/-/pipelines)
-[![coverage](https://img.shields.io/gitlab/pipeline-coverage/visiban%2Fvisiban?branch=main&label=coverage)](https://gitlab.com/visiban/visiban/-/pipelines)
+[![pipeline status](https://gitlab.com/visiban/visiban/badges/main/pipeline.svg)](https://gitlab.com/visiban/visiban/-/commits/main)
+[![coverage report](https://gitlab.com/visiban/visiban/badges/main/coverage.svg)](https://gitlab.com/visiban/visiban/-/commits/main)
 [![release](https://img.shields.io/github/v/release/visiban/visiban?include_prereleases&label=release)](https://github.com/visiban/visiban/releases)
 [![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/next/)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
