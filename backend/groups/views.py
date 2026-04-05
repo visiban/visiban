@@ -89,13 +89,11 @@ class GroupViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         from .models import get_accessible_group_ids
         user = self.request.user
-        # Base relations needed for all actions.
-        related = ["owner", "parent"]
-        if self.action == "retrieve":
-            # Pre-fetch the full ancestor chain so GroupDetailSerializer can call
-            # obj.ancestors() without issuing a separate query per level.
-            # Six chained parent__ lookups matches _GROUP_TRAVERSAL_MAX_DEPTH.
-            related += ["__".join(["parent"] * d) for d in range(2, 7)]
+        # Pre-fetch the full ancestor chain for all actions (not just "retrieve")
+        # so _require_group_admin() and _require_group_member() read from already-
+        # loaded parent objects instead of issuing up to 5 lazy FK queries per
+        # write action on nested groups. Six levels matches _GROUP_TRAVERSAL_MAX_DEPTH.
+        related = ["owner"] + ["__".join(["parent"] * d) for d in range(1, 7)]
         qs = Group.objects.filter(
             id__in=get_accessible_group_ids(user)
         ).select_related(*related).prefetch_related(
@@ -324,8 +322,9 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         # Apply group defaults: copy shared labels and allowed priorities
         from boards.models import Label as BoardLabel
-        group_labels = group.labels.all()
-        if group_labels.exists():
+        # list() evaluates the queryset once; .exists() + iteration would fire two queries.
+        group_labels = list(group.labels.all())
+        if group_labels:
             BoardLabel.objects.bulk_create([
                 BoardLabel(board=board, name=gl.name, color=gl.color)
                 for gl in group_labels
@@ -336,7 +335,16 @@ class GroupViewSet(viewsets.ModelViewSet):
             board.allowed_priorities = allowed
             board.save(update_fields=["allowed_priorities"])
 
-        return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
+        # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
+        # is_starred reads from annotation fast-paths instead of issuing 3 fallback queries.
+        from django.db.models import Q as _Q
+        from boards.models import BoardFavorite as _BoardFavorite
+        board = Board.objects.select_related("owner", "group").annotate(
+            _member_count=Count("memberships", distinct=True),
+            _card_count=Count("cards", filter=_Q(cards__archived_at__isnull=True), distinct=True),
+            _is_starred=Exists(_BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+        ).get(pk=board.pk)
+        return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
     # Descendant boards

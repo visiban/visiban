@@ -324,10 +324,25 @@ class BoardFullSerializer(serializers.ModelSerializer):
         Member IDs and board labels are pre-computed once here and threaded
         through context so CardSerializer.__init__ does not re-query them
         for every card instance (N+1 fix — see #490).
+
+        Site-admin users are pre-fetched here and cached in context so
+        get_members() can reuse the same objects without a second identical
+        query. ("cards" precedes "members" in Meta.fields so this runs first.)
         """
+        from accounts.models import User
         from .utils import _get_effective_member_ids
+        # Pre-fetch site admins once; get_members() will read from context.
+        site_admin_users = self.context.get("_site_admin_users")
+        if site_admin_users is None:
+            site_admin_users = list(
+                User.objects.filter(can_access_all_content=True).only(
+                    "id", "username", "display_name", "avatar_url"
+                )
+            )
+            self.context["_site_admin_users"] = site_admin_users
+        site_admin_ids = {u.pk for u in site_admin_users}
         qs = _card_queryset(obj.cards.filter(archived_at__isnull=True))
-        member_ids = _get_effective_member_ids(obj)
+        member_ids = _get_effective_member_ids(obj, site_admin_ids=site_admin_ids)
         # Reuse the labels prefetch loaded by get_board_for_user() rather than
         # issuing a second Label query.  The board must be fetched via
         # get_board_for_user() (which prefetches "labels") for this to hit the
@@ -349,8 +364,6 @@ class BoardFullSerializer(serializers.ModelSerializer):
         The ``id`` field is None for inherited/implicit members (they have no
         BoardMembership row on this board).
         """
-        from accounts.models import User
-
         # Direct board members keyed by user_id.
         # Use the prefetch loaded by get_board_for_user() when available to avoid
         # a live select_related query on every /full/ request.
@@ -388,11 +401,17 @@ class BoardFullSerializer(serializers.ModelSerializer):
             seen[obj.owner_id] = {"id": None, "user": obj.owner, "role": "admin", "is_moderator": False, "joined_at": obj.created_at}
 
         # Include users with can_access_all_content so they appear in @mention autocomplete.
-        # .only() limits the columns fetched — BoardUserSerializer only needs these four fields,
-        # and this query runs on every /full/ request regardless of board membership.
-        for u in User.objects.filter(can_access_all_content=True).only(
-            "id", "username", "display_name", "avatar_url"
-        ):
+        # Reuse the list pre-fetched by get_cards() when available (cached in context so
+        # the can_access_all_content query runs at most once per /full/ request).
+        site_admin_users = self.context.get("_site_admin_users")
+        if site_admin_users is None:
+            from accounts.models import User as _User
+            site_admin_users = list(
+                _User.objects.filter(can_access_all_content=True).only(
+                    "id", "username", "display_name", "avatar_url"
+                )
+            )
+        for u in site_admin_users:
             if u.pk not in seen:
                 seen[u.pk] = {"id": None, "user": u, "role": "site_admin", "is_moderator": False, "joined_at": obj.created_at}
 
@@ -548,7 +567,10 @@ class PublicBoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["uid", "name", "staleness_threshold_days", "columns", "swimlanes", "labels", "cards"]
+        # staleness_threshold_days intentionally omitted: it is an internal board
+        # configuration value; is_stale is computed server-side so the threshold
+        # does not need to be exposed to anonymous share-link visitors.
+        fields = ["uid", "name", "columns", "swimlanes", "labels", "cards"]
 
     def get_cards(self, obj):
         qs = (

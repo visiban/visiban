@@ -3,7 +3,7 @@
 import datetime
 import statistics
 
-from django.db.models import Count, Min, Q
+from django.db.models import Count, Min, Prefetch, Q
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -220,11 +220,24 @@ class BoardAnalyticsMixin:
         # inflate past-column counts without adding value to the selected view.
         # Age mode needs all currently-active (non-archived) cards regardless of
         # the period window, so we load the union.
-        from django.db.models import Q as _Q
         all_cards = list(
             board.cards.filter(
-                _Q(archived_at__isnull=True) | _Q(archived_at__gte=period_cutoff)
-            ).prefetch_related("movements").order_by("swimlane_id", "position")
+                Q(archived_at__isnull=True) | Q(archived_at__gte=period_cutoff)
+            )
+            .prefetch_related(
+                Prefetch(
+                    "movements",
+                    # Load only the fields the analytics algorithm reads; order at the
+                    # DB level so the per-card Python sort is eliminated.  .only() keeps
+                    # the prefetch cache lean — the full movement row (~20 fields) is not
+                    # needed; we read only timestamps, column FK, and the denormalized
+                    # column name used as a fallback for deleted/recreated columns.
+                    queryset=CardMovement.objects.only(
+                        "card_id", "to_column_id", "to_column_name", "moved_at"
+                    ).order_by("moved_at"),
+                )
+            )
+            .order_by("swimlane_id", "position")
         )
         cards_by_swimlane: dict[int, list] = {}
         for _c in all_cards:
@@ -242,9 +255,9 @@ class BoardAnalyticsMixin:
             deal_velocity_days = []
 
             for card in cards:
-                # Use .all() to read from the prefetch cache; re-sorting in Python
-                # avoids an extra ORDER BY query per card.
-                movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
+                # .all() reads from the Prefetch cache (already ordered by moved_at at
+                # the DB level above); list() materialises it so len() and indexing work.
+                movements = list(card.movements.all())
                 if not movements:
                     continue
 

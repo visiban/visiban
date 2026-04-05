@@ -21,7 +21,7 @@ from accounts.models import User
 from groups.models import Group, GroupMembership
 
 from ..models import (
-    Board, BoardMembership as BoardMembershipModel, Card, CardActivity,
+    Board, BoardFavorite, BoardMembership as BoardMembershipModel, Card, CardActivity,
     CardChecklist, CardComment, CardMovement, Column, Label, Swimlane,
 )
 from ..permissions import SITE_ADMIN
@@ -535,7 +535,15 @@ class BoardImportExportMixin:
                         [obj for obj, _ in backfill], ["created_at"]
                     )
 
-        return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
+        # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
+        # is_starred reads from annotation fast-paths instead of 3 fallback queries.
+        from django.db.models import Count, Exists, OuterRef, Q
+        board = Board.objects.select_related("owner", "group").annotate(
+            _member_count=Count("memberships", distinct=True),
+            _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+            _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+        ).get(pk=board.pk)
+        return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     def _import_csv(self, request, file):
         """Create a new board from a CSV file with one card per row.
@@ -782,7 +790,15 @@ class BoardImportExportMixin:
             if label_through_objs:
                 label_through_model.objects.bulk_create(label_through_objs, ignore_conflicts=True)
 
-        return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
+        # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
+        # is_starred reads from annotation fast-paths instead of 3 fallback queries.
+        from django.db.models import Count, Exists, OuterRef, Q
+        board = Board.objects.select_related("owner", "group").annotate(
+            _member_count=Count("memberships", distinct=True),
+            _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+            _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+        ).get(pk=board.pk)
+        return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):

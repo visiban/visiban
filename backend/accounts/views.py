@@ -55,9 +55,10 @@ class UserSearchView(APIView):
         users = (
             User.objects.filter(
                 Q(display_name__icontains=query)
-                | Q(email__icontains=query)
                 | Q(username__icontains=query)
                 | Q(first_name__icontains=query)
+                # email intentionally excluded: filtering on email without returning it
+                # creates a silent email-existence oracle for any authenticated caller.
             )
             .exclude(pk=request.user.pk)
             .order_by("display_name", "username")[:10]

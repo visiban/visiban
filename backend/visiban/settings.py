@@ -284,6 +284,13 @@ CSRF_COOKIE_SECURE = not DEBUG
 # authoritative indicator of HTTPS. Required for request.is_secure() to
 # return True behind the Nginx reverse proxy.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# HTTP security headers — opt-in Django SecurityMiddleware settings.
+# HSTS tells browsers to always use HTTPS; env override allows operators to
+# set 0 during initial deployment before they have verified HTTPS is stable.
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0 if DEBUG else 31536000)
+SECURE_CONTENT_TYPE_NOSNIFF = not DEBUG
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # django-allauth
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
