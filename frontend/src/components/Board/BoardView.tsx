@@ -103,7 +103,27 @@ function ViewToggle({
       {btn("Board", "board")}
       {btn("Summary", "summary")}
       {btn("History", "history", "history")}
-      {btn("Analytics", "analytics")}
+      <button
+        onClick={() => onChange("analytics")}
+        className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          view === "analytics"
+            ? "bg-blue-600 text-white"
+            : "text-slate-400 hover:text-white hover:bg-slate-600"
+        }`}
+      >
+        <span className="flex items-center gap-1.5">
+          Analytics
+          <span
+            className={`px-1 py-0 text-[10px] font-medium rounded leading-4 ${
+              view === "analytics"
+                ? "bg-amber-500/30 text-amber-300"
+                : "bg-amber-500/20 text-amber-400"
+            }`}
+          >
+            Beta
+          </span>
+        </span>
+      </button>
     </div>
   );
 }

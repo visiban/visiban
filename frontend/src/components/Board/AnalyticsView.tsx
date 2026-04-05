@@ -178,6 +178,14 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-slate-900">
+      {/* Beta notice — remove when analytics is declared stable */}
+      <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-slate-700 bg-slate-800">
+        <span className="text-xs text-amber-400 font-medium">Beta</span>
+        <span className="text-slate-600 select-none">·</span>
+        <span className="text-xs text-slate-400">
+          Analytics data may be incomplete in some configurations. Results are best used as directional guidance.
+        </span>
+      </div>
       {/* Pinned top: toolbar + heatmap — always visible */}
       <div className="shrink-0 flex flex-col gap-4 px-4 pt-4">
         {/* Toolbar */}
