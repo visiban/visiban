@@ -51,7 +51,13 @@ export function useBoardSocket(
   useEffect(() => {
     if (!boardId) return;
 
-    const wsBase = (import.meta.env.VITE_API_URL || "http://localhost:8000")
+    // When VITE_API_URL is "" (the default in production Docker builds, meaning
+    // the API is served from the same origin via nginx), fall back to
+    // window.location.origin so the WebSocket connects to the same host as the
+    // page.  Using || here (not ??) is intentional: empty string is falsy and
+    // must not be passed through — it would produce a broken URL like
+    // "ws:///ws/boards/5/".
+    const wsBase = (import.meta.env.VITE_API_URL || window.location.origin)
       .replace(/^http/, "ws");
     const url = `${wsBase}/ws/boards/${boardId}/`;
 

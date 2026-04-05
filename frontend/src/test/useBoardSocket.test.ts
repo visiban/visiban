@@ -62,6 +62,17 @@ describe('useBoardSocket', () => {
     expect(latestWS().url).toBe('ws://localhost:8000/ws/boards/42/')
   })
 
+  it('falls back to window.location.origin when VITE_API_URL is empty', () => {
+    vi.stubEnv('VITE_API_URL', '')
+    const onEvent = vi.fn()
+    renderHook(() => useBoardSocket(42, onEvent))
+
+    expect(instances).toHaveLength(1)
+    // window.location.origin in vitest/jsdom is "http://localhost:3000"; replace http→ws
+    expect(latestWS().url).toBe('ws://localhost:3000/ws/boards/42/')
+    vi.unstubAllEnvs()
+  })
+
   it('does not connect when boardId is null', () => {
     const onEvent = vi.fn()
     renderHook(() => useBoardSocket(null, onEvent))
