@@ -192,6 +192,11 @@ class BoardAnalyticsMixin:
         period_cutoff = now - datetime.timedelta(days=days)
 
         columns = list(board.columns.order_by("position"))
+        # Load swimlanes into a list here so the loop at the bottom of this method
+        # iterates a Python list rather than issuing a fresh queryset.  Calling
+        # board.swimlanes.order_by() inside the for-statement bypasses Django's
+        # prefetch cache because order_by() always creates a new queryset.
+        swimlanes = list(board.swimlanes.order_by("position"))
         # Partition columns into active (dwell tracked) and done (terminal — clock stops
         # on entry). col_id_to_name and col_name_set are built from ALL columns so the
         # denormalized-name fallback for deleted/recreated columns continues to work.
@@ -225,7 +230,7 @@ class BoardAnalyticsMixin:
         for _c in all_cards:
             cards_by_swimlane.setdefault(_c.swimlane_id, []).append(_c)
 
-        for swimlane in board.swimlanes.order_by("position"):
+        for swimlane in swimlanes:
             cards = cards_by_swimlane.get(swimlane.id, [])
             # col_dwells: period-filtered, clamped entry — feeds avg_days_per_column (deprecated).
             col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
