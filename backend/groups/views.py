@@ -276,7 +276,12 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         if request.method == "GET":
             # Group membership implies access to all boards in the group —
-            # no separate BoardMembership required.
+            # no separate BoardMembership required. This means a viewer-role
+            # group member can see all board names and metadata in the group
+            # even without an explicit BoardMembership row. This is intentional:
+            # adding someone to a group grants visibility into that group's
+            # boards. Operators should document this in their onboarding guides
+            # (see docs/features/rbac/roles.md).
             # Annotations mirror BoardViewSet.get_queryset() so BoardSerializer
             # can use the cached values instead of issuing 3 extra queries per board.
             from boards.models import BoardFavorite
@@ -298,6 +303,12 @@ class GroupViewSet(viewsets.ModelViewSet):
         serializer = BoardSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         board = serializer.save(owner=request.user, group=group)
+        # Create an explicit BoardMembership for the owner so they appear in the
+        # board's member list. BoardViewSet.perform_create() does this too; without
+        # it the owner relies on the implicit owner check in get_board_role(), but
+        # no membership row would exist, causing the member list to appear empty.
+        from boards.models import BoardMembership as _BM
+        _BM.objects.create(board=board, user=request.user, role=_BM.Role.ADMIN)
 
         from boards.templates import BOARD_TEMPLATES
         template_key = (request.data.get("template") or "simple_kanban").strip()

@@ -680,3 +680,61 @@ class CanAccessAllContentBypassTests(TestCase):
             _require_group_member(self.superuser, self.group)
         except Exception as exc:
             self.fail(f"_require_group_member raised unexpectedly: {exc}")
+
+    def test_get_accessible_group_ids_uses_can_access_all_content_not_is_site_admin(self):
+        """A user with is_site_admin=True but can_access_all_content=False must NOT
+        see all groups. The documented privilege model reserves is_site_admin for the
+        /api/admin/* UI only; can_access_all_content is the flag that grants broad
+        content access."""
+        from groups.models import get_accessible_group_ids
+
+        # Site admin without can_access_all_content — should only see their own groups.
+        site_admin_only = User.objects.create_user(
+            username="site_admin_no_content", password="pass",
+            is_site_admin=True, can_access_all_content=False,
+        )
+        # A separate group the site_admin_only user has no membership in.
+        other_group = _make_group(self.owner, "Other Group")
+
+        ids = get_accessible_group_ids(site_admin_only)
+        self.assertNotIn(
+            other_group.id, ids,
+            "is_site_admin alone must not grant visibility into unrelated groups",
+        )
+
+        # A user with can_access_all_content=True must see all groups.
+        ids_super = get_accessible_group_ids(self.superuser)
+        self.assertIn(
+            other_group.id, ids_super,
+            "can_access_all_content must grant visibility into all groups",
+        )
+
+
+class GroupBoardMembershipTests(TestCase):
+    """Creating a board inside a group must write a BoardMembership row for the owner."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="grp_board_owner", password="pass")
+        self.group = _make_group(self.owner, "Membership Group")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def test_create_board_in_group_creates_admin_membership(self):
+        """POST /api/groups/{id}/boards/ must create a BoardMembership(ADMIN) for the
+        requesting user so the board's member list is not empty."""
+        from boards.models import BoardMembership
+
+        r = self.client.post(
+            f"/api/groups/{self.group.id}/boards/",
+            {"name": "Membership Board"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        self.assertTrue(
+            BoardMembership.objects.filter(
+                board_id=board_id,
+                user=self.owner,
+                role=BoardMembership.Role.ADMIN,
+            ).exists(),
+            "Owner should have an explicit ADMIN BoardMembership row after creating a board in a group",
+        )

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from rest_framework.permissions import IsAuthenticated
 from accounts.views import InviteRegisterView
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
@@ -24,8 +25,11 @@ urlpatterns = [
     # Public board share-link — no authentication required; token is the credential.
     # Registered at project level (not under /api/boards/) so the URL leaks no board PK.
     path("api/share/<str:token>/", ShareBoardView.as_view(), name="share-board"),
-    # OpenAPI schema endpoints — publicly accessible (no authentication required)
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    # OpenAPI schema endpoints — restricted to authenticated users to avoid
+    # exposing the full API surface (all endpoint paths, parameter names, field
+    # shapes) to unauthenticated callers. Operators may additionally block
+    # /api/schema/* at the Nginx layer for internet-facing deployments.
+    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[IsAuthenticated]), name="schema"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="swagger-ui"),
+    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="redoc"),
 ]

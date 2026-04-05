@@ -120,6 +120,10 @@ class BoardViewSet(
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
         role = get_board_role(request.user, board)
+        # Board deletion is intentionally restricted to the owner and site admins.
+        # Board admins (non-owners) can manage board structure but cannot delete
+        # the board — deletion is irreversible and only the owner should hold that
+        # authority. See docs/features/rbac/roles.md for the full role matrix.
         if board.owner != request.user and role != SITE_ADMIN:
             raise PermissionDenied
         board_id = board.id
@@ -251,6 +255,12 @@ class BoardViewSet(
         if not isinstance(state_json, dict):
             return Response(
                 {"detail": "state_json must be an object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        import json as _json
+        if len(_json.dumps(state_json)) > 65_536:
+            return Response(
+                {"detail": "state_json exceeds the maximum allowed size (64 KB)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

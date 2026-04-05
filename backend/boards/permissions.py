@@ -37,12 +37,22 @@ def get_board_role(user, board):
     # Explicit per-board membership overrides group membership.
     # Cache the membership on the board so _can_modify_others_content can
     # reuse it without a second query.
-    try:
-        membership = board.memberships.get(user=user)
-        board._cached_membership = membership
-        return membership.role
-    except BoardMembership.DoesNotExist:
-        pass
+    # Use the prefetch cache populated by get_board_for_user() when available
+    # to avoid a redundant live query on every board-scoped request.
+    prefetched = getattr(board, "_prefetched_memberships", None)
+    if prefetched is not None:
+        for m in prefetched:
+            if m.user_id == user.id:
+                board._cached_membership = m
+                return m.role
+        # Not found in prefetched list — no explicit per-board membership.
+    else:
+        try:
+            membership = board.memberships.get(user=user)
+            board._cached_membership = membership
+            return membership.role
+        except BoardMembership.DoesNotExist:
+            pass
     if not board.group_id:
         return None
 

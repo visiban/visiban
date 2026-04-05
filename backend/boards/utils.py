@@ -23,7 +23,13 @@ def _get_effective_member_ids(board):
     """
     from accounts.models import User
 
-    eff_ids = set(board.memberships.values_list("user_id", flat=True))
+    # Use the prefetch cache populated by get_board_for_user() when available
+    # to avoid a live membership query that duplicates already-loaded data.
+    prefetched = getattr(board, "_prefetched_memberships", None)
+    if prefetched is not None:
+        eff_ids = {m.user_id for m in prefetched}
+    else:
+        eff_ids = set(board.memberships.values_list("user_id", flat=True))
     eff_ids.add(board.owner_id)
     eff_ids.update(User.objects.filter(can_access_all_content=True).values_list("id", flat=True))
     if board.group_id:

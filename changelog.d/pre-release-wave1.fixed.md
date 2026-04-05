@@ -1,0 +1,11 @@
+Security, performance, and correctness fixes from the pre-release Wave 1 audit:
+- Use `can_access_all_content` (not `is_site_admin`) in `get_accessible_group_ids()` to match the documented privilege model
+- Gate OpenAPI schema endpoints (`/api/schema/`) to authenticated users
+- Add 64 KB size limit on `state_json` in saved filters to prevent unbounded storage growth
+- Create `BoardMembership` row for owner when a board is created inside a group
+- Use `_prefetched_memberships` cache in `get_board_role()` and `_get_effective_member_ids()` to eliminate redundant membership queries per request
+- Pass `_member_ids` and `_board_labels_qs` context in `_refetched_card_data()` to avoid 2–4 extra queries per card mutation response
+- Use label prefetch cache for label-name lookups in `CardViewSet.update()` (eliminates 2 live DB queries per card edit)
+- Use `bulk_create` for columns, swimlanes, and labels in both JSON and CSV board imports (was one INSERT per object)
+- Add `prefetch_related("checklist_items")` to checklist GET card fetch
+- Add structured `logger.warning()` on board access denial for security observability
