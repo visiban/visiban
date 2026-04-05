@@ -14,12 +14,16 @@ def extract_mentions(text: str) -> set:
     return set(re.findall(r"(?<!\w)@(\w+)", text))
 
 
-def _get_effective_member_ids(board):
+def _get_effective_member_ids(board, site_admin_ids=None):
     """
     Return the set of user IDs that are effective members of the board.
 
     Includes direct board memberships, the board owner, site admins, and all
     group ancestors (up to 6 levels) so group-inherited access is respected.
+
+    ``site_admin_ids`` may be passed by callers that have already loaded the
+    site-admin set (e.g. BoardFullSerializer.get_cards()) to avoid a duplicate
+    ``can_access_all_content`` query on the same request.
     """
     from accounts.models import User
 
@@ -31,7 +35,10 @@ def _get_effective_member_ids(board):
     else:
         eff_ids = set(board.memberships.values_list("user_id", flat=True))
     eff_ids.add(board.owner_id)
-    eff_ids.update(User.objects.filter(can_access_all_content=True).values_list("id", flat=True))
+    if site_admin_ids is not None:
+        eff_ids.update(site_admin_ids)
+    else:
+        eff_ids.update(User.objects.filter(can_access_all_content=True).values_list("id", flat=True))
     if board.group_id:
         # Collect ancestor group IDs first, then load all memberships in a
         # single query instead of issuing one query per ancestor level.

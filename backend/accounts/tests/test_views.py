@@ -214,11 +214,13 @@ class UserSearchViewTests(TestCase):
         usernames = [u["username"] for u in r.json()]
         self.assertIn("bob", usernames)
 
-    def test_search_by_email(self):
+    def test_search_by_email_does_not_leak_existence(self):
+        # Email filtering was removed to prevent a silent email-existence oracle:
+        # an email-style query returning results would confirm account existence
+        # even though the email field is not returned in the response body.
         r = self.client.get("/api/users/", {"search": "alice@"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        emails_returned = [u["username"] for u in r.json()]
-        self.assertIn("alice", emails_returned)
+        self.assertEqual(r.json(), [])
 
     def test_short_query_returns_empty(self):
         """Queries shorter than 2 characters return an empty list."""

@@ -408,7 +408,9 @@ export interface PublicCard {
 export interface BoardPublic {
   uid: string;
   name: string;
-  staleness_threshold_days: number;
+  // staleness_threshold_days intentionally omitted — removed from the API response
+  // to avoid leaking internal board configuration to anonymous share-link visitors.
+  // is_stale is computed server-side so the client does not need the threshold value.
   columns: Column[];
   swimlanes: Swimlane[];
   labels: Label[];
