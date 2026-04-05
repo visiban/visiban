@@ -364,8 +364,6 @@ class BoardFullSerializer(serializers.ModelSerializer):
         The ``id`` field is None for inherited/implicit members (they have no
         BoardMembership row on this board).
         """
-        from accounts.models import User
-
         # Direct board members keyed by user_id.
         # Use the prefetch loaded by get_board_for_user() when available to avoid
         # a live select_related query on every /full/ request.
