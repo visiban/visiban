@@ -300,6 +300,11 @@ class AnalyticsDwellTimeTests(TestCase):
         )
         mv.moved_at = moved_at
         mv.save(update_fields=["moved_at"])
+        # Keep card.column in sync with the movement destination so the
+        # long-dwelling cards block (which reads card.column_id) sees the
+        # correct current column, matching what the production move endpoint does.
+        card.column = col
+        card.save(update_fields=["column"])
         return mv
 
     def test_card_entered_before_window_still_shows_dwell_time(self):
