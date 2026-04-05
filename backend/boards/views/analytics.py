@@ -487,15 +487,14 @@ class BoardAnalyticsMixin:
         Query params:
           - ``swimlane_id`` (int): filter by the card's current swimlane.
           - ``to_column_id`` (int): filter by destination column.
-          - ``assignee_id`` (int): filter by card assignee.
+          - ``moved_by_id`` (int): filter by the user who performed the move.
           - ``moved_after`` (ISO date): include movements on or after this date.
           - ``moved_before`` (ISO date): include movements on or before this date.
           - ``exclude_type`` (comma-separated): movement_type values to exclude
             (e.g. ``archived,unarchived`` hides system events).
           - ``offset`` (int, default 0): pagination offset.
 
-        Defaults to the last 30 days when no date params are provided.
-        Page size is fixed at 50.
+        Returns all history when no date params are provided. Page size is fixed at 50.
         """
         board, _ = get_board_for_user(pk, request.user)
         now = timezone.now()
@@ -508,22 +507,21 @@ class BoardAnalyticsMixin:
             .order_by("-moved_at")
         )
 
-        # Date range — default to last 30 days when neither param is supplied.
+        # Date range — no default cutoff; all history is shown when neither
+        # param is supplied. Results are always paginated (PAGE_SIZE=50) so the
+        # absence of a default window does not cause runaway queries.
         moved_after = request.query_params.get("moved_after")
         moved_before = request.query_params.get("moved_before")
-        if not moved_after and not moved_before:
-            qs = qs.filter(moved_at__gte=now - datetime.timedelta(days=30))
-        else:
-            if moved_after:
-                try:
-                    qs = qs.filter(moved_at__date__gte=moved_after)
-                except (ValueError, TypeError):
-                    return Response({"detail": "moved_after must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
-            if moved_before:
-                try:
-                    qs = qs.filter(moved_at__date__lte=moved_before)
-                except (ValueError, TypeError):
-                    return Response({"detail": "moved_before must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
+        if moved_after:
+            try:
+                qs = qs.filter(moved_at__date__gte=moved_after)
+            except (ValueError, TypeError):
+                return Response({"detail": "moved_after must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
+        if moved_before:
+            try:
+                qs = qs.filter(moved_at__date__lte=moved_before)
+            except (ValueError, TypeError):
+                return Response({"detail": "moved_before must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
 
         swimlane_id = request.query_params.get("swimlane_id")
         if swimlane_id:
@@ -533,9 +531,9 @@ class BoardAnalyticsMixin:
         if to_column_id:
             qs = qs.filter(to_column_id=to_column_id)
 
-        assignee_id = request.query_params.get("assignee_id")
-        if assignee_id:
-            qs = qs.filter(card__assignee_id=assignee_id)
+        moved_by_id = request.query_params.get("moved_by_id")
+        if moved_by_id:
+            qs = qs.filter(moved_by_id=moved_by_id)
 
         exclude_type = request.query_params.get("exclude_type")
         if exclude_type:
