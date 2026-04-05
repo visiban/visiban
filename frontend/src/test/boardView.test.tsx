@@ -721,4 +721,58 @@ describe('BoardView', () => {
       expect(live).toBeInTheDocument()
     })
   })
+
+  describe('ViewToggle Beta badge', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+      mockedGetCardStatus.mockResolvedValue(null)
+      mockSearchParams = new URLSearchParams()
+      localStorage.clear()
+      mockBoardContextValue = defaultContext()
+    })
+
+    it('renders a "Beta" badge inside the Analytics tab button', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByText('Beta')).toBeInTheDocument()
+    })
+
+    it('Board tab does not render a "Beta" badge', () => {
+      render(<BoardView {...defaultProps()} />)
+      // There is exactly one "Beta" badge — it belongs to the Analytics button only.
+      expect(screen.getAllByText('Beta')).toHaveLength(1)
+      // Verify the Board button itself contains no "Beta" text.
+      const boardBtn = screen.getByRole('button', { name: 'Board' })
+      expect(boardBtn.textContent).not.toContain('Beta')
+    })
+
+    it('Summary tab does not render a "Beta" badge', () => {
+      render(<BoardView {...defaultProps()} />)
+      const summaryBtn = screen.getByRole('button', { name: 'Summary' })
+      expect(summaryBtn.textContent).not.toContain('Beta')
+    })
+
+    it('History tab does not render a "Beta" badge', () => {
+      render(<BoardView {...defaultProps()} />)
+      const historyBtn = screen.getByRole('button', { name: 'History' })
+      expect(historyBtn.textContent).not.toContain('Beta')
+    })
+
+    it('badge has inactive amber classes when Analytics is not the active tab', () => {
+      // Default view is "board", so the Analytics tab is inactive.
+      mockSearchParams = new URLSearchParams()
+      render(<BoardView {...defaultProps()} />)
+      const badge = screen.getByText('Beta')
+      expect(badge.className).toContain('bg-amber-500/20')
+      expect(badge.className).toContain('text-amber-400')
+    })
+
+    it('badge has active amber classes when Analytics IS the active tab', () => {
+      mockSearchParams = new URLSearchParams('view=analytics')
+      render(<BoardView {...defaultProps()} />)
+      const badge = screen.getByText('Beta')
+      expect(badge.className).toContain('bg-amber-500/30')
+      expect(badge.className).toContain('text-amber-300')
+    })
+  })
+
 })
