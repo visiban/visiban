@@ -133,6 +133,17 @@ class User(AbstractUser):
         constraints = [
             UniqueConstraint(Lower("username"), name="unique_username_ci"),
         ]
+        indexes = [
+            # Partial index covering only the tiny set of site-admin users.
+            # BoardFullSerializer.get_members() filters by can_access_all_content=True
+            # on every /full/ request; without this index the query scans the full
+            # user table even though virtually all rows have the field False.
+            models.Index(
+                fields=["can_access_all_content"],
+                name="user_can_access_all_idx",
+                condition=models.Q(can_access_all_content=True),
+            ),
+        ]
 
 
 class PersonalAccessToken(models.Model):
