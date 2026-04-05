@@ -264,6 +264,10 @@ class BoardSerializer(serializers.ModelSerializer):
     def get_is_starred(self, obj):
         if hasattr(obj, "_is_starred"):
             return obj._is_starred
+        # _user_favorites is prefetched by get_board_for_user() — use it when present
+        # to avoid a live EXISTS query on mutation responses (share, move_group, etc.).
+        if hasattr(obj, "_user_favorites"):
+            return bool(obj._user_favorites)
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
@@ -347,9 +351,14 @@ class BoardFullSerializer(serializers.ModelSerializer):
         """
         from accounts.models import User
 
-        # Direct board members keyed by user_id
+        # Direct board members keyed by user_id.
+        # Use the prefetch loaded by get_board_for_user() when available to avoid
+        # a live select_related query on every /full/ request.
         seen = {}
-        for m in obj.memberships.select_related("user").all():
+        memberships = getattr(obj, "_prefetched_memberships", None)
+        if memberships is None:
+            memberships = list(obj.memberships.select_related("user").all())
+        for m in memberships:
             seen[m.user_id] = {"id": m.id, "user": m.user, "role": m.role, "is_moderator": m.is_moderator, "joined_at": m.joined_at}
 
         # Group-inherited members — collect ancestor group IDs in a single
