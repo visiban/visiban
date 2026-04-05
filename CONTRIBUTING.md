@@ -6,12 +6,23 @@ Thank you for taking the time to contribute. This document covers how to report 
 
 ## Contents
 
+- [Finding your first issue](#finding-your-first-issue)
 - [Filing a bug report](#filing-a-bug-report)
 - [Requesting a feature](#requesting-a-feature)
 - [Setting up for development](#setting-up-for-development)
 - [Running tests](#running-tests)
 - [Submitting a merge request](#submitting-a-merge-request)
 - [Code style](#code-style)
+
+---
+
+## Finding your first issue
+
+New contributors should look for issues labeled [**`good-first-issue`**](https://gitlab.com/visiban/visiban/-/issues?label_name=good-first-issue). These are tasks the maintainers have judged to be well-scoped, low-risk, and well-documented — a good way to get familiar with the codebase without needing deep context.
+
+If you are unsure where to start or would like guidance on a specific issue, leave a comment on the issue and a maintainer will help you get oriented.
+
+Issues labeled [**`help-wanted`**](https://gitlab.com/visiban/visiban/-/issues?label_name=help-wanted) are tasks the maintainers would like community help with but that may require a bit more context. They are a good next step after your first contribution.
 
 ---
 
