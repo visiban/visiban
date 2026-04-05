@@ -103,3 +103,17 @@ class UnauthenticatedBoardAccessTests(TestCase):
     def test_user_search_rejected(self):
         resp = self.client.get("/api/users/", {"q": "owner"})
         self.assertIn(resp.status_code, DENIED)
+
+    # -- OpenAPI schema endpoints --
+
+    def test_schema_json_rejected(self):
+        resp = self.client.get("/api/schema/")
+        self.assertIn(resp.status_code, DENIED)
+
+    def test_swagger_ui_rejected(self):
+        resp = self.client.get("/api/schema/swagger-ui/")
+        self.assertIn(resp.status_code, DENIED)
+
+    def test_redoc_rejected(self):
+        resp = self.client.get("/api/schema/redoc/")
+        self.assertIn(resp.status_code, DENIED)
