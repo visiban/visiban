@@ -497,7 +497,6 @@ class BoardAnalyticsMixin:
         Returns all history when no date params are provided. Page size is fixed at 50.
         """
         board, _ = get_board_for_user(pk, request.user)
-        now = timezone.now()
         PAGE_SIZE = 50
 
         qs = (
