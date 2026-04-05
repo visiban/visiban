@@ -50,7 +50,7 @@ class CardMoveTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_move_card_creates_movement(self, _):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/move/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/move/",
             {"column_id": self.col2.id, "swimlane_id": self.swim.id, "position": 0},
             format="json",
         )
@@ -64,7 +64,7 @@ class CardMoveTests(TestCase):
         )
         self.client.force_authenticate(collab)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/move/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/move/",
             {"column_id": self.col2.id, "swimlane_id": self.swim.id, "position": 0},
             format="json",
         )
@@ -86,7 +86,7 @@ class CardUpdateExtraTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_update_weight_logs_activity(self, _):
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"weight": 5},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -99,7 +99,7 @@ class CardUpdateExtraTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_update_description_logs_activity(self, _):
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"description": "New description"},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -114,7 +114,7 @@ class CardUpdateExtraTests(TestCase):
         label = Label.objects.create(board=self.board, name="Bug", color="#F00")
         self.card.labels.add(label)
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"label_ids": []},
             format="json",
         )
@@ -132,7 +132,7 @@ class CardUpdateExtraTests(TestCase):
         )
         self.client.force_authenticate(collab)
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"title": "Hacked"},
         )
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
@@ -156,7 +156,7 @@ class CardAttachmentTests(TestCase):
 
     def test_list_attachments_empty(self):
         r = self.client.get(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/attachments/"
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/"
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json(), [])
@@ -166,7 +166,7 @@ class CardAttachmentTests(TestCase):
         upload = io.BytesIO(content)
         upload.name = "test.txt"
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/attachments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/",
             {"file": upload},
             format="multipart",
         )
@@ -175,7 +175,7 @@ class CardAttachmentTests(TestCase):
 
     def test_upload_missing_file_rejected(self):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/attachments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/",
             {},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -185,14 +185,14 @@ class CardAttachmentTests(TestCase):
         upload = io.BytesIO(b"data")
         upload.name = "del.txt"
         r_up = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/attachments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/",
             {"file": upload},
             format="multipart",
         )
         self.assertEqual(r_up.status_code, status.HTTP_201_CREATED)
         att_id = r_up.json()["id"]
         r = self.client.delete(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/attachments/{att_id}/"
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/{att_id}/"
         )
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
@@ -216,7 +216,7 @@ class BoardMoveGroupTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_owner_can_move_board_to_group(self, _):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/move-group/",
+            f"/api/v1/boards/{self.board.id}/move-group/",
             {"group_id": self.group.id},
             format="json",
         )
@@ -229,7 +229,7 @@ class BoardMoveGroupTests(TestCase):
         self.board.group = self.group
         self.board.save()
         r = self.client.post(
-            f"/api/boards/{self.board.id}/move-group/",
+            f"/api/v1/boards/{self.board.id}/move-group/",
             {"group_id": None},
             format="json",
         )
@@ -245,7 +245,7 @@ class BoardMoveGroupTests(TestCase):
         )
         self.client.force_authenticate(self.other)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/move-group/",
+            f"/api/v1/boards/{self.board.id}/move-group/",
             {"group_id": self.group.id},
             format="json",
         )
@@ -272,7 +272,7 @@ class BoardAnalyticsWithMovementsTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_analytics_with_movements_returns_ok(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertIn("swimlanes", data)
@@ -314,7 +314,7 @@ class AnalyticsDwellTimeTests(TestCase):
         now = timezone.now()
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=45))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
@@ -332,7 +332,7 @@ class AnalyticsDwellTimeTests(TestCase):
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=60))
         self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=40))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=7")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
@@ -350,7 +350,7 @@ class AnalyticsDwellTimeTests(TestCase):
         # Last movement 10 days ago — stalled under default 7d but not under 14d
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
@@ -368,7 +368,7 @@ class AnalyticsDwellTimeTests(TestCase):
         # but stalled under explicit stalled_days=5 override
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30&stalled_days=5")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30&stalled_days=5")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
@@ -388,7 +388,7 @@ class AnalyticsDwellTimeTests(TestCase):
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
 
         # stalled_days=5 override — stalled_cards should flag the card but is_outlier should not.
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30&stalled_days=5")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30&stalled_days=5")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
@@ -411,7 +411,7 @@ class AnalyticsDwellTimeTests(TestCase):
             to_column_id=None, to_column_name=self.col.name
         )
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
@@ -427,7 +427,7 @@ class AnalyticsDwellTimeTests(TestCase):
         now = timezone.now()
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=20))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=7")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
@@ -447,7 +447,7 @@ class AnalyticsDwellTimeTests(TestCase):
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=30))
         self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=5))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=90")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=90")
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
         # col2 is done — excluded from age tracking
@@ -461,7 +461,7 @@ class AnalyticsDwellTimeTests(TestCase):
         card.archived_at = now - datetime.timedelta(days=2)
         card.save(update_fields=["archived_at"])
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
         self.assertIsNone(sw["age_avg_days_per_column"].get(self.col.name))
@@ -477,7 +477,7 @@ class AnalyticsDwellTimeTests(TestCase):
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=20))
         self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=5))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
         t_avg = sw["throughput_avg_days_per_column"].get(self.col.name)
@@ -493,7 +493,7 @@ class AnalyticsDwellTimeTests(TestCase):
             self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
             self._movement(card, self.col2, self.swim, now - datetime.timedelta(days=3))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
         count = sw["throughput_card_count_per_column"].get(self.col.name, 0)
@@ -507,7 +507,7 @@ class AnalyticsDwellTimeTests(TestCase):
         # Card entered col 10 days ago and is still there (no exit within window)
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=10))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
         # col2 had no exits — throughput should be null, count 0
@@ -520,7 +520,7 @@ class AnalyticsDwellTimeTests(TestCase):
         now = timezone.now()
         self._movement(card, self.col, self.swim, now - datetime.timedelta(days=5))
 
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=30")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=30")
         data = r.json()
         sw = next(s for s in data["swimlanes"] if s["id"] == self.swim.id)
         self.assertIn("avg_days_per_column", sw)
@@ -549,7 +549,7 @@ class SiteAdminBoardListTests(TestCase):
         self.client.force_authenticate(self.site_admin)
 
     def test_site_admin_sees_all_boards(self):
-        r = self.client.get("/api/boards/")
+        r = self.client.get("/api/v1/boards/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = [b["id"] for b in r.json()["results"]]
         self.assertIn(self.board.id, ids)

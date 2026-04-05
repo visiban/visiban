@@ -5,10 +5,10 @@
 Board admins can add, change, or remove members via the board settings panel or the API.
 
 ```http
-POST /api/boards/{board_id}/members/
+POST /api/v1/boards/{board_id}/members/
 { "user_id": 42, "role": "member" }
 
-DELETE /api/boards/{board_id}/members/42/
+DELETE /api/v1/boards/{board_id}/members/42/
 ```
 
 Valid board roles: `admin`, `member`, `collaborator`, `viewer`
@@ -18,10 +18,10 @@ Valid board roles: `admin`, `member`, `collaborator`, `viewer`
 Group admins can change or remove members from the group detail page or the API.
 
 ```http
-PATCH /api/groups/{group_id}/members/42/
+PATCH /api/v1/groups/{group_id}/members/42/
 { "role": "admin" }
 
-DELETE /api/groups/{group_id}/members/42/
+DELETE /api/v1/groups/{group_id}/members/42/
 ```
 
 Valid group roles: `admin`, `member`, `collaborator`, `viewer`

@@ -13,29 +13,29 @@ class CurrentUserViewTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_get_current_user(self):
-        r = self.client.get("/api/auth/me/")
+        r = self.client.get("/api/v1/auth/me/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["username"], "alice")
 
     def test_patch_current_user(self):
-        r = self.client.patch("/api/auth/me/", {"first_name": "Alice"})
+        r = self.client.patch("/api/v1/auth/me/", {"first_name": "Alice"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["first_name"], "Alice")
 
     def test_patch_invalid_returns_400(self):
         # Sending a read-only field with an empty username triggers validation error
-        r = self.client.patch("/api/auth/me/", {"username": ""})
+        r = self.client.patch("/api/v1/auth/me/", {"username": ""})
         self.assertIn(r.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_200_OK])
 
     def test_unauthenticated_returns_401(self):
         self.client.force_authenticate(user=None)
-        r = self.client.get("/api/auth/me/")
+        r = self.client.get("/api/v1/auth/me/")
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
     def test_patch_has_completed_tour(self):
         """User can mark the onboarding tour as completed via PATCH /api/auth/me/."""
         self.assertFalse(self.user.has_completed_tour)
-        r = self.client.patch("/api/auth/me/", {"has_completed_tour": True})
+        r = self.client.patch("/api/v1/auth/me/", {"has_completed_tour": True})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertTrue(r.json()["has_completed_tour"])
         self.user.refresh_from_db()
@@ -43,7 +43,7 @@ class CurrentUserViewTests(TestCase):
 
     def test_get_returns_has_completed_tour(self):
         """GET /api/auth/me/ includes has_completed_tour in the response."""
-        r = self.client.get("/api/auth/me/")
+        r = self.client.get("/api/v1/auth/me/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("has_completed_tour", r.json())
         self.assertFalse(r.json()["has_completed_tour"])
@@ -56,7 +56,7 @@ class ChangePasswordViewTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_correct_password_change(self):
-        r = self.client.post("/api/auth/change-password/", {
+        r = self.client.post("/api/v1/auth/change-password/", {
             "current_password": "oldpassword123",
             "new_password": "newpassword456secure",
         })
@@ -66,7 +66,7 @@ class ChangePasswordViewTests(TestCase):
         self.assertFalse(self.user.must_change_password)
 
     def test_wrong_current_password_rejected(self):
-        r = self.client.post("/api/auth/change-password/", {
+        r = self.client.post("/api/v1/auth/change-password/", {
             "current_password": "wrongpassword",
             "new_password": "newpassword456secure",
         })
@@ -74,7 +74,7 @@ class ChangePasswordViewTests(TestCase):
         self.assertIn("incorrect", r.json()["detail"].lower())
 
     def test_new_password_too_short(self):
-        r = self.client.post("/api/auth/change-password/", {
+        r = self.client.post("/api/v1/auth/change-password/", {
             "current_password": "oldpassword123",
             "new_password": "short",
         })
@@ -82,7 +82,7 @@ class ChangePasswordViewTests(TestCase):
         self.assertIn("12", r.json()["detail"])
 
     def test_empty_new_password_rejected(self):
-        r = self.client.post("/api/auth/change-password/", {
+        r = self.client.post("/api/v1/auth/change-password/", {
             "current_password": "oldpassword123",
             "new_password": "",
         })
@@ -94,14 +94,14 @@ class ChangePasswordViewTests(TestCase):
         django_client.login(username="bob", password="oldpassword123")
 
         r = django_client.post(
-            "/api/auth/change-password/",
+            "/api/v1/auth/change-password/",
             data='{"current_password": "oldpassword123", "new_password": "newpassword456secure"}',
             content_type="application/json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
         # Session must still be valid — authenticated endpoint returns 200, not 401/403.
-        r2 = django_client.get("/api/auth/me/")
+        r2 = django_client.get("/api/v1/auth/me/")
         self.assertEqual(r2.status_code, status.HTTP_200_OK)
 
 
@@ -119,7 +119,7 @@ class ChangePasswordValidatorTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _change(self, new_password):
-        return self.client.post("/api/auth/change-password/", {
+        return self.client.post("/api/v1/auth/change-password/", {
             "current_password": "OldPassword123!",
             "new_password": new_password,
         })
@@ -167,7 +167,7 @@ class AuthProvidersViewTests(TestCase):
         self.client = APIClient()
 
     def test_providers_returns_expected_keys(self):
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertIn("google", data)
@@ -179,7 +179,7 @@ class AuthProvidersViewTests(TestCase):
 
     def test_providers_unauthenticated_allowed(self):
         # AllowAny — no auth needed
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
 
@@ -202,14 +202,14 @@ class UserSearchViewTests(TestCase):
         self.client.force_authenticate(self.requester)
 
     def test_search_by_display_name(self):
-        r = self.client.get("/api/users/", {"search": "Alice"})
+        r = self.client.get("/api/v1/users/", {"search": "Alice"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         usernames = [u["username"] for u in r.json()]
         self.assertIn("alice", usernames)
         self.assertNotIn("bob", usernames)
 
     def test_search_by_username(self):
-        r = self.client.get("/api/users/", {"search": "bo"})
+        r = self.client.get("/api/v1/users/", {"search": "bo"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         usernames = [u["username"] for u in r.json()]
         self.assertIn("bob", usernames)
@@ -218,24 +218,24 @@ class UserSearchViewTests(TestCase):
         # Email filtering was removed to prevent a silent email-existence oracle:
         # an email-style query returning results would confirm account existence
         # even though the email field is not returned in the response body.
-        r = self.client.get("/api/users/", {"search": "alice@"})
+        r = self.client.get("/api/v1/users/", {"search": "alice@"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json(), [])
 
     def test_short_query_returns_empty(self):
         """Queries shorter than 2 characters return an empty list."""
-        r = self.client.get("/api/users/", {"search": "a"})
+        r = self.client.get("/api/v1/users/", {"search": "a"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json(), [])
 
     def test_empty_query_returns_empty(self):
-        r = self.client.get("/api/users/", {"search": ""})
+        r = self.client.get("/api/v1/users/", {"search": ""})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json(), [])
 
     def test_results_exclude_requester(self):
         """The authenticated user must not appear in their own search results."""
-        r = self.client.get("/api/users/", {"search": "searcher"})
+        r = self.client.get("/api/v1/users/", {"search": "searcher"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         usernames = [u["username"] for u in r.json()]
         self.assertNotIn("searcher", usernames)
@@ -245,13 +245,13 @@ class UserSearchViewTests(TestCase):
         for i in range(15):
             User.objects.create_user(username=f"match_user_{i}", password="pass",
                                      display_name=f"Matching User {i}")
-        r = self.client.get("/api/users/", {"search": "match"})
+        r = self.client.get("/api/v1/users/", {"search": "match"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(r.json()), 10)
 
     def test_response_uses_public_serializer_fields(self):
         """Response includes only the public fields (id, username, display_name, avatar_url)."""
-        r = self.client.get("/api/users/", {"search": "alice"})
+        r = self.client.get("/api/v1/users/", {"search": "alice"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         result = r.json()[0]
         self.assertIn("id", result)
@@ -265,7 +265,7 @@ class UserSearchViewTests(TestCase):
 
     def test_unauthenticated_returns_401(self):
         self.client.force_authenticate(user=None)
-        r = self.client.get("/api/users/", {"search": "alice"})
+        r = self.client.get("/api/v1/users/", {"search": "alice"})
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
 

@@ -135,7 +135,7 @@ class AuthProvidersViewOIDCTests(TestCase):
 
     def test_oidc_false_when_not_configured(self):
         # Default settings have no openid_connect provider.
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertIn("oidc", data)
@@ -156,7 +156,7 @@ class AuthProvidersViewOIDCTests(TestCase):
         },
     })
     def test_oidc_true_when_configured(self):
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertTrue(data["oidc"])
@@ -177,7 +177,7 @@ class AuthProvidersViewOIDCTests(TestCase):
     })
     def test_oidc_provider_response_includes_existing_keys(self):
         # Confirm backward-compatible: google/github/gitlab keys still present.
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         data = r.json()
         self.assertIn("google", data)
         self.assertIn("github", data)
@@ -186,7 +186,7 @@ class AuthProvidersViewOIDCTests(TestCase):
 
     def test_providers_endpoint_unauthenticated(self):
         # AllowAny — OIDC keys must be visible before login.
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     @override_settings(SOCIALACCOUNT_PROVIDERS={
@@ -196,7 +196,7 @@ class AuthProvidersViewOIDCTests(TestCase):
     })
     def test_oidc_false_when_apps_list_is_empty(self):
         # Edge case: key present but APPS list empty (misconfigured).
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         data = r.json()
         self.assertFalse(data["oidc"])
         self.assertIsNone(data["oidc_name"])
@@ -216,7 +216,7 @@ class AuthProvidersViewOIDCTests(TestCase):
     })
     def test_oidc_false_when_client_id_empty(self):
         # Partial configuration in APPS should still report oidc=False.
-        r = self.client.get("/api/auth/providers/")
+        r = self.client.get("/api/v1/auth/providers/")
         data = r.json()
         self.assertFalse(data["oidc"])
         self.assertIsNone(data["oidc_name"])

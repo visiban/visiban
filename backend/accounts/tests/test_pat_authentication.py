@@ -33,7 +33,7 @@ class PATAuthenticationInactiveUserTests(APITestCase):
     def test_active_user_with_valid_pat_returns_200(self):
         user = make_user("activeuser")
         _, raw = PersonalAccessToken.generate(user, "ci")
-        r = self.client.get("/api/auth/me/", **self._auth_header(raw))
+        r = self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["id"], user.id)
 
@@ -47,7 +47,7 @@ class PATAuthenticationInactiveUserTests(APITestCase):
         # Deactivate the user after issuing the token
         user.is_active = False
         user.save(update_fields=["is_active"])
-        r = self.client.get("/api/auth/me/", **self._auth_header(raw))
+        r = self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_deactivated_user_pat_error_message(self):
@@ -56,7 +56,7 @@ class PATAuthenticationInactiveUserTests(APITestCase):
         _, raw = PersonalAccessToken.generate(user, "ci")
         user.is_active = False
         user.save(update_fields=["is_active"])
-        r = self.client.get("/api/auth/me/", **self._auth_header(raw))
+        r = self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
         self.assertIn("disabled", r.json()["detail"].lower())
 
     # ------------------------------------------------------------------
@@ -68,7 +68,7 @@ class PATAuthenticationInactiveUserTests(APITestCase):
         _, raw = PersonalAccessToken.generate(
             user, "ci", expires_at=timezone.now() - timedelta(seconds=1)
         )
-        r = self.client.get("/api/auth/me/", **self._auth_header(raw))
+        r = self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_expired_pat_error_message(self):
@@ -77,7 +77,7 @@ class PATAuthenticationInactiveUserTests(APITestCase):
         _, raw = PersonalAccessToken.generate(
             user, "ci", expires_at=timezone.now() - timedelta(seconds=1)
         )
-        r = self.client.get("/api/auth/me/", **self._auth_header(raw))
+        r = self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
         self.assertIn("expired", r.json()["detail"].lower())
 
     # ------------------------------------------------------------------
@@ -93,6 +93,6 @@ class PATAuthenticationInactiveUserTests(APITestCase):
         )
         user.is_active = False
         user.save(update_fields=["is_active"])
-        r = self.client.get("/api/auth/me/", **self._auth_header(raw))
+        r = self.client.get("/api/v1/auth/me/", **self._auth_header(raw))
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("expired", r.json()["detail"].lower())

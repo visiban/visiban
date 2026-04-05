@@ -29,6 +29,7 @@ class NotificationMarkReadIdempotencyTests(TestCase):
         self.board, _, _, _ = _make_board(self.user)
         self.notif = Notification.objects.create(
             recipient=self.user, verb="Test", board=self.board,
+            action_type=Notification.ActionType.STALE,
         )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
@@ -37,7 +38,7 @@ class NotificationMarkReadIdempotencyTests(TestCase):
         """Marking an already-read notification as read again should not error."""
         # Mark read the first time
         resp1 = self.client.post(
-            "/api/notifications/mark-read/",
+            "/api/v1/notifications/mark-read/",
             {"ids": [self.notif.id]},
             format="json",
         )
@@ -47,7 +48,7 @@ class NotificationMarkReadIdempotencyTests(TestCase):
 
         # Mark read again
         resp2 = self.client.post(
-            "/api/notifications/mark-read/",
+            "/api/v1/notifications/mark-read/",
             {"ids": [self.notif.id]},
             format="json",
         )
@@ -55,8 +56,8 @@ class NotificationMarkReadIdempotencyTests(TestCase):
 
     def test_mark_all_read_twice(self):
         """Running mark-all-read when everything is already read should not error."""
-        self.client.post("/api/notifications/mark-read/", {"all": True}, format="json")
-        resp = self.client.post("/api/notifications/mark-read/", {"all": True}, format="json")
+        self.client.post("/api/v1/notifications/mark-read/", {"all": True}, format="json")
+        resp = self.client.post("/api/v1/notifications/mark-read/", {"all": True}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(
             Notification.objects.filter(recipient=self.user, read=False).count(), 0
@@ -83,7 +84,7 @@ class CardMoveIdempotencyTests(TestCase):
     def test_move_to_same_column_and_swimlane_no_movement_record(self):
         """Moving a card to its current column/swimlane should not create a movement."""
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/move/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/move/",
             {"column_id": self.col.id, "swimlane_id": self.swim.id, "position": 0},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -93,12 +94,12 @@ class CardMoveIdempotencyTests(TestCase):
         """Moving a card away and back should create two movement records."""
         # Move to col2
         self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/move/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/move/",
             {"column_id": self.col2.id, "swimlane_id": self.swim.id, "position": 0},
         )
         # Move back to col
         self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/move/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/move/",
             {"column_id": self.col.id, "swimlane_id": self.swim.id, "position": 0},
         )
         self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 2)
@@ -121,7 +122,7 @@ class LabelAssignmentIdempotencyTests(TestCase):
         """Assigning a label that is already on the card should not error or duplicate."""
         # Assign label
         resp1 = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"label_ids": [self.label.id]},
             format="json",
         )
@@ -130,7 +131,7 @@ class LabelAssignmentIdempotencyTests(TestCase):
 
         # Assign same label again
         resp2 = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"label_ids": [self.label.id]},
             format="json",
         )

@@ -26,7 +26,7 @@ describe('savedFilters API', () => {
   it('listSavedFilters calls GET /api/boards/{id}/saved-filters/', async () => {
     vi.mocked(client.get).mockResolvedValue({ data: [mockFilter] })
     const result = await listSavedFilters(5)
-    expect(client.get).toHaveBeenCalledWith('/api/boards/5/saved-filters/')
+    expect(client.get).toHaveBeenCalledWith('/api/v1/boards/5/saved-filters/')
     expect(result).toEqual([mockFilter])
   })
 
@@ -34,7 +34,7 @@ describe('savedFilters API', () => {
     vi.mocked(client.post).mockResolvedValue({ data: mockFilter })
     const result = await createSavedFilter(5, { name: 'Sprint filters', state_json: { search: '' } })
     expect(client.post).toHaveBeenCalledWith(
-      '/api/boards/5/saved-filters/',
+      '/api/v1/boards/5/saved-filters/',
       { name: 'Sprint filters', state_json: { search: '' } },
     )
     expect(result).toEqual(mockFilter)
@@ -43,6 +43,6 @@ describe('savedFilters API', () => {
   it('deleteSavedFilter calls DELETE /api/boards/{id}/saved-filters/{filterId}/', async () => {
     vi.mocked(client.delete).mockResolvedValue({ data: null })
     await deleteSavedFilter(5, 42)
-    expect(client.delete).toHaveBeenCalledWith('/api/boards/5/saved-filters/42/')
+    expect(client.delete).toHaveBeenCalledWith('/api/v1/boards/5/saved-filters/42/')
   })
 })

@@ -32,28 +32,28 @@ class GroupInviteLinkTokenExposureTests(TestCase):
 
     def test_list_response_has_no_token_field(self):
         """The 'token' key must not appear in any invite link in the list."""
-        r = self.client.get(f"/api/groups/{self.group.id}/invite-links/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         for link in r.json():
             self.assertNotIn("token", link, "token field leaked in invite link list response")
 
     def test_list_response_has_no_raw_token_field(self):
         """The 'raw_token' key must not appear in any invite link in the list."""
-        r = self.client.get(f"/api/groups/{self.group.id}/invite-links/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         for link in r.json():
             self.assertNotIn("raw_token", link, "raw_token field leaked in invite link list response")
 
     def test_list_response_has_no_token_hash_field(self):
         """The internal 'token_hash' must never be exposed via API."""
-        r = self.client.get(f"/api/groups/{self.group.id}/invite-links/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         for link in r.json():
             self.assertNotIn("token_hash", link, "token_hash field leaked in invite link list response")
 
     def test_list_response_includes_prefix(self):
         """The prefix (safe, truncated identifier) should be present for admin display."""
-        r = self.client.get(f"/api/groups/{self.group.id}/invite-links/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         for link in r.json():
             self.assertIn("prefix", link)

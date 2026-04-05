@@ -47,7 +47,7 @@ class FileSizeLimitTests(TestCase):
         self.board, self.card, self.owner = _make_board_and_card()
         self.client = APIClient()
         self.client.force_authenticate(self.owner)
-        self.url = f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/"
+        self.url = f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/"
 
     def test_file_over_10mb_rejected(self, _broadcast):
         """A file just over the 10 MB limit must be rejected with 400."""

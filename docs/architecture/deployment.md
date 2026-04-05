@@ -191,8 +191,8 @@ In production (`DEBUG=False`), the API enforces the following request rate limit
 |---|---|---|
 | Anonymous requests | 300 / hour | Applies to unauthenticated API calls |
 | Authenticated users | 5000 / hour | Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user easily uses 500+ per hour |
-| User search (`/api/users/search/`) | 30 / minute | Tighter limit to prevent username enumeration |
-| Invite link redemption (`/api/groups/.../join/`) | 10 / hour | Low ceiling to prevent invite token brute-force scanning |
+| User search (`/api/v1/users/search/`) | 30 / minute | Tighter limit to prevent username enumeration |
+| Invite link redemption (`/api/v1/groups/.../join/`) | 10 / hour | Low ceiling to prevent invite token brute-force scanning |
 
 Clients that exceed a limit receive `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set — clients should implement exponential backoff.
 

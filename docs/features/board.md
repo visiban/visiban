@@ -236,9 +236,9 @@ Saved filters are private to each user — other board members cannot see or mod
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/boards/{id}/saved-filters/` | List saved filters for the current user |
-| `POST` | `/api/boards/{id}/saved-filters/` | Save a new filter preset |
-| `DELETE` | `/api/boards/{id}/saved-filters/{filter_id}/` | Delete a saved filter |
+| `GET` | `/api/v1/boards/{id}/saved-filters/` | List saved filters for the current user |
+| `POST` | `/api/v1/boards/{id}/saved-filters/` | Save a new filter preset |
+| `DELETE` | `/api/v1/boards/{id}/saved-filters/{filter_id}/` | Delete a saved filter |
 
 ## Views
 
@@ -292,8 +292,8 @@ Click **Export** in the board toolbar to download the board data:
 
 Export requires **Member** role or above. Viewers and collaborators cannot export. The export endpoints are:
 
-- `GET /api/boards/{id}/export/` — CSV
-- `GET /api/boards/{id}/export/?format=json` — JSON
+- `GET /api/v1/boards/{id}/export/` — CSV
+- `GET /api/v1/boards/{id}/export/?format=json` — JSON
 
 ### Import
 
@@ -324,7 +324,7 @@ An optional board name override can be specified at import time.
 !!! note "JSON vs CSV import fidelity"
     JSON imports restore movement history, activity log, and assignees (matched by username). CSV imports create cards with their current field values only — no history or activity log is restored.
 
-- `POST /api/boards/import/` — multipart file upload
+- `POST /api/v1/boards/import/` — multipart file upload
 
 ## Board member management
 
@@ -373,6 +373,6 @@ The public board endpoint is rate-limited to **120 requests per hour per IP addr
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/boards/{id}/share/` | Board admin | Generate or regenerate the share token |
-| `DELETE` | `/api/boards/{id}/share/` | Board admin | Revoke the share token |
+| `POST` | `/api/v1/boards/{id}/share/` | Board admin | Generate or regenerate the share token |
+| `DELETE` | `/api/v1/boards/{id}/share/` | Board admin | Revoke the share token |
 | `GET` | `/api/share/{token}/` | None (public) | Read-only board payload; rate-limited |

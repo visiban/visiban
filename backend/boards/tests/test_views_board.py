@@ -34,13 +34,13 @@ class BoardDestroyTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_owner_can_delete_board(self, _):
         self.client.force_authenticate(self.owner)
-        r = self.client.delete(f"/api/boards/{self.board.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Board.objects.filter(pk=self.board.id).exists())
 
     def test_non_owner_cannot_delete_board(self):
         self.client.force_authenticate(self.other)
-        r = self.client.delete(f"/api/boards/{self.board.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
@@ -52,7 +52,7 @@ class BoardFullTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_full_returns_board_structure(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertIn("columns", data)
@@ -62,7 +62,7 @@ class BoardFullTests(TestCase):
     def test_full_non_member_blocked(self):
         stranger = User.objects.create_user(username="stranger", password="pass")
         self.client.force_authenticate(stranger)
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
@@ -74,7 +74,7 @@ class BoardSummaryTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_summary_returns_swimlanes(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/summary/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/summary/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertIn("swimlanes", data)
@@ -89,7 +89,7 @@ class BoardSummaryTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title="T", created_by=self.user, position=0,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/summary/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/summary/")
         row = r.json()["swimlanes"][0]
         self.assertEqual(row["total_cards"], 1)
         self.assertEqual(row["stage_distribution"]["Backlog"], 1)
@@ -103,40 +103,40 @@ class BoardAnalyticsTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_analytics_returns_expected_keys(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertIn("swimlanes", data)
         self.assertIn("columns", data)
 
     def test_analytics_custom_days_param(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=7")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_analytics_stalled_days_param_is_ignored(self):
         """stalled_days is no longer a query param — it comes from the board setting."""
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?stalled_days=3")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?stalled_days=3")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_analytics_non_integer_days_returns_400(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=abc")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=abc")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_analytics_zero_days_returns_400(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=0")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=0")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_analytics_negative_days_returns_400(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=-5")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=-5")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_analytics_days_exceeds_cap_returns_400(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=366")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=366")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("365", r.json()["detail"])
 
     def test_analytics_stalled_days_exceeds_cap_returns_400(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/analytics/?stalled_days=91")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?stalled_days=91")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("90", r.json()["detail"])
 
@@ -180,8 +180,8 @@ class BoardAnalyticsTests(TestCase):
         )
         CardMovement.objects.filter(pk=mv2.pk).update(moved_at=transition_ts)
 
-        r7 = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=7").json()
-        r90 = self.client.get(f"/api/boards/{self.board.id}/analytics/?days=90").json()
+        r7 = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=7").json()
+        r90 = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/?days=90").json()
 
         medians_7 = r7["board_medians"]
         medians_90 = r90["board_medians"]
@@ -212,7 +212,7 @@ class BoardMembersTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_admin_can_add_member(self, _):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.target.id, "role": "member"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -223,7 +223,7 @@ class BoardMembersTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_admin_can_remove_member(self, _):
         BoardMembership.objects.create(board=self.board, user=self.target, role=BoardMembership.Role.MEMBER)
-        r = self.client.delete(f"/api/boards/{self.board.id}/members/{self.target.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/members/{self.target.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(
             BoardMembership.objects.filter(board=self.board, user=self.target).exists()
@@ -234,7 +234,7 @@ class BoardMembersTests(TestCase):
         BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.target.id, "role": "member"},
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
@@ -242,7 +242,7 @@ class BoardMembersTests(TestCase):
     def test_cannot_modify_site_admin_membership(self):
         site_admin = User.objects.create_user(username="sa", password="pass", is_site_admin=True)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": site_admin.id, "role": "viewer"},
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
@@ -250,7 +250,7 @@ class BoardMembersTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_board_invite_notification_created_on_add(self, _):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.target.id, "role": "member"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -268,7 +268,7 @@ class BoardMembersTests(TestCase):
         # Pre-existing membership — should not re-notify on role change.
         BoardMembership.objects.create(board=self.board, user=self.target, role=BoardMembership.Role.VIEWER)
         self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.target.id, "role": "member"},
         )
         self.assertFalse(
@@ -283,7 +283,7 @@ class BoardMembersTests(TestCase):
         self.target.notif_board_invite = False
         self.target.save()
         self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.target.id, "role": "member"},
         )
         self.assertFalse(

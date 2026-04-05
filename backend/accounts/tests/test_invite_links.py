@@ -166,13 +166,13 @@ class AdminInviteLinkListTests(TestCase):
         InviteLink.generate(created_by=self.admin)
 
     def test_returns_200_with_list(self):
-        r = self.client.get("/api/admin/invite-links/")
+        r = self.client.get("/api/v1/admin/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIsInstance(r.json(), list)
         self.assertEqual(len(r.json()), 2)
 
     def test_response_shape_excludes_raw_token(self):
-        r = self.client.get("/api/admin/invite-links/")
+        r = self.client.get("/api/v1/admin/invite-links/")
         item = r.json()[0]
         self.assertIn("id", item)
         self.assertIn("prefix", item)
@@ -182,18 +182,18 @@ class AdminInviteLinkListTests(TestCase):
         self.assertNotIn("raw_token", item)
 
     def test_created_by_username_present(self):
-        r = self.client.get("/api/admin/invite-links/")
+        r = self.client.get("/api/v1/admin/invite-links/")
         item = r.json()[0]
         self.assertEqual(item["created_by_username"], self.admin.username)
 
     def test_non_admin_rejected(self):
         self.client.force_authenticate(self.other)
-        r = self.client.get("/api/admin/invite-links/")
+        r = self.client.get("/api/v1/admin/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_unauthenticated_rejected(self):
         self.client.force_authenticate(None)
-        r = self.client.get("/api/admin/invite-links/")
+        r = self.client.get("/api/v1/admin/invite-links/")
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
 
@@ -209,53 +209,53 @@ class AdminInviteLinkCreateTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_create_with_no_expiry_returns_201(self):
-        r = self.client.post("/api/admin/invite-links/", {})
+        r = self.client.post("/api/v1/admin/invite-links/", {})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
     def test_response_includes_raw_token(self):
-        r = self.client.post("/api/admin/invite-links/", {})
+        r = self.client.post("/api/v1/admin/invite-links/", {})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         data = r.json()
         self.assertIn("raw_token", data)
         self.assertTrue(data["raw_token"].startswith("vbnl_"))
 
     def test_raw_token_absent_on_subsequent_list(self):
-        self.client.post("/api/admin/invite-links/", {})
-        r = self.client.get("/api/admin/invite-links/")
+        self.client.post("/api/v1/admin/invite-links/", {})
+        r = self.client.get("/api/v1/admin/invite-links/")
         for item in r.json():
             self.assertNotIn("raw_token", item)
 
     def test_create_with_valid_expires_in_days_1(self):
-        r = self.client.post("/api/admin/invite-links/", {"expires_in_days": 1})
+        r = self.client.post("/api/v1/admin/invite-links/", {"expires_in_days": 1})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertIsNotNone(r.json()["expires_at"])
 
     def test_create_with_valid_expires_in_days_7(self):
-        r = self.client.post("/api/admin/invite-links/", {"expires_in_days": 7})
+        r = self.client.post("/api/v1/admin/invite-links/", {"expires_in_days": 7})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
     def test_create_with_valid_expires_in_days_30(self):
-        r = self.client.post("/api/admin/invite-links/", {"expires_in_days": 30})
+        r = self.client.post("/api/v1/admin/invite-links/", {"expires_in_days": 30})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
     def test_create_with_null_expires_in_days(self):
         # Must use format='json' — multipart encoding cannot serialize None.
-        r = self.client.post("/api/admin/invite-links/", {"expires_in_days": None}, format="json")
+        r = self.client.post("/api/v1/admin/invite-links/", {"expires_in_days": None}, format="json")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertIsNone(r.json()["expires_at"])
 
     def test_invalid_expires_in_days_rejected(self):
-        r = self.client.post("/api/admin/invite-links/", {"expires_in_days": 5})
+        r = self.client.post("/api/v1/admin/invite-links/", {"expires_in_days": 5})
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_invalid_expires_in_days_0_rejected(self):
-        r = self.client.post("/api/admin/invite-links/", {"expires_in_days": 0})
+        r = self.client.post("/api/v1/admin/invite-links/", {"expires_in_days": 0})
         # 0 is not None and not in VALID_TTL_DAYS (1, 7, 30) so the validator
         # raises a ValidationError → 400. A zero-day TTL is meaningless.
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_single_use_link(self):
-        r = self.client.post("/api/admin/invite-links/", {"single_use": True})
+        r = self.client.post("/api/v1/admin/invite-links/", {"single_use": True})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertTrue(r.json()["single_use"])
 
@@ -266,7 +266,7 @@ class AdminInviteLinkCreateTests(TestCase):
         for i in range(MAX_ACTIVE_INVITE_LINKS):
             InviteLink.generate(created_by=creator)
 
-        r = self.client.post("/api/admin/invite-links/", {})
+        r = self.client.post("/api/v1/admin/invite-links/", {})
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn(str(MAX_ACTIVE_INVITE_LINKS), r.json()["detail"])
 
@@ -279,12 +279,12 @@ class AdminInviteLinkCreateTests(TestCase):
             )
 
         # A new link should be created successfully because expired links are excluded.
-        r = self.client.post("/api/admin/invite-links/", {})
+        r = self.client.post("/api/v1/admin/invite-links/", {})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
     def test_non_admin_rejected(self):
         self.client.force_authenticate(self.other)
-        r = self.client.post("/api/admin/invite-links/", {})
+        r = self.client.post("/api/v1/admin/invite-links/", {})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -309,38 +309,38 @@ class AdminInviteLinkRevokeTests(TestCase):
 
     def test_revoke_pending_link_returns_200(self):
         link = self._make_link()
-        r = self.client.delete(f"/api/admin/invite-links/{link.pk}/")
+        r = self.client.delete(f"/api/v1/admin/invite-links/{link.pk}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_revoke_stamps_revoked_at(self):
         link = self._make_link()
-        self.client.delete(f"/api/admin/invite-links/{link.pk}/")
+        self.client.delete(f"/api/v1/admin/invite-links/{link.pk}/")
         link.refresh_from_db()
         self.assertIsNotNone(link.revoked_at)
 
     def test_revoke_response_status_is_revoked(self):
         link = self._make_link()
-        r = self.client.delete(f"/api/admin/invite-links/{link.pk}/")
+        r = self.client.delete(f"/api/v1/admin/invite-links/{link.pk}/")
         self.assertEqual(r.json()["status"], "revoked")
 
     def test_revoke_already_revoked_returns_400(self):
         link = self._make_link(revoked_at=timezone.now())
-        r = self.client.delete(f"/api/admin/invite-links/{link.pk}/")
+        r = self.client.delete(f"/api/v1/admin/invite-links/{link.pk}/")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_revoke_already_used_returns_400(self):
         link = self._make_link(used_at=timezone.now())
-        r = self.client.delete(f"/api/admin/invite-links/{link.pk}/")
+        r = self.client.delete(f"/api/v1/admin/invite-links/{link.pk}/")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_revoke_nonexistent_returns_404(self):
-        r = self.client.delete("/api/admin/invite-links/99999/")
+        r = self.client.delete("/api/v1/admin/invite-links/99999/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_non_admin_rejected(self):
         link = self._make_link()
         self.client.force_authenticate(self.other)
-        r = self.client.delete(f"/api/admin/invite-links/{link.pk}/")
+        r = self.client.delete(f"/api/v1/admin/invite-links/{link.pk}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -356,7 +356,7 @@ class InviteRegisterOpenModeTests(TestCase):
         self.client = APIClient()
 
     def test_registration_succeeds_without_invite_token(self):
-        r = self.client.post("/api/auth/registration/", {
+        r = self.client.post("/api/v1/auth/registration/", {
             "email": "open@example.com",
             "password1": "Sup3rS3cr3t!xyz",
             "password2": "Sup3rS3cr3t!xyz",
@@ -365,7 +365,7 @@ class InviteRegisterOpenModeTests(TestCase):
         self.assertTrue(User.objects.filter(email="open@example.com").exists())
 
     def test_extra_invite_token_field_is_ignored(self):
-        r = self.client.post("/api/auth/registration/", {
+        r = self.client.post("/api/v1/auth/registration/", {
             "email": "open2@example.com",
             "password1": "Sup3rS3cr3t!xyz",
             "password2": "Sup3rS3cr3t!xyz",
@@ -400,7 +400,7 @@ class InviteRegisterInviteOnlyTests(TestCase):
         }
         if invite_token is not None:
             payload["invite_token"] = invite_token
-        return self.client.post("/api/auth/registration/", payload)
+        return self.client.post("/api/v1/auth/registration/", payload)
 
     # --- missing token ---
 
@@ -475,7 +475,7 @@ class InviteRegisterInviteOnlyTests(TestCase):
         # failures are not suitable here: allauth 65+ auto-logs-in on duplicate
         # email (returns 200/204), meaning the token would be consumed.
         link, raw = self._make_link(single_use=True)
-        r = self.client.post("/api/auth/registration/", {
+        r = self.client.post("/api/v1/auth/registration/", {
             "email": "pwmismatch@example.com",
             "password1": "Sup3rS3cr3t!xyz",
             "password2": "D1fferentP@ss!",
@@ -547,7 +547,7 @@ class InviteRegisterRaceConditionTests(TransactionTestCase):
             # Each thread gets its own client; APIClient is not thread-safe.
             client = APIClient()
             barrier.wait()  # Both threads start their POST at the same time.
-            r = client.post("/api/auth/registration/", {
+            r = client.post("/api/v1/auth/registration/", {
                 "email": email,
                 "password1": "Sup3rS3cr3t!xyz",
                 "password2": "Sup3rS3cr3t!xyz",

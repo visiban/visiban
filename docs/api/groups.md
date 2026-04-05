@@ -2,10 +2,10 @@
 
 ## Groups
 
-### `GET /api/groups/`
+### `GET /api/v1/groups/`
 List all groups accessible to the current user.
 
-### `POST /api/groups/`
+### `POST /api/v1/groups/`
 Create a group. Any authenticated user may create a top-level group. Creating a subgroup requires admin of the parent.
 
 **Request**
@@ -19,7 +19,7 @@ Create a group. Any authenticated user may create a top-level group. Creating a 
 | `description` | No | Optional free-text summary |
 | `parent` | No | Parent group ID; omit for a top-level group |
 
-### `GET /api/groups/{id}/`
+### `GET /api/v1/groups/{id}/`
 Get group details.
 
 **Response fields:**
@@ -42,46 +42,46 @@ Get group details.
 | `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. |
 | `created_at` | string | ISO 8601 timestamp |
 
-### `PUT /api/groups/{id}/`
+### `PUT /api/v1/groups/{id}/`
 Update group name, description, or parent. Requires group admin.
 
 **Writable fields:** `name`, `description`, `parent`.
 
-### `DELETE /api/groups/{id}/`
+### `DELETE /api/v1/groups/{id}/`
 Delete a group. Requires group owner or site admin.
 
 ---
 
 ## Members
 
-### `GET /api/groups/{id}/members/`
+### `GET /api/v1/groups/{id}/members/`
 List group members. Requires group membership.
 
-### `PATCH /api/groups/{id}/members/{user_id}/`
+### `PATCH /api/v1/groups/{id}/members/{user_id}/`
 Change a member's role. Requires group admin. Cannot modify a site admin.
 
 **Request** `{ "role": "admin" }`
 
 Valid roles: `admin`, `member`, `collaborator`, `viewer`
 
-### `DELETE /api/groups/{id}/members/{user_id}/`
+### `DELETE /api/v1/groups/{id}/members/{user_id}/`
 Remove a member. Requires group admin. Cannot remove a site admin.
 
 ---
 
 ## Subgroups
 
-### `GET /api/groups/{id}/subgroups/`
+### `GET /api/v1/groups/{id}/subgroups/`
 List direct subgroups. Requires group membership.
 
 ---
 
 ## Boards
 
-### `GET /api/groups/{id}/boards/`
+### `GET /api/v1/groups/{id}/boards/`
 List boards in this group. Requires group membership.
 
-### `POST /api/groups/{id}/boards/`
+### `POST /api/v1/groups/{id}/boards/`
 Create a board in this group. Requires group admin. Boards created here inherit the group's `shared_labels` and `allowed_priorities` automatically.
 
 **Request**
@@ -99,10 +99,10 @@ Create a board in this group. Requires group admin. Boards created here inherit 
 
 A group can have up to 5 active invite links. Each link has an independent name, role, and expiry.
 
-### `GET /api/groups/{id}/invite-links/`
+### `GET /api/v1/groups/{id}/invite-links/`
 List all invite links for this group. Requires group admin.
 
-### `POST /api/groups/{id}/invite-links/`
+### `POST /api/v1/groups/{id}/invite-links/`
 Create a new invite link. Requires group admin.
 
 **Request**
@@ -124,27 +124,27 @@ Valid roles: `admin`, `member`, `collaborator`, `viewer`
 { "id": 1, "prefix": "abc123ra", "name": "Team link", "role": "member", "is_active": true, "is_expired": false, "expires_at": "2026-04-07T00:00:00Z", "created_at": "2026-03-31T00:00:00Z" }
 ```
 
-### `DELETE /api/groups/{id}/invite-links/{link_id}/`
+### `DELETE /api/v1/groups/{id}/invite-links/{link_id}/`
 Revoke a single invite link. Requires group admin.
 
 ---
 
 ## Favorites
 
-### `POST /api/groups/{id}/star/`
+### `POST /api/v1/groups/{id}/star/`
 Star (favorite) a group. Requires authentication.
 
-### `DELETE /api/groups/{id}/star/`
+### `DELETE /api/v1/groups/{id}/star/`
 Unstar a group. Requires authentication.
 
-### `GET /api/groups/?starred=true`
+### `GET /api/v1/groups/?starred=true`
 List only starred groups for the current user.
 
 ---
 
 ## Transfer ownership
 
-### `POST /api/groups/{id}/transfer-ownership/`
+### `POST /api/v1/groups/{id}/transfer-ownership/`
 Transfer group ownership to another user. Requires the **current owner** (not just admin).
 
 **Request**
@@ -167,27 +167,27 @@ The previous owner becomes a regular admin after transfer. Returns the updated g
 
 Group labels are a shared label library. When a new board is created inside the group, it inherits the group's labels automatically.
 
-### `GET /api/groups/{id}/labels/`
+### `GET /api/v1/groups/{id}/labels/`
 List group shared labels. Requires group membership.
 
 **Response** `[{ "id": 1, "name": "Bug", "color": "#EF4444" }, ...]`
 
-### `POST /api/groups/{id}/labels/`
+### `POST /api/v1/groups/{id}/labels/`
 Create a group shared label. Requires group admin.
 
 **Request** `{ "name": "Feature", "color": "#3B82F6" }`
 
-### `PATCH /api/groups/{id}/labels/{label_id}/`
+### `PATCH /api/v1/groups/{id}/labels/{label_id}/`
 Update a group shared label name or color. Requires group admin.
 
-### `DELETE /api/groups/{id}/labels/{label_id}/`
+### `DELETE /api/v1/groups/{id}/labels/{label_id}/`
 Delete a group shared label. Requires group admin. Does **not** remove the label from boards that already inherited it.
 
 ---
 
 ## Board defaults
 
-### `PATCH /api/groups/{id}/board-defaults/`
+### `PATCH /api/v1/groups/{id}/board-defaults/`
 Update the default settings applied to new boards created in this group. Requires group admin.
 
 **Patchable fields**
@@ -208,14 +208,14 @@ Returns the updated group object.
 
 ## Join (public)
 
-### `GET /api/groups/join/{token}/`
+### `GET /api/v1/groups/join/{token}/`
 Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP.
 
 **Response** `{ "group_id": 5, "group_name": "Engineering", "role": "member" }`
 
 **Errors:** `404 Not Found` (invalid token), `410 Gone` (link expired or deactivated)
 
-### `POST /api/groups/join/{token}/`
+### `POST /api/v1/groups/join/{token}/`
 Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.
 
 **Response** `201 Created` (first join) or `200 OK` (already a member at the same or higher role).

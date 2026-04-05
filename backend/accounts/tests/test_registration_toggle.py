@@ -11,7 +11,7 @@ class SiteConfigViewTests(TestCase):
         self.client = APIClient()
 
     def test_registration_open_by_default(self):
-        r = self.client.get("/api/auth/site-config/")
+        r = self.client.get("/api/v1/auth/site-config/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertTrue(r.json()["registration_open"])
 
@@ -19,7 +19,7 @@ class SiteConfigViewTests(TestCase):
         s = SiteSetting.get()
         s.registration_mode = SiteSetting.RegistrationMode.CLOSED
         s.save()
-        r = self.client.get("/api/auth/site-config/")
+        r = self.client.get("/api/v1/auth/site-config/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertFalse(r.json()["registration_open"])
 
@@ -27,18 +27,18 @@ class SiteConfigViewTests(TestCase):
         s = SiteSetting.get()
         s.registration_mode = SiteSetting.RegistrationMode.INVITE_ONLY
         s.save()
-        r = self.client.get("/api/auth/site-config/")
+        r = self.client.get("/api/v1/auth/site-config/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertFalse(r.json()["registration_open"])
 
     def test_registration_mode_returned_in_response(self):
-        r = self.client.get("/api/auth/site-config/")
+        r = self.client.get("/api/v1/auth/site-config/")
         self.assertIn("registration_mode", r.json())
         self.assertEqual(r.json()["registration_mode"], "open")
 
     def test_unauthenticated_can_reach_site_config(self):
         """Endpoint must be reachable before login so the frontend can check it."""
-        r = self.client.get("/api/auth/site-config/")
+        r = self.client.get("/api/v1/auth/site-config/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
 
@@ -100,7 +100,7 @@ class RegistrationEndpointToggleTests(TestCase):
         s.registration_mode = SiteSetting.RegistrationMode.CLOSED
         s.save()
 
-        r = self.client.post("/api/auth/registration/", {
+        r = self.client.post("/api/v1/auth/registration/", {
             "email": "blocked@example.com",
             "password1": "Sup3rS3cr3t!xyz",
             "password2": "Sup3rS3cr3t!xyz",
@@ -109,7 +109,7 @@ class RegistrationEndpointToggleTests(TestCase):
         self.assertFalse(User.objects.filter(email="blocked@example.com").exists())
 
     def test_registration_allowed_when_open(self):
-        r = self.client.post("/api/auth/registration/", {
+        r = self.client.post("/api/v1/auth/registration/", {
             "email": "newuser@example.com",
             "password1": "Sup3rS3cr3t!xyz",
             "password2": "Sup3rS3cr3t!xyz",

@@ -23,7 +23,7 @@ class ChooseUsernameViewTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_choose_valid_username(self):
-        resp = self.client.post("/api/auth/choose-username/", {"username": "newname"})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "newname"})
         self.assertEqual(resp.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.username, "newname")
@@ -35,7 +35,7 @@ class ChooseUsernameViewTests(TestCase):
             email="existing@example.com",
             password="testpass12345",
         )
-        resp = self.client.post("/api/auth/choose-username/", {"username": "existing"})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "existing"})
         self.assertEqual(resp.status_code, 400)
         self.assertIn("already taken", resp.data["detail"])
 
@@ -43,26 +43,26 @@ class ChooseUsernameViewTests(TestCase):
         """The user should be able to choose a case variant of their own current name."""
         self.user.username = "myname"
         self.user.save(update_fields=["username"])
-        resp = self.client.post("/api/auth/choose-username/", {"username": "MyName"})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "MyName"})
         self.assertEqual(resp.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.username, "MyName")
 
     def test_empty_username_rejected(self):
-        resp = self.client.post("/api/auth/choose-username/", {"username": ""})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": ""})
         self.assertEqual(resp.status_code, 400)
 
     def test_too_long_username_rejected(self):
-        resp = self.client.post("/api/auth/choose-username/", {"username": "a" * 151})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "a" * 151})
         self.assertEqual(resp.status_code, 400)
 
     def test_invalid_chars_rejected(self):
-        resp = self.client.post("/api/auth/choose-username/", {"username": "bad name!"})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "bad name!"})
         self.assertEqual(resp.status_code, 400)
 
     def test_unauthenticated_returns_401(self):
         self.client.force_authenticate(None)
-        resp = self.client.post("/api/auth/choose-username/", {"username": "test"})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "test"})
         self.assertEqual(resp.status_code, 401)
 
 
@@ -85,16 +85,16 @@ class MustNotHavePendingUsernameChangeTests(TestCase):
     def test_blocked_user_cannot_access_normal_endpoints(self):
         # Use /api/auth/tokens/ which inherits DEFAULT_PERMISSION_CLASSES
         # (CurrentUserView opts out with explicit [IsAuthenticated]).
-        resp = self.client.get("/api/auth/tokens/")
+        resp = self.client.get("/api/v1/auth/tokens/")
         self.assertEqual(resp.status_code, 403)
 
     def test_blocked_user_can_access_choose_username(self):
-        resp = self.client.post("/api/auth/choose-username/", {"username": "newuser"})
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "newuser"})
         self.assertEqual(resp.status_code, 200)
 
     def test_blocked_user_can_access_change_password(self):
         """ChangePasswordView opts out of all pending-change gates."""
-        resp = self.client.post("/api/auth/change-password/", {
+        resp = self.client.post("/api/v1/auth/change-password/", {
             "current_password": "testpass12345",
             "new_password": "newpass12345!",
         })
@@ -103,12 +103,12 @@ class MustNotHavePendingUsernameChangeTests(TestCase):
     def test_unblocked_user_can_access_normal_endpoints(self):
         self.user.must_change_username = False
         self.user.save(update_fields=["must_change_username"])
-        resp = self.client.get("/api/auth/tokens/")
+        resp = self.client.get("/api/v1/auth/tokens/")
         self.assertEqual(resp.status_code, 200)
 
     def test_error_code_in_response(self):
         """PAT/API clients get a machine-readable code to detect the condition."""
-        resp = self.client.get("/api/auth/tokens/")
+        resp = self.client.get("/api/v1/auth/tokens/")
         self.assertEqual(resp.status_code, 403)
         self.assertIn("must_change_username", str(resp.data))
 
@@ -135,7 +135,7 @@ class AdminCreateUserCIUsernameTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_admin_create_user_rejects_ci_duplicate(self):
-        resp = self.client.post("/api/admin/users/", {
+        resp = self.client.post("/api/v1/admin/users/", {
             "username": "existing",
             "email": "new@example.com",
             "password": "testpass12345!",
@@ -161,12 +161,12 @@ class UserSerializerMustChangeUsernameTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_field_present_in_current_user(self):
-        resp = self.client.get("/api/auth/me/")
+        resp = self.client.get("/api/v1/auth/me/")
         self.assertIn("must_change_username", resp.data)
         self.assertFalse(resp.data["must_change_username"])
 
     def test_field_is_read_only(self):
-        resp = self.client.patch("/api/auth/me/", {"must_change_username": True})
+        resp = self.client.patch("/api/v1/auth/me/", {"must_change_username": True})
         self.assertEqual(resp.status_code, 200)
         self.user.refresh_from_db()
         self.assertFalse(self.user.must_change_username)

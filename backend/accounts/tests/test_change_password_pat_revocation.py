@@ -16,7 +16,7 @@ class ChangePasswordPATRevocationTests(APITestCase):
         self.user = User.objects.create_user(username="alice", password="OldPassword123!")
         self.client = APIClient()
         self.client.force_authenticate(self.user)
-        self.url = "/api/auth/change-password/"
+        self.url = "/api/v1/auth/change-password/"
 
     def test_password_change_revokes_all_pats(self):
         """All PATs belonging to the user are deleted on password change."""
@@ -43,7 +43,7 @@ class ChangePasswordPATRevocationTests(APITestCase):
 
         # Try authenticating with the now-revoked token
         anon = APIClient()
-        r = anon.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Token {raw_token}")
+        r = anon.get("/api/v1/auth/me/", HTTP_AUTHORIZATION=f"Token {raw_token}")
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
     def test_other_users_pats_not_affected(self):

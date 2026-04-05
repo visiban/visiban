@@ -20,10 +20,10 @@ UIDs are included in all API responses that return the relevant object type.
 
 | Object | Field | Where it appears |
 |---|---|---|
-| Board | `uid` | `GET /api/boards/`, `GET /api/boards/{id}/`, `GET /api/boards/{id}/full/` |
-| Column | `uid` | `GET /api/boards/{id}/full/` (inside `columns` array) |
-| Swimlane | `uid` | `GET /api/boards/{id}/full/` (inside `swimlanes` array) |
-| Label | `uid` | `GET /api/boards/{id}/full/` (inside `labels` array), `GET /api/boards/{id}/labels/` |
+| Board | `uid` | `GET /api/v1/boards/`, `GET /api/v1/boards/{id}/`, `GET /api/v1/boards/{id}/full/` |
+| Column | `uid` | `GET /api/v1/boards/{id}/full/` (inside `columns` array) |
+| Swimlane | `uid` | `GET /api/v1/boards/{id}/full/` (inside `swimlanes` array) |
+| Label | `uid` | `GET /api/v1/boards/{id}/full/` (inside `labels` array), `GET /api/v1/boards/{id}/labels/` |
 | Card | `uid` | All card endpoints |
 
 ## UIDs in movement history
@@ -48,13 +48,13 @@ These values survive the deletion or renaming of the referenced column or swimla
 
 ```python
 # Fetch the board
-board = requests.get("/api/boards/42/full/").json()
+board = requests.get("/api/v1/boards/42/full/").json()
 
 # Map column UIDs to names for later reference
 col_by_uid = {c["uid"]: c["name"] for c in board["columns"]}
 
 # Later — look up movement history for a card
-movements = requests.get("/api/boards/42/cards/101/movements/").json()
+movements = requests.get("/api/v1/boards/42/cards/101/movements/").json()
 for mv in movements:
     to_col = col_by_uid.get(mv["to_column_uid"], f"<deleted: {mv['to_column_uid']}>")
     print(f"Card moved to: {to_col} at {mv['moved_at']}")
@@ -76,11 +76,11 @@ Numeric `id` values are local to each Visiban installation. UIDs are the correct
 
 ## UIDs in export files
 
-The JSON and CSV exports (`GET /api/boards/{id}/export/`) serialize objects **by name, not by UID**. UIDs are not included in export files. This is intentional: the export format is designed for portability — columns and swimlanes are referenced by name so the file can be imported into a different board or a different Visiban installation without carrying over identifiers that are meaningless in the new context.
+The JSON and CSV exports (`GET /api/v1/boards/{id}/export/`) serialize objects **by name, not by UID**. UIDs are not included in export files. This is intentional: the export format is designed for portability — columns and swimlanes are referenced by name so the file can be imported into a different board or a different Visiban installation without carrying over identifiers that are meaningless in the new context.
 
 ## UIDs on import
 
-When a board is imported via `POST /api/boards/import/`, **every object receives a brand new UID** regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.
+When a board is imported via `POST /api/v1/boards/import/`, **every object receives a brand new UID** regardless of the source file. This applies to boards, columns, swimlanes, labels, and cards.
 
 - If the source file was produced by the Visiban export endpoint, the original UIDs are not preserved — the imported board is a new entity with new identities.
 - If the source file was hand-crafted (e.g. for automation testing or to match the import template spec), any `uid` field present in the JSON is silently ignored.

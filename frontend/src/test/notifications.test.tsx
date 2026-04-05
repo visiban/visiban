@@ -310,7 +310,7 @@ describe('getCardStatus', () => {
   it('returns { archived: true } for an archived card', async () => {
     mockedGet.mockResolvedValueOnce({ data: { archived: true } } as never)
     const result = await getCardStatus(1, 42)
-    expect(mockedGet).toHaveBeenCalledWith('/api/boards/1/cards/42/status/')
+    expect(mockedGet).toHaveBeenCalledWith('/api/v1/boards/1/cards/42/status/')
     expect(result).toEqual({ archived: true })
   })
 

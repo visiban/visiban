@@ -22,18 +22,18 @@ class GroupCRUDTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def test_list_groups_returns_owned_group(self):
-        r = self.client.get("/api/groups/")
+        r = self.client.get("/api/v1/groups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = [g["id"] for g in r.json()["results"]]
         self.assertIn(self.group.id, ids)
 
     def test_create_group(self):
-        r = self.client.post("/api/groups/", {"name": "New Group"})
+        r = self.client.post("/api/v1/groups/", {"name": "New Group"})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertTrue(Group.objects.filter(name="New Group", owner=self.owner).exists())
 
     def test_create_group_auto_creates_admin_membership(self):
-        r = self.client.post("/api/groups/", {"name": "Auto Admin"})
+        r = self.client.post("/api/v1/groups/", {"name": "Auto Admin"})
         group = Group.objects.get(id=r.json()["id"])
         self.assertTrue(
             GroupMembership.objects.filter(group=group, user=self.owner, role=GroupMembership.Role.ADMIN).exists()
@@ -41,27 +41,27 @@ class GroupCRUDTests(TestCase):
 
     def test_create_subgroup_requires_parent_admin(self):
         self.client.force_authenticate(self.other)
-        r = self.client.post("/api/groups/", {"name": "Sub", "parent": self.group.id})
+        r = self.client.post("/api/v1/groups/", {"name": "Sub", "parent": self.group.id})
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST])
 
     def test_owner_can_delete_group(self):
-        r = self.client.delete(f"/api/groups/{self.group.id}/")
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Group.objects.filter(pk=self.group.id).exists())
 
     def test_non_owner_cannot_delete_group(self):
         self.client.force_authenticate(self.other)
-        r = self.client.delete(f"/api/groups/{self.group.id}/")
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
     def test_other_user_cannot_see_group(self):
         self.client.force_authenticate(self.other)
-        r = self.client.get("/api/groups/")
+        r = self.client.get("/api/v1/groups/")
         ids = [g["id"] for g in r.json()["results"]]
         self.assertNotIn(self.group.id, ids)
 
     def test_admin_can_rename_group(self):
-        r = self.client.patch(f"/api/groups/{self.group.id}/", {"name": "Renamed"})
+        r = self.client.patch(f"/api/v1/groups/{self.group.id}/", {"name": "Renamed"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.group.refresh_from_db()
         self.assertEqual(self.group.name, "Renamed")
@@ -70,7 +70,7 @@ class GroupCRUDTests(TestCase):
         member = User.objects.create_user(username="member2", password="pass")
         GroupMembership.objects.create(group=self.group, user=member, role=GroupMembership.Role.MEMBER)
         self.client.force_authenticate(member)
-        r = self.client.patch(f"/api/groups/{self.group.id}/", {"name": "Hacked"})
+        r = self.client.patch(f"/api/v1/groups/{self.group.id}/", {"name": "Hacked"})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.group.refresh_from_db()
         self.assertEqual(self.group.name, "Group")
@@ -79,34 +79,34 @@ class GroupCRUDTests(TestCase):
         viewer = User.objects.create_user(username="viewer2", password="pass")
         GroupMembership.objects.create(group=self.group, user=viewer, role=GroupMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
-        r = self.client.patch(f"/api/groups/{self.group.id}/", {"name": "Hacked"})
+        r = self.client.patch(f"/api/v1/groups/{self.group.id}/", {"name": "Hacked"})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_description_defaults_to_empty_string(self):
-        r = self.client.get(f"/api/groups/{self.group.id}/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["description"], "")
 
     def test_admin_can_update_description(self):
-        r = self.client.patch(f"/api/groups/{self.group.id}/", {"description": "Our engineering hub"})
+        r = self.client.patch(f"/api/v1/groups/{self.group.id}/", {"description": "Our engineering hub"})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.group.refresh_from_db()
         self.assertEqual(self.group.description, "Our engineering hub")
 
     def test_retrieve_returns_ancestors_field(self):
         """GET /api/groups/<id>/ returns an ancestors array (may be empty for root groups)."""
-        r = self.client.get(f"/api/groups/{self.group.id}/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("ancestors", r.json())
 
     def test_root_group_ancestors_is_empty(self):
-        r = self.client.get(f"/api/groups/{self.group.id}/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/")
         self.assertEqual(r.json()["ancestors"], [])
 
     def test_subgroup_ancestors_returns_root_first_chain(self):
         child = _make_group(self.owner, name="Child", parent=self.group)
         grandchild = _make_group(self.owner, name="Grandchild", parent=child)
-        r = self.client.get(f"/api/groups/{grandchild.id}/")
+        r = self.client.get(f"/api/v1/groups/{grandchild.id}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ancestors = r.json()["ancestors"]
         # Root-first order: Group → Child
@@ -116,7 +116,7 @@ class GroupCRUDTests(TestCase):
 
     def test_ancestors_absent_from_list_endpoint(self):
         """The list endpoint must not include the ancestors field (N+1 concern)."""
-        r = self.client.get("/api/groups/")
+        r = self.client.get("/api/v1/groups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         for group in r.json()["results"]:
             self.assertNotIn("ancestors", group)
@@ -132,14 +132,14 @@ class GroupMembersTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_list_members(self):
-        r = self.client.get(f"/api/groups/{self.group.id}/members/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/members/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         user_ids = [m["user"]["id"] for m in r.json()]
         self.assertIn(self.member.id, user_ids)
 
     def test_update_member_role(self):
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/members/{self.member.id}/",
+            f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
             {"role": "admin"},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -149,7 +149,7 @@ class GroupMembersTests(TestCase):
         )
 
     def test_remove_member(self):
-        r = self.client.delete(f"/api/groups/{self.group.id}/members/{self.member.id}/")
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/members/{self.member.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(
             GroupMembership.objects.filter(group=self.group, user=self.member).exists()
@@ -157,7 +157,7 @@ class GroupMembersTests(TestCase):
 
     def test_invalid_role_returns_400(self):
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/members/{self.member.id}/",
+            f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
             {"role": "superuser"},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -165,7 +165,7 @@ class GroupMembersTests(TestCase):
     def test_non_admin_cannot_list_members(self):
         outsider = User.objects.create_user(username="out", password="pass")
         self.client.force_authenticate(outsider)
-        r = self.client.get(f"/api/groups/{self.group.id}/members/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/members/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
     def test_all_valid_roles_are_accepted(self):
@@ -173,7 +173,7 @@ class GroupMembersTests(TestCase):
         valid_roles = [r.value for r in GroupMembership.Role]
         for role in valid_roles:
             r = self.client.patch(
-                f"/api/groups/{self.group.id}/members/{self.member.id}/",
+                f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
                 {"role": role},
             )
             self.assertEqual(r.status_code, status.HTTP_200_OK, f"role={role!r} was rejected")
@@ -182,7 +182,7 @@ class GroupMembersTests(TestCase):
     def test_site_admin_role_is_not_a_valid_membership_role(self):
         """'site_admin' must never be a valid GroupMembership role."""
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/members/{self.member.id}/",
+            f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
             {"role": "site_admin"},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -211,7 +211,7 @@ class GroupRoleCoverageTests(TestCase):
         """Every valid GroupInviteLink role can be used when creating an invite link."""
         for role in GroupInviteLink.Role.values:
             r = self.client.post(
-                f"/api/groups/{self.group.id}/invite-links/",
+                f"/api/v1/groups/{self.group.id}/invite-links/",
                 {"name": f"test-{role}", "role": role},
             )
             self.assertEqual(r.status_code, status.HTTP_201_CREATED, f"role={role!r} was rejected")
@@ -219,7 +219,7 @@ class GroupRoleCoverageTests(TestCase):
 
     def test_invalid_invite_link_role_returns_400(self):
         r = self.client.post(
-            f"/api/groups/{self.group.id}/invite-links/",
+            f"/api/v1/groups/{self.group.id}/invite-links/",
             {"name": "bad", "role": "site_admin"},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -234,7 +234,7 @@ class GroupSubgroupsTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def test_list_subgroups(self):
-        r = self.client.get(f"/api/groups/{self.parent.id}/subgroups/")
+        r = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = [g["id"] for g in r.json()]
         self.assertIn(self.child.id, ids)
@@ -248,20 +248,20 @@ class GroupInviteLinkTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_create_invite_link(self):
-        r = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
+        r = self.client.post(f"/api/v1/groups/{self.group.id}/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertIn("token", r.json())
 
     def test_create_multiple_invite_links(self):
-        r1 = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
-        r2 = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
+        r1 = self.client.post(f"/api/v1/groups/{self.group.id}/invite-links/")
+        r2 = self.client.post(f"/api/v1/groups/{self.group.id}/invite-links/")
         self.assertEqual(r1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(r2.status_code, status.HTTP_201_CREATED)
         self.assertNotEqual(r1.json()["token"], r2.json()["token"])
 
     def test_revoke_invite_link(self):
-        link = self.client.post(f"/api/groups/{self.group.id}/invite-links/").json()
-        r = self.client.delete(f"/api/groups/{self.group.id}/invite-links/{link['id']}/")
+        link = self.client.post(f"/api/v1/groups/{self.group.id}/invite-links/").json()
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/invite-links/{link['id']}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(
             GroupInviteLink.objects.filter(pk=link["id"], is_active=True).exists()
@@ -270,7 +270,7 @@ class GroupInviteLinkTests(TestCase):
     def test_non_admin_cannot_create_link(self):
         outsider = User.objects.create_user(username="out", password="pass")
         self.client.force_authenticate(outsider)
-        r = self.client.post(f"/api/groups/{self.group.id}/invite-links/")
+        r = self.client.post(f"/api/v1/groups/{self.group.id}/invite-links/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
@@ -282,13 +282,13 @@ class GroupBoardsTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_list_boards_in_group_empty(self):
-        r = self.client.get(f"/api/groups/{self.group.id}/boards/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/boards/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json(), [])
 
     def test_create_board_in_group(self):
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Sprint Board"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -298,7 +298,7 @@ class GroupBoardsTests(TestCase):
         # No template supplied → falls back to simple_kanban (5 columns)
         from boards.models import Column
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Default Cols"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -310,7 +310,7 @@ class GroupBoardsTests(TestCase):
         # Supplying a template slug must produce that template's columns.
         from boards.models import Column
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Content Board", "template": "content_production"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -321,7 +321,7 @@ class GroupBoardsTests(TestCase):
     def test_create_blank_board_has_no_columns(self):
         from boards.models import Column
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Blank", "template": "blank"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -331,7 +331,7 @@ class GroupBoardsTests(TestCase):
     def test_create_board_uses_supplied_swimlane_name(self):
         from boards.models import Swimlane
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Roadmap", "swimlane_name": "Platform"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -342,7 +342,7 @@ class GroupBoardsTests(TestCase):
     def test_create_board_defaults_swimlane_to_general(self):
         from boards.models import Swimlane
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Sprint"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -357,7 +357,7 @@ class GroupBoardsTests(TestCase):
         )
         self.client.force_authenticate(member)
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "X"},
         )
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST])
@@ -380,7 +380,7 @@ class GroupBoardsTests(TestCase):
         BoardMembership.objects.create(board=board_implicit, user=self.admin, role=BoardMembership.Role.ADMIN)
 
         self.client.force_authenticate(member)
-        r = self.client.get(f"/api/groups/{self.group.id}/boards/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/boards/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         board_names = [b["name"] for b in r.json()]
         # Both boards are visible — group membership grants access to all group boards
@@ -405,14 +405,14 @@ class GroupMemberSiteAdminTests(TestCase):
             group=self.group, user=self.site_admin, role=GroupMembership.Role.MEMBER
         )
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/members/{self.site_admin.id}/",
+            f"/api/v1/groups/{self.group.id}/members/{self.site_admin.id}/",
             {"role": "member"},
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_site_admin_can_pass_require_group_admin(self):
         self.client.force_authenticate(self.site_admin)
-        r = self.client.get(f"/api/groups/{self.group.id}/members/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/members/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
 
@@ -434,7 +434,7 @@ class GroupMemberAncestorTests(TestCase):
         self.client.force_authenticate(self.member)
 
     def test_parent_member_can_list_child_subgroups(self):
-        r = self.client.get(f"/api/groups/{self.child.id}/subgroups/")
+        r = self.client.get(f"/api/v1/groups/{self.child.id}/subgroups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
 
@@ -449,14 +449,14 @@ class JoinGroupViewTests(TestCase):
         self.client = APIClient()
 
     def test_get_join_info_unauthenticated(self):
-        r = self.client.get(f"/api/groups/join/{self.raw_token}/")
+        r = self.client.get(f"/api/v1/groups/join/{self.raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["group_id"], self.group.id)
         self.assertEqual(r.json()["group_name"], self.group.name)
 
     def test_post_join_adds_membership(self):
         self.client.force_authenticate(self.joiner)
-        r = self.client.post(f"/api/groups/join/{self.raw_token}/")
+        r = self.client.post(f"/api/v1/groups/join/{self.raw_token}/")
         self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
         self.assertTrue(
             GroupMembership.objects.filter(group=self.group, user=self.joiner).exists()
@@ -464,19 +464,19 @@ class JoinGroupViewTests(TestCase):
 
     def test_post_join_idempotent(self):
         self.client.force_authenticate(self.joiner)
-        self.client.post(f"/api/groups/join/{self.raw_token}/")
-        r2 = self.client.post(f"/api/groups/join/{self.raw_token}/")
+        self.client.post(f"/api/v1/groups/join/{self.raw_token}/")
+        r2 = self.client.post(f"/api/v1/groups/join/{self.raw_token}/")
         self.assertEqual(r2.status_code, status.HTTP_200_OK)
 
     def test_invalid_token_returns_404(self):
         self.client.force_authenticate(self.joiner)
-        r = self.client.post("/api/groups/join/invalid-token/")
+        r = self.client.post("/api/v1/groups/join/invalid-token/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_inactive_link_returns_404(self):
         self.link.is_active = False
         self.link.save()
-        r = self.client.get(f"/api/groups/join/{self.raw_token}/")
+        r = self.client.get(f"/api/v1/groups/join/{self.raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_token_is_hashed_in_database(self):
@@ -492,7 +492,7 @@ class JoinGroupViewTests(TestCase):
         self.joiner.must_change_username = True
         self.joiner.save(update_fields=["must_change_username"])
         self.client.force_authenticate(self.joiner)
-        r = self.client.post(f"/api/groups/join/{self.raw_token}/")
+        r = self.client.post(f"/api/v1/groups/join/{self.raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -540,14 +540,14 @@ class SubgroupMemberInheritanceTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def test_inherited_member_appears_in_child_members_list(self):
-        r = self.client.get(f"/api/groups/{self.child.id}/members/")
+        r = self.client.get(f"/api/v1/groups/{self.child.id}/members/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         user_ids = [m["user"]["id"] for m in data]
         self.assertIn(self.parent_member.id, user_ids)
 
     def test_inherited_member_has_is_inherited_true(self):
-        r = self.client.get(f"/api/groups/{self.child.id}/members/")
+        r = self.client.get(f"/api/v1/groups/{self.child.id}/members/")
         entry = next(m for m in r.json() if m["user"]["id"] == self.parent_member.id)
         self.assertTrue(entry["is_inherited"])
         self.assertEqual(entry["inherited_from"], "Parent")
@@ -557,7 +557,7 @@ class SubgroupMemberInheritanceTests(TestCase):
         GroupMembership.objects.create(
             group=self.child, user=self.parent_member, role=GroupMembership.Role.ADMIN
         )
-        r = self.client.get(f"/api/groups/{self.child.id}/members/")
+        r = self.client.get(f"/api/v1/groups/{self.child.id}/members/")
         entries = [m for m in r.json() if m["user"]["id"] == self.parent_member.id]
         # Should appear exactly once
         self.assertEqual(len(entries), 1)
@@ -573,13 +573,13 @@ class SubgroupMemberInheritanceTests(TestCase):
         # parent_admin has no direct child membership — inherited admin should suffice
         self.client.force_authenticate(parent_admin)
         # Listing invite links is an admin-only action
-        r = self.client.get(f"/api/groups/{self.child.id}/invite-links/")
+        r = self.client.get(f"/api/v1/groups/{self.child.id}/invite-links/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_inherited_member_cannot_perform_admin_actions(self):
         """A user who is only a member (not admin) in an ancestor cannot admin the child."""
         self.client.force_authenticate(self.parent_member)
-        r = self.client.get(f"/api/groups/{self.child.id}/invite-links/")
+        r = self.client.get(f"/api/v1/groups/{self.child.id}/invite-links/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
@@ -611,7 +611,7 @@ class SubgroupVisibilityTests(TestCase):
 
     def test_subgroups_only_shows_accessible_subgroups(self):
         """Outsider should see subgroup_visible but not subgroup_hidden."""
-        r = self.client.get(f"/api/groups/{self.parent.id}/subgroups/")
+        r = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = [g["id"] for g in r.json()]
         self.assertIn(self.subgroup_visible.id, ids)
@@ -620,7 +620,7 @@ class SubgroupVisibilityTests(TestCase):
     def test_owner_sees_all_subgroups(self):
         """Owner is a member of all groups they create, so sees all subgroups."""
         self.client.force_authenticate(self.owner)
-        r = self.client.get(f"/api/groups/{self.parent.id}/subgroups/")
+        r = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = [g["id"] for g in r.json()]
         self.assertIn(self.subgroup_visible.id, ids)
@@ -639,7 +639,7 @@ class GroupStarMembershipTests(TestCase):
     def test_non_member_cannot_star_group(self):
         """A user who is not a member of the group must receive 403 or 404."""
         self.client.force_authenticate(self.non_member)
-        r = self.client.post(f"/api/groups/{self.group.id}/star/")
+        r = self.client.post(f"/api/v1/groups/{self.group.id}/star/")
         # 404 is acceptable: the group is not in non-member's accessible set
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
@@ -648,7 +648,7 @@ class GroupStarMembershipTests(TestCase):
         member = User.objects.create_user(username="member_star", password="pass")
         GroupMembership.objects.create(group=self.group, user=member, role=GroupMembership.Role.MEMBER)
         self.client.force_authenticate(member)
-        r = self.client.post(f"/api/groups/{self.group.id}/star/")
+        r = self.client.post(f"/api/v1/groups/{self.group.id}/star/")
         self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
 
 
@@ -725,7 +725,7 @@ class GroupBoardMembershipTests(TestCase):
         from boards.models import BoardMembership
 
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Membership Board"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)

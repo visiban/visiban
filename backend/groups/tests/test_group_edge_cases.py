@@ -43,7 +43,7 @@ class GroupCascadeDeletionTests(TestCase):
         (Django CASCADE on parent FK)."""
         child_id = self.child.id
         grandchild_id = self.grandchild.id
-        r = self.client.delete(f"/api/groups/{self.parent.id}/")
+        r = self.client.delete(f"/api/v1/groups/{self.parent.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Group.objects.filter(pk=child_id).exists())
         self.assertFalse(Group.objects.filter(pk=grandchild_id).exists())
@@ -53,7 +53,7 @@ class GroupCascadeDeletionTests(TestCase):
         board intact but with group=None."""
         board = _make_board_in_group(self.owner, self.child, "Board in Child")
         board_id = board.id
-        self.client.delete(f"/api/groups/{self.parent.id}/")
+        self.client.delete(f"/api/v1/groups/{self.parent.id}/")
         board.refresh_from_db()
         self.assertIsNone(board.group)
         self.assertTrue(Board.objects.filter(pk=board_id).exists())
@@ -79,7 +79,7 @@ class GroupMemberRemovalCascadeTests(TestCase):
     def test_parent_member_can_access_child_board_before_removal(self):
         """Confirm the member can see the child board via group inheritance."""
         self.client.force_authenticate(self.member)
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_removing_from_parent_revokes_child_board_access(self):
@@ -88,13 +88,13 @@ class GroupMemberRemovalCascadeTests(TestCase):
         # Remove from parent group
         self.client.force_authenticate(self.owner)
         r = self.client.delete(
-            f"/api/groups/{self.parent.id}/members/{self.member.id}/"
+            f"/api/v1/groups/{self.parent.id}/members/{self.member.id}/"
         )
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
         # Now member should not be able to access the child board
         self.client.force_authenticate(self.member)
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
@@ -122,7 +122,7 @@ class PermissionInheritanceTests(TestCase):
             group=self.parent, user=self.member, role=GroupMembership.Role.MEMBER
         )
         self.client.force_authenticate(self.member)
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_parent_member_removed_loses_child_board_access(self):
@@ -133,14 +133,14 @@ class PermissionInheritanceTests(TestCase):
         )
         # Confirm access exists
         self.client.force_authenticate(self.member)
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
         # Remove from parent
         gm.delete()
 
         # Access should be revoked
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
     def test_direct_board_membership_retained_after_group_removal(self):
@@ -159,7 +159,7 @@ class PermissionInheritanceTests(TestCase):
 
         # Should still have access via direct board membership
         self.client.force_authenticate(self.member)
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_non_member_cannot_access_child_board(self):
@@ -167,5 +167,5 @@ class PermissionInheritanceTests(TestCase):
         to access a board inside a child group."""
         outsider = User.objects.create_user(username="outsider", password="pass")
         self.client.force_authenticate(outsider)
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])

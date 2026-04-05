@@ -41,7 +41,7 @@ class CardCreateTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_create_card_success(self, _):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "New card", "column": self.col.id, "swimlane": self.swim.id},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -52,7 +52,7 @@ class CardCreateTests(TestCase):
 
     def test_create_card_in_no_creation_column_rejected(self):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "X", "column": self.col2.id, "swimlane": self.swim.id},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -62,7 +62,7 @@ class CardCreateTests(TestCase):
         BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "X", "column": self.col.id, "swimlane": self.swim.id},
         )
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
@@ -78,7 +78,7 @@ class CardDeleteTests(TestCase):
 
     @patch(PATCH_BROADCAST)
     def test_delete_card(self, _):
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Card.objects.filter(pk=self.card.id).exists())
 
@@ -86,7 +86,7 @@ class CardDeleteTests(TestCase):
         viewer = User.objects.create_user(username="viewer", password="pass")
         BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
@@ -103,7 +103,7 @@ class CardUpdateTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_update_title_logs_activity(self, _):
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"title": "New Title"},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -116,7 +116,7 @@ class CardUpdateTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_update_priority_logs_activity(self, _):
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"priority": "high"},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -129,7 +129,7 @@ class CardUpdateTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_update_assignee_creates_notification(self, _):
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"assignee_id": self.assignee.id},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -143,7 +143,7 @@ class CardUpdateTests(TestCase):
     def test_update_labels(self, _):
         label = Label.objects.create(board=self.board, name="Bug", color="#F00")
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"label_ids": [label.id]},
             format="json",
         )
@@ -153,7 +153,7 @@ class CardUpdateTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_setting_due_date_logs_activity(self, _):
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"due_date": "2099-06-15"},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -169,7 +169,7 @@ class CardUpdateTests(TestCase):
         self.card.due_date = "2099-01-01"
         self.card.save()
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"due_date": "2099-06-15"},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -185,7 +185,7 @@ class CardUpdateTests(TestCase):
         self.card.due_date = "2099-06-15"
         self.card.save()
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"due_date": None},
             format="json",
         )
@@ -202,7 +202,7 @@ class CardUpdateTests(TestCase):
         self.card.due_date = "2099-06-15"
         self.card.save()
         self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"due_date": "2099-06-15"},
         )
         self.assertEqual(
@@ -224,7 +224,7 @@ class CardCommentsTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_post_comment(self, _):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
             {"body": "Hello world"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -233,7 +233,7 @@ class CardCommentsTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_get_comments(self, _):
         CardComment.objects.create(card=self.card, author=self.user, body="Hi")
-        r = self.client.get(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.json()), 1)
 
@@ -242,7 +242,7 @@ class CardCommentsTests(TestCase):
         mentioned = User.objects.create_user(username="alice", password="pass")
         BoardMembership.objects.create(board=self.board, user=mentioned, role=BoardMembership.Role.MEMBER)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
             {"body": "Hey @alice check this"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -254,7 +254,7 @@ class CardCommentsTests(TestCase):
     def test_mention_of_non_member_ignored(self, _):
         non_member = User.objects.create_user(username="bob", password="pass")
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
             {"body": "Hey @bob"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -275,7 +275,7 @@ class CardMovementsActivitiesTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_get_movements(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/cards/{self.card.id}/movements/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/movements/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(r.json()), 1)
 
@@ -284,7 +284,7 @@ class CardMovementsActivitiesTests(TestCase):
             card=self.card, event_type=CardActivity.EventType.TITLE_CHANGE,
             from_value="Old", to_value="New", actor=self.user,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/cards/{self.card.id}/activities/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/activities/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.json()), 1)
 
@@ -300,7 +300,7 @@ class CardChecklistTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_add_checklist_item(self, _):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/",
             {"text": "Step 1"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -309,22 +309,22 @@ class CardChecklistTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_list_checklist_items(self, _):
         self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/",
             {"text": "Step 1"},
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.json()), 1)
 
     @patch(PATCH_BROADCAST)
     def test_check_and_uncheck_item(self, _):
         r_add = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/",
             {"text": "Step 1"},
         )
         item_id = r_add.json()["id"]
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/{item_id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/{item_id}/",
             {"is_checked": True},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -333,12 +333,12 @@ class CardChecklistTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_delete_checklist_item(self, _):
         r_add = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/",
             {"text": "Step 1"},
         )
         item_id = r_add.json()["id"]
         r = self.client.delete(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/{item_id}/"
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/{item_id}/"
         )
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(self.card.checklist_items.count(), 0)
@@ -346,7 +346,7 @@ class CardChecklistTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_add_checklist_item_logs_activity(self, _):
         self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/checklist/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/",
             {"text": "Step 1"},
         )
         self.assertTrue(
@@ -399,7 +399,7 @@ class CardFilterTests(TestCase):
         )
 
     def _url(self):
-        return f"/api/boards/{self.board.id}/cards/"
+        return f"/api/v1/boards/{self.board.id}/cards/"
 
     def test_filter_by_priority(self):
         r = self.client.get(self._url(), {"priority": "high"})
@@ -501,7 +501,7 @@ class CardListQueryCountTests(TestCase):
         from django.test.utils import CaptureQueriesContext
         from django.db import connection
 
-        url = f"/api/boards/{self.board.id}/cards/"
+        url = f"/api/v1/boards/{self.board.id}/cards/"
         with CaptureQueriesContext(connection) as ctx:
             resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
@@ -539,7 +539,7 @@ class CardBoardScopingTests(TestCase):
     def test_create_card_with_cross_board_label_rejected(self, _):
         foreign_label = Label.objects.create(board=self.other_board, name="Foreign", color="#000")
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "X", "column": self.col.id, "swimlane": self.swim.id, "label_ids": [foreign_label.id]},
             format="json",
         )
@@ -549,7 +549,7 @@ class CardBoardScopingTests(TestCase):
     def test_update_card_with_cross_board_label_rejected(self, _):
         foreign_label = Label.objects.create(board=self.other_board, name="Foreign", color="#000")
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"label_ids": [foreign_label.id]},
             format="json",
         )
@@ -559,7 +559,7 @@ class CardBoardScopingTests(TestCase):
     def test_update_card_with_same_board_label_accepted(self, _):
         local_label = Label.objects.create(board=self.board, name="Local", color="#0F0")
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"label_ids": [local_label.id]},
             format="json",
         )
@@ -569,7 +569,7 @@ class CardBoardScopingTests(TestCase):
     def test_assign_non_member_user_rejected(self, _):
         outsider = User.objects.create_user(username="outsider", password="pass")
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"assignee_id": outsider.id},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -579,7 +579,7 @@ class CardBoardScopingTests(TestCase):
         member = User.objects.create_user(username="member", password="pass")
         BoardMembership.objects.create(board=self.board, user=member, role=BoardMembership.Role.MEMBER)
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"assignee_id": member.id},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -588,7 +588,7 @@ class CardBoardScopingTests(TestCase):
     def test_create_card_with_non_member_assignee_rejected(self, _):
         outsider = User.objects.create_user(username="outsider2", password="pass")
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "X", "column": self.col.id, "swimlane": self.swim.id, "assignee_id": outsider.id},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -597,7 +597,7 @@ class CardBoardScopingTests(TestCase):
     def test_unassign_card_accepted(self, _):
         """Setting assignee_id to null should always succeed — it clears the assignee."""
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"assignee_id": None},
             format="json",
         )

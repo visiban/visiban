@@ -42,13 +42,13 @@ class CardDeleteOwnershipTests(TestCase):
     def test_member_can_delete_own_card(self):
         card = self._make_card(created_by=self.member)
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{card.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_member_cannot_delete_others_card(self):
         card = self._make_card(created_by=self.other)
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{card.id}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn("cards you created", r.data["detail"])
 
@@ -56,26 +56,26 @@ class CardDeleteOwnershipTests(TestCase):
         card = self._make_card(created_by=self.other)
         BoardMembership.objects.filter(board=self.board, user=self.member).update(is_moderator=True)
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{card.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_admin_can_delete_others_card(self):
         card = self._make_card(created_by=self.other)
         self.client.force_authenticate(self.owner)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{card.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_null_created_by_blocked_for_member(self):
         card = self._make_card(created_by=None)
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{card.id}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_null_created_by_allowed_for_moderator(self):
         card = self._make_card(created_by=None)
         BoardMembership.objects.filter(board=self.board, user=self.member).update(is_moderator=True)
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{card.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{card.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
 
@@ -100,20 +100,20 @@ class CardArchiveOwnershipTests(TestCase):
     def test_member_can_archive_own_card(self):
         card = self._make_card(created_by=self.member)
         self.client.force_authenticate(self.member)
-        r = self.client.post(f"/api/boards/{self.board.id}/cards/{card.id}/archive/")
+        r = self.client.post(f"/api/v1/boards/{self.board.id}/cards/{card.id}/archive/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_member_cannot_archive_others_card(self):
         card = self._make_card(created_by=self.other)
         self.client.force_authenticate(self.member)
-        r = self.client.post(f"/api/boards/{self.board.id}/cards/{card.id}/archive/")
+        r = self.client.post(f"/api/v1/boards/{self.board.id}/cards/{card.id}/archive/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_moderator_can_archive_others_card(self):
         card = self._make_card(created_by=self.other)
         BoardMembership.objects.filter(board=self.board, user=self.member).update(is_moderator=True)
         self.client.force_authenticate(self.member)
-        r = self.client.post(f"/api/boards/{self.board.id}/cards/{card.id}/archive/")
+        r = self.client.post(f"/api/v1/boards/{self.board.id}/cards/{card.id}/archive/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_member_cannot_unarchive_others_card(self):
@@ -122,7 +122,7 @@ class CardArchiveOwnershipTests(TestCase):
         card.archived_at = timezone.now()
         card.save()
         self.client.force_authenticate(self.member)
-        r = self.client.post(f"/api/boards/{self.board.id}/cards/{card.id}/unarchive/")
+        r = self.client.post(f"/api/v1/boards/{self.board.id}/cards/{card.id}/unarchive/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_moderator_can_unarchive_others_card(self):
@@ -132,7 +132,7 @@ class CardArchiveOwnershipTests(TestCase):
         card.save()
         BoardMembership.objects.filter(board=self.board, user=self.member).update(is_moderator=True)
         self.client.force_authenticate(self.member)
-        r = self.client.post(f"/api/boards/{self.board.id}/cards/{card.id}/unarchive/")
+        r = self.client.post(f"/api/v1/boards/{self.board.id}/cards/{card.id}/unarchive/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
 
@@ -155,13 +155,13 @@ class CommentDeleteOwnershipTests(TestCase):
     def test_member_can_delete_own_comment(self):
         comment = CardComment.objects.create(card=self.card, author=self.member, body="My comment")
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_member_cannot_delete_others_comment(self):
         comment = CardComment.objects.create(card=self.card, author=self.other, body="Their comment")
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn("your own comments", r.data["detail"])
 
@@ -169,25 +169,25 @@ class CommentDeleteOwnershipTests(TestCase):
         comment = CardComment.objects.create(card=self.card, author=self.other, body="Their comment")
         BoardMembership.objects.filter(board=self.board, user=self.member).update(is_moderator=True)
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_admin_can_delete_others_comment(self):
         comment = CardComment.objects.create(card=self.card, author=self.other, body="Their comment")
         self.client.force_authenticate(self.owner)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_null_author_blocked_for_member(self):
         comment = CardComment.objects.create(card=self.card, author=None, body="Orphaned")
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_null_author_allowed_for_admin(self):
         comment = CardComment.objects.create(card=self.card, author=None, body="Orphaned")
         self.client.force_authenticate(self.owner)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_collaborator_can_still_delete_own_comment(self):
@@ -195,7 +195,7 @@ class CommentDeleteOwnershipTests(TestCase):
         BoardMembership.objects.create(board=self.board, user=collab, role=BoardMembership.Role.COLLABORATOR)
         comment = CardComment.objects.create(card=self.card, author=collab, body="My comment")
         self.client.force_authenticate(collab)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_collaborator_cannot_delete_others_comment(self):
@@ -203,5 +203,5 @@ class CommentDeleteOwnershipTests(TestCase):
         BoardMembership.objects.create(board=self.board, user=collab, role=BoardMembership.Role.COLLABORATOR)
         comment = CardComment.objects.create(card=self.card, author=self.other, body="Their comment")
         self.client.force_authenticate(collab)
-        r = self.client.delete(f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/{comment.id}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)

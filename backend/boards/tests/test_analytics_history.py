@@ -53,21 +53,21 @@ class AnalyticsHistorySetup(TestCase):
         return c
 
     def _summary_url(self):
-        return f"/api/boards/{self.board.pk}/summary/"
+        return f"/api/v1/boards/{self.board.pk}/summary/"
 
     def _movements_url(self):
-        return f"/api/boards/{self.board.pk}/movements/"
+        return f"/api/v1/boards/{self.board.pk}/movements/"
 
     def _archive_url(self, card=None):
         card = card or self.card
-        return f"/api/boards/{self.board.pk}/cards/{card.pk}/archive/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/archive/"
 
     def _unarchive_url(self, card=None):
         card = card or self.card
-        return f"/api/boards/{self.board.pk}/cards/{card.pk}/unarchive/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/unarchive/"
 
     def _analytics_url(self):
-        return f"/api/boards/{self.board.pk}/analytics/"
+        return f"/api/v1/boards/{self.board.pk}/analytics/"
 
 
 class TestSummaryMetrics(AnalyticsHistorySetup):
@@ -182,7 +182,7 @@ class TestSummaryMetrics(AnalyticsHistorySetup):
     def test_capabilities_movement_export_false_by_default(self):
         """capabilities.movement_export must be False in OSS (no MOVEMENT_EXPORT_BACKENDS)."""
         c = self._client_for(self.admin)
-        resp = c.get(f"/api/boards/{self.board.pk}/full/")
+        resp = c.get(f"/api/v1/boards/{self.board.pk}/full/")
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.data["capabilities"]["movement_export"])
 
@@ -193,7 +193,7 @@ class TestSummaryMetrics(AnalyticsHistorySetup):
         dummy_backend = lambda board, qs, req: None  # noqa: E731
         with patch("boards.hooks.MOVEMENT_EXPORT_BACKENDS", [dummy_backend]):
             c = self._client_for(self.admin)
-            resp = c.get(f"/api/boards/{self.board.pk}/full/")
+            resp = c.get(f"/api/v1/boards/{self.board.pk}/full/")
         self.assertTrue(resp.data["capabilities"]["movement_export"])
 
 

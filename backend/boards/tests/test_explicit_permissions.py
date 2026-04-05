@@ -17,27 +17,27 @@ class ExplicitPermissionClassesTests(TestCase):
         self.client = APIClient()
 
     def test_user_search_requires_auth(self):
-        r = self.client.get("/api/users/", {"search": "test"})
+        r = self.client.get("/api/v1/users/", {"search": "test"})
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_notification_list_requires_auth(self):
-        r = self.client.get("/api/notifications/")
+        r = self.client.get("/api/v1/notifications/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_notification_mark_read_requires_auth(self):
-        r = self.client.post("/api/notifications/mark-read/", {"all": True})
+        r = self.client.post("/api/v1/notifications/mark-read/", {"all": True})
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_notification_unread_count_requires_auth(self):
-        r = self.client.get("/api/notifications/unread-count/")
+        r = self.client.get("/api/v1/notifications/unread-count/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_board_templates_requires_auth(self):
-        r = self.client.get("/api/boards/templates/")
+        r = self.client.get("/api/v1/boards/templates/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_version_requires_auth(self):
-        r = self.client.get("/api/version/")
+        r = self.client.get("/api/v1/version/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_serve_media_requires_auth(self):

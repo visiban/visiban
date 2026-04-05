@@ -66,7 +66,7 @@ Run multiple backend replicas behind a load balancer. Requirements before doing 
 
 **Kubernetes:** The Helm chart supports `backend.replicaCount`. Set it to 2+ and ensure the `externalDatabase` and `externalRedis` values point to shared instances (not the bundled in-cluster pods, which are single-replica by default).
 
-**When to act:** When p95 HTTP response time on `/api/boards/{id}/cards/` exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.
+**When to act:** When p95 HTTP response time on `/api/v1/boards/{id}/cards/` exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.
 
 ---
 
@@ -265,5 +265,5 @@ Steps 1–2 are operational changes with no code. Steps 3–8 require configurat
 ## What does not scale linearly
 
 - **Board-scoped WebSocket groups** — every user on the same board shares one Redis channel group. 100 users on one board means 100 deliveries per card move. This is by design; it does not degrade other boards.
-- **The `/api/boards/{id}/full/` endpoint** — returns the full board state in one request. At the 500-card import limit, this is a large payload. If teams consistently hit this size, consider paginating card loads rather than scaling infrastructure — it's a product decision.
+- **The `/api/v1/boards/{id}/full/` endpoint** — returns the full board state in one request. At the 500-card import limit, this is a large payload. If teams consistently hit this size, consider paginating card loads rather than scaling infrastructure — it's a product decision.
 - **`CardMovement` table growth** — every card move and card creation writes a row. On active boards over months, this table grows. Archiving old boards reclaims logical space; a periodic vacuum handles physical space. This is not a problem at team scale but worth noting for multi-year deployments.

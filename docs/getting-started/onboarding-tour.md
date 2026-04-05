@@ -16,7 +16,7 @@ When a new user opens a board for the first time, Visiban displays a 4-step guid
 - Clicking **Next** advances to the next step. Clicking **Done** on the last step completes the tour.
 - Clicking **Skip tour** at any step immediately dismisses the tour.
 - Pressing **Escape** dismisses the tour.
-- Any dismissal (skip, complete, or Escape) sends a `PATCH /api/auth/me/` request setting `has_completed_tour: true` so the tour never appears again.
+- Any dismissal (skip, complete, or Escape) sends a `PATCH /api/v1/auth/me/` request setting `has_completed_tour: true` so the tour never appears again.
 
 ## Resetting the tour
 
@@ -31,7 +31,7 @@ The user will see the tour again the next time they open a board. Resetting the 
 You can also reset the flag via the API:
 
 ```
-PATCH /api/admin/users/{id}/
+PATCH /api/v1/admin/users/{id}/
 { "has_completed_tour": false }
 ```
 
@@ -39,6 +39,6 @@ PATCH /api/admin/users/{id}/
 
 The tour state is stored as a boolean field on the User model:
 
-- `GET /api/auth/me/` — returns `has_completed_tour` in the response
-- `PATCH /api/auth/me/` with `{ "has_completed_tour": true }` — marks the tour as completed
-- `PATCH /api/admin/users/{id}/` with `{ "has_completed_tour": false }` — admin resets the flag
+- `GET /api/v1/auth/me/` — returns `has_completed_tour` in the response
+- `PATCH /api/v1/auth/me/` with `{ "has_completed_tour": true }` — marks the tour as completed
+- `PATCH /api/v1/admin/users/{id}/` with `{ "has_completed_tour": false }` — admin resets the flag

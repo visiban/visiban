@@ -34,7 +34,7 @@ class CardCreatedBroadcastOnCommitTests(TestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
-                    f"/api/boards/{self.board.pk}/cards/",
+                    f"/api/v1/boards/{self.board.pk}/cards/",
                     {"title": "New card", "column": self.col.pk, "swimlane": self.swim.pk},
                 )
             self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -47,7 +47,7 @@ class CardCreatedBroadcastOnCommitTests(TestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.post(
-                    f"/api/boards/{self.board.pk}/cards/",
+                    f"/api/v1/boards/{self.board.pk}/cards/",
                     {"title": "New card", "column": self.col.pk, "swimlane": self.swim.pk},
                 )
                 # on_commit callbacks have not run yet
@@ -69,7 +69,7 @@ class CardMovedBroadcastOnCommitTests(TestCase):
         )
 
     def _move_url(self):
-        return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/"
 
     def test_card_moved_broadcast_fires_after_commit(self):
         """broadcast_board_event for card.moved fires via on_commit, not inside the transaction."""
@@ -187,7 +187,7 @@ class HardWipBroadcastTests(TestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
-                    f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+                    f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
                     {"column_id": self.col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
                 )
             self.assertEqual(resp.status_code, 409)

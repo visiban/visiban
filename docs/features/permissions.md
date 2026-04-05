@@ -83,7 +83,7 @@ Visiban tracks two independent flags on the User model:
 
 | Flag | What it controls |
 |---|---|
-| `is_site_admin` | Access to the admin panel (`/admin`) and admin API (`/api/admin/*`). Does **not** grant board or group access on its own. |
+| `is_site_admin` | Access to the admin panel (`/admin`) and admin API (`/api/v1/admin/*`). Does **not** grant board or group access on its own. |
 | `can_access_all_content` | Read/write access to every board and group on the instance, regardless of membership. This is the flag that bypasses board-level role checks. |
 
 When a user with `can_access_all_content` accesses a board, the permission system treats them as a site-level admin role — they can view and modify any board without an explicit membership.

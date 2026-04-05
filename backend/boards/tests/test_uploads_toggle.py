@@ -34,7 +34,7 @@ class UploadsToggleEnforcementTests(TestCase):
         self.client = APIClient()
         self.board, self.card, self.owner = make_board_and_card()
         self.client.force_authenticate(self.owner)
-        self.url = f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/"
+        self.url = f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/"
 
     def _upload(self):
         f = SimpleUploadedFile("test.png", _png_bytes(), content_type="image/png")
@@ -95,7 +95,7 @@ class UploadsEnabledInMeEndpointTests(TestCase):
         s = SiteSetting.get()
         s.uploads_enabled = True
         s.save(update_fields=["uploads_enabled"])
-        r = self.client.get("/api/auth/me/")
+        r = self.client.get("/api/v1/auth/me/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertTrue(r.json()["uploads_enabled"])
 
@@ -103,6 +103,6 @@ class UploadsEnabledInMeEndpointTests(TestCase):
         s = SiteSetting.get()
         s.uploads_enabled = False
         s.save(update_fields=["uploads_enabled"])
-        r = self.client.get("/api/auth/me/")
+        r = self.client.get("/api/v1/auth/me/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertFalse(r.json()["uploads_enabled"])

@@ -135,7 +135,7 @@ The job uses today's date (`YYYYMMDD`) as the random seed by default, so each we
 
 ## Import files and test data
 
-The board import endpoint (`POST /api/boards/import/`) accepts the same JSON and CSV format produced by the board export. If someone uploads a hand-crafted file to simulate a board import (for automation testing, template validation, etc.):
+The board import endpoint (`POST /api/v1/boards/import/`) accepts the same JSON and CSV format produced by the board export. If someone uploads a hand-crafted file to simulate a board import (for automation testing, template validation, etc.):
 
 - **All objects receive fresh UIDs** — the import code ignores any `uid` field present in the source file and generates new UIDs for every board, column, swimlane, label, and card created
 - **Imported records are not tagged as test data** — they are real database rows with no provenance marker

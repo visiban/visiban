@@ -105,11 +105,11 @@ Each notification stores structured metadata alongside the human-readable `verb`
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/notifications/` | List unread notifications for the current user (max 50) |
-| `GET /api/notifications/unread-count/` | Returns `{ "count": N }` |
-| `POST /api/notifications/mark-read/` | Mark notifications as read — body: `{ "ids": [1, 2] }` or `{ "all": true }` to mark all |
+| `GET /api/v1/notifications/` | List unread notifications for the current user (max 50) |
+| `GET /api/v1/notifications/unread-count/` | Returns `{ "count": N }` |
+| `POST /api/v1/notifications/mark-read/` | Mark notifications as read — body: `{ "ids": [1, 2] }` or `{ "all": true }` to mark all |
 
-The `GET /api/notifications/` response returns an array of objects with the following shape:
+The `GET /api/v1/notifications/` response returns an array of objects with the following shape:
 
 ```json
 {

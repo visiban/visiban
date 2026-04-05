@@ -57,7 +57,7 @@ class WipEnforcementTests(TestCase):
 
     def _move_url(self, card=None):
         c = card or self.card
-        return f"/api/boards/{self.board.pk}/cards/{c.pk}/move/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{c.pk}/move/"
 
     def _fill_column(self, column, count):
         """Create `count` active cards in `column` for the same board and swimlane."""
@@ -206,7 +206,7 @@ class WipEnforcementTests(TestCase):
         """PATCH enforce_wip_limits by a non-admin returns 403."""
         self.client.force_authenticate(self.member)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/",
+            f"/api/v1/boards/{self.board.pk}/",
             {"enforce_wip_limits": False},
             format="json",
         )
@@ -216,7 +216,7 @@ class WipEnforcementTests(TestCase):
         """Board admin can toggle enforce_wip_limits via PATCH."""
         self.client.force_authenticate(self.admin)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/",
+            f"/api/v1/boards/{self.board.pk}/",
             {"enforce_wip_limits": False},
             format="json",
         )
@@ -264,7 +264,7 @@ class TestHardWipEnforcement(TestCase):
 
     def _move_url(self, card=None):
         c = card or self.card
-        return f"/api/boards/{self.board.pk}/cards/{c.pk}/move/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{c.pk}/move/"
 
     def _fill_column(self, column, count):
         for i in range(count):
@@ -394,7 +394,7 @@ class TestHardWipEnforcement(TestCase):
         """PATCH enforce_wip_hard by a non-admin returns 403."""
         self.client.force_authenticate(self.member)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/",
+            f"/api/v1/boards/{self.board.pk}/",
             {"enforce_wip_hard": False},
             format="json",
         )
@@ -404,7 +404,7 @@ class TestHardWipEnforcement(TestCase):
         """Board admin can toggle enforce_wip_hard via PATCH."""
         self.client.force_authenticate(self.admin)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/",
+            f"/api/v1/boards/{self.board.pk}/",
             {"enforce_wip_hard": False},
             format="json",
         )

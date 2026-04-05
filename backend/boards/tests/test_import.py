@@ -67,7 +67,7 @@ class BoardImportJSONTests(TestCase):
     def test_json_import_creates_board(self):
         data = self._valid_json_data()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -77,7 +77,7 @@ class BoardImportJSONTests(TestCase):
     def test_json_import_creates_correct_structure(self):
         data = self._valid_json_data()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -102,7 +102,7 @@ class BoardImportJSONTests(TestCase):
         data = self._valid_json_data()
         data["cards"][0]["weight"] = 3
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -122,7 +122,7 @@ class BoardImportJSONTests(TestCase):
         data = self._valid_json_data()
         data["cards"][0]["weight"] = 1
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -139,7 +139,7 @@ class BoardImportJSONTests(TestCase):
         """Importing a card with labels should create a LABEL_CHANGE activity."""
         data = self._valid_json_data()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -158,7 +158,7 @@ class BoardImportJSONTests(TestCase):
         """Importing checklist items should create a CHECKLIST_ITEM_ADDED activity per item."""
         data = self._valid_json_data()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -180,7 +180,7 @@ class BoardImportJSONTests(TestCase):
         data = self._valid_json_data()
         data["cards"][0]["archived_at"] = "2026-01-15T10:00:00Z"
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -194,7 +194,7 @@ class BoardImportJSONTests(TestCase):
         data = self._valid_json_data()
         data["cards"][0]["archived_at"] = None
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -219,7 +219,7 @@ class BoardImportJSONTests(TestCase):
             }
         ]
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -237,7 +237,7 @@ class BoardImportJSONTests(TestCase):
             {"author": "someone", "body": "Original comment", "created_at": "2026-01-05T08:30:00Z"}
         ]
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -262,7 +262,7 @@ class BoardImportJSONTests(TestCase):
             board=board, column=col, swimlane=sw,
             title="Active card",
         )
-        resp = self.client.get(f"/api/boards/{board.id}/export/?format=json")
+        resp = self.client.get(f"/api/v1/boards/{board.id}/export/?format=json")
         self.assertEqual(resp.status_code, 200)
         payload = json.loads(resp.content)
         self.assertEqual(payload["schema_version"], 2)
@@ -273,7 +273,7 @@ class BoardImportJSONTests(TestCase):
     def test_json_import_name_override(self):
         data = self._valid_json_data()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data), "name": "My Custom Name"},
             format="multipart",
         )
@@ -283,7 +283,7 @@ class BoardImportJSONTests(TestCase):
     def test_json_import_correct_owner(self):
         data = self._valid_json_data()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -295,7 +295,7 @@ class BoardImportJSONTests(TestCase):
     def test_invalid_json_returns_400(self):
         f = io.BytesIO(b"not valid json{{{")
         f.name = "bad.json"
-        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Invalid JSON", resp.data["detail"])
 
@@ -303,7 +303,7 @@ class BoardImportJSONTests(TestCase):
         # Missing columns
         data = {"name": "Test", "swimlanes": [{"name": "General"}]}
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -314,7 +314,7 @@ class BoardImportJSONTests(TestCase):
         data = self._valid_json_data()
         data["cards"] = [{"description": "No title"}]
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -325,7 +325,7 @@ class BoardImportJSONTests(TestCase):
         anon = APIClient()
         data = self._valid_json_data()
         resp = anon.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -352,7 +352,7 @@ class BoardImportCSVTests(TestCase):
 
     def test_csv_import_creates_board(self):
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(self._valid_csv_content()), "name": "CSV Board"},
             format="multipart",
         )
@@ -361,7 +361,7 @@ class BoardImportCSVTests(TestCase):
 
     def test_csv_import_creates_correct_structure(self):
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(self._valid_csv_content()), "name": "CSV Board"},
             format="multipart",
         )
@@ -393,7 +393,7 @@ class BoardImportCSVTests(TestCase):
             "1,Weighted card,,To Do,General,medium,,,,2,2026-01-01,importer,,,\n"
         )
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(csv_content), "name": "CSV Weight Board"},
             format="multipart",
         )
@@ -415,7 +415,7 @@ class BoardImportCSVTests(TestCase):
             "Fix login,To Do,General,\"Bug, Feature\"\n"
         )
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(csv_content), "name": "CSV Label Board"},
             format="multipart",
         )
@@ -436,7 +436,7 @@ class BoardImportCSVTests(TestCase):
             "1,Default weight card,,To Do,General,medium,,,,1,2026-01-01,importer,,,\n"
         )
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(csv_content), "name": "CSV Default Board"},
             format="multipart",
         )
@@ -453,7 +453,7 @@ class BoardImportCSVTests(TestCase):
         # Missing required headers
         csv_content = "Name,Description\nFoo,Bar\n"
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(csv_content)},
             format="multipart",
         )
@@ -466,7 +466,7 @@ class BoardImportCSVTests(TestCase):
             ",,,To Do,General,medium,,,,,,,,,,\n"
         )
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(csv_content)},
             format="multipart",
         )
@@ -475,7 +475,7 @@ class BoardImportCSVTests(TestCase):
 
     def test_csv_import_correct_owner(self):
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(self._valid_csv_content()), "name": "CSV Board"},
             format="multipart",
         )
@@ -483,14 +483,14 @@ class BoardImportCSVTests(TestCase):
         self.assertEqual(board.owner, self.user)
 
     def test_no_file_returns_400(self):
-        resp = self.client.post("/api/boards/import/", {}, format="multipart")
+        resp = self.client.post("/api/v1/boards/import/", {}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("No file", resp.data["detail"])
 
     def test_unsupported_format_returns_400(self):
         f = io.BytesIO(b"some data")
         f.name = "board.xml"
-        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Unsupported", resp.data["detail"])
 
@@ -537,7 +537,7 @@ class BoardImportEdgeCaseTests(TestCase):
         truncated = b'{"name": "Board", "columns": [{"name": "To Do"'
         f = io.BytesIO(truncated)
         f.name = "truncated.json"
-        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Invalid JSON", resp.data["detail"])
 
@@ -551,7 +551,7 @@ class BoardImportEdgeCaseTests(TestCase):
         )
         f = io.BytesIO(csv_content.encode("utf-8"))
         f.name = "missing_title.csv"
-        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("missing required headers", resp.data["detail"])
         self.assertIn("Title", resp.data["detail"])
@@ -560,14 +560,14 @@ class BoardImportEdgeCaseTests(TestCase):
         """An empty file with .json extension should return 400."""
         f = io.BytesIO(b"")
         f.name = "empty.json"
-        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_empty_csv_file_returns_400(self):
         """An empty file with .csv extension should return 400."""
         f = io.BytesIO(b"")
         f.name = "empty.csv"
-        resp = self.client.post("/api/boards/import/", {"file": f}, format="multipart")
+        resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_csv_import_accepts_lowercase_headers(self):
@@ -577,7 +577,7 @@ class BoardImportEdgeCaseTests(TestCase):
             "Fix login,To Do,General,high,Login is broken\n"
         )
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(csv_content), "name": "Lowercase CSV"},
             format="multipart",
         )
@@ -592,7 +592,7 @@ class BoardImportEdgeCaseTests(TestCase):
             "Fix login,To Do,General,2026-06-01\n"
         )
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(csv_content), "name": "Snake Date CSV"},
             format="multipart",
         )
@@ -611,7 +611,7 @@ class BoardImportEdgeCaseTests(TestCase):
             self.skipTest("demo_board.csv not present in this environment")
         with open(seed_path, "rb") as f:
             resp = self.client.post(
-                "/api/boards/import/",
+                "/api/v1/boards/import/",
                 {"file": f, "name": "Seed Import"},
                 format="multipart",
             )
@@ -629,7 +629,7 @@ class BoardImportEdgeCaseTests(TestCase):
 
         data = self._valid_json_data()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data), "group_id": group.pk},
             format="multipart",
         )
@@ -670,7 +670,7 @@ class BoardImportDuplicateLabelTests(TransactionTestCase):
         }
         with self.assertRaises(Exception):
             self.client.post(
-                "/api/boards/import/",
+                "/api/v1/boards/import/",
                 {"file": self._make_json_file(data)},
                 format="multipart",
             )
@@ -706,7 +706,7 @@ class BoardImportCSVRoundtripTests(TestCase):
 
         # Export the board as CSV (no ?format= param to avoid DRF content-negotiation
         # interpreting "csv" as a format suffix and routing to a missing renderer).
-        export_resp = self.client.get(f"/api/boards/{self.board.id}/export/")
+        export_resp = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(export_resp.status_code, 200)
 
         # Re-import the CSV.
@@ -714,7 +714,7 @@ class BoardImportCSVRoundtripTests(TestCase):
         f = io.BytesIO(csv_bytes)
         f.name = "roundtrip.csv"
         import_resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": f, "name": "Round-trip Import"},
             format="multipart",
         )
@@ -784,7 +784,7 @@ class BoardImportBulkUserLookupTests(TestCase):
         """Assignee should be resolved correctly via the bulk user map."""
         data = self._data_with_users(card_count=2)
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -799,7 +799,7 @@ class BoardImportBulkUserLookupTests(TestCase):
         """moved_by on CardMovement should be resolved via the bulk user map."""
         data = self._data_with_users(card_count=1)
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -814,7 +814,7 @@ class BoardImportBulkUserLookupTests(TestCase):
         """actor on CardActivity should be resolved via the bulk user map."""
         data = self._data_with_users(card_count=1)
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -833,7 +833,7 @@ class BoardImportBulkUserLookupTests(TestCase):
         data["cards"][0]["movements"][0]["moved_by"] = "ghost"
         data["cards"][0]["activities"][0]["actor"] = "ghost"
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -859,7 +859,7 @@ class BoardImportBulkUserLookupTests(TestCase):
         data = self._data_with_users(card_count=5)
         reset_queries()
         resp = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -913,7 +913,7 @@ class BoardImportBulkCreateEdgeCaseTests(TestCase):
 
     def _post(self, data):
         return self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )

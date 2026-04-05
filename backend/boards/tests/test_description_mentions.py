@@ -157,7 +157,7 @@ class CardCreateDescriptionMentionTests(TestCase):
     def test_create_card_with_mention_notifies_member(self):
         with self.captureOnCommitCallbacks(execute=True):
             resp = self.client.post(
-                f"/api/boards/{self.board.pk}/cards/",
+                f"/api/v1/boards/{self.board.pk}/cards/",
                 {
                     "title": "New Card",
                     "description": "Hey @alice please review",
@@ -179,7 +179,7 @@ class CardCreateDescriptionMentionTests(TestCase):
     def test_create_card_no_description_no_notification(self):
         with self.captureOnCommitCallbacks(execute=True):
             resp = self.client.post(
-                f"/api/boards/{self.board.pk}/cards/",
+                f"/api/v1/boards/{self.board.pk}/cards/",
                 {
                     "title": "Empty Description",
                     "column": self.col.pk,
@@ -220,7 +220,7 @@ class CardUpdateDescriptionMentionTests(TestCase):
     def _patch(self, data):
         with self.captureOnCommitCallbacks(execute=True):
             resp = self.client.patch(
-                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
                 data,
                 format="json",
             )
@@ -270,7 +270,7 @@ class CardUpdateDescriptionMentionTests(TestCase):
         # Patch something else — description not in payload
         with self.captureOnCommitCallbacks(execute=True):
             resp = self.client.patch(
-                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
                 {"title": "New Title"},
                 format="json",
             )

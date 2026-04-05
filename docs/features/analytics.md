@@ -23,7 +23,7 @@ Useful for a quick health check across all active pipelines.
 
 The summary response includes an `extension_panels` field (always an empty list in the OSS edition). Enterprise extensions can register additional panels here.
 
-**API:** `GET /api/boards/{id}/summary/`
+**API:** `GET /api/v1/boards/{id}/summary/`
 
 ## Analytics view
 
@@ -91,7 +91,7 @@ Click **Export CSV** to download the heatmap data as a comma-separated file for 
 
 ### API reference
 
-**API:** `GET /api/boards/{id}/analytics/?days=30`
+**API:** `GET /api/v1/boards/{id}/analytics/?days=30`
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|

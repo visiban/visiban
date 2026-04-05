@@ -6,7 +6,7 @@ The term "site admin" covers two distinct privileges that are now tracked by sep
 
 | Flag | What it controls |
 |---|---|
-| `is_site_admin` | Access to the `/admin` admin panel and admin API (`/api/admin/*`). Required to manage users, settings, and instance configuration. |
+| `is_site_admin` | Access to the `/admin` admin panel and admin API (`/api/v1/admin/*`). Required to manage users, settings, and instance configuration. |
 | `can_access_all_content` | Read/write access to **every board and group** on the instance, regardless of membership. This is the "omniscient" content access. |
 
 Before Visiban 1.0.0-rc.9 (issue #247) these two were coupled — `is_site_admin` implied content access. They are now independent so operators can grant admin panel access without also granting board/group omniscience, and vice versa.
@@ -93,7 +93,7 @@ The change takes effect immediately — no restart required.
 
 **What changes when invite-only or closed is enabled:**
 
-- `POST /api/auth/registration/` returns `403 Forbidden` for new sign-ups
+- `POST /api/v1/auth/registration/` returns `403 Forbidden` for new sign-ups
 - OAuth sign-up flows (Google, GitHub, GitLab) are also blocked — existing OAuth-linked accounts can still log in, but new OAuth accounts cannot be created
 - The login page shows: *"An invite link is required to create an account."*
 - Existing users are unaffected

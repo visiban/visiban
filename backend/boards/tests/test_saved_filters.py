@@ -42,7 +42,7 @@ class SavedFilterListCreateTests(TestCase):
         self.board = _make_board(self.user)
         self.client = APIClient()
         self.client.force_authenticate(self.user)
-        self.url = f"/api/boards/{self.board.id}/saved-filters/"
+        self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
 
     # --- list ---
 
@@ -163,7 +163,7 @@ class SavedFilterDeleteTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _delete_url(self, filter_pk):
-        return f"/api/boards/{self.board.id}/saved-filters/{filter_pk}/"
+        return f"/api/v1/boards/{self.board.id}/saved-filters/{filter_pk}/"
 
     def test_delete_own_filter(self):
         sf = SavedFilter.objects.create(
@@ -209,7 +209,7 @@ class SavedFilterViewerRbacTests(TestCase):
         )
         self.client = APIClient()
         self.client.force_authenticate(self.viewer)
-        self.url = f"/api/boards/{self.board.id}/saved-filters/"
+        self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
 
     def test_viewer_can_list_saved_filters(self):
         r = self.client.get(self.url)
@@ -225,5 +225,5 @@ class SavedFilterViewerRbacTests(TestCase):
         sf = SavedFilter.objects.create(
             user=self.viewer, board=self.board, name="Viewer preset", state_json=SIMPLE_STATE
         )
-        r = self.client.delete(f"/api/boards/{self.board.id}/saved-filters/{sf.pk}/")
+        r = self.client.delete(f"/api/v1/boards/{self.board.id}/saved-filters/{sf.pk}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)

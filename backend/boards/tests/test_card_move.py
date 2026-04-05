@@ -42,7 +42,7 @@ class CardMoveTests(TestCase):
         self._broadcast_patcher.stop()
 
     def _move_url(self):
-        return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/"
 
     def test_move_to_new_column_creates_movement(self):
         resp = self.client.post(self._move_url(), {
@@ -200,7 +200,7 @@ class CardMoveTests(TestCase):
         self.col_b.delete()
 
         resp = self.client.get(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/movements/"
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/movements/"
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         movements = resp.json()

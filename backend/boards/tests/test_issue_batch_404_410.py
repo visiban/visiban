@@ -70,7 +70,7 @@ class GroupBoardDefaultsTests(TestCase):
         self.group.save(update_fields=["allowed_priorities"])
 
         resp = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Priority Board"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -83,7 +83,7 @@ class GroupBoardDefaultsTests(TestCase):
         GroupLabel.objects.create(group=self.group, name="Feature", color="#22C55E")
 
         resp = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Label Board"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -98,7 +98,7 @@ class GroupBoardDefaultsTests(TestCase):
         self.group.save(update_fields=["allowed_priorities"])
 
         resp = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Default Board"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -123,7 +123,7 @@ class GroupInviteLinkExpiryTests(TestCase):
             expires_at=timezone.now() - datetime.timedelta(hours=1),
         )
 
-        resp = self.client.get(f"/api/groups/join/{raw_token}/")
+        resp = self.client.get(f"/api/v1/groups/join/{raw_token}/")
         self.assertEqual(resp.status_code, status.HTTP_410_GONE)
 
     def test_expired_invite_link_rejected_on_join(self):
@@ -135,7 +135,7 @@ class GroupInviteLinkExpiryTests(TestCase):
         )
 
         self.client.force_authenticate(self.joiner)
-        resp = self.client.post(f"/api/groups/join/{raw_token}/")
+        resp = self.client.post(f"/api/v1/groups/join/{raw_token}/")
         self.assertEqual(resp.status_code, status.HTTP_410_GONE)
         # User should not have been added to the group
         self.assertFalse(
@@ -151,7 +151,7 @@ class GroupInviteLinkExpiryTests(TestCase):
         )
 
         self.client.force_authenticate(self.joiner)
-        resp = self.client.post(f"/api/groups/join/{raw_token}/")
+        resp = self.client.post(f"/api/v1/groups/join/{raw_token}/")
         self.assertIn(resp.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
         self.assertTrue(
             GroupMembership.objects.filter(group=self.group, user=self.joiner).exists()
@@ -166,7 +166,7 @@ class GroupInviteLinkExpiryTests(TestCase):
         link.is_active = False
         link.save(update_fields=["is_active"])
 
-        resp = self.client.get(f"/api/groups/join/{raw_token}/")
+        resp = self.client.get(f"/api/v1/groups/join/{raw_token}/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_max_five_active_invite_links_per_group(self):
@@ -174,14 +174,14 @@ class GroupInviteLinkExpiryTests(TestCase):
         self.client.force_authenticate(self.owner)
         for i in range(5):
             resp = self.client.post(
-                f"/api/groups/{self.group.id}/invite-links/",
+                f"/api/v1/groups/{self.group.id}/invite-links/",
                 {"name": f"Link {i}"},
             )
             self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
         # 6th should be rejected
         resp = self.client.post(
-            f"/api/groups/{self.group.id}/invite-links/",
+            f"/api/v1/groups/{self.group.id}/invite-links/",
             {"name": "Link 6"},
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
@@ -348,19 +348,19 @@ class BoardMovementsEndpointTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def test_movements_returns_history(self):
-        resp = self.client.get(f"/api/boards/{self.board.id}/movements/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.id}/movements/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIn("results", resp.data)
         self.assertGreaterEqual(resp.data["count"], 1)
 
     def test_movements_includes_card_info(self):
-        resp = self.client.get(f"/api/boards/{self.board.id}/movements/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.id}/movements/")
         result = resp.data["results"][0]
         self.assertIn("card_title", result)
         self.assertIn("card_uid", result)
 
     def test_movements_pagination_fields(self):
-        resp = self.client.get(f"/api/boards/{self.board.id}/movements/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.id}/movements/")
         for field in ("count", "offset", "page_size", "results"):
             self.assertIn(field, resp.data)
 
@@ -368,7 +368,7 @@ class BoardMovementsEndpointTests(TestCase):
         """moved_after filter excludes older movements."""
         tomorrow = (timezone.now() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
         resp = self.client.get(
-            f"/api/boards/{self.board.id}/movements/",
+            f"/api/v1/boards/{self.board.id}/movements/",
             {"moved_after": tomorrow},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -376,7 +376,7 @@ class BoardMovementsEndpointTests(TestCase):
 
     def test_unauthenticated_cannot_access_movements(self):
         anon = APIClient()
-        resp = anon.get(f"/api/boards/{self.board.id}/movements/")
+        resp = anon.get(f"/api/v1/boards/{self.board.id}/movements/")
         self.assertIn(resp.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
 
@@ -413,19 +413,19 @@ class BoardTemplateEndpointTests(TestCase):
             )
 
     def test_templates_returns_list(self):
-        resp = self.client.get("/api/boards/templates/")
+        resp = self.client.get("/api/v1/boards/templates/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIsInstance(resp.data, list)
         self.assertGreater(len(resp.data), 0)
 
     def test_templates_contain_expected_slugs(self):
-        resp = self.client.get("/api/boards/templates/")
+        resp = self.client.get("/api/v1/boards/templates/")
         slugs = {t["slug"] for t in resp.data}
         self.assertIn("simple_kanban", slugs)
         self.assertIn("blank", slugs)
 
     def test_templates_response_fields(self):
-        resp = self.client.get("/api/boards/templates/")
+        resp = self.client.get("/api/v1/boards/templates/")
         t = resp.data[0]
         for field in ("id", "name", "slug", "description", "columns_json", "sort_order"):
             self.assertIn(field, t, f"Missing field: {field}")
@@ -454,7 +454,7 @@ class GroupMemberListQueryCountTests(TestCase):
 
     def test_member_list_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:
-            resp = self.client.get(f"/api/groups/{self.group.id}/members/")
+            resp = self.client.get(f"/api/v1/groups/{self.group.id}/members/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertGreater(len(resp.data), 0)
         self.assertLessEqual(
@@ -466,7 +466,7 @@ class GroupMemberListQueryCountTests(TestCase):
     def test_member_list_budget_does_not_scale_with_members(self):
         """Adding more members must not significantly increase query count."""
         def _get():
-            return self.client.get(f"/api/groups/{self.group.id}/members/")
+            return self.client.get(f"/api/v1/groups/{self.group.id}/members/")
 
         with CaptureQueriesContext(connection) as ctx1:
             _get()
@@ -512,6 +512,7 @@ class NotificationListQueryCountTests(TestCase):
                 verb=f"Card {i} was moved",
                 card=card,
                 board=board,
+                action_type=Notification.ActionType.CARD_MOVED,
             )
 
         self.client = APIClient()
@@ -519,7 +520,7 @@ class NotificationListQueryCountTests(TestCase):
 
     def test_notification_list_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:
-            resp = self.client.get("/api/notifications/")
+            resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertGreater(len(resp.data), 0)
         self.assertLessEqual(
@@ -531,7 +532,7 @@ class NotificationListQueryCountTests(TestCase):
     def test_notification_list_budget_does_not_scale_with_notifications(self):
         """Adding more notifications must not increase query count."""
         def _get():
-            return self.client.get("/api/notifications/")
+            return self.client.get("/api/v1/notifications/")
 
         with CaptureQueriesContext(connection) as ctx1:
             _get()
@@ -551,6 +552,7 @@ class NotificationListQueryCountTests(TestCase):
                 verb=f"Card {i} was moved",
                 card=card,
                 board=board,
+                action_type=Notification.ActionType.CARD_MOVED,
             )
 
         with CaptureQueriesContext(connection) as ctx2:

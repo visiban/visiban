@@ -20,26 +20,26 @@ describe('notifications API', () => {
     const notifications = [{ id: 1, verb: 'card.moved', action_type: 'card_moved' }]
     mockGet.mockResolvedValue({ data: notifications })
     const result = await listNotifications()
-    expect(mockGet).toHaveBeenCalledWith('/api/notifications/')
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/notifications/')
     expect(result).toEqual(notifications)
   })
 
   it('getUnreadCount calls GET /api/notifications/unread-count/', async () => {
     mockGet.mockResolvedValue({ data: { count: 5 } })
     const result = await getUnreadCount()
-    expect(mockGet).toHaveBeenCalledWith('/api/notifications/unread-count/')
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/notifications/unread-count/')
     expect(result).toBe(5)
   })
 
   it('markRead calls POST /api/notifications/mark-read/ with ids', async () => {
     mockPost.mockResolvedValue({ data: {} })
     await markRead([1, 2, 3])
-    expect(mockPost).toHaveBeenCalledWith('/api/notifications/mark-read/', { ids: [1, 2, 3] })
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/notifications/mark-read/', { ids: [1, 2, 3] })
   })
 
   it('markAllRead calls POST /api/notifications/mark-read/ with all flag', async () => {
     mockPost.mockResolvedValue({ data: {} })
     await markAllRead()
-    expect(mockPost).toHaveBeenCalledWith('/api/notifications/mark-read/', { all: true })
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/notifications/mark-read/', { all: true })
   })
 })
