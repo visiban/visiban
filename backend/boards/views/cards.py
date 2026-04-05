@@ -555,11 +555,14 @@ class CardViewSet(viewsets.ModelViewSet):
                 added = new_label_ids - old_label_ids
                 removed = old_label_ids - new_label_ids
                 parts = []
+                # Build a name map from the in-memory labels already loaded by
+                # prefetch_related_objects() above — avoids two live DB queries.
+                label_name_by_id = {lbl.id: lbl.name for lbl in card.labels.all()}
                 if added:
-                    names = list(Label.objects.filter(id__in=added).values_list("name", flat=True))
+                    names = [label_name_by_id[lid] for lid in added if lid in label_name_by_id]
                     parts.append(f"+{', '.join(names)}")
                 if removed:
-                    names = list(Label.objects.filter(id__in=removed).values_list("name", flat=True))
+                    names = [label_name_by_id[lid] for lid in removed if lid in label_name_by_id]
                     parts.append(f"-{', '.join(names)}")
                 activities.append(CardActivity(
                     card=card, event_type=ET.LABEL_CHANGE,
@@ -980,7 +983,9 @@ class CardViewSet(viewsets.ModelViewSet):
     def checklist(self, request, board_pk=None, pk=None):
         """List checklist items on a card or add a new one."""
         board, role = self._board_and_role()
-        card = get_object_or_404(Card, pk=pk, board=board)
+        card = get_object_or_404(
+            Card.objects.prefetch_related("checklist_items"), pk=pk, board=board
+        )
         if request.method == "GET":
             items = card.checklist_items.all()
             return Response(CardChecklistSerializer(items, many=True).data)

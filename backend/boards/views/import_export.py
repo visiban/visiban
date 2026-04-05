@@ -227,10 +227,10 @@ class BoardImportExportMixin:
                 board=board, user=request.user, role=BoardMembershipModel.Role.ADMIN
             )
 
-            # Create columns
-            column_map = {}
-            for i, col in enumerate(data["columns"]):
-                column = Column.objects.create(
+            # Create columns — bulk_create avoids one INSERT per column.
+            col_data = data["columns"]
+            col_objs = Column.objects.bulk_create([
+                Column(
                     board=board,
                     name=col["name"],
                     position=col.get("position", i),
@@ -240,12 +240,14 @@ class BoardImportExportMixin:
                     allow_card_creation=col.get("allow_card_creation", i == 0),
                     is_done=col.get("is_done", False),
                 )
-                column_map[col["name"]] = column
+                for i, col in enumerate(col_data)
+            ])
+            column_map = {col["name"]: obj for col, obj in zip(col_data, col_objs)}
 
-            # Create swimlanes
-            swimlane_map = {}
-            for i, sw in enumerate(data["swimlanes"]):
-                swimlane = Swimlane.objects.create(
+            # Create swimlanes — bulk_create avoids one INSERT per swimlane.
+            sw_data = data["swimlanes"]
+            sw_objs = Swimlane.objects.bulk_create([
+                Swimlane(
                     board=board,
                     name=sw["name"],
                     position=sw.get("position", i),
@@ -253,17 +255,17 @@ class BoardImportExportMixin:
                     contact_email=sw.get("contact_email", ""),
                     notes=sw.get("notes", ""),
                 )
-                swimlane_map[sw["name"]] = swimlane
+                for i, sw in enumerate(sw_data)
+            ])
+            swimlane_map = {sw["name"]: obj for sw, obj in zip(sw_data, sw_objs)}
 
-            # Create labels
-            label_map = {}
-            for lbl in data.get("labels", []):
-                label = Label.objects.create(
-                    board=board,
-                    name=lbl["name"],
-                    color=lbl.get("color", "#EAB308"),
-                )
-                label_map[lbl["name"]] = label
+            # Create labels — bulk_create avoids one INSERT per label.
+            lbl_data = data.get("labels", [])
+            lbl_objs = Label.objects.bulk_create([
+                Label(board=board, name=lbl["name"], color=lbl.get("color", "#EAB308"))
+                for lbl in lbl_data
+            ])
+            label_map = {lbl["name"]: obj for lbl, obj in zip(lbl_data, lbl_objs)}
 
             # Bulk-load all referenced usernames so the card loop does not
             # issue a per-card query for assignee, moved_by, or actor (#420).
@@ -668,32 +670,32 @@ class BoardImportExportMixin:
                         if label_name and label_name not in label_map:
                             label_map[label_name] = None
 
-            # Create columns
-            for i, col_name in enumerate(column_map):
-                column_map[col_name] = Column.objects.create(
-                    board=board,
-                    name=col_name,
-                    position=i,
-                    color="#6B7280",
-                    allow_card_creation=(i == 0),
-                )
+            # Create columns — bulk_create avoids one INSERT per column.
+            col_names = list(column_map)
+            col_objs = Column.objects.bulk_create([
+                Column(board=board, name=name, position=i, color="#6B7280", allow_card_creation=(i == 0))
+                for i, name in enumerate(col_names)
+            ])
+            for name, obj in zip(col_names, col_objs):
+                column_map[name] = obj
 
-            # Create swimlanes
-            for i, sw_name in enumerate(swimlane_map):
-                swimlane_map[sw_name] = Swimlane.objects.create(
-                    board=board,
-                    name=sw_name,
-                    position=i,
-                    color="#3B82F6",
-                )
+            # Create swimlanes — bulk_create avoids one INSERT per swimlane.
+            sw_names = list(swimlane_map)
+            sw_objs = Swimlane.objects.bulk_create([
+                Swimlane(board=board, name=name, position=i, color="#3B82F6")
+                for i, name in enumerate(sw_names)
+            ])
+            for name, obj in zip(sw_names, sw_objs):
+                swimlane_map[name] = obj
 
-            # Create labels
-            for label_name in label_map:
-                label_map[label_name] = Label.objects.create(
-                    board=board,
-                    name=label_name,
-                    color="#EAB308",
-                )
+            # Create labels — bulk_create avoids one INSERT per label.
+            label_names = list(label_map)
+            lbl_objs = Label.objects.bulk_create([
+                Label(board=board, name=name, color="#EAB308")
+                for name in label_names
+            ])
+            for name, obj in zip(label_names, lbl_objs):
+                label_map[name] = obj
 
             # Collect valid card objects and their source rows in parallel lists so
             # we can bulk_create all cards in one INSERT, then attach activities and

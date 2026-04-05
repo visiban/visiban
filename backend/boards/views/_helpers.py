@@ -6,13 +6,18 @@ or ``_validate_upload_mime`` imports them from ``boards.views`` which
 re-exports them from the appropriate submodule.
 """
 
+import logging
+
 from django.shortcuts import get_object_or_404
 from django.db.models import Prefetch
 from rest_framework.exceptions import PermissionDenied
 
-from ..models import Board, BoardFavorite, BoardMembership, Card
+from ..models import Board, BoardFavorite, BoardMembership, Card, Label
 from ..permissions import get_board_role, SITE_ADMIN
 from ..serializers import CardSerializer, _card_queryset
+from ..utils import _get_effective_member_ids
+
+logger = logging.getLogger(__name__)
 
 
 def get_board_for_user(board_id, user):
@@ -55,6 +60,11 @@ def get_board_for_user(board_id, user):
     )
     role = get_board_role(user, board)
     if role is None:
+        logger.warning(
+            "board.access_denied board_id=%s user_id=%s",
+            board_id,
+            getattr(user, "pk", "anon"),
+        )
         raise PermissionDenied
     return board, role
 
@@ -67,6 +77,10 @@ def _can_modify_others_content(board, role, user):
 
     Uses the cached membership from get_board_role() when available to
     avoid a redundant database query.
+
+    Note: board admins unconditionally return True here — they can edit or
+    delete any card on the board regardless of who created it. This is
+    intentional; the role table says "Member (own) / Admin (any)" for edit.
     """
     if role in (BoardMembership.Role.ADMIN, SITE_ADMIN):
         return True
@@ -89,6 +103,20 @@ def _refetched_card_data(card, request, board):
     annotations CardSerializer needs (labels, attachments, checklist_items,
     movements). This helper issues a single query with all prefetches so
     the serializer can resolve related fields without N+1 queries.
+
+    Pre-computes _member_ids and _board_labels_qs so CardSerializer.__init__
+    can scope its writable querysets without issuing additional live queries
+    per mutation response (avoids 2–4 extra queries each time).
     """
+    member_ids = _get_effective_member_ids(board)
+    labels_qs = Label.objects.filter(board=board)
     refetched = _card_queryset(Card.objects.filter(pk=card.pk)).get()
-    return CardSerializer(refetched, context={"request": request, "board": board}).data
+    return CardSerializer(
+        refetched,
+        context={
+            "request": request,
+            "board": board,
+            "_member_ids": member_ids,
+            "_board_labels_qs": labels_qs,
+        },
+    ).data

@@ -26,7 +26,12 @@ def get_accessible_group_ids(user):
     Descendant discovery is capped at _GROUP_TRAVERSAL_MAX_DEPTH iterations.
     Groups nested deeper than this limit will not appear in the result set.
     """
-    if getattr(user, "is_site_admin", False):
+    # Use can_access_all_content (not is_site_admin) — the documented privilege
+    # model reserves is_site_admin for /api/admin/* UI access only, while
+    # can_access_all_content is the flag that grants broad content read/write.
+    # Using is_site_admin here would let a site admin without can_access_all_content
+    # enumerate all groups, violating the documented flag semantics.
+    if getattr(user, "can_access_all_content", False):
         return set(Group.objects.values_list("id", flat=True))
     direct_ids = set(
         Group.objects.filter(
