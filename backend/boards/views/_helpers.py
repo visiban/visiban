@@ -24,6 +24,10 @@ def get_board_for_user(board_id, user):
 
     Also prefetches the requesting user's BoardFavorite rows (to_attr="_user_favorites")
     so BoardFullSerializer.get_is_starred() avoids a per-request EXISTS query.
+
+    Prefetches memberships with their users (to_attr="_prefetched_memberships") so
+    BoardFullSerializer.get_members() reads from cache rather than issuing a live
+    select_related query on every /full/ request.
     """
     board = get_object_or_404(
         Board.objects.select_related(
@@ -39,6 +43,13 @@ def get_board_for_user(board_id, user):
             # obj.labels.all() and hit the prefetch cache rather than issuing
             # a second Label query alongside the _card_queryset prefetch chain.
             "labels",
+            # Pre-load memberships with users so get_members() avoids a live
+            # select_related query on every /full/ request.
+            Prefetch(
+                "memberships",
+                queryset=BoardMembership.objects.select_related("user"),
+                to_attr="_prefetched_memberships",
+            ),
         ),
         pk=board_id,
     )
