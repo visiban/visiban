@@ -54,12 +54,33 @@ function latestWS(): MockWSInstance {
 // ---------------------------------------------------------------------------
 
 describe('useBoardSocket', () => {
-  it('connects to the correct URL based on board ID', () => {
+  it('connects to the correct board path based on board ID', () => {
+    vi.stubEnv('VITE_API_URL', 'http://api.example.com')
     const onEvent = vi.fn()
     renderHook(() => useBoardSocket(42, onEvent))
 
     expect(instances).toHaveLength(1)
-    expect(latestWS().url).toBe('ws://localhost:8000/ws/boards/42/')
+    expect(latestWS().url).toBe('ws://api.example.com/ws/boards/42/')
+  })
+
+  it('uses a different board ID in the URL when the ID changes', () => {
+    vi.stubEnv('VITE_API_URL', 'http://api.example.com')
+    const onEvent = vi.fn()
+    renderHook(() => useBoardSocket(99, onEvent))
+
+    expect(instances).toHaveLength(1)
+    expect(latestWS().url).toBe('ws://api.example.com/ws/boards/99/')
+  })
+
+  it('falls back to window.location.origin when VITE_API_URL is empty', () => {
+    vi.stubEnv('VITE_API_URL', '')
+    const onEvent = vi.fn()
+    renderHook(() => useBoardSocket(42, onEvent))
+
+    expect(instances).toHaveLength(1)
+    // window.location.origin in vitest/jsdom is "http://localhost:3000"; replace http→ws
+    expect(latestWS().url).toBe('ws://localhost:3000/ws/boards/42/')
+    vi.unstubAllEnvs()
   })
 
   it('does not connect when boardId is null', () => {
