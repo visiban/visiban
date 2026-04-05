@@ -125,48 +125,26 @@ class Command(BaseCommand):
 
     def _bench_summary(self, factory, user, board):
         name = "GET /api/boards/{id}/summary/"
-        budget = 6
+        # Budget matches SummaryQueryCountTests.BUDGET in test_query_counts.py.
+        # The real endpoint runs ~6 queries (board load, columns, swimlanes,
+        # card counts, velocity, cycle-time × 2); 10 gives auth-middleware headroom.
+        budget = 10
 
-        request = factory.get("/")
-        request.user = user
-
-        reset_queries()
-        # Call the view directly via test request
-        from rest_framework.test import APIRequestFactory
-        rf = APIRequestFactory()
-        req = rf.get(f"/api/boards/{board.pk}/summary/")
-        req.user = user
-
-        # Replicate the summary logic to count queries cleanly
-        import datetime
-        from django.utils import timezone
-        from django.db.models import Count, Q as Q_
-        from boards.models import CardMovement
-        Q = Q_
-
-        now = timezone.now()
-        cutoff_7d = now - datetime.timedelta(days=7)
-        cutoff_30d = now - datetime.timedelta(days=30)
-        columns = list(board.columns.order_by("position"))
-        last_col = columns[-1] if columns else None
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=user)
 
         reset_queries()
-        list(
-            board.cards.filter(archived_at__isnull=True)
-            .values("swimlane_id", "column_id")
-            .annotate(cnt=Count("id"))
-        )
-        if last_col:
-            list(
-                CardMovement.objects
-                .filter(card__board=board, to_column=last_col)
-                .values("card__swimlane_id")
-                .annotate(
-                    vel_7d=Count("id", filter=Q(moved_at__gte=cutoff_7d)),
-                    vel_30d=Count("id", filter=Q(moved_at__gte=cutoff_30d)),
+        response = client.get(f"/api/boards/{board.pk}/summary/")
+        count = len(connection.queries)
+
+        if response.status_code != 200:
+            self.stderr.write(
+                self.style.ERROR(
+                    f"  summary/ returned HTTP {response.status_code} — "
+                    "query count may be inaccurate."
                 )
             )
-        count = len(connection.queries)
 
         self._dump_queries(name, count, budget)
         return name, count, budget
