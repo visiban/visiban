@@ -3,7 +3,7 @@
 import datetime
 import statistics
 
-from django.db.models import Count, Min, Prefetch, Q
+from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -220,19 +220,53 @@ class BoardAnalyticsMixin:
         # inflate past-column counts without adding value to the selected view.
         # Age mode needs all currently-active (non-archived) cards regardless of
         # the period window, so we load the union.
+        #
+        # Five per-card movement aggregates are annotated at the SQL level so
+        # the movement prefetch can be scoped to a bounded window without losing
+        # age-mode, velocity, and stall-detection data that may predate the window.
+        # All five are correlated subqueries compiled into the main SELECT — no
+        # extra round-trips to the database (still 2 queries: cards + prefetch).
+        _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
+        _last_mv_qs = _mv_qs.order_by("-moved_at")
         all_cards = list(
             board.cards.filter(
                 Q(archived_at__isnull=True) | Q(archived_at__gte=period_cutoff)
             )
+            .annotate(
+                # Most-recent movement timestamp — used for stall detection.
+                _last_moved_at=Subquery(_last_mv_qs.values("moved_at")[:1]),
+                # Most-recent movement destination — mirrors movements[-1].to_column_id
+                # so stall detection works even for cards stalled before the prefetch window.
+                _last_col_id=Subquery(_last_mv_qs.values("to_column_id")[:1]),
+                # Denormalized column name fallback for deleted/recreated columns.
+                _last_col_name=Subquery(_last_mv_qs.values("to_column_name")[:1]),
+                # Most-recent entry into the card's *current* column — used for age mode
+                # so cards that entered their column before the window are still represented.
+                _last_col_entry_at=Subquery(
+                    _mv_qs.filter(to_column_id=OuterRef("column_id"))
+                    .order_by("-moved_at")
+                    .values("moved_at")[:1]
+                ),
+                # First-ever movement timestamp — used for velocity so cycle time is
+                # measured from origin rather than from the window start.
+                _first_moved_at=Subquery(
+                    _mv_qs.order_by("moved_at").values("moved_at")[:1]
+                ),
+            )
             .prefetch_related(
                 Prefetch(
                     "movements",
-                    # Load only the fields the analytics algorithm reads; order at the
-                    # DB level so the per-card Python sort is eliminated.  .only() keeps
-                    # the prefetch cache lean — the full movement row (~20 fields) is not
-                    # needed; we read only timestamps, column FK, and the denormalized
-                    # column name used as a fallback for deleted/recreated columns.
-                    queryset=CardMovement.objects.only(
+                    # Scope the prefetch to a 2× analysis-window buffer so the
+                    # clamped-dwell logic (movements entering just before period_cutoff)
+                    # still has its data, while eliminating the O(cards × all-time
+                    # movements) memory spike from loading full movement history (#654/#646).
+                    # Age mode, stall detection, and velocity use card-level annotations
+                    # above instead of the prefetch, so no historical data is lost.
+                    # Load only the fields the algorithm reads; order at the DB level so
+                    # the per-card Python sort is eliminated.
+                    queryset=CardMovement.objects.filter(
+                        moved_at__gte=period_cutoff - datetime.timedelta(days=days)
+                    ).only(
                         "card_id", "to_column_id", "to_column_name", "moved_at"
                     ).order_by("moved_at"),
                 )
@@ -257,9 +291,9 @@ class BoardAnalyticsMixin:
             for card in cards:
                 # .all() reads from the Prefetch cache (already ordered by moved_at at
                 # the DB level above); list() materialises it so len() and indexing work.
+                # The prefetch is scoped to a 2× window buffer — movements contains
+                # only entries from period_cutoff - days onward.
                 movements = list(card.movements.all())
-                if not movements:
-                    continue
 
                 # ── Throughput pass (period-filtered transitions) ───────────────
                 for i, mv in enumerate(movements):
@@ -301,52 +335,73 @@ class BoardAnalyticsMixin:
                     if card_exited:
                         throughput_dwells[col_name].append((exit_ - mv.moved_at).total_seconds() / 86400)
 
+                # ── Long-dwelling cards (no movements in the 2× buffer) ──────────
+                # Cards that have been sitting in their current column since before the
+                # buffer start have no entries in the prefetch but still need to
+                # contribute to col_dwells (deprecated avg_days_per_column).
+                # Their clamped dwell equals exactly `days` (entry clamped to
+                # period_cutoff, exit = now).  throughput_dwells is intentionally
+                # excluded — the card hasn't left the column during the period.
+                # The `_last_moved_at is not None` guard excludes newly-created cards
+                # that have never been moved (no movement record → dwell is not meaningful).
+                if (
+                    not movements
+                    and card._last_moved_at is not None
+                    and card.archived_at is None
+                    and card.column_id not in done_col_ids
+                ):
+                    stale_col_name = col_id_to_name.get(card.column_id)
+                    if stale_col_name and stale_col_name not in done_col_names:
+                        col_dwells[stale_col_name].append(float(days))
+                        all_col_dwells[stale_col_name].append(float(days))
+
                 # ── Age pass (currently-dwelling cards, snapshot of "now") ────────
                 # Only for non-archived cards in non-done columns.
+                # Uses _last_col_entry_at annotation (compiled into the main card SELECT)
+                # so cards that entered their column before the analysis window are still
+                # represented without requiring all-time movement history in the prefetch.
                 if card.archived_at is None and card.column_id not in done_col_ids:
                     current_col_name = col_id_to_name.get(card.column_id)
                     if current_col_name and current_col_name not in done_col_names:
-                        # Find the most recent movement into the card's current column.
-                        last_entry = next(
-                            (mv for mv in reversed(movements) if mv.to_column_id == card.column_id),
-                            None,
-                        )
-                        # Fallback: denormalized name when FK is stale.
-                        if last_entry is None:
-                            last_entry = next(
-                                (mv for mv in reversed(movements)
-                                 if mv.to_column_id not in col_id_to_name
-                                 and mv.to_column_name == current_col_name),
-                                None,
-                            )
-                        if last_entry is not None:
-                            age_days = (now - last_entry.moved_at).total_seconds() / 86400
+                        last_col_entry_at = card._last_col_entry_at
+                        if last_col_entry_at is not None:
+                            age_days = (now - last_col_entry_at).total_seconds() / 86400
                             age_dwells[current_col_name].append(age_days)
                             all_age_dwells[current_col_name].append(age_days)
 
                 # ── Velocity ──────────────────────────────────────────────────────
-                # Only count cards whose last movement fell within the window,
-                # so the metric reflects recent throughput rather than all-time history.
-                if len(movements) > 1 and movements[-1].moved_at >= period_cutoff:
+                # Only count cards whose last movement in the window fell at or after
+                # period_cutoff, so the metric reflects recent throughput.
+                # _first_moved_at annotation gives the card's true first-ever movement
+                # so cycle time is measured from origin — important for cards older than
+                # the 2× prefetch buffer where movements[0] is not the true start.
+                if (
+                    movements
+                    and movements[-1].moved_at >= period_cutoff
+                    and card._first_moved_at is not None
+                ):
                     deal_velocity_days.append(
-                        (movements[-1].moved_at - movements[0].moved_at).total_seconds() / 86400
+                        (movements[-1].moved_at - card._first_moved_at).total_seconds() / 86400
                     )
 
                 # ── Stalled detection ────────────────────────────────────────────
                 # Cards in done columns are excluded — they have completed the workflow.
-                # Note: done_col_ids reflects current is_done state, so a column later
-                # re-flagged as done retroactively excludes its cards from stalled detection.
-                last_mv = movements[-1]
-                last_col_is_done = (
-                    last_mv.to_column_id in done_col_ids
-                    or last_mv.to_column_name in done_col_names
-                )
-                if card.archived_at is None and not last_col_is_done and last_mv.moved_at < stall_cutoff:
-                    stalled_cards.append({
-                        "id": card.id,
-                        "title": card.title,
-                        "days_since_move": (now - movements[-1].moved_at).days,
-                    })
+                # Uses _last_col_id / _last_col_name annotations (mirrors the original
+                # movements[-1].to_column_id / to_column_name logic) and _last_moved_at
+                # (covers all-time history) so cards stalled before the prefetch window
+                # are still detected correctly.
+                if card.archived_at is None:
+                    last_col_is_done = (
+                        card._last_col_id in done_col_ids
+                        or card._last_col_name in done_col_names
+                    )
+                    last_moved_at = card._last_moved_at
+                    if not last_col_is_done and last_moved_at is not None and last_moved_at < stall_cutoff:
+                        stalled_cards.append({
+                            "id": card.id,
+                            "title": card.title,
+                            "days_since_move": (now - last_moved_at).days,
+                        })
 
             def _avg(vals: list[float]) -> float | None:
                 return round(sum(vals) / len(vals), 1) if vals else None
@@ -432,15 +487,14 @@ class BoardAnalyticsMixin:
         Query params:
           - ``swimlane_id`` (int): filter by the card's current swimlane.
           - ``to_column_id`` (int): filter by destination column.
-          - ``assignee_id`` (int): filter by card assignee.
+          - ``moved_by_id`` (int): filter by the user who performed the move.
           - ``moved_after`` (ISO date): include movements on or after this date.
           - ``moved_before`` (ISO date): include movements on or before this date.
           - ``exclude_type`` (comma-separated): movement_type values to exclude
             (e.g. ``archived,unarchived`` hides system events).
           - ``offset`` (int, default 0): pagination offset.
 
-        Defaults to the last 30 days when no date params are provided.
-        Page size is fixed at 50.
+        Returns all history when no date params are provided. Page size is fixed at 50.
         """
         board, _ = get_board_for_user(pk, request.user)
         now = timezone.now()
@@ -453,22 +507,21 @@ class BoardAnalyticsMixin:
             .order_by("-moved_at")
         )
 
-        # Date range — default to last 30 days when neither param is supplied.
+        # Date range — no default cutoff; all history is shown when neither
+        # param is supplied. Results are always paginated (PAGE_SIZE=50) so the
+        # absence of a default window does not cause runaway queries.
         moved_after = request.query_params.get("moved_after")
         moved_before = request.query_params.get("moved_before")
-        if not moved_after and not moved_before:
-            qs = qs.filter(moved_at__gte=now - datetime.timedelta(days=30))
-        else:
-            if moved_after:
-                try:
-                    qs = qs.filter(moved_at__date__gte=moved_after)
-                except (ValueError, TypeError):
-                    return Response({"detail": "moved_after must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
-            if moved_before:
-                try:
-                    qs = qs.filter(moved_at__date__lte=moved_before)
-                except (ValueError, TypeError):
-                    return Response({"detail": "moved_before must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
+        if moved_after:
+            try:
+                qs = qs.filter(moved_at__date__gte=moved_after)
+            except (ValueError, TypeError):
+                return Response({"detail": "moved_after must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
+        if moved_before:
+            try:
+                qs = qs.filter(moved_at__date__lte=moved_before)
+            except (ValueError, TypeError):
+                return Response({"detail": "moved_before must be a valid ISO date."}, status=status.HTTP_400_BAD_REQUEST)
 
         swimlane_id = request.query_params.get("swimlane_id")
         if swimlane_id:
@@ -478,9 +531,9 @@ class BoardAnalyticsMixin:
         if to_column_id:
             qs = qs.filter(to_column_id=to_column_id)
 
-        assignee_id = request.query_params.get("assignee_id")
-        if assignee_id:
-            qs = qs.filter(card__assignee_id=assignee_id)
+        moved_by_id = request.query_params.get("moved_by_id")
+        if moved_by_id:
+            qs = qs.filter(moved_by_id=moved_by_id)
 
         exclude_type = request.query_params.get("exclude_type")
         if exclude_type:

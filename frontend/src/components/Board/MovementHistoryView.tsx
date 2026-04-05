@@ -29,7 +29,7 @@ function filtersToParams(f: HistoryFilters, page: number): Record<string, string
   const p: Record<string, string> = { offset: String((page - 1) * PAGE_SIZE) };
   if (f.swimlaneId !== null) p.swimlane_id = String(f.swimlaneId);
   if (f.columnId !== null) p.to_column_id = String(f.columnId);
-  if (f.userId !== null) p.assignee_id = String(f.userId);
+  if (f.userId !== null) p.moved_by_id = String(f.userId);
   if (f.since) p.moved_after = f.since;
   if (f.until) p.moved_before = f.until;
   return p;

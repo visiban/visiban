@@ -339,7 +339,7 @@ describe('AnalyticsView', () => {
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(await screen.findByText('Stale Card')).toBeInTheDocument()
-    expect(screen.getByText('14d stalled')).toBeInTheDocument()
+    expect(screen.getByText('14d')).toBeInTheDocument()
   })
 
   it('calls onOpenCard when a stalled card row is clicked', async () => {
@@ -651,5 +651,21 @@ describe('AnalyticsView', () => {
     await screen.findByText('Customer A')
     expect(screen.getByText('30d')).toBeInTheDocument()
     expect(screen.queryByText('≥30d')).not.toBeInTheDocument()
+  })
+
+  it('renders a beta notice strip with "Beta" label and guidance text when analytics loads successfully', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30,
+      columns: [],
+      swimlanes: [],
+      stalled_threshold_days: 7,
+      staleness_threshold_days: 14,
+      stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="member" />)
+    // Wait for the success state — the mode toggle is only rendered after data loads.
+    await screen.findByRole('button', { name: 'Age' })
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.getByText(/Analytics data may be incomplete in some configurations/)).toBeInTheDocument()
   })
 })

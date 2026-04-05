@@ -270,17 +270,15 @@ class TestMovementsEndpoint(AnalyticsHistorySetup):
         resp = c.get(self._movements_url(), {"to_column_id": self.col_done.pk})
         self.assertEqual(resp.data["count"], 1)
 
-    def test_filter_by_assignee_id(self):
-        """assignee_id param filters movements to cards assigned to that user."""
-        self.card.assignee = self.member
-        self.card.save(update_fields=["assignee"])
-        self._make_movement()
+    def test_filter_by_moved_by_id(self):
+        """moved_by_id param filters movements by the user who performed the move."""
+        self._make_movement()  # moved_by=self.admin
 
         c = self._client_for(self.admin)
-        resp = c.get(self._movements_url(), {"assignee_id": self.viewer.pk})
+        resp = c.get(self._movements_url(), {"moved_by_id": self.viewer.pk})
         self.assertEqual(resp.data["count"], 0)
 
-        resp = c.get(self._movements_url(), {"assignee_id": self.member.pk})
+        resp = c.get(self._movements_url(), {"moved_by_id": self.admin.pk})
         self.assertEqual(resp.data["count"], 1)
 
     def test_exclude_type_filters_system_events(self):
@@ -294,14 +292,15 @@ class TestMovementsEndpoint(AnalyticsHistorySetup):
         self.assertEqual(resp.data["count"], 1)
         self.assertEqual(resp.data["results"][0]["movement_type"], "move")
 
-    def test_default_date_range_last_30_days(self):
-        """Without date params, only movements from the last 30 days are returned."""
+    def test_no_default_date_cutoff(self):
+        """Without date params, all movements are returned regardless of age."""
         self._make_movement(days_ago=10)
-        self._make_movement(days_ago=40)  # outside default range
+        self._make_movement(days_ago=40)
+        self._make_movement(days_ago=365)
 
         c = self._client_for(self.admin)
         resp = c.get(self._movements_url())
-        self.assertEqual(resp.data["count"], 1)
+        self.assertEqual(resp.data["count"], 3)
 
     def test_viewer_can_read_movements(self):
         """Viewer role has read access to movement history."""

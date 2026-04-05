@@ -123,6 +123,8 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
   );
 }
 
+const STALLED_PAGE_SIZE = 25;
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: Props) {
@@ -131,6 +133,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
   const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stalledPage, setStalledPage] = useState(1);
 
   const setMode = (m: ViewMode) => {
     saveViewMode(boardId, m);
@@ -178,6 +181,14 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-slate-900">
+      {/* Beta notice — remove when analytics is declared stable */}
+      <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-slate-700 bg-slate-800">
+        <span className="text-xs text-amber-400 font-medium">Beta</span>
+        <span className="text-slate-600 select-none">·</span>
+        <span className="text-xs text-slate-400">
+          Analytics data may be incomplete in some configurations. Results are best used as directional guidance.
+        </span>
+      </div>
       {/* Pinned top: toolbar + heatmap — always visible */}
       <div className="shrink-0 flex flex-col gap-4 px-4 pt-4">
         {/* Toolbar */}
@@ -266,41 +277,88 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
       </div>
 
       {/* Stalled cards — independently scrollable below the pinned heatmap */}
-      {allStalled.length > 0 && (
-        <>
-          <div className="mx-4 mt-4">
-            <div className="h-px bg-slate-900" />
-            <div className="h-px bg-slate-600/50" />
-          </div>
-          <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-3 pb-4 flex flex-col gap-2" style={{ minHeight: "8rem" }}>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-slate-300">
-                Stalled cards (&gt;{data.stalled_threshold_days} days without movement)
-              </h3>
-              <span className="text-xs text-slate-500">
-                {allStalled.length} {allStalled.length === 1 ? "card" : "cards"} stalled
-              </span>
+      {allStalled.length > 0 && (() => {
+        const sorted = [...allStalled].sort((a, b) => b.days_since_move - a.days_since_move);
+        const totalPages = Math.ceil(sorted.length / STALLED_PAGE_SIZE);
+        const page = Math.min(stalledPage, totalPages);
+        const pageRows = sorted.slice((page - 1) * STALLED_PAGE_SIZE, page * STALLED_PAGE_SIZE);
+        return (
+          <>
+            <div className="mx-4 mt-4">
+              <div className="h-px bg-slate-900" />
+              <div className="h-px bg-slate-600/50" />
             </div>
-            <div className="flex flex-col gap-1">
-              {allStalled
-                .sort((a, b) => b.days_since_move - a.days_since_move)
-                .map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => onOpenCard?.(c.id)}
-                    disabled={!onOpenCard}
-                    className="flex items-center gap-3 text-sm py-1 border-b border-slate-700 w-full text-left transition hover:bg-slate-800 disabled:cursor-default px-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                  >
-                    <span className="text-slate-400 text-xs w-16 shrink-0">{c.swimlane}</span>
-                    <span className="text-slate-300 flex-1">{c.title}</span>
-                    <span className="text-amber-600 font-medium text-xs shrink-0">{c.days_since_move}d stalled</span>
-                    {onOpenCard && <span className="text-slate-600 text-xs shrink-0">↗</span>}
-                  </button>
-                ))}
+            <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-3 pb-4 flex flex-col gap-2" style={{ minHeight: "8rem" }}>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-300">
+                  Stalled cards (&gt;{data.stalled_threshold_days} days without movement)
+                </h3>
+                <span className="text-xs text-slate-500">
+                  {allStalled.length} {allStalled.length === 1 ? "card" : "cards"} stalled
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse" aria-label="Stalled cards">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700">
+                      <th className="pb-2 pr-4 font-medium sticky left-0 bg-slate-900 w-32">Swimlane</th>
+                      <th className="pb-2 px-3 font-medium">Card</th>
+                      <th className="pb-2 px-3 font-medium text-right w-28">Days stalled</th>
+                      {onOpenCard && <th className="pb-2 pl-3 font-medium w-8" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageRows.map(c => (
+                      <tr
+                        key={c.id}
+                        className={`border-b border-slate-700 transition ${onOpenCard ? "hover:bg-slate-800 cursor-pointer" : ""}`}
+                        onClick={() => onOpenCard?.(c.id)}
+                      >
+                        <td className="py-1.5 pr-4 text-xs text-slate-400 sticky left-0 bg-slate-900 max-w-[8rem] truncate" title={c.swimlane}>
+                          {c.swimlane}
+                        </td>
+                        <td className="py-1.5 px-3 text-slate-300 max-w-[24rem] truncate" title={c.title}>
+                          {c.title}
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono text-amber-400 font-medium text-xs">
+                          {c.days_since_move}d
+                        </td>
+                        {onOpenCard && (
+                          <td className="py-1.5 pl-3 text-slate-600 text-xs text-center">↗</td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-xs text-slate-500">
+                    {(page - 1) * STALLED_PAGE_SIZE + 1}–{Math.min(page * STALLED_PAGE_SIZE, sorted.length)} of {sorted.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setStalledPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-2 py-1 text-xs rounded border border-slate-600 text-slate-400 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      ← Prev
+                    </button>
+                    <span className="text-xs text-slate-500 px-2">{page} / {totalPages}</span>
+                    <button
+                      onClick={() => setStalledPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="px-2 py-1 text-xs rounded border border-slate-600 text-slate-400 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </>
-      )}
+          </>
+        );
+      })()}
     </div>
   );
 }

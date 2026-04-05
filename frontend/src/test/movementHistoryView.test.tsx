@@ -178,7 +178,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
         fakeBoard.id,
-        expect.objectContaining({ assignee_id: '5' })
+        expect.objectContaining({ moved_by_id: '5' })
       )
     )
   })
