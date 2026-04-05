@@ -55,7 +55,12 @@ class Command(BaseCommand):
             # Use os.open with O_CREAT so the file is created with mode 0o600
             # atomically — avoids the TOCTOU window where a two-step open()+chmod()
             # would leave the file world-readable between creation and restriction.
-            fd = os.open(_PASSWORD_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            # O_NOFOLLOW (Linux/macOS) prevents following a symlink an attacker may
+            # have planted at this path in the world-writable /tmp directory.
+            _flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            if hasattr(os, "O_NOFOLLOW"):
+                _flags |= os.O_NOFOLLOW
+            fd = os.open(_PASSWORD_FILE, _flags, 0o600)
             with os.fdopen(fd, "w") as fh:
                 fh.write(password + "\n")
             password_location = f"written to {_PASSWORD_FILE}"
