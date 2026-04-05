@@ -243,7 +243,7 @@ backend-test:
     - pip install --quiet coverage pytest pytest-django pytest-split
   script:
     - cd backend
-    - coverage run --source=. --data-file=.coverage.${CI_NODE_INDEX} -m pytest
+    - coverage run --source=. --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
         --splitting-algorithm least_duration
         --store-durations
         --group $CI_NODE_INDEX
@@ -258,17 +258,15 @@ backend-test:
     when: always
     expire_in: 1 day
 
-# Runs the full backend test suite in a single process under coverage so the
-# 90% threshold is measured accurately.  Running coverage separately from the
-# sharded backend-test jobs avoids a known issue where pytest-split's
-# least_duration algorithm distributes tests across shards in a way that breaks
-# cross-test code-path coverage: some branches are only reached when specific
-# tests run sequentially in the same process, so combining three partial
-# coverage files produces an artificially low total (≈88%) while a single-
-# process run gives the true baseline (≈98%).  The sharded jobs still run in
-# parallel to catch failures fast; this job gates the 90% threshold.
+# Combines the .coverage.* artifacts produced by the three parallel backend-test
+# shards and enforces the 90% threshold.  Each shard runs with --parallel so
+# coverage.py treats its data file as a fragment to be combined rather than a
+# standalone measurement.  The union of all executed lines across all shards
+# equals the single-process total, so no test re-run is needed here.
+#
+# No postgres/redis services required — this job only runs coverage combine and
+# report, no Django or test execution.
 backend-test-coverage:
-  extends: .pip-cache
   stage: test
   needs: [backend-test]
   image: python:3.12-slim
@@ -277,27 +275,11 @@ backend-test-coverage:
         - backend/**/*
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  services:
-    - name: postgres:17-alpine
-      alias: postgres
-    - name: redis:7-alpine
-      alias: redis
-  variables:
-    POSTGRES_DB: "${CI_POSTGRES_DB}"
-    POSTGRES_USER: "${CI_POSTGRES_USER}"
-    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
-    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
-    REDIS_URL: "redis://redis:6379/0"
-    REDIS_CACHE_URL: "redis://redis:6379/1"
-    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
-    DEBUG: "True"
-    ALLOWED_HOSTS: "localhost"
   before_script:
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet coverage pytest pytest-django
+    - pip install --quiet coverage
   script:
     - cd backend
-    - coverage run --source=. -m pytest -q
+    - coverage combine
     - coverage report --skip-covered --fail-under=90
     - coverage xml -o coverage.xml
   coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+)%/'
