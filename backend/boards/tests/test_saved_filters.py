@@ -117,6 +117,21 @@ class SavedFilterListCreateTests(TestCase):
         r = self.client.post(self.url, {"name": "Bad", "state_json": ["list"]}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_oversized_state_json_returns_400(self):
+        """state_json payloads larger than 64 KB must be rejected."""
+        # Build a dict whose JSON serialisation is > 65536 bytes.
+        big_state = {"k": "x" * 70_000}
+        r = self.client.post(self.url, {"name": "Huge", "state_json": big_state}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("64 KB", r.data["detail"])
+
+    def test_create_state_json_at_limit_is_accepted(self):
+        """A state_json payload right under 64 KB should be accepted."""
+        # 65_000 bytes of JSON is safely under the 65_536 limit.
+        ok_state = {"k": "x" * 60_000}
+        r = self.client.post(self.url, {"name": "Ok size", "state_json": ok_state}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
     def test_create_duplicate_name_returns_400(self):
         self.client.post(self.url, {"name": "Dupe", "state_json": SIMPLE_STATE}, format="json")
         r = self.client.post(self.url, {"name": "Dupe", "state_json": SIMPLE_STATE}, format="json")
