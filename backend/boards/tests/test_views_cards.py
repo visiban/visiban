@@ -684,3 +684,116 @@ class AssigneePermissionTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["assignee"]["id"], self.assignee.id)
+
+
+class CardMovePermissionTests(TestCase):
+    """Tests for the assignee-ownership gate added to the card move() action.
+
+    The rule: a plain Member may only move a card if (a) the card is unassigned,
+    (b) the card is assigned to themselves, or (c) they created the card.
+    Moving a card assigned to someone else and created by someone else requires
+    Moderator or Admin access.
+    """
+
+    def setUp(self):
+        self._broadcast_patcher = patch(PATCH_BROADCAST)
+        self._broadcast_patcher.start()
+
+        # User A — board admin, owns the board
+        self.user_a = User.objects.create_user(username="move_user_a", password="pass")
+        self.board, self.col, self.col2, self.swim = _make_board(self.user_a)
+
+        # User B — plain member, will be the assignee
+        self.user_b = User.objects.create_user(username="move_user_b", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=self.user_b, role=BoardMembership.Role.MEMBER
+        )
+
+        # User C — plain member, the "uninvolved third party" who tries to move
+        self.user_c = User.objects.create_user(username="move_user_c", password="pass")
+        self.membership_c = BoardMembership.objects.create(
+            board=self.board, user=self.user_c, role=BoardMembership.Role.MEMBER
+        )
+
+        self.client = APIClient()
+
+    def tearDown(self):
+        self._broadcast_patcher.stop()
+
+    def _move_url(self, card):
+        return f"/api/v1/boards/{self.board.id}/cards/{card.id}/move/"
+
+    def _move_payload(self):
+        """Minimal valid move payload: stay in col2, same swim, position 0."""
+        return {
+            "column_id": self.col2.id,
+            "swimlane_id": self.swim.id,
+            "position": 0,
+        }
+
+    # ------------------------------------------------------------------ happy path
+
+    def test_unassigned_card_member_can_move(self):
+        """Any Member may move a card with no assignee, regardless of who created it."""
+        card = _make_card(self.board, self.col, self.swim, self.user_a)
+        # card.assignee is None — created by user_a, moved by user_c
+        self.client.force_authenticate(self.user_c)
+        r = self.client.post(self._move_url(card), self._move_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_card_assigned_to_mover_can_move(self):
+        """A Member who is the assignee of a card (but not the creator) may move it."""
+        card = _make_card(self.board, self.col, self.swim, self.user_a)
+        card.assignee = self.user_c  # user_c is the assignee, not the creator
+        card.save()
+        self.client.force_authenticate(self.user_c)
+        r = self.client.post(self._move_url(card), self._move_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_card_created_by_mover_can_move_even_if_assigned_to_other(self):
+        """Creator of a card may move it even when it is assigned to a different member."""
+        card = _make_card(self.board, self.col, self.swim, self.user_c)  # user_c created it
+        card.assignee = self.user_b  # assigned to user_b
+        card.save()
+        self.client.force_authenticate(self.user_c)
+        r = self.client.post(self._move_url(card), self._move_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    # ------------------------------------------------------------------ permission boundary
+
+    def test_third_party_member_cannot_move_card_assigned_to_another(self):
+        """User C — plain Member, neither creator nor assignee — receives 403 with the
+        correct error code and detail message."""
+        card = _make_card(self.board, self.col, self.swim, self.user_a)  # created by A
+        card.assignee = self.user_b  # assigned to B
+        card.save()
+        self.client.force_authenticate(self.user_c)
+        r = self.client.post(self._move_url(card), self._move_payload())
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        body = r.json()
+        self.assertEqual(body.get("code"), "permission_denied")
+        self.assertIn(
+            "Moderator or Admin access",
+            body.get("detail", ""),
+        )
+
+    def test_moderator_member_can_move_others_assigned_card(self):
+        """A Member with is_moderator=True may move a card assigned to another user."""
+        card = _make_card(self.board, self.col, self.swim, self.user_a)  # created by A
+        card.assignee = self.user_b  # assigned to B
+        card.save()
+        # Upgrade user_c's membership to moderator
+        self.membership_c.is_moderator = True
+        self.membership_c.save()
+        self.client.force_authenticate(self.user_c)
+        r = self.client.post(self._move_url(card), self._move_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_admin_can_move_any_assigned_card(self):
+        """A board Admin may move a card assigned to any user, regardless of creator."""
+        card = _make_card(self.board, self.col, self.swim, self.user_b)  # created by B
+        card.assignee = self.user_c  # assigned to C
+        card.save()
+        self.client.force_authenticate(self.user_a)  # user_a is board Admin
+        r = self.client.post(self._move_url(card), self._move_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)

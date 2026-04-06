@@ -24,7 +24,7 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | Create cards | ✓ | ✓ | — | — |
 | Edit cards (title, description, priority, due date, weight, labels) | ✓ | ✓ | — | — |
 | Assign a card to a board member | ✓ | Mod† | — | — |
-| Move cards (drag-and-drop, column / swimlane change) | ✓ | ✓ | — | — |
+| Move cards (drag-and-drop, column / swimlane change) | ✓ | Move† | — | — |
 | Archive / restore cards | ✓ | Own† | — | — |
 | Delete cards | ✓ | Own† | — | — |
 | **Collaboration** | | | | |
@@ -51,6 +51,11 @@ Visiban uses four board-level roles to control what each member can do on a boar
 **Own†** Members can only perform this action on content they created (cards they own, comments/attachments they uploaded). Members with the **moderator** entitlement — and admins — can perform it on any content.
 
 **Mod†** This action requires the **moderator** entitlement or Admin role. Plain members who did not create the card cannot perform it, even on cards assigned to them. See [Moderator entitlement](#moderator-entitlement) below.
+
+**Move†** Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card that is assigned to another member and that the moving user did not create requires the **moderator** entitlement or Admin role. When blocked, the card snaps back to its original position and an amber toast displays: "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."
+
+!!! note "Card move permission rule"
+    A Member can always move a card if it is unassigned, assigned to themselves, or if they created the card. The restriction applies only when moving a card that is assigned to a different user and that the member did not create. In that case, Moderator or Admin access is required.
 
 !!! note "Viewer boundary enforced since 1.0"
     Prior to the 1.0 release, the Viewer role was not fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. This was corrected in [#248](https://gitlab.com/visiban/visiban/-/issues/248): all write operations now return `403 Forbidden` for Viewers.

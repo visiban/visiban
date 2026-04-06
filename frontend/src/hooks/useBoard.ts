@@ -8,7 +8,8 @@ export type MoveBlockedError =
   | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
   | { code: "wip_hard_blocked"; column_name: string; current_count: number; wip_limit: number }
   | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number }
-  | { code: "version_conflict"; detail: string; current_version: number };
+  | { code: "version_conflict"; detail: string; current_version: number }
+  | { code: "permission_denied"; detail: string };
 
 /** @deprecated Use MoveBlockedError */
 export type WipLimitError = Extract<MoveBlockedError, { code: "wip_limit_exceeded" }>;
@@ -116,7 +117,10 @@ export function useBoard() {
       setBoard((b) => b ? { ...b, cards: prev } : b);
       // On 409, surface a structured error for the UI to display.
       const axiosErr = err as { response?: { status?: number; data?: unknown } };
-      if (axiosErr?.response?.status === 409) {
+      if (axiosErr?.response?.status === 403) {
+        const data = axiosErr.response.data as { code?: string; detail?: string };
+        setMoveError({ code: "permission_denied", detail: data?.detail ?? "You do not have permission to move this card." });
+      } else if (axiosErr?.response?.status === 409) {
         const data = axiosErr.response.data as MoveBlockedError;
         if (data?.code === "version_conflict") {
           // Another user modified this card — reload the board to get fresh state.

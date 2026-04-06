@@ -140,3 +140,75 @@ describe('MoveBlockedToast — hard-block variant', () => {
     expect(alert.className).toContain('border-amber-600')
   })
 })
+
+// ─── Permission-denied variant ─────────────────────────────────────────────
+
+const permissionDeniedError: MoveBlockedError = {
+  code: 'permission_denied',
+  detail: 'Moving a card assigned to another member requires Moderator or Admin access — ask a board admin.',
+}
+
+describe('MoveBlockedToast — permission_denied variant', () => {
+  it('renders title "Cannot move this card"', () => {
+    render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(screen.getByText(/Cannot move this card/)).toBeInTheDocument()
+  })
+
+  it('renders the detail string from the error as the body', () => {
+    render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(
+      screen.getByText(/Moderator or Admin access — ask a board admin/)
+    ).toBeInTheDocument()
+  })
+
+  it('does NOT show a "Move anyway" button — permission_denied is a hard block', () => {
+    render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(screen.queryByText(/Move anyway/)).not.toBeInTheDocument()
+  })
+
+  it('does NOT show "Move anyway" even when isAdmin=true', () => {
+    // The gate is a role/ownership check, not a WIP limit the admin can bypass.
+    render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={true} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(screen.queryByText(/Move anyway/)).not.toBeInTheDocument()
+  })
+
+  it('calls onDismiss when the dismiss button is clicked', async () => {
+    const onDismiss = vi.fn()
+    render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={onDismiss} />
+    )
+    await userEvent.click(screen.getByLabelText('Dismiss'))
+    expect(onDismiss).toHaveBeenCalledOnce()
+  })
+
+  it('renders with role="alert" for accessibility', () => {
+    render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('renders ⛔ icon (treated as hard block, same as wip_hard_blocked)', () => {
+    const { container } = render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    expect(container.textContent).toContain('⛔')
+    expect(container.textContent).not.toContain('⚠')
+  })
+
+  it('toast retains amber border (permission_denied uses same styling as other blocks)', () => {
+    const { container } = render(
+      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+    )
+    const alert = container.querySelector('[role="alert"]') as HTMLElement
+    expect(alert.className).toContain('border-amber-600')
+  })
+})

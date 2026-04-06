@@ -11,6 +11,9 @@ function toastBody(error: MoveBlockedError): string {
   if (error.code === "version_conflict") {
     return "This card was modified by another user while you were dragging it. The board has been refreshed.";
   }
+  if (error.code === "permission_denied") {
+    return error.detail;
+  }
   if (error.code === "wip_limit_exceeded" || error.code === "wip_hard_blocked") {
     const s = error.wip_limit !== 1 ? "s" : "";
     return `"${error.column_name}" is at its limit of ${error.wip_limit} card${s} (${error.current_count} active).`;
@@ -21,12 +24,13 @@ function toastBody(error: MoveBlockedError): string {
 
 function toastTitle(error: MoveBlockedError): string {
   if (error.code === "version_conflict") return "Card was updated";
+  if (error.code === "permission_denied") return "Cannot move this card";
   if (error.code === "wip_hard_blocked") return "Column at capacity — no exceptions";
   return error.code === "wip_limit_exceeded" ? "WIP limit reached" : "Weight limit reached";
 }
 
 export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {
-  const hardBlocked = error.code === "wip_hard_blocked";
+  const hardBlocked = error.code === "wip_hard_blocked" || error.code === "permission_denied";
   const versionConflict = error.code === "version_conflict";
   return (
     <div

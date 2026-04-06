@@ -616,6 +616,27 @@ class CardViewSet(viewsets.ModelViewSet):
             pk=pk, board=board,
         )
 
+        # Ownership/assignment gate: any member may move unassigned cards or
+        # cards they created. The assignee of a card may also move it (they own
+        # the work). Moving a card assigned to a different user and not created
+        # by the requestor requires Moderator or Admin access.
+        if (
+            card.assignee_id is not None
+            and card.created_by_id != request.user.id
+            and card.assignee_id != request.user.id
+            and not _can_modify_others_content(board, role, request.user)
+        ):
+            return Response(
+                {
+                    "code": "permission_denied",
+                    "detail": (
+                        "Moving a card assigned to another member requires "
+                        "Moderator or Admin access — ask a board admin."
+                    ),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # Optimistic concurrency control — reject stale writes.  Clients send
         # the version they have; if it doesn't match the DB, another user has
         # modified the card since the client last fetched it.  The check is
