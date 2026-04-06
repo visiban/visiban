@@ -83,8 +83,6 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
     attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
     version: 1,
-    owner: fakeUser,
-    capabilities: { movement_export: false },
     ...overrides,
   }
 }
@@ -98,6 +96,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
+    owner: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
+    capabilities: { movement_export: false },
     ...overrides,
   }
 }
