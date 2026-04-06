@@ -8,8 +8,10 @@ from django.db import migrations
 
 def backfill_action_type(apps, schema_editor):
     Notification = apps.get_model("boards", "Notification")
-    qs = Notification.objects.filter(action_type="")
-    for n in qs:
+    # Process in batches of 500 to avoid holding a table lock for the full
+    # migration duration on large production instances.
+    batch = []
+    for n in Notification.objects.filter(action_type="").iterator(chunk_size=500):
         verb = n.verb
         if "mentioned" in verb:
             n.action_type = "mentioned"
@@ -21,9 +23,15 @@ def backfill_action_type(apps, schema_editor):
             n.action_type = "stale"
         elif "moved" in verb:
             n.action_type = "card_moved"
-        # Rows that cannot be inferred remain as "" — they will not cause
-        # errors at the database level (CharField, not NOT NULL constrained).
-        n.save(update_fields=["action_type"])
+        else:
+            # Cannot infer action_type — leave as "" (DB does not enforce NOT NULL)
+            continue
+        batch.append(n)
+        if len(batch) >= 500:
+            Notification.objects.bulk_update(batch, ["action_type"])
+            batch = []
+    if batch:
+        Notification.objects.bulk_update(batch, ["action_type"])
 
 
 class Migration(migrations.Migration):
