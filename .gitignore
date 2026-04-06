@@ -49,6 +49,9 @@ certbot/
 backend/.coverage
 backend/htmlcov/
 
+# SonarQube analysis cache
+.sonar/
+
 # MkDocs generated site
 site/
 
