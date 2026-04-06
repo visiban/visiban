@@ -117,7 +117,7 @@ class BoardUpdatedBroadcastTests(TestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.patch(
-                    f"/api/boards/{self.board.pk}/",
+                    f"/api/v1/boards/{self.board.pk}/",
                     {"name": "Renamed Board"},
                 )
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -129,7 +129,7 @@ class BoardUpdatedBroadcastTests(TestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
                 self.client.patch(
-                    f"/api/boards/{self.board.pk}/",
+                    f"/api/v1/boards/{self.board.pk}/",
                     {"name": "Renamed Board"},
                 )
                 mock_broadcast.assert_not_called()
@@ -139,7 +139,7 @@ class BoardUpdatedBroadcastTests(TestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.patch(
-                    f"/api/boards/{self.board.pk}/",
+                    f"/api/v1/boards/{self.board.pk}/",
                     {"name": "Renamed Board"},
                 )
             updated_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "board.updated"]
@@ -165,7 +165,7 @@ class BoardDeletedBroadcastTests(TestCase):
         board_pk = self.board.pk
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
-                resp = self.client.delete(f"/api/boards/{board_pk}/")
+                resp = self.client.delete(f"/api/v1/boards/{board_pk}/")
             self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
             self.assertIn("board.deleted", event_types)
@@ -174,7 +174,7 @@ class BoardDeletedBroadcastTests(TestCase):
         """board.deleted must not fire before on_commit callbacks execute."""
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=False):
-                self.client.delete(f"/api/boards/{self.board.pk}/")
+                self.client.delete(f"/api/v1/boards/{self.board.pk}/")
                 mock_broadcast.assert_not_called()
 
     def test_board_deleted_payload_contains_board_id(self):
@@ -182,7 +182,7 @@ class BoardDeletedBroadcastTests(TestCase):
         board_pk = self.board.pk
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
-                self.client.delete(f"/api/boards/{board_pk}/")
+                self.client.delete(f"/api/v1/boards/{board_pk}/")
             deleted_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "board.deleted"]
             self.assertEqual(len(deleted_calls), 1)
             self.assertEqual(deleted_calls[0][0][2]["board_id"], board_pk)
@@ -209,7 +209,7 @@ class AttachmentAtomicBroadcastTests(TestCase):
         self.card = make_card(self.board, self.col, self.swim, self.user)
 
     def _url(self):
-        return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/"
 
     def test_attachment_upload_broadcasts_card_updated_after_commit(self):
         """Attachment upload fires card.updated broadcast via on_commit."""

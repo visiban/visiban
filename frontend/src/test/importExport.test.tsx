@@ -183,7 +183,7 @@ describe('Export dropdown (BoardView)', () => {
     exportBoardCsv(42)
 
     expect(openSpy).toHaveBeenCalledWith(
-      expect.stringContaining('/api/boards/42/export/'),
+      expect.stringContaining('/api/v1/boards/42/export/'),
       '_blank'
     )
     openSpy.mockRestore()
@@ -196,7 +196,7 @@ describe('Export dropdown (BoardView)', () => {
     exportBoardJson(42)
 
     expect(openSpy).toHaveBeenCalledWith(
-      expect.stringContaining('/api/boards/42/export/?format=json'),
+      expect.stringContaining('/api/v1/boards/42/export/?format=json'),
       '_blank'
     )
     openSpy.mockRestore()

@@ -275,6 +275,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
 
 class BoardFullSerializer(serializers.ModelSerializer):
+    owner = BoardUserSerializer(read_only=True)
     columns = ColumnSerializer(many=True, read_only=True)
     swimlanes = serializers.SerializerMethodField()
     cards = serializers.SerializerMethodField()
@@ -289,7 +290,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board
         fields = [
-            "id", "uid", "name", "description", "group", "group_name", "columns", "swimlanes",
+            "id", "uid", "name", "description", "owner", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "capabilities",
         ]

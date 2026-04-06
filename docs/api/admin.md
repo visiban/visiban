@@ -8,7 +8,7 @@ See [Admin Panel](../administration/admin-panel.md) for the equivalent UI and [S
 
 ## Site settings
 
-### `GET /api/admin/settings/`
+### `GET /api/v1/admin/settings/`
 Return the current instance-wide settings.
 
 **Response**
@@ -21,7 +21,7 @@ Return the current instance-wide settings.
 | `registration_mode` | `"open"` / `"invite_only"` / `"closed"` | Controls who can self-register |
 | `uploads_enabled` | boolean | When `false`, attachment uploads are blocked for all users |
 
-### `PATCH /api/admin/settings/`
+### `PATCH /api/v1/admin/settings/`
 Update site settings. All fields are optional.
 
 **Request**
@@ -35,7 +35,7 @@ Changes take effect within approximately 60 seconds (server-side cache TTL) — 
 
 ## Users
 
-### `GET /api/admin/users/`
+### `GET /api/v1/admin/users/`
 Paginated list of all accounts on the instance. Site admin only.
 
 **Query params**
@@ -50,7 +50,7 @@ Paginated list of all accounts on the instance. Site admin only.
 ```json
 {
   "count": 142,
-  "next": "/api/admin/users/?page=2",
+  "next": "/api/v1/admin/users/?page=2",
   "previous": null,
   "results": [
     {
@@ -88,7 +88,7 @@ Paginated list of all accounts on the instance. Site admin only.
 | `date_joined` | ISO 8601 | Account creation timestamp |
 | `owned_boards` | array | Boards owned by this user — each entry has `id`, `uid`, and `name`. Critical for determining what must be transferred before deactivation. |
 
-### `POST /api/admin/users/`
+### `POST /api/v1/admin/users/`
 Create a new local account. Site admin only.
 
 **Request**
@@ -110,7 +110,7 @@ Create a new local account. Site admin only.
 
 Returns `201 Created` with the new user object. The response does **not** include the password — copy it before closing if needed.
 
-### `PATCH /api/admin/users/{id}/`
+### `PATCH /api/v1/admin/users/{id}/`
 Update a user's account flags. Site admin only.
 
 **Patchable fields**
@@ -128,7 +128,7 @@ Update a user's account flags. Site admin only.
 { "is_active": false }
 ```
 
-### `POST /api/admin/users/{id}/deactivate/`
+### `POST /api/v1/admin/users/{id}/deactivate/`
 
 Deactivate a user account and transfer ownership of any boards they own to other members.
 
@@ -153,7 +153,7 @@ If the target user owns one or more boards, you must supply a `transfers` list m
 }
 ```
 
-**Response** `200 OK` — the updated user object (same shape as `GET /api/admin/users/`).
+**Response** `200 OK` — the updated user object (same shape as `GET /api/v1/admin/users/`).
 
 ```json
 {
@@ -188,7 +188,7 @@ After a successful deactivation with transfers, `owned_boards` will be `[]` — 
 
 Invite links allow new users to self-register when the instance is in `invite_only` mode. Each link contains a single-use or multi-use token that is validated during registration.
 
-### `GET /api/admin/invite-links/`
+### `GET /api/v1/admin/invite-links/`
 
 List all invite links on the instance.
 
@@ -239,7 +239,7 @@ List all invite links on the instance.
 
 ---
 
-### `POST /api/admin/invite-links/`
+### `POST /api/v1/admin/invite-links/`
 
 Create a new invite link.
 
@@ -284,7 +284,7 @@ The response includes a one-time `raw_token` field. **Store or share it immediat
 
 ---
 
-### `DELETE /api/admin/invite-links/{id}/`
+### `DELETE /api/v1/admin/invite-links/{id}/`
 
 Revoke an invite link immediately. The link can no longer be used for registration.
 

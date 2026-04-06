@@ -14,7 +14,7 @@ The sidebar renders sections in this order, omitting any empty section entirely:
 
 A 3D engraved separator (`h-px bg-slate-900` / `h-px bg-slate-600/50`) appears between each pair of visible sections.
 
-Groups and personal boards are populated from a single API call on mount (`GET /api/groups/` and `GET /api/boards/`). Favorite boards and groups are fetched from `GET /api/boards/?starred=true` and `GET /api/groups/?starred=true` and are re-fetched whenever the star version counter increments (i.e. any time a board or group is starred or unstarred).
+Groups and personal boards are populated from a single API call on mount (`GET /api/v1/groups/` and `GET /api/v1/boards/`). Favorite boards and groups are fetched from `GET /api/v1/boards/?starred=true` and `GET /api/v1/groups/?starred=true` and are re-fetched whenever the star version counter increments (i.e. any time a board or group is starred or unstarred).
 
 ## Starring boards and groups
 

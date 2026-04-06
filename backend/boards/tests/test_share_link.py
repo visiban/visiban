@@ -50,7 +50,7 @@ class EnableDisableShareTests(TestCase):
         self.viewer_client.force_authenticate(self.viewer)
 
     def _enable_url(self):
-        return f"/api/boards/{self.board.id}/share/"
+        return f"/api/v1/boards/{self.board.id}/share/"
 
     # --- Enable ---
 
@@ -135,7 +135,7 @@ class PublicBoardEndpointTests(TestCase):
 
         admin_client = APIClient()
         admin_client.force_authenticate(self.admin)
-        r = admin_client.post(f"/api/boards/{self.board.id}/share/")
+        r = admin_client.post(f"/api/v1/boards/{self.board.id}/share/")
         self.token = r.data["share_token"]
 
         self.anon = APIClient()
@@ -218,7 +218,7 @@ class PublicBoardEndpointTests(TestCase):
     def test_revoked_token_returns_404(self):
         admin_client = APIClient()
         admin_client.force_authenticate(self.admin)
-        admin_client.delete(f"/api/boards/{self.board.id}/share/")
+        admin_client.delete(f"/api/v1/boards/{self.board.id}/share/")
         r = self.anon.get(self._url())
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -227,7 +227,7 @@ class PublicBoardEndpointTests(TestCase):
         admin_client.force_authenticate(self.admin)
         old_token = self.token
 
-        r2 = admin_client.post(f"/api/boards/{self.board.id}/share/")
+        r2 = admin_client.post(f"/api/v1/boards/{self.board.id}/share/")
         new_token = r2.data["share_token"]
 
         # Old token must be gone
@@ -255,16 +255,16 @@ class ShareTokenInBoardFullTests(TestCase):
         self.member_client.force_authenticate(self.member)
 
         # Enable sharing
-        self.admin_client.post(f"/api/boards/{self.board.id}/share/")
+        self.admin_client.post(f"/api/v1/boards/{self.board.id}/share/")
 
     def test_admin_sees_share_token_in_full_response(self):
-        r = self.admin_client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.admin_client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("share_token", r.data)
         self.assertIsNotNone(r.data["share_token"])
 
     def test_member_sees_null_share_token_in_full_response(self):
-        r = self.member_client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.member_client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("share_token", r.data)
         self.assertIsNone(r.data["share_token"])

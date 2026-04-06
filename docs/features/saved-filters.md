@@ -29,6 +29,6 @@ Any board role — including Viewer — can create, load, and delete their own s
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/boards/{id}/saved-filters/` | List your saved filters for this board |
-| `POST` | `/api/boards/{id}/saved-filters/` | Save a new filter preset |
-| `DELETE` | `/api/boards/{id}/saved-filters/{filter_id}/` | Delete a saved filter |
+| `GET` | `/api/v1/boards/{id}/saved-filters/` | List your saved filters for this board |
+| `POST` | `/api/v1/boards/{id}/saved-filters/` | Save a new filter preset |
+| `DELETE` | `/api/v1/boards/{id}/saved-filters/{filter_id}/` | Delete a saved filter |

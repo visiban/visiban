@@ -35,7 +35,7 @@ class CardSearchTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _url(self):
-        return f"/api/boards/{self.board.id}/cards/"
+        return f"/api/v1/boards/{self.board.id}/cards/"
 
     @patch(PATCH_BROADCAST)
     def test_search_by_title_returns_match(self, _):

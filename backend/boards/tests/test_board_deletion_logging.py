@@ -20,7 +20,7 @@ class BoardDeletionLoggingTests(TestCase):
         board_name = self.board.name
 
         with self.assertLogs("boards.views", level="INFO") as cm:
-            resp = self.client.delete(f"/api/boards/{board_id}/")
+            resp = self.client.delete(f"/api/v1/boards/{board_id}/")
 
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         # Exactly one log line should mention the deletion

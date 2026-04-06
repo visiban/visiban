@@ -135,7 +135,7 @@ class Command(BaseCommand):
         client.force_authenticate(user=user)
 
         reset_queries()
-        response = client.get(f"/api/boards/{board.pk}/summary/")
+        response = client.get(f"/api/v1/boards/{board.pk}/summary/")
         count = len(connection.queries)
 
         if response.status_code != 200:

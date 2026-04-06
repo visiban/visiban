@@ -44,37 +44,37 @@ class MustChangePasswordBlocksAPITests(TestCase):
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_board_list_blocked(self, _bc):
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_board_detail_blocked(self, _bc):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_board_full_blocked(self, _bc):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/full/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/full/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_column_list_blocked(self, _bc):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/columns/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/columns/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_card_list_blocked(self, _bc):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/cards/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/cards/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_swimlane_list_blocked(self, _bc):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/swimlanes/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/swimlanes/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_label_list_blocked(self, _bc):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/labels/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/labels/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     # ------------------------------------------------------------------
@@ -82,15 +82,15 @@ class MustChangePasswordBlocksAPITests(TestCase):
     # ------------------------------------------------------------------
 
     def test_notification_list_blocked(self):
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_notification_mark_read_blocked(self):
-        resp = self.client.post("/api/notifications/mark-read/", {"all": True})
+        resp = self.client.post("/api/v1/notifications/mark-read/", {"all": True})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_notification_unread_count_blocked(self):
-        resp = self.client.get("/api/notifications/unread-count/")
+        resp = self.client.get("/api/v1/notifications/unread-count/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     # ------------------------------------------------------------------
@@ -98,17 +98,17 @@ class MustChangePasswordBlocksAPITests(TestCase):
     # ------------------------------------------------------------------
 
     def test_user_search_blocked(self):
-        resp = self.client.get("/api/users/?search=test")
+        resp = self.client.get("/api/v1/users/?search=test")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_current_user_view_allowed(self):
         """CurrentUserView is exempt from pending-change gates so the frontend
         can fetch the user object and render the appropriate force-change modal."""
-        resp = self.client.get("/api/auth/me/")
+        resp = self.client.get("/api/v1/auth/me/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
     def test_pat_list_blocked(self):
-        resp = self.client.get("/api/auth/tokens/")
+        resp = self.client.get("/api/v1/auth/tokens/")
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -126,7 +126,7 @@ class ChangePasswordViewAllowedTests(TestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_change_password_allowed(self):
-        resp = self.client.post("/api/auth/change-password/", {
+        resp = self.client.post("/api/v1/auth/change-password/", {
             "current_password": "testpass1234",
             "new_password": "newsecurepassword123",
         })
@@ -149,14 +149,14 @@ class NormalUserNotBlockedTests(TestCase):
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_board_list_allowed(self, _bc):
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_board_detail_allowed(self, _bc):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
     def test_notification_list_allowed(self):
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)

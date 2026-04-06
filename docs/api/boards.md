@@ -2,10 +2,10 @@
 
 ## Boards
 
-### `GET /api/boards/`
+### `GET /api/v1/boards/`
 List all boards accessible to the current user.
 
-### `POST /api/boards/`
+### `POST /api/v1/boards/`
 Create a board.
 
 **Request**
@@ -14,10 +14,10 @@ Create a board.
 |---|---|---|
 | `name` | ✓ | Board name |
 | `description` | | Board description (default: `""`) |
-| `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/boards/templates/` for available slugs. |
+| `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/v1/boards/templates/` for available slugs. |
 | `swimlane_name` | | Name for the first swimlane (default: `"General"`) |
 
-### `GET /api/boards/{id}/`
+### `GET /api/v1/boards/{id}/`
 Get board summary. Response includes:
 
 | Field | Type | Description |
@@ -37,27 +37,27 @@ Get board summary. Response includes:
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
 
-### `PUT /api/boards/{id}/` / `PATCH /api/boards/{id}/`
+### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
 Update board fields. Both `PUT` and `PATCH` are accepted — all fields are optional in either case. Requires board admin.
 
 **Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`. Board admins may also set `enforce_wip_limits`, `enforce_weight_limits`, and `enforce_wip_hard`; non-admins sending these fields receive `403 Forbidden`.
 
-### `DELETE /api/boards/{id}/`
+### `DELETE /api/v1/boards/{id}/`
 Delete board. Requires board owner or site admin.
 
-### `GET /api/boards/{id}/full/`
-Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (admin-only, see `GET /api/boards/{id}/` above). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
+### `GET /api/v1/boards/{id}/full/`
+Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (admin-only, see `GET /api/v1/boards/{id}/` above). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
-### `POST /api/boards/{id}/star/`
+### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Returns `201 Created` on first star, `200 OK` if already starred.
 
-### `DELETE /api/boards/{id}/star/`
+### `DELETE /api/v1/boards/{id}/star/`
 Unstar a board.
 
-### `GET /api/boards/?starred=true`
+### `GET /api/v1/boards/?starred=true`
 List only boards the requesting user has starred.
 
-### `POST /api/boards/{id}/move-group/`
+### `POST /api/v1/boards/{id}/move-group/`
 Move board to a different group (or `null` for personal).
 
 **Request** `{ "group_id": 5 }` or `{ "group_id": null }`
@@ -66,7 +66,7 @@ Move board to a different group (or `null` for personal).
 
 ## Templates
 
-### `GET /api/boards/templates/`
+### `GET /api/v1/boards/templates/`
 List all active board templates. Requires authentication. Used by the board creation modal to populate the template picker.
 
 **Response**
@@ -96,7 +96,7 @@ List all active board templates. Requires authentication. Used by the board crea
 
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Content Production**, **Hiring & Recruiting**, **Legal & Compliance**, **Infrastructure & DevOps**, **Blank Board**.
 
-### `GET /api/boards/{id}/summary/`
+### `GET /api/v1/boards/{id}/summary/`
 Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.
 
 **Response shape:**
@@ -135,7 +135,7 @@ Board health summary — per-swimlane card counts, stage distribution, and veloc
 
 ---
 
-### `GET /api/boards/{id}/analytics/`
+### `GET /api/v1/boards/{id}/analytics/`
 Time-in-stage heatmap derived from `CardMovement` records.
 
 **Query parameters:**
@@ -190,7 +190,7 @@ CSV export (`Export CSV` button) is available to `member`, `admin`, and `site_ad
 
 ---
 
-### `GET /api/boards/{id}/movements/`
+### `GET /api/v1/boards/{id}/movements/`
 Board-level movement history for all cards on the board, sorted newest first. Requires any board membership (viewer and above).
 
 **Permissions:** any board member (`viewer` and above).
@@ -269,7 +269,7 @@ Each result object fields:
 
 Saved filters are user-scoped filter presets on a board. Any board member (including viewers) can save and restore their own filter presets. Filters are private — users cannot see or modify other users' presets.
 
-### `GET /api/boards/{id}/saved-filters/`
+### `GET /api/v1/boards/{id}/saved-filters/`
 List all saved filters belonging to the requesting user on this board.
 
 **Response**
@@ -291,7 +291,7 @@ List all saved filters belonging to the requesting user on this board.
 | `state_json` | object | Opaque filter state — schema owned by the frontend; stored and returned as-is |
 | `created_at` | string | ISO 8601 timestamp |
 
-### `POST /api/boards/{id}/saved-filters/`
+### `POST /api/v1/boards/{id}/saved-filters/`
 Create a new saved filter preset.
 
 **Request**
@@ -303,21 +303,21 @@ Create a new saved filter preset.
 
 **Errors:** `400 Bad Request` if name is empty, exceeds 100 characters, or a filter with the same name already exists for this user on this board.
 
-### `DELETE /api/boards/{id}/saved-filters/{filter_id}/`
+### `DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/`
 Delete a saved filter preset. Only the owning user can delete their own filters — attempting to delete another user's filter returns `404 Not Found`.
 
 ---
 
 ## Export & Import
 
-### `GET /api/boards/{id}/export/`
+### `GET /api/v1/boards/{id}/export/`
 Export the board as CSV. Returns a downloadable `text/csv` file. Requires `member` or `admin` role — viewers and collaborators receive `403 Forbidden`.
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
 
 `Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`.
 
-### `GET /api/boards/{id}/export/?format=json`
+### `GET /api/v1/boards/{id}/export/?format=json`
 Export the board as JSON. Returns `application/json`. Requires `member` or `admin` role — viewers and collaborators receive `403 Forbidden`.
 
 **Response shape:**
@@ -350,14 +350,14 @@ Export the board as JSON. Returns `application/json`. Requires `member` or `admi
 }
 ```
 
-### `POST /api/boards/import/`
+### `POST /api/v1/boards/import/`
 Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group (requires group admin). Creates a new board atomically. Requires authentication.
 
 ---
 
 ## Members
 
-### `POST /api/boards/{id}/members/`
+### `POST /api/v1/boards/{id}/members/`
 Add or update a board member. Requires board admin.
 
 **Request** `{ "user_id": 42, "role": "member", "is_moderator": true }`
@@ -368,14 +368,14 @@ Add or update a board member. Requires board admin.
 | `role` | | Role to assign (default: `"member"`). Valid: `admin`, `member`, `collaborator`, `viewer` |
 | `is_moderator` | | Boolean. Grants content-moderation rights (delete/archive others' content). Only valid for `member` and `admin` roles — setting `true` on a collaborator or viewer returns `400 Bad Request`. Automatically cleared when demoting to collaborator or viewer. |
 
-### `DELETE /api/boards/{id}/members/{user_id}/`
+### `DELETE /api/v1/boards/{id}/members/{user_id}/`
 Remove a member. Requires board admin. Cannot remove a site admin.
 
 ---
 
 ## Board sharing
 
-### `POST /api/boards/{id}/share/`
+### `POST /api/v1/boards/{id}/share/`
 Generate (or regenerate) a public share token for the board. Requires board admin.
 
 If a token already exists, calling this endpoint immediately invalidates the previous one and returns a new UUID. Any existing share links stop working as soon as the new token is issued.
@@ -392,7 +392,7 @@ If a token already exists, calling this endpoint immediately invalidates the pre
 
 **Errors:** `403 Forbidden` if the caller is not a board admin.
 
-### `DELETE /api/boards/{id}/share/`
+### `DELETE /api/v1/boards/{id}/share/`
 Revoke the public share token for the board. Requires board admin. All existing share links immediately return `404 Not Found` after revocation.
 
 **Permissions:** board `admin` or `site_admin` only.
@@ -412,13 +412,13 @@ Revoke the public share token for the board. Requires board admin. All existing 
 
 Column objects include a `uid` field — a stable 16-character hex identifier that does not change when the column is renamed or reordered. The `uid` is read-only; any `uid` value sent in a request body is ignored.
 
-### `GET /api/boards/{id}/columns/`
+### `GET /api/v1/boards/{id}/columns/`
 List all columns on the board in position order. Available to all board members.
 
-### `GET /api/boards/{id}/columns/{col_id}/`
+### `GET /api/v1/boards/{id}/columns/{col_id}/`
 Get a single column. Available to all board members.
 
-### `POST /api/boards/{id}/columns/`
+### `POST /api/v1/boards/{id}/columns/`
 Create a column. Requires board admin.
 
 **Request** `{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false, "is_done": false }`
@@ -440,15 +440,15 @@ Column objects returned by all endpoints include the following fields:
 >
 > WIP and weight limits are enforced when `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board. A card move to an over-limit column returns `409 Conflict` — see the move endpoint in the [Cards API](cards.md) for the full error schema and the `?force=true` admin override. When enforcement is disabled, limits are displayed but not enforced.
 
-### `PUT /api/boards/{id}/columns/{col_id}/`
+### `PUT /api/v1/boards/{id}/columns/{col_id}/`
 Update a column. Requires board admin.
 
 **Writable fields:** `name`, `color`, `wip_limit` (integer or `null`), `weight_limit` (integer or `null`), `allow_card_creation` (boolean), `is_done` (boolean)
 
-### `DELETE /api/boards/{id}/columns/{col_id}/`
+### `DELETE /api/v1/boards/{id}/columns/{col_id}/`
 Delete a column. Requires board admin.
 
-### `POST /api/boards/{id}/columns/reorder/`
+### `POST /api/v1/boards/{id}/columns/reorder/`
 Reorder columns. Requires board admin.
 
 **Request** `{ "order": [3, 1, 4, 2] }` — list of column IDs in new order.
@@ -459,30 +459,30 @@ Reorder columns. Requires board admin.
 
 Swimlane objects include a `uid` field — stable across renames, read-only.
 
-**Role-gated fields:** `contact_email` and `notes` are only included in responses for `admin` and `site_admin` role members. `member`, `collaborator`, and `viewer` roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, `GET /api/boards/{id}/full/`, and WebSocket broadcast events.
+**Role-gated fields:** `contact_email` and `notes` are only included in responses for `admin` and `site_admin` role members. `member`, `collaborator`, and `viewer` roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, `GET /api/v1/boards/{id}/full/`, and WebSocket broadcast events.
 
-### `GET /api/boards/{id}/swimlanes/`
+### `GET /api/v1/boards/{id}/swimlanes/`
 List all swimlanes on the board in position order. Available to all board members. `admin` and `site_admin` roles see `contact_email` and `notes`; all other roles receive swimlane objects without those fields.
 
-### `GET /api/boards/{id}/swimlanes/{swimlane_id}/`
+### `GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Get a single swimlane. Same role-gated field rules as the list endpoint.
 
-### `POST /api/boards/{id}/swimlanes/`
+### `POST /api/v1/boards/{id}/swimlanes/`
 Create a swimlane. Requires board admin.
 
 **Request** `{ "name": "Acme Corp", "contact_email": "", "color": "#3B82F6" }`
 
 > Swimlane names are unique per board. Creating a swimlane with a name that already exists on the same board returns `400 Bad Request`.
 
-### `PUT /api/boards/{id}/swimlanes/{swimlane_id}/`
+### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin.
 
 **Writable fields:** `name`, `color`, `contact_email`, `notes`
 
-### `DELETE /api/boards/{id}/swimlanes/{swimlane_id}/`
+### `DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Delete a swimlane. Requires board admin.
 
-### `POST /api/boards/{id}/swimlanes/reorder/`
+### `POST /api/v1/boards/{id}/swimlanes/reorder/`
 Reorder swimlanes. Requires board admin.
 
 **Request** `{ "order": [2, 1, 3] }`
@@ -493,23 +493,23 @@ Reorder swimlanes. Requires board admin.
 
 Label objects include a `uid` field — stable across renames, read-only.
 
-### `GET /api/boards/{id}/labels/`
+### `GET /api/v1/boards/{id}/labels/`
 List board labels. Available to all board members.
 
-### `GET /api/boards/{id}/labels/{label_id}/`
+### `GET /api/v1/boards/{id}/labels/{label_id}/`
 Get a single label. Available to all board members.
 
-### `POST /api/boards/{id}/labels/`
+### `POST /api/v1/boards/{id}/labels/`
 Create a label. Requires board admin.
 
 **Request** `{ "name": "Bug", "color": "#EF4444" }`
 
-### `PUT /api/boards/{id}/labels/{label_id}/`
+### `PUT /api/v1/boards/{id}/labels/{label_id}/`
 Update a label. Requires board admin.
 
 **Writable fields:** `name`, `color`
 
-### `DELETE /api/boards/{id}/labels/{label_id}/`
+### `DELETE /api/v1/boards/{id}/labels/{label_id}/`
 Delete a label. Requires board admin.
 
 ---

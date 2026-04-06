@@ -32,7 +32,7 @@ class CommentCreatedBroadcastOnCommitTests(TestCase):
         )
 
     def _comments_url(self):
-        return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/"
 
     def test_comment_broadcast_fires_after_commit(self):
         """broadcast_board_event for comment creation fires via on_commit, not inside the transaction."""

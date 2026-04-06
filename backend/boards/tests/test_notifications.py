@@ -114,13 +114,15 @@ class NotificationListViewTests(TestCase):
 
     def test_list_excludes_read_notifications(self):
         Notification.objects.create(
-            recipient=self.user, verb="unread notification", board=self.board, read=False
+            recipient=self.user, verb="unread notification", board=self.board, read=False,
+            action_type=Notification.ActionType.STALE,
         )
         Notification.objects.create(
-            recipient=self.user, verb="read notification", board=self.board, read=True
+            recipient=self.user, verb="read notification", board=self.board, read=True,
+            action_type=Notification.ActionType.STALE,
         )
 
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, 200)
         verbs = [n["verb"] for n in resp.data]
         self.assertIn("unread notification", verbs)
@@ -135,7 +137,7 @@ class NotificationListViewTests(TestCase):
             read=False,
         )
 
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]["action_type"], "board_invite")
@@ -158,18 +160,19 @@ class NotificationListViewTests(TestCase):
             read=False,
         )
 
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]["action_type"], "assigned")
 
     def test_mark_all_read_then_list_is_empty(self):
         Notification.objects.create(
-            recipient=self.user, verb="will be read", board=self.board, read=False
+            recipient=self.user, verb="will be read", board=self.board, read=False,
+            action_type=Notification.ActionType.STALE,
         )
 
-        self.client.post("/api/notifications/mark-read/", {"all": True})
-        resp = self.client.get("/api/notifications/")
+        self.client.post("/api/v1/notifications/mark-read/", {"all": True})
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data), 0)
 
@@ -195,7 +198,7 @@ class CardAssignmentNotificationTests(TestCase):
         BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
 
         self.client.patch(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
             {"assignee_id": assignee.pk},
         )
 
@@ -210,7 +213,7 @@ class CardAssignmentNotificationTests(TestCase):
     @patch("boards.broadcast.broadcast_board_event")
     def test_self_assignment_does_not_notify(self, _mock_broadcast):
         self.client.patch(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
             {"assignee_id": self.owner.pk},
         )
 
@@ -228,7 +231,7 @@ class CardAssignmentNotificationTests(TestCase):
         self.card.save()
 
         self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
             {"column_id": col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
 
@@ -243,7 +246,7 @@ class CardAssignmentNotificationTests(TestCase):
         self.card.save()
 
         self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
             {"column_id": col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
 
@@ -271,7 +274,7 @@ class MentionNotificationEdgeCaseTests(TestCase):
 
     def _post_comment(self, body):
         return self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
             {"body": body},
         )
 
@@ -454,7 +457,7 @@ class BoardInviteNotificationTests(TestCase):
         )
 
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/members/",
+            f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": new_member.pk, "role": "member"},
         )
 
@@ -473,7 +476,7 @@ class BoardInviteNotificationTests(TestCase):
         # The admin is already a member from make_board — re-adding should not
         # fire a self-notification regardless of the notif_board_invite pref.
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/members/",
+            f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": self.admin.pk, "role": "member"},
         )
 
@@ -496,7 +499,7 @@ class BoardInviteNotificationTests(TestCase):
         )
 
         self.client.post(
-            f"/api/boards/{self.board.pk}/members/",
+            f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": opted_out.pk, "role": "member"},
         )
 
@@ -516,12 +519,12 @@ class BoardInviteNotificationTests(TestCase):
         )
         # First add — creates one notification
         self.client.post(
-            f"/api/boards/{self.board.pk}/members/",
+            f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": existing.pk, "role": "member"},
         )
         # Promote — should NOT create a second notification
         self.client.post(
-            f"/api/boards/{self.board.pk}/members/",
+            f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": existing.pk, "role": "admin"},
         )
 

@@ -75,8 +75,8 @@ If a card's most recent `CardMovement` is older than the board's `staleness_thre
 Movement history and the activity log are accessible via the API:
 
 ```
-GET /api/boards/{board_id}/cards/{card_id}/movements/
-GET /api/boards/{board_id}/cards/{card_id}/activities/
+GET /api/v1/boards/{board_id}/cards/{card_id}/movements/
+GET /api/v1/boards/{board_id}/cards/{card_id}/activities/
 ```
 
 Movement records include `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, `to_swimlane_uid`, `moved_by`, `moved_at`, and `movement_type`. The name and UID fields are denormalized — they are captured at write time and remain accurate regardless of future renames or deletions. See [Stable UIDs](stable-uids.md) for full field reference and integration examples.
@@ -90,7 +90,7 @@ In addition to the per-card timeline, the **History** tab in the board toolbar s
 ### API
 
 ```
-GET /api/boards/{id}/movements/
+GET /api/v1/boards/{id}/movements/
 ```
 
 | Parameter | Type | Description |

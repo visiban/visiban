@@ -30,7 +30,7 @@ class ExportCsvTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def test_csv_content_type_and_headers(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r["Content-Type"], "text/csv")
         self.assertIn("attachment; filename=", r["Content-Disposition"])
@@ -50,7 +50,7 @@ class ExportCsvTests(TestCase):
             notes="Card created",
         )
 
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         content = r.content.decode("utf-8")
         reader = csv.reader(io.StringIO(content))
         rows = list(reader)
@@ -73,7 +73,7 @@ class ExportCsvTests(TestCase):
         self.assertEqual(int(data[13]), 1)  # movement count
 
     def test_csv_empty_board(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         content = r.content.decode("utf-8")
         reader = csv.reader(io.StringIO(content))
         rows = list(reader)
@@ -89,7 +89,7 @@ class ExportJsonTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def test_json_content_type_and_headers(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r["Content-Type"], "application/json")
         self.assertIn("attachment; filename=", r["Content-Disposition"])
@@ -106,7 +106,7 @@ class ExportJsonTests(TestCase):
         CardComment.objects.create(card=card, author=self.owner, body="A comment")
         CardChecklist.objects.create(card=card, text="Item 1", is_checked=True, position=0)
 
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         data = json.loads(r.content.decode("utf-8"))
 
         self.assertEqual(data["name"], "Board")
@@ -149,7 +149,7 @@ class ExportJsonTests(TestCase):
             from_value="1", to_value="5", actor=self.owner,
         )
 
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         data = json.loads(r.content.decode("utf-8"))
         card_data = data["cards"][0]
 
@@ -169,7 +169,7 @@ class ExportJsonTests(TestCase):
         self.assertIn("created_at", act)
 
     def test_json_empty_board(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         data = json.loads(r.content.decode("utf-8"))
         self.assertEqual(data["cards"], [])
 
@@ -185,17 +185,17 @@ class ExportPermissionTests(TestCase):
         viewer = User.objects.create_user(username="viewer", password="pass")
         BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_unauthenticated_cannot_export(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
     def test_non_member_cannot_export(self):
         stranger = User.objects.create_user(username="stranger", password="pass")
         self.client.force_authenticate(stranger)
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
@@ -212,7 +212,7 @@ class ExportJsonSwimlanePiiTests(TestCase):
         self.client = APIClient()
 
     def _export_json(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         return json.loads(r.content.decode("utf-8"))
 

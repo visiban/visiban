@@ -93,7 +93,7 @@ class CardListQueryCountTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _get_cards(self):
-        return self.client.get(f"/api/boards/{self.board.id}/cards/")
+        return self.client.get(f"/api/v1/boards/{self.board.id}/cards/")
 
     def test_card_list_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:
@@ -138,7 +138,7 @@ class BoardFullQueryCountTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _get_full(self):
-        return self.client.get(f"/api/boards/{self.board.id}/full/")
+        return self.client.get(f"/api/v1/boards/{self.board.id}/full/")
 
     def test_full_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:
@@ -224,7 +224,7 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def _get_full(self):
-        return self.client.get(f"/api/boards/{self.board.id}/full/")
+        return self.client.get(f"/api/v1/boards/{self.board.id}/full/")
 
     def test_full_with_group_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:
@@ -268,7 +268,7 @@ class SummaryQueryCountTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _get_summary(self):
-        return self.client.get(f"/api/boards/{self.board.id}/summary/")
+        return self.client.get(f"/api/v1/boards/{self.board.id}/summary/")
 
     def test_summary_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:
@@ -315,7 +315,7 @@ class BoardListQueryCountTests(TestCase):
             BoardMembership.objects.create(board=board, user=self.user, role="admin")
 
     def _get_boards(self):
-        return self.client.get("/api/boards/")
+        return self.client.get("/api/v1/boards/")
 
     def test_board_list_within_query_budget(self):
         with CaptureQueriesContext(connection) as ctx:

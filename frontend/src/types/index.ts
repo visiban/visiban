@@ -260,6 +260,7 @@ export interface BoardFull {
   uid: string;
   name: string;
   description: string;
+  owner: BoardUser;
   group: number | null;
   group_name: string | null;
   columns: Column[];
@@ -277,7 +278,7 @@ export interface BoardFull {
   created_at: string;
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
-  capabilities?: { movement_export?: boolean };
+  capabilities: { movement_export: boolean };
   share_token?: string | null;
 }
 

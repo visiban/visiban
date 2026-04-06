@@ -4,8 +4,8 @@ Visiban supports two authentication methods: **token** (recommended for scripts 
 
 Token authentication covers two token types that share the same `Authorization: Token <value>` header scheme:
 
-- **Session tokens** — short-lived tokens issued by `POST /api/auth/login/`. Invalidated on logout or password change.
-- **Personal Access Tokens (PATs)** — long-lived named tokens created through the API or profile settings. Format: `vbn_` followed by 40 hex characters (44 chars total). Invalidated individually via `DELETE /api/auth/tokens/{id}/`, or all at once when the user's password is changed.
+- **Session tokens** — short-lived tokens issued by `POST /api/v1/auth/login/`. Invalidated on logout or password change.
+- **Personal Access Tokens (PATs)** — long-lived named tokens created through the API or profile settings. Format: `vbn_` followed by 40 hex characters (44 chars total). Invalidated individually via `DELETE /api/v1/auth/tokens/{id}/`, or all at once when the user's password is changed.
 
 ---
 
@@ -20,7 +20,7 @@ Log in to get your API token. The token is permanent until you log out or it is 
 
 === "curl"
     ```bash
-    curl -s -X POST http://localhost:8000/api/auth/login/ \
+    curl -s -X POST http://localhost:8000/api/v1/auth/login/ \
       -H "Content-Type: application/json" \
       -d '{"username": "admin", "password": "your-password"}' \
       | python3 -m json.tool
@@ -28,7 +28,7 @@ Log in to get your API token. The token is permanent until you log out or it is 
 
 === "httpie"
     ```bash
-    http POST http://localhost:8000/api/auth/login/ \
+    http POST http://localhost:8000/api/v1/auth/login/ \
       username=admin password=your-password
     ```
 
@@ -54,22 +54,22 @@ Pass the token in the `Authorization` header using the `Token` scheme.
 === "curl"
     ```bash
     # List boards
-    curl -s http://localhost:8000/api/boards/ \
+    curl -s http://localhost:8000/api/v1/boards/ \
       -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b" \
       | python3 -m json.tool
 
     # Get full board state
-    curl -s http://localhost:8000/api/boards/1/full/ \
+    curl -s http://localhost:8000/api/v1/boards/1/full/ \
       -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"
 
     # Create a card (POST with JSON body)
-    curl -s -X POST http://localhost:8000/api/boards/1/cards/ \
+    curl -s -X POST http://localhost:8000/api/v1/boards/1/cards/ \
       -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b" \
       -H "Content-Type: application/json" \
       -d '{"title": "Fix bug", "column": 2, "swimlane": 1}'
 
     # Move a card
-    curl -s -X POST http://localhost:8000/api/boards/1/cards/42/move/ \
+    curl -s -X POST http://localhost:8000/api/v1/boards/1/cards/42/move/ \
       -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b" \
       -H "Content-Type: application/json" \
       -d '{"column_id": 3, "swimlane_id": 1, "position": 0}'
@@ -78,16 +78,16 @@ Pass the token in the `Authorization` header using the `Token` scheme.
 === "httpie"
     ```bash
     # List boards
-    http http://localhost:8000/api/boards/ \
+    http http://localhost:8000/api/v1/boards/ \
       "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"
 
     # Create a card
-    http POST http://localhost:8000/api/boards/1/cards/ \
+    http POST http://localhost:8000/api/v1/boards/1/cards/ \
       "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b" \
       title="Fix bug" column:=2 swimlane:=1
 
     # Move a card
-    http POST http://localhost:8000/api/boards/1/cards/42/move/ \
+    http POST http://localhost:8000/api/v1/boards/1/cards/42/move/ \
       "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b" \
       column_id:=3 swimlane_id:=1 position:=0
     ```
@@ -101,11 +101,11 @@ Pass the token in the `Authorization` header using the `Token` scheme.
     headers = {"Authorization": f"Token {TOKEN}"}
 
     # List boards
-    boards = requests.get(f"{BASE}/api/boards/", headers=headers).json()
+    boards = requests.get(f"{BASE}/api/v1/boards/", headers=headers).json()
 
     # Move a card
     requests.post(
-        f"{BASE}/api/boards/1/cards/42/move/",
+        f"{BASE}/api/v1/boards/1/cards/42/move/",
         headers=headers,
         json={"column_id": 3, "swimlane_id": 1, "position": 0},
     )
@@ -116,7 +116,7 @@ Pass the token in the `Authorization` header using the `Token` scheme.
 ### 3. Log out / invalidate the token
 
 ```bash
-curl -s -X POST http://localhost:8000/api/auth/logout/ \
+curl -s -X POST http://localhost:8000/api/v1/auth/logout/ \
   -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"
 ```
 
@@ -136,7 +136,7 @@ All PATs for a user are revoked automatically when that user's password is chang
 
 ---
 
-### `GET /api/auth/tokens/`
+### `GET /api/v1/auth/tokens/`
 
 List all Personal Access Tokens for the authenticated user.
 
@@ -180,7 +180,7 @@ The response never includes the raw token value, only the first 8 characters (`p
 
 ---
 
-### `POST /api/auth/tokens/`
+### `POST /api/v1/auth/tokens/`
 
 Create a new Personal Access Token.
 
@@ -228,7 +228,7 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
 
 ---
 
-### `DELETE /api/auth/tokens/{id}/`
+### `DELETE /api/v1/auth/tokens/{id}/`
 
 Revoke a Personal Access Token. The token is immediately invalidated and cannot be used for further requests.
 
@@ -256,7 +256,7 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 === "curl"
     ```bash
     # Step 1 — log in and save cookies + extract CSRF token
-    curl -s -c cookies.txt -X POST http://localhost:8000/api/auth/login/ \
+    curl -s -c cookies.txt -X POST http://localhost:8000/api/v1/auth/login/ \
       -H "Content-Type: application/json" \
       -d '{"username": "admin", "password": "your-password"}'
 
@@ -266,7 +266,7 @@ This method is not recommended for scripts. Use token auth for all non-browser c
     curl -s -b cookies.txt \
       -H "X-CSRFToken: $CSRF" \
       -H "Content-Type: application/json" \
-      -X POST http://localhost:8000/api/boards/ \
+      -X POST http://localhost:8000/api/v1/boards/ \
       -d '{"name": "My Board"}'
     ```
 
@@ -274,7 +274,7 @@ This method is not recommended for scripts. Use token auth for all non-browser c
 
 ## User search
 
-### `GET /api/users/?search=<query>`
+### `GET /api/v1/users/?search=<query>`
 Search users by display name, email, or username. Requires authentication. Used internally for @mention autocomplete and the member invite typeahead.
 
 Rate-limited to 30 requests/minute per user.
@@ -293,7 +293,7 @@ Rate-limited to 30 requests/minute per user.
 
 ## OAuth providers
 
-### `GET /api/auth/providers/`
+### `GET /api/v1/auth/providers/`
 Returns the list of configured OAuth providers. No authentication required. Used by the login page to determine which social login buttons to display.
 
 **Response**
@@ -315,7 +315,7 @@ Returns the list of configured OAuth providers. No authentication required. Used
 
 ## Change password
 
-### `POST /api/auth/change-password/`
+### `POST /api/v1/auth/change-password/`
 Change the authenticated user's password. Requires authentication.
 
 **Request**
@@ -333,7 +333,7 @@ Change the authenticated user's password. Requires authentication.
 
 ## Choose username
 
-### `POST /api/auth/choose-username/`
+### `POST /api/v1/auth/choose-username/`
 Set a new username for the authenticated user. This endpoint is only relevant
 when `must_change_username` is `true` — the user's previous username was
 auto-generated by allauth and collided (case-insensitively) with another
@@ -358,7 +358,7 @@ can detect the condition and call this endpoint programmatically.
 
 ## User profile
 
-### `GET /api/auth/me/`
+### `GET /api/v1/auth/me/`
 Returns the authenticated user's profile.
 
 **Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`.
@@ -369,7 +369,7 @@ Returns the authenticated user's profile.
 | `can_access_all_content` | boolean | Whether the user has read/write access to every board and group regardless of membership. Independent of `is_site_admin` — see [Site Admins](../administration/site-admins.md). |
 | `uploads_enabled` | boolean | Instance-wide setting reflecting whether file attachment uploads are currently permitted. When `false`, the attachment UI is hidden and upload attempts return `403`. |
 
-### `PATCH /api/auth/me/`
+### `PATCH /api/v1/auth/me/`
 Update the authenticated user's profile. All fields are optional.
 
 **Writable fields:** `first_name`, `last_name`, `display_name`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`.
@@ -377,7 +377,7 @@ Update the authenticated user's profile. All fields are optional.
 **`default_board_id`** — set the board to redirect to after login. Accepts a board `id` (integer) or `null` to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns `400 Bad Request`. This prevents enumeration of boards the user has no access to.
 
 ```json
-PATCH /api/auth/me/
+PATCH /api/v1/auth/me/
 { "default_board_id": 5 }
 ```
 
@@ -385,7 +385,7 @@ PATCH /api/auth/me/
 
 ## Site configuration
 
-### `GET /api/auth/site-config/`
+### `GET /api/v1/auth/site-config/`
 Returns site-level configuration. This endpoint is public — no authentication required.
 
 **Response**
@@ -407,9 +407,9 @@ Site admins can change the registration mode in **Admin → Site Settings**. See
 
 ## Registration
 
-### `POST /api/auth/registration/`
+### `POST /api/v1/auth/registration/`
 
-Register a new user account. Behavior depends on the instance's current `registration_mode` (see `GET /api/auth/site-config/` above).
+Register a new user account. Behavior depends on the instance's current `registration_mode` (see `GET /api/v1/auth/site-config/` above).
 
 **Permission:** None — public endpoint.
 
@@ -443,7 +443,7 @@ The returned `key` is an API token that can be used immediately in the `Authoriz
 
 #### Invite-only mode
 
-When `registration_mode` is `"invite_only"`, an additional `invite_token` field is required. Invite tokens are created by site admins via `POST /api/admin/invite-links/` and distributed out-of-band.
+When `registration_mode` is `"invite_only"`, an additional `invite_token` field is required. Invite tokens are created by site admins via `POST /api/v1/admin/invite-links/` and distributed out-of-band.
 
 **Request body**
 
@@ -486,4 +486,4 @@ When `registration_mode` is `"invite_only"`, an additional `invite_token` field 
 | `401 Unauthorized` | Missing or invalid token | Check the `Authorization` header format: `Token <key>`. For PATs, ensure the full `vbn_...` value is used. |
 | `403 Forbidden` | Valid token but insufficient role | Check the user's role on the board/group |
 | `403 Forbidden` (CSRF) | Session auth without CSRF token | Include `X-CSRFToken` header, or switch to token auth |
-| `404 Not Found` (PAT delete) | Token ID not found or belongs to another user | Verify the token ID from `GET /api/auth/tokens/` |
+| `404 Not Found` (PAT delete) | Token ID not found or belongs to another user | Verify the token ID from `GET /api/v1/auth/tokens/` |

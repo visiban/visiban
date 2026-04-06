@@ -35,7 +35,7 @@ class BoardListOrderingTests(TestCase):
         board_a.name = "Alpha Updated"
         board_a.save()
 
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         ids = [b["id"] for b in resp.data["results"]]
         # board_a was updated last, so it should appear first
@@ -65,7 +65,7 @@ class CardOrderingInColumnTests(TestCase):
             title="Card B", created_by=self.user, position=1,
         )
 
-        resp = self.client.get(f"/api/boards/{self.board.id}/full/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         card_ids = [c["id"] for c in resp.json()["cards"]]
         self.assertEqual(card_ids, [card_a.id, card_b.id, card_c.id])
@@ -83,15 +83,18 @@ class NotificationOrderingTests(TestCase):
     def test_notifications_ordered_most_recent_first(self):
         Notification.objects.create(
             recipient=self.user, verb="First", board=self.board,
+            action_type=Notification.ActionType.STALE,
         )
         Notification.objects.create(
             recipient=self.user, verb="Second", board=self.board,
+            action_type=Notification.ActionType.STALE,
         )
         Notification.objects.create(
             recipient=self.user, verb="Third", board=self.board,
+            action_type=Notification.ActionType.STALE,
         )
 
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         verbs = [n["verb"] for n in resp.data]
         # Most recently created should appear first

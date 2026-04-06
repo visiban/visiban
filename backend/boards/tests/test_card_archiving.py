@@ -46,13 +46,13 @@ class CardArchivingSetup(TestCase):
         return c
 
     def _archive_url(self):
-        return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/archive/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/archive/"
 
     def _unarchive_url(self):
-        return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/unarchive/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/unarchive/"
 
     def _archived_list_url(self):
-        return f"/api/boards/{self.board.pk}/cards/archived/"
+        return f"/api/v1/boards/{self.board.pk}/cards/archived/"
 
 
 class TestArchivePermissions(CardArchivingSetup):
@@ -68,7 +68,7 @@ class TestArchivePermissions(CardArchivingSetup):
             board=self.board, column=self.column, swimlane=self.swimlane,
             title="Member Card", created_by=self.member, position=1,
         )
-        url = f"/api/boards/{self.board.pk}/cards/{own_card.pk}/archive/"
+        url = f"/api/v1/boards/{self.board.pk}/cards/{own_card.pk}/archive/"
         r = self._client_for(self.member).post(url)
         self.assertEqual(r.status_code, 200)
         own_card.refresh_from_db()
@@ -112,7 +112,7 @@ class TestUnarchivePermissions(CardArchivingSetup):
             title="Member Card", created_by=self.member, position=1,
             archived_at=timezone.now(),
         )
-        url = f"/api/boards/{self.board.pk}/cards/{own_card.pk}/unarchive/"
+        url = f"/api/v1/boards/{self.board.pk}/cards/{own_card.pk}/unarchive/"
         r = self._client_for(self.member).post(url)
         self.assertEqual(r.status_code, 200)
         own_card.refresh_from_db()
@@ -137,7 +137,7 @@ class TestArchiveExclusion(CardArchivingSetup):
     def test_archived_card_excluded_from_card_list(self):
         self.card.archived_at = timezone.now()
         self.card.save()
-        r = self._client_for(self.admin).get(f"/api/boards/{self.board.pk}/cards/")
+        r = self._client_for(self.admin).get(f"/api/v1/boards/{self.board.pk}/cards/")
         data = r.json()
         cards = data.get("results", data) if isinstance(data, dict) else data
         self.assertNotIn(self.card.pk, [c["id"] for c in cards])
@@ -145,12 +145,12 @@ class TestArchiveExclusion(CardArchivingSetup):
     def test_archived_card_excluded_from_full_board(self):
         self.card.archived_at = timezone.now()
         self.card.save()
-        r = self._client_for(self.admin).get(f"/api/boards/{self.board.pk}/full/")
+        r = self._client_for(self.admin).get(f"/api/v1/boards/{self.board.pk}/full/")
         card_ids = [c["id"] for c in r.json()["cards"]]
         self.assertNotIn(self.card.pk, card_ids)
 
     def test_active_card_present_in_full_board(self):
-        r = self._client_for(self.admin).get(f"/api/boards/{self.board.pk}/full/")
+        r = self._client_for(self.admin).get(f"/api/v1/boards/{self.board.pk}/full/")
         card_ids = [c["id"] for c in r.json()["cards"]]
         self.assertIn(self.card.pk, card_ids)
 
@@ -327,7 +327,7 @@ class TestAnalyticsDwellWithArchiving(CardArchivingSetup):
         col2 = Column.objects.create(board=self.board, name="Done", position=1)
         archive_at = timezone.now() - datetime.timedelta(hours=12)
         self._create_movements(col2, archive_at)
-        r = self._client_for(self.admin).get(f"/api/boards/{self.board.pk}/analytics/")
+        r = self._client_for(self.admin).get(f"/api/v1/boards/{self.board.pk}/analytics/")
         self.assertEqual(r.status_code, 200)
 
     def test_archived_card_not_in_stalled(self):
@@ -336,7 +336,7 @@ class TestAnalyticsDwellWithArchiving(CardArchivingSetup):
         # archive_at is recent; the card has old movement — would be "stalled" if active
         archive_at = timezone.now() - datetime.timedelta(days=1)
         self._create_movements(col2, archive_at)
-        r = self._client_for(self.admin).get(f"/api/boards/{self.board.pk}/analytics/")
+        r = self._client_for(self.admin).get(f"/api/v1/boards/{self.board.pk}/analytics/")
         self.assertEqual(r.status_code, 200)
         for swimlane_data in r.json().get("swimlanes", []):
             stalled_ids = [s["id"] for s in swimlane_data.get("stalled_cards", [])]

@@ -38,43 +38,43 @@ class UnauthenticatedBoardAccessTests(TestCase):
     # -- Board endpoints --
 
     def test_board_list_rejected(self):
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertIn(resp.status_code, DENIED)
 
     def test_board_create_rejected(self):
-        resp = self.client.post("/api/boards/", {"name": "Intruder"})
+        resp = self.client.post("/api/v1/boards/", {"name": "Intruder"})
         self.assertIn(resp.status_code, DENIED)
 
     def test_board_detail_rejected(self):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/")
         self.assertIn(resp.status_code, DENIED)
 
     # -- Card endpoints --
 
     def test_card_list_rejected(self):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/cards/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/cards/")
         self.assertIn(resp.status_code, DENIED)
 
     def test_card_create_rejected(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/",
+            f"/api/v1/boards/{self.board.pk}/cards/",
             {"title": "Intruder Card", "column": self.col.pk, "swimlane": self.swim.pk},
         )
         self.assertIn(resp.status_code, DENIED)
 
     def test_card_detail_rejected(self):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/cards/{self.card.pk}/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/")
         self.assertIn(resp.status_code, DENIED)
 
     # -- Column endpoints --
 
     def test_column_list_rejected(self):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/columns/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/columns/")
         self.assertIn(resp.status_code, DENIED)
 
     def test_column_create_rejected(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/columns/",
+            f"/api/v1/boards/{self.board.pk}/columns/",
             {"name": "Intruder Column", "position": 99},
         )
         self.assertIn(resp.status_code, DENIED)
@@ -82,12 +82,12 @@ class UnauthenticatedBoardAccessTests(TestCase):
     # -- Swimlane endpoints --
 
     def test_swimlane_list_rejected(self):
-        resp = self.client.get(f"/api/boards/{self.board.pk}/swimlanes/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/swimlanes/")
         self.assertIn(resp.status_code, DENIED)
 
     def test_swimlane_create_rejected(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/swimlanes/",
+            f"/api/v1/boards/{self.board.pk}/swimlanes/",
             {"name": "Intruder Swimlane", "position": 99},
         )
         self.assertIn(resp.status_code, DENIED)
@@ -95,13 +95,13 @@ class UnauthenticatedBoardAccessTests(TestCase):
     # -- Notification endpoints --
 
     def test_notification_list_rejected(self):
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertIn(resp.status_code, DENIED)
 
     # -- User search endpoint --
 
     def test_user_search_rejected(self):
-        resp = self.client.get("/api/users/", {"q": "owner"})
+        resp = self.client.get("/api/v1/users/", {"q": "owner"})
         self.assertIn(resp.status_code, DENIED)
 
     # -- OpenAPI schema endpoints --

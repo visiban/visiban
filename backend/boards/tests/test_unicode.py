@@ -29,23 +29,23 @@ class BoardNameUnicodeTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_board_name_with_emoji(self):
-        resp = self.client.post("/api/boards/", {"name": "\U0001f680 Rocket Board"})
+        resp = self.client.post("/api/v1/boards/", {"name": "\U0001f680 Rocket Board"})
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["name"], "\U0001f680 Rocket Board")
 
     def test_board_name_with_cjk(self):
-        resp = self.client.post("/api/boards/", {"name": "\u770b\u677f\u30dc\u30fc\u30c9"})
+        resp = self.client.post("/api/v1/boards/", {"name": "\u770b\u677f\u30dc\u30fc\u30c9"})
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["name"], "\u770b\u677f\u30dc\u30fc\u30c9")
 
     def test_board_name_with_arabic(self):
-        resp = self.client.post("/api/boards/", {"name": "\u0644\u0648\u062d\u0629 \u0627\u0644\u0645\u0647\u0627\u0645"})
+        resp = self.client.post("/api/v1/boards/", {"name": "\u0644\u0648\u062d\u0629 \u0627\u0644\u0645\u0647\u0627\u0645"})
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["name"], "\u0644\u0648\u062d\u0629 \u0627\u0644\u0645\u0647\u0627\u0645")
 
     def test_board_name_with_mixed_scripts(self):
         name = "Board \u30dc\u30fc\u30c9 \U0001f3af \u0644\u0648\u062d\u0629"
-        resp = self.client.post("/api/boards/", {"name": name})
+        resp = self.client.post("/api/v1/boards/", {"name": name})
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(resp.data["name"], name)
 
@@ -60,7 +60,7 @@ class CardTitleUnicodeTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_card_title_with_emoji(self, _):
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "\u2728 Fix bug \U0001f41b", "column": self.col.id, "swimlane": self.swim.id},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -70,7 +70,7 @@ class CardTitleUnicodeTests(TestCase):
     def test_card_description_with_mixed_unicode(self, _):
         desc = "Description with \u00e9\u00e0\u00fc\u00f1 and \u4e2d\u6587 and \U0001f4dd"
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "Card", "column": self.col.id, "swimlane": self.swim.id, "description": desc},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -92,7 +92,7 @@ class CommentBodyUnicodeTests(TestCase):
     def test_comment_with_special_characters(self, _):
         body = "Comment with <html> & \"quotes\" and \u2019curly\u2019 and \U0001f525"
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
             {"body": body},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -102,7 +102,7 @@ class CommentBodyUnicodeTests(TestCase):
     def test_comment_with_newlines_and_tabs(self, _):
         body = "Line 1\nLine 2\n\tIndented"
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
             {"body": body},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -119,7 +119,7 @@ class LabelNameUnicodeTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_label_name_with_emoji(self, _):
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/labels/",
+            f"/api/v1/boards/{self.board.id}/labels/",
             {"name": "\U0001f41b Bug", "color": "#FF0000"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -128,7 +128,7 @@ class LabelNameUnicodeTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_label_name_with_cjk(self, _):
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/labels/",
+            f"/api/v1/boards/{self.board.id}/labels/",
             {"name": "\u7d27\u6025", "color": "#FF0000"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -145,7 +145,7 @@ class SwimlaneNameUnicodeTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_swimlane_name_with_unicode(self, _):
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/swimlanes/",
+            f"/api/v1/boards/{self.board.id}/swimlanes/",
             {"name": "\u00c4kme Corp \U0001f3e2", "color": "#00FF00"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -154,7 +154,7 @@ class SwimlaneNameUnicodeTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_swimlane_name_with_arabic(self, _):
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/swimlanes/",
+            f"/api/v1/boards/{self.board.id}/swimlanes/",
             {"name": "\u0639\u0645\u064a\u0644 \u0627\u0644\u0634\u0631\u0643\u0629", "color": "#0000FF"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)

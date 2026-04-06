@@ -2,7 +2,7 @@
 
 ## Cards
 
-### `GET /api/boards/{board_id}/cards/`
+### `GET /api/v1/boards/{board_id}/cards/`
 List all cards on the board. Pagination is disabled — all cards are returned in a single response.
 
 **Query parameters**
@@ -19,7 +19,7 @@ List all cards on the board. Pagination is disabled — all cards are returned i
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
 | `?overdue=true` | Cards past their due date (due date is set and is before today) |
 
-### `POST /api/boards/{board_id}/cards/`
+### `POST /api/v1/boards/{board_id}/cards/`
 Create a card. Requires member or above. The target column must have `allow_card_creation` enabled.
 
 **Request**
@@ -36,24 +36,24 @@ Create a card. Requires member or above. The target column must have `allow_card
 }
 ```
 
-### `GET /api/boards/{board_id}/cards/{id}/`
+### `GET /api/v1/boards/{board_id}/cards/{id}/`
 Get a single card. The response includes a `uid` field — a stable 16-character hex identifier that does not change when the card is renamed, moved, or reassigned. The `uid` is read-only.
 
-### `PATCH /api/boards/{board_id}/cards/{id}/`
+### `PATCH /api/v1/boards/{board_id}/cards/{id}/`
 Update card fields. Requires member or above.
 
 **Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `column`, `swimlane`
 
 > `uid` is not patchable — any `uid` value sent in the request body is silently ignored.
 
-### `DELETE /api/boards/{board_id}/cards/{id}/`
+### `DELETE /api/v1/boards/{board_id}/cards/{id}/`
 Delete a card. Requires member or above.
 
 ---
 
 ## Archive
 
-### `POST /api/boards/{board_id}/cards/{id}/archive/`
+### `POST /api/v1/boards/{board_id}/cards/{id}/archive/`
 Soft-delete a card. Sets `archived_at` to the current timestamp. The card is removed from the active board view and excluded from WIP/weight counts. **Minimum role: Member.**
 
 If the card is already archived this is a no-op — `200 OK` is returned with the current card state.
@@ -62,14 +62,14 @@ If the card is already archived this is a no-op — `200 OK` is returned with th
 
 Broadcasts `card.archived` to all board WebSocket subscribers.
 
-### `POST /api/boards/{board_id}/cards/{id}/unarchive/`
+### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
 Unarchive a card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
 
 **Response** — full card object with `archived_at: null`.
 
 Broadcasts `card.unarchived` to all board WebSocket subscribers.
 
-### `GET /api/boards/{board_id}/cards/archived/`
+### `GET /api/v1/boards/{board_id}/cards/archived/`
 List all archived cards for the board, newest archived first. Available to all board members including viewers.
 
 **Response** — array of card objects, each with `archived_at` set.
@@ -78,7 +78,7 @@ List all archived cards for the board, newest archived first. Available to all b
 
 ## Move
 
-### `POST /api/boards/{board_id}/cards/{id}/move/`
+### `POST /api/v1/boards/{board_id}/cards/{id}/move/`
 Move a card to a new column/swimlane/position. Creates a `CardMovement` record if column or swimlane changes. Requires member or above.
 
 **Request**
@@ -141,7 +141,7 @@ When `enforce_wip_hard` is enabled on the board, the limit cannot be overridden 
 When `enforce_wip_hard` is not enabled, board admins may override the limit by appending `?force=true` to the move URL:
 
 ```bash
-POST /api/boards/1/cards/42/move/?force=true
+POST /api/v1/boards/1/cards/42/move/?force=true
 ```
 
 Non-admin users who send `?force=true` receive `403 Forbidden`.
@@ -152,32 +152,32 @@ The `*_uid` fields in the movement record are permanent — they remain set even
 
 ## History
 
-### `GET /api/boards/{board_id}/cards/{id}/movements/`
+### `GET /api/v1/boards/{board_id}/cards/{id}/movements/`
 Full movement history for a card. Each record includes `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields. UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
-### `GET /api/boards/{board_id}/cards/{id}/activities/`
+### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
 Activity log (field changes, comments, attachments, checklist events).
 
 ---
 
 ## Comments
 
-### `GET /api/boards/{board_id}/cards/{id}/comments/`
+### `GET /api/v1/boards/{board_id}/cards/{id}/comments/`
 List comments. Requires board member or above.
 
-### `POST /api/boards/{board_id}/cards/{id}/comments/`
+### `POST /api/v1/boards/{board_id}/cards/{id}/comments/`
 Add a comment. **Minimum role: Collaborator.**
 
 **Request** `{ "body": "Looking into this now." }`
 
-### `DELETE /api/boards/{board_id}/cards/{id}/comments/{comment_id}/`
+### `DELETE /api/v1/boards/{board_id}/cards/{id}/comments/{comment_id}/`
 Delete a comment. **Minimum role: Collaborator.** Collaborators and members may only delete their own comments. Admins and members/collaborators with the `is_moderator` entitlement may delete any comment.
 
 ---
 
 ## Attachments
 
-### `GET /api/boards/{board_id}/cards/{id}/attachments/`
+### `GET /api/v1/boards/{board_id}/cards/{id}/attachments/`
 List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `url` (relative URL), `uploaded_by` (user object), `uploaded_at`.
 
 To download an attachment file, fetch its `url` URL with the same `Authorization` header used for API requests — attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests and requests from users without board membership return `403 Forbidden`.
@@ -187,7 +187,7 @@ curl -O -J http://localhost:8000/media/attachments/abc123.pdf \
   -H "Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"
 ```
 
-### `POST /api/boards/{board_id}/cards/{id}/attachments/`
+### `POST /api/v1/boards/{board_id}/cards/{id}/attachments/`
 Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB. **Minimum role: Collaborator.**
 
 **Allowed file types**
@@ -214,25 +214,25 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 { "detail": "File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented." }
 ```
 
-### `DELETE /api/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
+### `DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
 Delete an attachment. **Minimum role: Collaborator.** Collaborators and members may only delete their own attachments. Members/collaborators with the `is_moderator` entitlement may delete any attachment.
 
 ---
 
 ## Checklist
 
-### `GET /api/boards/{board_id}/cards/{id}/checklist/`
+### `GET /api/v1/boards/{board_id}/cards/{id}/checklist/`
 List checklist items.
 
-### `POST /api/boards/{board_id}/cards/{id}/checklist/`
+### `POST /api/v1/boards/{board_id}/cards/{id}/checklist/`
 Add a checklist item. **Minimum role: Collaborator.**
 
 **Request** `{ "text": "Write tests" }`
 
-### `PATCH /api/boards/{board_id}/cards/{id}/checklist/{item_id}/`
+### `PATCH /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
 Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 
 **Request** `{ "is_checked": true }`
 
-### `DELETE /api/boards/{board_id}/cards/{id}/checklist/{item_id}/`
+### `DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
 Delete a checklist item. **Minimum role: Collaborator.**

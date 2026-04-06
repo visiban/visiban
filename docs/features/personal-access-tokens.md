@@ -53,7 +53,7 @@ Expired tokens remain visible in the Access Tokens list and can be revoked there
 Pass the token in the `Authorization` header using the `Token` scheme:
 
 ```bash
-curl -s https://your-instance.example.com/api/boards/ \
+curl -s https://your-instance.example.com/api/v1/boards/ \
   -H "Authorization: Token vbn_your_token_here"
 ```
 
@@ -64,13 +64,13 @@ The token works for all API endpoints that accept authenticated requests. The sa
 
 ```bash
 # Create a card
-curl -s -X POST https://your-instance.example.com/api/boards/1/cards/ \
+curl -s -X POST https://your-instance.example.com/api/v1/boards/1/cards/ \
   -H "Authorization: Token vbn_your_token_here" \
   -H "Content-Type: application/json" \
   -d '{"title": "Deploy v2.3", "column": 4, "swimlane": 2}'
 
 # Move a card
-curl -s -X POST https://your-instance.example.com/api/boards/1/cards/42/move/ \
+curl -s -X POST https://your-instance.example.com/api/v1/boards/1/cards/42/move/ \
   -H "Authorization: Token vbn_your_token_here" \
   -H "Content-Type: application/json" \
   -d '{"column_id": 5, "swimlane_id": 2, "position": 0}'

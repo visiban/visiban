@@ -64,7 +64,7 @@ class WeightEnforcementTests(TestCase):
 
     def _move_url(self, card=None):
         c = card or self.card
-        return f"/api/boards/{self.board.pk}/cards/{c.pk}/move/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{c.pk}/move/"
 
     def _fill_column_weight(self, column, total_weight):
         """Create a single card with the given weight in column."""
@@ -221,7 +221,7 @@ class WeightEnforcementTests(TestCase):
         """PATCH enforce_weight_limits by a non-admin returns 403."""
         self.client.force_authenticate(self.member)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/",
+            f"/api/v1/boards/{self.board.pk}/",
             {"enforce_weight_limits": False},
             format="json",
         )
@@ -231,7 +231,7 @@ class WeightEnforcementTests(TestCase):
         """Board admin can toggle enforce_weight_limits via PATCH."""
         self.client.force_authenticate(self.admin)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/",
+            f"/api/v1/boards/{self.board.pk}/",
             {"enforce_weight_limits": False},
             format="json",
         )

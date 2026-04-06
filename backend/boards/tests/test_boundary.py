@@ -34,7 +34,7 @@ class CardTitleBoundaryTests(TestCase):
     def test_card_title_max_length(self, _):
         title = "A" * 500
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": title, "column": self.col.id, "swimlane": self.swim.id},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -43,7 +43,7 @@ class CardTitleBoundaryTests(TestCase):
     def test_card_title_exceeds_max_length(self):
         title = "A" * 501
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": title, "column": self.col.id, "swimlane": self.swim.id},
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
@@ -51,7 +51,7 @@ class CardTitleBoundaryTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_card_empty_description_allowed(self, _):
         resp = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "Card", "column": self.col.id, "swimlane": self.swim.id, "description": ""},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -71,7 +71,7 @@ class ColumnWipLimitBoundaryTests(TestCase):
     def test_column_wip_limit_zero(self, _):
         """WIP limit of 0 is a valid value (stored as-is)."""
         resp = self.client.patch(
-            f"/api/boards/{self.board.id}/columns/{self.col.id}/",
+            f"/api/v1/boards/{self.board.id}/columns/{self.col.id}/",
             {"wip_limit": 0},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -81,7 +81,7 @@ class ColumnWipLimitBoundaryTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_column_wip_limit_large_value(self, _):
         resp = self.client.patch(
-            f"/api/boards/{self.board.id}/columns/{self.col.id}/",
+            f"/api/v1/boards/{self.board.id}/columns/{self.col.id}/",
             {"wip_limit": 999999},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -94,7 +94,7 @@ class ColumnWipLimitBoundaryTests(TestCase):
         self.col.wip_limit = 5
         self.col.save()
         resp = self.client.patch(
-            f"/api/boards/{self.board.id}/columns/{self.col.id}/",
+            f"/api/v1/boards/{self.board.id}/columns/{self.col.id}/",
             {"wip_limit": None},
             format="json",
         )
@@ -117,7 +117,7 @@ class CardWeightBoundaryTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_card_weight_zero(self, _):
         resp = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"weight": 0},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -139,7 +139,7 @@ class CardDueDateBoundaryTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_card_due_date_far_past(self, _):
         resp = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"due_date": "2000-01-01"},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -149,7 +149,7 @@ class CardDueDateBoundaryTests(TestCase):
     @patch(PATCH_BROADCAST)
     def test_card_due_date_far_future(self, _):
         resp = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"due_date": "2099-12-31"},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -170,13 +170,13 @@ class BoardEmptyStateModelTests(TestCase):
         board = Board.objects.create(name="Empty Board", owner=self.user)
         BoardMembership.objects.create(board=board, user=self.user, role=BoardMembership.Role.ADMIN)
         # No columns — full view should still work
-        resp = self.client.get(f"/api/boards/{board.id}/full/")
+        resp = self.client.get(f"/api/v1/boards/{board.id}/full/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.json()["columns"], [])
 
     def test_board_with_no_swimlanes(self):
         board = Board.objects.create(name="No Swimlanes", owner=self.user)
         BoardMembership.objects.create(board=board, user=self.user, role=BoardMembership.Role.ADMIN)
-        resp = self.client.get(f"/api/boards/{board.id}/full/")
+        resp = self.client.get(f"/api/v1/boards/{board.id}/full/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.json()["swimlanes"], [])

@@ -47,7 +47,7 @@ class CrossBoardForeignKeyTests(TestCase):
     def test_create_card_with_column_from_different_board_rejected(self):
         """Column from board B should not be accepted when creating on board A."""
         r = self.client.post(
-            f"/api/boards/{self.board_a.id}/cards/",
+            f"/api/v1/boards/{self.board_a.id}/cards/",
             {"title": "X", "column": self.col_b.id, "swimlane": self.swim_a.id},
         )
         self.assertIn(r.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
@@ -55,7 +55,7 @@ class CrossBoardForeignKeyTests(TestCase):
     def test_create_card_with_swimlane_from_different_board_rejected(self):
         """Swimlane from board B should not be accepted when creating on board A."""
         r = self.client.post(
-            f"/api/boards/{self.board_a.id}/cards/",
+            f"/api/v1/boards/{self.board_a.id}/cards/",
             {"title": "X", "column": self.col_a.id, "swimlane": self.swim_b.id},
         )
         self.assertIn(r.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
@@ -64,7 +64,7 @@ class CrossBoardForeignKeyTests(TestCase):
     def test_move_card_to_column_from_different_board_rejected(self, _):
         card = _make_card(self.board_a, self.col_a, self.swim_a, self.user)
         r = self.client.post(
-            f"/api/boards/{self.board_a.id}/cards/{card.id}/move/",
+            f"/api/v1/boards/{self.board_a.id}/cards/{card.id}/move/",
             {"column_id": self.col_b.id, "swimlane_id": self.swim_a.id, "position": 0},
         )
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
@@ -73,7 +73,7 @@ class CrossBoardForeignKeyTests(TestCase):
     def test_move_card_to_swimlane_from_different_board_rejected(self, _):
         card = _make_card(self.board_a, self.col_a, self.swim_a, self.user)
         r = self.client.post(
-            f"/api/boards/{self.board_a.id}/cards/{card.id}/move/",
+            f"/api/v1/boards/{self.board_a.id}/cards/{card.id}/move/",
             {"column_id": self.col_a.id, "swimlane_id": self.swim_b.id, "position": 0},
         )
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
@@ -90,14 +90,14 @@ class NonExistentForeignKeyTests(TestCase):
 
     def test_create_card_with_nonexistent_column_id(self):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "X", "column": 999999, "swimlane": self.swim.id},
         )
         self.assertIn(r.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
 
     def test_create_card_with_nonexistent_swimlane_id(self):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/cards/",
+            f"/api/v1/boards/{self.board.id}/cards/",
             {"title": "X", "column": self.col.id, "swimlane": 999999},
         )
         self.assertIn(r.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
@@ -122,7 +122,7 @@ class NonMemberAssigneeTests(TestCase):
         a non-member returns 400 Bad Request.
         """
         r = self.client.patch(
-            f"/api/boards/{self.board.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
             {"assignee_id": self.non_member.id},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -155,7 +155,7 @@ class CardUpdateValidationTests(TestCase):
         Document the current behavior.
         """
         r = self.client.patch(
-            f"/api/boards/{self.board_a.id}/cards/{self.card.id}/",
+            f"/api/v1/boards/{self.board_a.id}/cards/{self.card.id}/",
             {"column": self.col_b.id},
         )
         # Current behavior: the serializer does not cross-validate the
@@ -168,7 +168,7 @@ class CardUpdateValidationTests(TestCase):
     def test_update_board_name_to_empty_string(self, _):
         """Board name set to empty string should be rejected by the serializer."""
         r = self.client.patch(
-            f"/api/boards/{self.board_a.id}/",
+            f"/api/v1/boards/{self.board_a.id}/",
             {"name": ""},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -182,7 +182,7 @@ class CardUpdateValidationTests(TestCase):
         the current behavior.
         """
         r = self.client.patch(
-            f"/api/boards/{self.board_a.id}/columns/{self.col_a.id}/",
+            f"/api/v1/boards/{self.board_a.id}/columns/{self.col_a.id}/",
             {"wip_limit": -5},
         )
         # Current behavior: negative WIP limit is accepted since no

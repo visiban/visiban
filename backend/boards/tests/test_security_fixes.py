@@ -82,7 +82,7 @@ class SanitizeCsvFieldTests(TestCase):
         )
         client = APIClient()
         client.force_authenticate(owner)
-        r = client.get(f"/api/boards/{board.id}/export/")
+        r = client.get(f"/api/v1/boards/{board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         content = r.content.decode("utf-8")
         # The leading = must be stripped in the CSV output.
@@ -163,7 +163,7 @@ class AttachmentUploadMimeValidationTests(TestCase):
         )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
-        self.url = f"/api/boards/{self.board.id}/cards/{self.card.id}/attachments/"
+        self.url = f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/"
 
     def _upload(self, content: bytes, content_type: str, filename: str):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -299,7 +299,7 @@ class ImportItemCountCeilingTests(TestCase):
             for i in range(501)
         ]
         r = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -311,7 +311,7 @@ class ImportItemCountCeilingTests(TestCase):
         data = self._base_data()
         data["columns"] = [{"name": f"Col {i}", "position": i, "color": "#000"} for i in range(51)]
         r = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -322,7 +322,7 @@ class ImportItemCountCeilingTests(TestCase):
         data = self._base_data()
         data["swimlanes"] = [{"name": f"Lane {i}", "position": i, "color": "#000"} for i in range(101)]
         r = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -336,7 +336,7 @@ class ImportItemCountCeilingTests(TestCase):
             for i in range(500)
         ]
         r = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_json_file(data)},
             format="multipart",
         )
@@ -356,7 +356,7 @@ class ImportItemCountCeilingTests(TestCase):
     def test_csv_rejects_over_500_rows(self):
         rows = [{"Title": f"Card {i}", "Column": "Backlog", "Swimlane": "General"} for i in range(501)]
         r = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(rows)},
             format="multipart",
         )
@@ -366,7 +366,7 @@ class ImportItemCountCeilingTests(TestCase):
     def test_csv_rejects_over_50_columns(self):
         rows = [{"Title": f"Card {i}", "Column": f"Col{i}", "Swimlane": "General"} for i in range(51)]
         r = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(rows)},
             format="multipart",
         )
@@ -376,7 +376,7 @@ class ImportItemCountCeilingTests(TestCase):
     def test_csv_rejects_over_100_swimlanes(self):
         rows = [{"Title": f"Card {i}", "Column": "Backlog", "Swimlane": f"Lane{i}"} for i in range(101)]
         r = self.client.post(
-            "/api/boards/import/",
+            "/api/v1/boards/import/",
             {"file": self._make_csv_file(rows)},
             format="multipart",
         )
@@ -403,7 +403,7 @@ class NotificationStructuredFieldsTests(TestCase):
         client.force_authenticate(owner)
         with patch("boards.broadcast.broadcast_board_event"):
             r = client.patch(
-                f"/api/boards/{board.id}/cards/{card.id}/",
+                f"/api/v1/boards/{board.id}/cards/{card.id}/",
                 # assignee_id is the write field name on CardSerializer
                 {"assignee_id": assignee.id},
                 format="json",
@@ -534,7 +534,7 @@ class JoinGroupLoggingTests(TestCase):
         client = APIClient()
         client.force_authenticate(joiner)
         with self.assertLogs("groups.views", level="INFO") as cm:
-            r = client.post(f"/api/groups/join/{raw_token}/")
+            r = client.post(f"/api/v1/groups/join/{raw_token}/")
         self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
         self.assertTrue(any("outcome=success" in line for line in cm.output))
 
@@ -555,7 +555,7 @@ class JoinGroupLoggingTests(TestCase):
         client = APIClient()
         client.force_authenticate(joiner)
         with self.assertLogs("groups.views", level="INFO") as cm:
-            r = client.post(f"/api/groups/join/{raw_token}/")
+            r = client.post(f"/api/v1/groups/join/{raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_410_GONE)
         self.assertTrue(any("outcome=failure" in line for line in cm.output))
 

@@ -8,13 +8,13 @@ Visiban creates notifications for board members when:
 - A card they own is moved (`notif_card_moved`)
 - A comment is added to a card they own (`notif_comment_added`)
 
-Each notification preference can be toggled individually via `PATCH /api/auth/me/`. See [Authentication](authentication.md).
+Each notification preference can be toggled individually via `PATCH /api/v1/auth/me/`. See [Authentication](authentication.md).
 
 ---
 
 ## Endpoints
 
-### `GET /api/notifications/`
+### `GET /api/v1/notifications/`
 List the 50 most recent **unread** notifications for the current user. Requires authentication.
 
 **Response**
@@ -48,7 +48,7 @@ List the 50 most recent **unread** notifications for the current user. Requires 
 
 ---
 
-### `POST /api/notifications/mark-read/`
+### `POST /api/v1/notifications/mark-read/`
 Mark notifications as read. Requires authentication.
 
 **Mark specific notifications**
@@ -65,7 +65,7 @@ Mark notifications as read. Requires authentication.
 
 ---
 
-### `GET /api/notifications/unread-count/`
+### `GET /api/v1/notifications/unread-count/`
 Return the count of unread notifications for the current user. Used by the navbar bell badge. Requires authentication.
 
 **Response** `{ "count": 5 }`

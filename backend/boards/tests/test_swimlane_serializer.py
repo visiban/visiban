@@ -51,7 +51,7 @@ class SwimlaneListFieldExposureTests(TestCase):
 
     def _get_swimlanes(self, user):
         self.client.force_authenticate(user)
-        return self.client.get(f"/api/boards/{self.board.id}/swimlanes/")
+        return self.client.get(f"/api/v1/boards/{self.board.id}/swimlanes/")
 
     def test_admin_sees_contact_email_and_notes(self):
         r = self._get_swimlanes(self.admin)
@@ -103,7 +103,7 @@ class BoardFullSwimlanePIITests(TestCase):
 
     def _get_full(self, user):
         self.client.force_authenticate(user)
-        return self.client.get(f"/api/boards/{self.board.id}/full/")
+        return self.client.get(f"/api/v1/boards/{self.board.id}/full/")
 
     def test_admin_sees_pii_in_full_endpoint(self):
         r = self._get_full(self.admin)
@@ -150,7 +150,7 @@ class SwimlaneWriteResponsePIITests(TestCase):
         with patch(PATCH_BROADCAST) as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 r = self.client.post(
-                    f"/api/boards/{self.board.id}/swimlanes/",
+                    f"/api/v1/boards/{self.board.id}/swimlanes/",
                     {"name": "Beta Corp", "contact_email": "beta@example.com", "notes": "Internal"},
                     format="json",
                 )

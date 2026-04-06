@@ -17,7 +17,7 @@ class BoardCreationTests(TestCase):
     def _create_board(self, name="My Board", **kwargs):
         payload = {"name": name}
         payload.update(kwargs)
-        return self.client.post("/api/boards/", payload)
+        return self.client.post("/api/v1/boards/", payload)
 
     def test_creates_five_default_columns_simple_kanban(self):
         """simple_kanban has 5 columns: Backlog / To Do / Doing / Review / Done."""
@@ -66,7 +66,7 @@ class BoardCreationTests(TestCase):
         other = User.objects.create_user(username="other", password="pass")
         Board.objects.create(name="Other's Board", owner=other)
 
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         board_ids = [b["id"] for b in resp.data["results"]]
         other_boards = Board.objects.filter(owner=other).values_list("id", flat=True)
@@ -82,7 +82,7 @@ class BoardCreationTests(TestCase):
 
     def test_unauthenticated_cannot_create_board(self):
         anon_client = APIClient()
-        resp = anon_client.post("/api/boards/", {"name": "Anon Board"})
+        resp = anon_client.post("/api/v1/boards/", {"name": "Anon Board"})
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
     def test_sales_pipeline_columns(self):
@@ -197,7 +197,7 @@ class BoardTemplateAPITests(TestCase):
             )
 
     def test_returns_all_active_templates(self):
-        resp = self.client.get("/api/boards/templates/")
+        resp = self.client.get("/api/v1/boards/templates/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         slugs = [t["slug"] for t in resp.data]
         self.assertIn("simple_kanban", slugs)
@@ -205,22 +205,22 @@ class BoardTemplateAPITests(TestCase):
         self.assertIn("blank", slugs)
 
     def test_returns_eleven_templates(self):
-        resp = self.client.get("/api/boards/templates/")
+        resp = self.client.get("/api/v1/boards/templates/")
         self.assertEqual(len(resp.data), 11)
 
     def test_inactive_templates_excluded(self):
         BoardTemplate.objects.filter(slug="blank").update(is_active=False)
-        resp = self.client.get("/api/boards/templates/")
+        resp = self.client.get("/api/v1/boards/templates/")
         slugs = [t["slug"] for t in resp.data]
         self.assertNotIn("blank", slugs)
 
     def test_unauthenticated_cannot_fetch_templates(self):
         anon = APIClient()
-        resp = anon.get("/api/boards/templates/")
+        resp = anon.get("/api/v1/boards/templates/")
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
     def test_template_response_fields(self):
-        resp = self.client.get("/api/boards/templates/")
+        resp = self.client.get("/api/v1/boards/templates/")
         t = next(t for t in resp.data if t["slug"] == "simple_kanban")
         for field in ("id", "name", "slug", "description", "icon", "lane_label", "lane_placeholder", "columns_json", "sort_order"):
             self.assertIn(field, t)
@@ -235,26 +235,26 @@ class DefaultBoardTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_default_board_id_null_by_default(self):
-        resp = self.client.get("/api/auth/me/")
+        resp = self.client.get("/api/v1/auth/me/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIsNone(resp.data["default_board_id"])
 
     def test_can_set_default_board(self):
         # Create a board for this user
-        board_resp = self.client.post("/api/boards/", {"name": "My Board"})
+        board_resp = self.client.post("/api/v1/boards/", {"name": "My Board"})
         board_id = board_resp.data["id"]
 
-        resp = self.client.patch("/api/auth/me/", {"default_board_id": board_id})
+        resp = self.client.patch("/api/v1/auth/me/", {"default_board_id": board_id})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["default_board_id"], board_id)
 
     def test_can_clear_default_board(self):
-        board_resp = self.client.post("/api/boards/", {"name": "My Board"})
+        board_resp = self.client.post("/api/v1/boards/", {"name": "My Board"})
         board_id = board_resp.data["id"]
-        self.client.patch("/api/auth/me/", {"default_board_id": board_id})
+        self.client.patch("/api/v1/auth/me/", {"default_board_id": board_id})
 
         # Use format='json' to send null; multipart cannot encode Python None.
-        resp = self.client.patch("/api/auth/me/", {"default_board_id": None}, format="json")
+        resp = self.client.patch("/api/v1/auth/me/", {"default_board_id": None}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIsNone(resp.data["default_board_id"])
 
@@ -266,5 +266,5 @@ class DefaultBoardTests(TestCase):
         """
         other = User.objects.create_user(username="other2", password="pass")
         other_board = Board.objects.create(name="Other Board", owner=other)
-        resp = self.client.patch("/api/auth/me/", {"default_board_id": other_board.id})
+        resp = self.client.patch("/api/v1/auth/me/", {"default_board_id": other_board.id})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

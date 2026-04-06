@@ -39,7 +39,7 @@ Only the failing subsystems appear in `errors`. Use this as a **readiness probe*
 
 ---
 
-## `GET /api/version/`
+## `GET /api/v1/version/`
 
 Returns the running application version string. Requires authentication.
 

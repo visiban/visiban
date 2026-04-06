@@ -48,7 +48,7 @@ class AdminIPRestrictionMiddlewareTests(TestCase):
     @override_settings(DEBUG=False)
     def test_non_admin_path_not_affected(self):
         """Non-admin paths must not be restricted regardless of IP."""
-        request = self.factory.get("/api/boards/")
+        request = self.factory.get("/api/v1/boards/")
         request.META["REMOTE_ADDR"] = "203.0.113.42"
         response = self.middleware(request)
         self.assertEqual(response.status_code, 200)

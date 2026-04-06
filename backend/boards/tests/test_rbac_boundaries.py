@@ -37,7 +37,7 @@ class ViewerPermissionBoundaryTests(TestCase):
 
     def test_viewer_cannot_create_card(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/",
+            f"/api/v1/boards/{self.board.pk}/cards/",
             {"title": "Sneaky Card", "column": self.col.pk, "swimlane": self.swim.pk},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -48,7 +48,7 @@ class ViewerPermissionBoundaryTests(TestCase):
             title="Immovable", created_by=self.owner, position=0,
         )
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
             {"column_id": self.col2.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -59,7 +59,7 @@ class ViewerPermissionBoundaryTests(TestCase):
             title="Protected", created_by=self.owner, position=0,
         )
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
             {"title": "Changed"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -70,20 +70,20 @@ class ViewerPermissionBoundaryTests(TestCase):
             title="Undeletable", created_by=self.owner, position=0,
         )
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_create_column(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/columns/",
+            f"/api/v1/boards/{self.board.pk}/columns/",
             {"name": "New Column", "position": 99},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_create_swimlane(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/swimlanes/",
+            f"/api/v1/boards/{self.board.pk}/swimlanes/",
             {"name": "New Swimlane"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -104,33 +104,33 @@ class CollaboratorPermissionBoundaryTests(TestCase):
 
     def test_collaborator_cannot_edit_column(self):
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/columns/{self.col.pk}/",
+            f"/api/v1/boards/{self.board.pk}/columns/{self.col.pk}/",
             {"name": "Renamed Column"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_delete_column(self):
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/columns/{self.col.pk}/",
+            f"/api/v1/boards/{self.board.pk}/columns/{self.col.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_delete_swimlane(self):
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
+            f"/api/v1/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_edit_swimlane(self):
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
+            f"/api/v1/boards/{self.board.pk}/swimlanes/{self.swim.pk}/",
             {"name": "Renamed Swimlane"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_create_card(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/",
+            f"/api/v1/boards/{self.board.pk}/cards/",
             {"title": "Blocked Card", "column": self.col.pk, "swimlane": self.swim.pk},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -141,7 +141,7 @@ class CollaboratorPermissionBoundaryTests(TestCase):
             title="Stuck", created_by=self.owner, position=0,
         )
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
             {"column_id": self.col2.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -172,7 +172,7 @@ class MemberCardOwnershipTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.member)
         resp = client.patch(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
             {"title": "Hijacked"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -186,7 +186,7 @@ class MemberCardOwnershipTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.member)
         resp = client.patch(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
             {"title": "Renamed"},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -201,7 +201,7 @@ class MemberCardOwnershipTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.moderator)
         resp = client.patch(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
             {"title": "Moderated"},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -216,7 +216,7 @@ class MemberCardOwnershipTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.owner)
         resp = client.patch(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
             {"title": "Admin Edit"},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -237,13 +237,13 @@ class SiteAdminMembershipProtectionTests(TestCase):
 
     def test_board_admin_cannot_remove_site_admin(self):
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/members/{self.site_admin.pk}/",
+            f"/api/v1/boards/{self.board.pk}/members/{self.site_admin.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_board_admin_cannot_change_site_admin_role(self):
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/members/",
+            f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": self.site_admin.pk, "role": "viewer"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -266,7 +266,7 @@ class LastAdminSelfDemotionTests(TestCase):
         """Document: the API currently allows the last admin to demote themselves.
         This may be undesirable, but we test current behavior rather than failing."""
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/members/",
+            f"/api/v1/boards/{self.board.pk}/members/",
             {"user_id": self.owner.pk, "role": "viewer"},
         )
         # The API allows this — the owner role is determined by Board.owner,
@@ -298,26 +298,26 @@ class ViewerCannotPatchBoardTests(TestCase):
     def test_viewer_cannot_patch_board(self):
         client = APIClient()
         client.force_authenticate(self.viewer)
-        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Hacked Name"})
+        resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Hacked Name"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_member_cannot_patch_board(self):
         """Members can edit cards but not board-level settings."""
         client = APIClient()
         client.force_authenticate(self.member)
-        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Member Renamed"})
+        resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Member Renamed"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_patch_board(self):
         client = APIClient()
         client.force_authenticate(self.collab)
-        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Collab Renamed"})
+        resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Collab Renamed"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_admin_can_patch_board(self):
         client = APIClient()
         client.force_authenticate(self.owner)
-        resp = client.patch(f"/api/boards/{self.board.pk}/", {"name": "Admin Renamed"})
+        resp = client.patch(f"/api/v1/boards/{self.board.pk}/", {"name": "Admin Renamed"})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.json()["name"], "Admin Renamed")
 
@@ -356,7 +356,7 @@ class CollaboratorAttachmentOwnershipTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.collab)
         resp = client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         # Attachment must not have been deleted
@@ -370,7 +370,7 @@ class CollaboratorAttachmentOwnershipTests(TestCase):
         # Patch the file storage delete so we don't hit the filesystem
         with patch.object(attachment.file, "delete", return_value=None):
             resp = client.delete(
-                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
             )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
@@ -408,7 +408,7 @@ class MemberAttachmentOwnershipTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.member)
         resp = client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(CardAttachment.objects.filter(pk=attachment.pk).exists())
@@ -420,7 +420,7 @@ class MemberAttachmentOwnershipTests(TestCase):
         client.force_authenticate(self.member)
         with patch.object(attachment.file, "delete", return_value=None):
             resp = client.delete(
-                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
             )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
@@ -431,7 +431,7 @@ class MemberAttachmentOwnershipTests(TestCase):
         client.force_authenticate(self.moderator)
         with patch.object(attachment.file, "delete", return_value=None):
             resp = client.delete(
-                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
             )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
@@ -442,6 +442,6 @@ class MemberAttachmentOwnershipTests(TestCase):
         client.force_authenticate(self.owner)
         with patch.object(attachment.file, "delete", return_value=None):
             resp = client.delete(
-                f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
+                f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{attachment.pk}/"
             )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)

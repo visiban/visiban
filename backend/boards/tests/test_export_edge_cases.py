@@ -36,7 +36,7 @@ class CsvSpecialCharacterTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title="Fix bug, refactor code, deploy", created_by=self.owner, position=0,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
         rows = list(reader)
@@ -48,7 +48,7 @@ class CsvSpecialCharacterTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title='Update "README" file', created_by=self.owner, position=0,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
         rows = list(reader)
         self.assertEqual(rows[1][1], 'Update "README" file')
@@ -59,7 +59,7 @@ class CsvSpecialCharacterTests(TestCase):
             title="Card", description="Line 1\nLine 2\nLine 3",
             created_by=self.owner, position=0,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
         rows = list(reader)
         self.assertEqual(len(rows), 2)
@@ -74,7 +74,7 @@ class CsvSpecialCharacterTests(TestCase):
             board=self.board, column=self.col, swimlane=self.swim,
             title="=SUM(A1:A10)", created_by=self.owner, position=0,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
         rows = list(reader)
         # The leading = must be stripped to neutralize the formula injection vector.
@@ -96,7 +96,7 @@ class JsonUnicodeTests(TestCase):
             title="Unicode card", description="Cafe\u0301 \u00fc\u00f6\u00e4 \u4f60\u597d \u0410\u0411\u0412",
             created_by=self.owner, position=0,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = json.loads(r.content.decode("utf-8"))
         card = data["cards"][0]
@@ -109,7 +109,7 @@ class JsonUnicodeTests(TestCase):
             title="Emoji card", description="Ship it! \U0001f680\U0001f389\u2728",
             created_by=self.owner, position=0,
         )
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = json.loads(r.content.decode("utf-8"))
         card = data["cards"][0]
@@ -126,14 +126,14 @@ class ExportEmptyBoardTests(TestCase):
         self.client.force_authenticate(self.owner)
 
     def test_csv_empty_board_has_header_only(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
         rows = list(reader)
         self.assertEqual(len(rows), 1)  # header only
 
     def test_json_empty_board_has_empty_cards_list(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = json.loads(r.content.decode("utf-8"))
         self.assertEqual(data["cards"], [])
@@ -158,7 +158,7 @@ class ExportFieldCompletenessTests(TestCase):
         )
 
     def test_csv_header_contains_all_expected_fields(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         reader = csv.reader(io.StringIO(r.content.decode("utf-8")))
         header = next(reader)
         expected = [
@@ -170,7 +170,7 @@ class ExportFieldCompletenessTests(TestCase):
         self.assertEqual(header, expected)
 
     def test_json_card_contains_all_expected_fields(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         data = json.loads(r.content.decode("utf-8"))
         card = data["cards"][0]
         expected_keys = {
@@ -181,7 +181,7 @@ class ExportFieldCompletenessTests(TestCase):
         self.assertTrue(expected_keys.issubset(card.keys()), f"Missing keys: {expected_keys - card.keys()}")
 
     def test_json_board_contains_all_expected_top_level_fields(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/export/?format=json")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         data = json.loads(r.content.decode("utf-8"))
         expected_keys = {"name", "description", "columns", "swimlanes", "labels", "cards"}
         self.assertTrue(expected_keys.issubset(data.keys()), f"Missing keys: {expected_keys - data.keys()}")

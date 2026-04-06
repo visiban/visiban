@@ -42,7 +42,7 @@ class CardVersionConflictTests(TestCase):
         self._broadcast_patcher.stop()
 
     def _move_url(self):
-        return f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/"
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/"
 
     def test_move_succeeds_with_correct_version(self):
         resp = self.client.post(self._move_url(), {
@@ -96,7 +96,7 @@ class CardVersionConflictTests(TestCase):
         self.assertEqual(resp.data["card"]["version"], 2)
 
     def test_version_increments_on_card_update(self):
-        url = f"/api/boards/{self.board.pk}/cards/{self.card.pk}/"
+        url = f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/"
         resp = self.client.patch(url, {"title": "Updated"}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.card.refresh_from_db()

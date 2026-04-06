@@ -48,6 +48,7 @@ const mockBoard: BoardFull = {
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
   current_user_role: 'admin',
+  owner: { id: 10, username: 'admin', display_name: 'Admin User', avatar_url: '' },
   capabilities: { movement_export: false },
   share_token: null,
 }

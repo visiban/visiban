@@ -41,7 +41,7 @@ class DescendantBoardsTests(TestCase):
         self.grandchild_board = _make_board(self.owner, self.grandchild, name="Grandchild Board")
 
     def _get(self, group_id):
-        return self.client.get(f"/api/groups/{group_id}/descendant-boards/")
+        return self.client.get(f"/api/v1/groups/{group_id}/descendant-boards/")
 
     def test_returns_boards_from_root_group(self):
         r = self._get(self.root.id)
@@ -81,7 +81,7 @@ class DescendantBoardsTests(TestCase):
 
     def test_requires_authentication(self):
         unauth_client = APIClient()
-        r = unauth_client.get(f"/api/groups/{self.root.id}/descendant-boards/")
+        r = unauth_client.get(f"/api/v1/groups/{self.root.id}/descendant-boards/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_non_member_cannot_access(self):

@@ -31,25 +31,25 @@ class ExportRoleRestrictionTests(TestCase):
     def test_viewer_cannot_export(self):
         viewer = self._add_member("viewer", BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn("member or admin", r.data["detail"])
 
     def test_collaborator_cannot_export(self):
         collab = self._add_member("collab", BoardMembership.Role.COLLABORATOR)
         self.client.force_authenticate(collab)
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_member_can_export(self):
         member = self._add_member("member", BoardMembership.Role.MEMBER)
         self.client.force_authenticate(member)
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_admin_can_export(self):
         self.client.force_authenticate(self.owner)
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_site_admin_can_export(self):
@@ -58,7 +58,7 @@ class ExportRoleRestrictionTests(TestCase):
         sa.can_access_all_content = True
         sa.save()
         self.client.force_authenticate(sa)
-        r = self.client.get(f"/api/boards/{self.board.id}/export/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
 
@@ -80,7 +80,7 @@ class IsModeratorFieldTests(TestCase):
         self.assertFalse(m.is_moderator)
 
     def test_is_moderator_in_serializer_response(self):
-        r = self.client.get(f"/api/boards/{self.board.id}/full/")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         members = r.data["members"]
         member_data = next(m for m in members if m["user"]["id"] == self.member_user.id)
@@ -89,7 +89,7 @@ class IsModeratorFieldTests(TestCase):
 
     def test_admin_can_toggle_moderator(self):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.member_user.id, "role": "member", "is_moderator": True},
             format="json",
         )
@@ -101,7 +101,7 @@ class IsModeratorFieldTests(TestCase):
     def test_admin_can_revoke_moderator(self):
         BoardMembership.objects.filter(board=self.board, user=self.member_user).update(is_moderator=True)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.member_user.id, "role": "member", "is_moderator": False},
             format="json",
         )
@@ -110,7 +110,7 @@ class IsModeratorFieldTests(TestCase):
 
     def test_collaborator_cannot_be_moderator(self):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.member_user.id, "role": "collaborator", "is_moderator": True},
             format="json",
         )
@@ -119,7 +119,7 @@ class IsModeratorFieldTests(TestCase):
 
     def test_viewer_cannot_be_moderator(self):
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.member_user.id, "role": "viewer", "is_moderator": True},
             format="json",
         )
@@ -128,7 +128,7 @@ class IsModeratorFieldTests(TestCase):
     def test_demoting_to_collaborator_clears_moderator(self):
         BoardMembership.objects.filter(board=self.board, user=self.member_user).update(is_moderator=True)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.member_user.id, "role": "collaborator"},
             format="json",
         )
@@ -138,7 +138,7 @@ class IsModeratorFieldTests(TestCase):
     def test_demoting_to_viewer_clears_moderator(self):
         BoardMembership.objects.filter(board=self.board, user=self.member_user).update(is_moderator=True)
         r = self.client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.member_user.id, "role": "viewer"},
             format="json",
         )
@@ -151,7 +151,7 @@ class IsModeratorFieldTests(TestCase):
         client = APIClient()
         client.force_authenticate(other)
         r = client.post(
-            f"/api/boards/{self.board.id}/members/",
+            f"/api/v1/boards/{self.board.id}/members/",
             {"user_id": self.member_user.id, "role": "member", "is_moderator": True},
             format="json",
         )

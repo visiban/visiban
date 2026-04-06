@@ -29,7 +29,7 @@ class TransferOwnershipTests(TestCase):
             group=self.group, user=self.regular_member, role=GroupMembership.Role.MEMBER
         )
         self.client = APIClient()
-        self.url = f"/api/groups/{self.group.id}/transfer-ownership/"
+        self.url = f"/api/v1/groups/{self.group.id}/transfer-ownership/"
 
     def test_successful_transfer(self):
         """Owner transfers ownership to an admin member with correct confirmation."""

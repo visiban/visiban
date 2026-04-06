@@ -213,8 +213,14 @@ REST_FRAMEWORK = {
         "rest_framework.filters.OrderingFilter",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "visiban.pagination.OffsetCountPagination",
     "PAGE_SIZE": 50,
+    # Versioning — all API endpoints are served under /api/v1/.
+    # Adding the infrastructure at 1.0 gives clients an upgrade path for v2
+    # without requiring a flag day or a second URL structure.
+    "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.URLPathVersioning",
+    "DEFAULT_VERSION": "v1",
+    "ALLOWED_VERSIONS": ["v1"],
     # Tell DRF to trust exactly one proxy (Nginx) when parsing X-Forwarded-For
     # for rate limiting and IP detection. Prevents IP spoofing via header injection.
     "NUM_PROXIES": 1,

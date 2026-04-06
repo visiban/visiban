@@ -55,14 +55,14 @@ class SequentialCardMoveConsistencyTests(TransactionTestCase):
 
         # Move card1 to col_b at position 0
         resp1 = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{card1.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card1.pk}/move/",
             {"column_id": self.col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
         self.assertEqual(resp1.status_code, status.HTTP_200_OK)
 
         # Move card2 to col_b at position 0 (should push card1 to position 1)
         resp2 = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{card2.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card2.pk}/move/",
             {"column_id": self.col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
         self.assertEqual(resp2.status_code, status.HTTP_200_OK)
@@ -95,7 +95,7 @@ class SequentialCardMoveConsistencyTests(TransactionTestCase):
 
         # Move card1 to col_b
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{card1.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card1.pk}/move/",
             {"column_id": self.col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -116,12 +116,12 @@ class SequentialCardMoveConsistencyTests(TransactionTestCase):
 
         # Move A -> B
         self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
             {"column_id": self.col_b.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
         # Move B -> C
         self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{card.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/move/",
             {"column_id": self.col_c.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
 
@@ -162,7 +162,7 @@ class ConcurrentColumnCreationTests(TransactionTestCase):
         """Rapid sequential column creation never assigns the same position twice."""
         for i in range(5):
             r = self.client.post(
-                f"/api/boards/{self.board.pk}/columns/",
+                f"/api/v1/boards/{self.board.pk}/columns/",
                 {"name": f"Col {i}", "color": "#000000"},
             )
             self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -178,7 +178,7 @@ class ConcurrentColumnCreationTests(TransactionTestCase):
         """Rapid sequential swimlane creation never assigns the same position twice."""
         for i in range(5):
             r = self.client.post(
-                f"/api/boards/{self.board.pk}/swimlanes/",
+                f"/api/v1/boards/{self.board.pk}/swimlanes/",
                 {"name": f"Lane {i}"},
             )
             self.assertEqual(r.status_code, status.HTTP_201_CREATED)

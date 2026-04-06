@@ -34,7 +34,7 @@ class GroupLabelsTests(TestCase):
         GroupLabel.objects.create(group=self.group, name="Bug", color="#FF0000")
         GroupLabel.objects.create(group=self.group, name="Feature", color="#00FF00")
         self.client.force_authenticate(self.admin)
-        r = self.client.get(f"/api/groups/{self.group.id}/labels/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/labels/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         names = {label["name"] for label in r.json()}
         self.assertEqual(names, {"Bug", "Feature"})
@@ -43,7 +43,7 @@ class GroupLabelsTests(TestCase):
         """Members (non-admin) can also list group labels — GET is member-level."""
         GroupLabel.objects.create(group=self.group, name="Docs", color="#0000FF")
         self.client.force_authenticate(self.member)
-        r = self.client.get(f"/api/groups/{self.group.id}/labels/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/labels/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.json()), 1)
 
@@ -55,7 +55,7 @@ class GroupLabelsTests(TestCase):
         """Admin can create a group label."""
         self.client.force_authenticate(self.admin)
         r = self.client.post(
-            f"/api/groups/{self.group.id}/labels/",
+            f"/api/v1/groups/{self.group.id}/labels/",
             {"name": "Priority", "color": "#EAB308"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -67,7 +67,7 @@ class GroupLabelsTests(TestCase):
         """Non-admin members cannot create group labels."""
         self.client.force_authenticate(self.member)
         r = self.client.post(
-            f"/api/groups/{self.group.id}/labels/",
+            f"/api/v1/groups/{self.group.id}/labels/",
             {"name": "Sneaky", "color": "#000000"},
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
@@ -82,7 +82,7 @@ class GroupLabelsTests(TestCase):
         label = GroupLabel.objects.create(group=self.group, name="Old", color="#111111")
         self.client.force_authenticate(self.admin)
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/labels/{label.id}/",
+            f"/api/v1/groups/{self.group.id}/labels/{label.id}/",
             {"name": "New", "color": "#222222"},
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -95,7 +95,7 @@ class GroupLabelsTests(TestCase):
         label = GroupLabel.objects.create(group=self.group, name="Stable", color="#333333")
         self.client.force_authenticate(self.member)
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/labels/{label.id}/",
+            f"/api/v1/groups/{self.group.id}/labels/{label.id}/",
             {"name": "Hacked"},
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
@@ -110,7 +110,7 @@ class GroupLabelsTests(TestCase):
         """Admin can delete a group label."""
         label = GroupLabel.objects.create(group=self.group, name="Doomed", color="#444444")
         self.client.force_authenticate(self.admin)
-        r = self.client.delete(f"/api/groups/{self.group.id}/labels/{label.id}/")
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/labels/{label.id}/")
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(GroupLabel.objects.filter(pk=label.id).exists())
 
@@ -118,7 +118,7 @@ class GroupLabelsTests(TestCase):
         """Non-admin members cannot delete group labels."""
         label = GroupLabel.objects.create(group=self.group, name="Protected", color="#555555")
         self.client.force_authenticate(self.member)
-        r = self.client.delete(f"/api/groups/{self.group.id}/labels/{label.id}/")
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/labels/{label.id}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(GroupLabel.objects.filter(pk=label.id).exists())
 
@@ -134,7 +134,7 @@ class GroupLabelsTests(TestCase):
         self.client.force_authenticate(self.admin)
         # Try to PATCH the foreign label through our group's URL
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/labels/{other_label.id}/",
+            f"/api/v1/groups/{self.group.id}/labels/{other_label.id}/",
             {"name": "Stolen"},
         )
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
@@ -157,7 +157,7 @@ class BoardDefaultsTests(TestCase):
     def test_get_board_defaults_via_group_detail(self):
         """Group detail includes default_board_member_role and allowed_priorities."""
         self.client.force_authenticate(self.admin)
-        r = self.client.get(f"/api/groups/{self.group.id}/")
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         data = r.json()
         self.assertIn("default_board_member_role", data)
@@ -170,7 +170,7 @@ class BoardDefaultsTests(TestCase):
         """Admin can update default_board_member_role."""
         self.client.force_authenticate(self.admin)
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/board-defaults/",
+            f"/api/v1/groups/{self.group.id}/board-defaults/",
             {"default_board_member_role": "viewer"},
             format="json",
         )
@@ -182,7 +182,7 @@ class BoardDefaultsTests(TestCase):
         """Admin can update allowed_priorities."""
         self.client.force_authenticate(self.admin)
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/board-defaults/",
+            f"/api/v1/groups/{self.group.id}/board-defaults/",
             {"allowed_priorities": ["low", "high"]},
             format="json",
         )
@@ -194,7 +194,7 @@ class BoardDefaultsTests(TestCase):
         """Non-admin members cannot update board defaults."""
         self.client.force_authenticate(self.member)
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/board-defaults/",
+            f"/api/v1/groups/{self.group.id}/board-defaults/",
             {"default_board_member_role": "viewer"},
             format="json",
         )
@@ -206,7 +206,7 @@ class BoardDefaultsTests(TestCase):
         """Invalid role value returns 400."""
         self.client.force_authenticate(self.admin)
         r = self.client.patch(
-            f"/api/groups/{self.group.id}/board-defaults/",
+            f"/api/v1/groups/{self.group.id}/board-defaults/",
             {"default_board_member_role": "superuser"},
             format="json",
         )
@@ -221,7 +221,7 @@ class BoardDefaultsTests(TestCase):
 
         # Create a board in the group
         r = self.client.post(
-            f"/api/groups/{self.group.id}/boards/",
+            f"/api/v1/groups/{self.group.id}/boards/",
             {"name": "Inherited Board"},
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)

@@ -91,7 +91,7 @@ class CanAccessAllContentBoardQuerysetTests(TestCase):
         admin.can_access_all_content = False
         admin.save()
         self.client.force_authenticate(admin)
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, 200)
         # Normalise: API may return list or paginated dict
         results = resp.data.get("results", resp.data) if isinstance(resp.data, dict) else resp.data
@@ -103,7 +103,7 @@ class CanAccessAllContentBoardQuerysetTests(TestCase):
         admin.can_access_all_content = True
         admin.save()
         self.client.force_authenticate(admin)
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, 200)
         results = resp.data.get("results", resp.data) if isinstance(resp.data, dict) else resp.data
         self.assertIn(self.board.id, [b["id"] for b in results])
@@ -122,7 +122,7 @@ class AdminCanAccessAllContentPatchTests(TestCase):
     def test_patch_can_access_all_content_true(self):
         self.client.force_authenticate(self.site_admin)
         resp = self.client.patch(
-            f"/api/admin/users/{self.target.pk}/",
+            f"/api/v1/admin/users/{self.target.pk}/",
             {"can_access_all_content": True},
             format="json",
         )
@@ -135,7 +135,7 @@ class AdminCanAccessAllContentPatchTests(TestCase):
         self.target.save()
         self.client.force_authenticate(self.site_admin)
         resp = self.client.patch(
-            f"/api/admin/users/{self.target.pk}/",
+            f"/api/v1/admin/users/{self.target.pk}/",
             {"can_access_all_content": False},
             format="json",
         )
@@ -153,7 +153,7 @@ class CardCreationRBACTests(TestCase):
     def _create_card(self, user):
         self.client.force_authenticate(user)
         return self.client.post(
-            f"/api/boards/{self.board.pk}/cards/",
+            f"/api/v1/boards/{self.board.pk}/cards/",
             {"title": "New Card", "column": self.col.pk, "swimlane": self.swim.pk},
         )
 
@@ -205,7 +205,7 @@ class CardMutationRBACTests(TestCase):
     def test_collaborator_cannot_edit_card(self):
         self.client.force_authenticate(self.collab)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
             {"title": "Changed"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -213,7 +213,7 @@ class CardMutationRBACTests(TestCase):
     def test_collaborator_cannot_move_card(self):
         self.client.force_authenticate(self.collab)
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
             {"column_id": self.col.pk, "swimlane_id": self.swim.pk, "position": 0},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -221,7 +221,7 @@ class CardMutationRBACTests(TestCase):
     def test_collaborator_cannot_delete_card(self):
         self.client.force_authenticate(self.collab)
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -235,7 +235,7 @@ class ColumnCreationRBACTests(TestCase):
     def _create_column(self, user):
         self.client.force_authenticate(user)
         return self.client.post(
-            f"/api/boards/{self.board.pk}/columns/",
+            f"/api/v1/boards/{self.board.pk}/columns/",
             {"name": "New Column", "position": 99},
         )
 
@@ -286,7 +286,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     def test_viewer_cannot_post_comment(self, _mock):
         self.client.force_authenticate(self.viewer)
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
             {"body": "hello"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -295,7 +295,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     def test_collaborator_can_post_comment(self, _mock):
         self.client.force_authenticate(self.collab)
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/",
             {"body": "hello"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -305,7 +305,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         comment = CardComment.objects.create(card=self.card, author=self.owner, body="original")
         self.client.force_authenticate(self.viewer)
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -314,7 +314,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         comment = CardComment.objects.create(card=self.card, author=self.collab, body="my comment")
         self.client.force_authenticate(self.collab)
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
@@ -323,7 +323,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         comment = CardComment.objects.create(card=self.card, author=self.owner, body="owner comment")
         self.client.force_authenticate(self.collab)
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/comments/{comment.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -337,7 +337,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         self.client.force_authenticate(self.viewer)
         f = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
             {"file": f},
             format="multipart",
         )
@@ -349,7 +349,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         self.client.force_authenticate(self.collab)
         f = SimpleUploadedFile("test.txt", b"hello", content_type="text/plain")
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/",
             {"file": f},
             format="multipart",
         )
@@ -368,7 +368,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         )
         self.client.force_authenticate(self.viewer)
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{att.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/attachments/{att.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -380,7 +380,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     def test_viewer_cannot_add_checklist_item(self, _mock):
         self.client.force_authenticate(self.viewer)
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/",
             {"text": "a task"},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -389,7 +389,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     def test_collaborator_can_add_checklist_item(self, _mock):
         self.client.force_authenticate(self.collab)
         resp = self.client.post(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/",
             {"text": "a task"},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -400,7 +400,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
         self.client.force_authenticate(self.viewer)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
             {"is_checked": True},
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -411,7 +411,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
         self.client.force_authenticate(self.collab)
         resp = self.client.patch(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
             {"is_checked": True},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -422,7 +422,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
         self.client.force_authenticate(self.viewer)
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -432,7 +432,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
         item = CardChecklist.objects.create(card=self.card, text="task", position=0)
         self.client.force_authenticate(self.collab)
         resp = self.client.delete(
-            f"/api/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/checklist/{item.pk}/",
         )
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 

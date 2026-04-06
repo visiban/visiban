@@ -26,7 +26,7 @@ class DashboardEmptyStateTests(TestCase):
 
     def test_board_list_empty(self):
         """User with no boards should get an empty list, not an error."""
-        resp = self.client.get("/api/boards/")
+        resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["results"], [])
 
@@ -39,7 +39,7 @@ class BoardNoCardsSummaryTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_summary_no_cards_returns_zeros(self):
-        resp = self.client.get(f"/api/boards/{self.board.id}/summary/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.id}/summary/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.json()
         self.assertIn("swimlanes", data)
@@ -47,7 +47,7 @@ class BoardNoCardsSummaryTests(TestCase):
         self.assertEqual(row["total_cards"], 0)
 
     def test_analytics_no_cards_returns_empty_data(self):
-        resp = self.client.get(f"/api/boards/{self.board.id}/analytics/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.id}/analytics/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.json()
         self.assertIn("swimlanes", data)
@@ -62,7 +62,7 @@ class BoardNoCardsFullViewTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_full_view_no_cards(self):
-        resp = self.client.get(f"/api/boards/{self.board.id}/full/")
+        resp = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.json()
         self.assertEqual(data["cards"], [])
@@ -77,15 +77,15 @@ class NotificationEmptyStateTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_notification_list_empty(self):
-        resp = self.client.get("/api/notifications/")
+        resp = self.client.get("/api/v1/notifications/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data, [])
 
     def test_unread_count_zero(self):
-        resp = self.client.get("/api/notifications/unread-count/")
+        resp = self.client.get("/api/v1/notifications/unread-count/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.json()["count"], 0)
 
     def test_mark_all_read_with_no_notifications(self):
-        resp = self.client.post("/api/notifications/mark-read/", {"all": True}, format="json")
+        resp = self.client.post("/api/v1/notifications/mark-read/", {"all": True}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)

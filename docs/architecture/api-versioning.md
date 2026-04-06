@@ -1,16 +1,23 @@
 # API Versioning
 
-## No URL version prefix — intentional and stable
+## URL path versioning — `/api/v1/`
 
-All Visiban API endpoints are served at `/api/` with no version prefix (e.g. `/api/boards/`, not `/api/v1/boards/`). This is a deliberate architectural decision, not an oversight.
+All Visiban API endpoints are served under the `/api/v1/` prefix (e.g. `/api/v1/boards/`, `/api/v1/auth/login/`). This is implemented using DRF's `URLPathVersioning` with `DEFAULT_VERSION = "v1"` and `ALLOWED_VERSIONS = ["v1"]`.
 
-Visiban is a self-hosted product. Operators run a specific release and upgrade on their own schedule. Because there is never a situation where two incompatible API versions must coexist on the same server, a URL version prefix adds complexity without delivering the benefit it provides for cloud SaaS products (where many clients connect to the same host simultaneously and must be migrated gradually).
+Requests to an unsupported version (e.g. `/api/v2/`) receive `406 Not Acceptable`.
 
-The stability guarantee is provided instead through a strict backward-compatibility policy applied at the field and behavior level.
+A small number of infrastructure-level endpoints are intentionally unversioned:
+
+| Endpoint | Reason |
+|---|---|
+| `GET /api/health/liveness/` | Infrastructure health probes must not change URL across releases |
+| `GET /api/health/readiness/` | Same |
+| `GET /api/share/<token>/` | Externally shared URLs embedded in emails and bookmarks must remain stable |
+| `/api/schema/`, `/api/schema/swagger-ui/`, `/api/schema/redoc/` | Schema introspection endpoints; clients use the versioned base paths within the schema |
 
 ## Backward-compatibility policy
 
-The following changes are **never** made in a patch or minor release:
+The URL prefix is the version signal for clients. Within a major version, the following changes are **never** made in a patch or minor release:
 
 | Change type | Rule |
 |---|---|
@@ -21,6 +28,21 @@ The following changes are **never** made in a patch or minor release:
 | Add a required body field to an existing endpoint | Never — new body fields must be optional with a sensible default |
 
 These rules are enforced by code review and are documented in `CLAUDE.md` so they apply to every contribution.
+
+## Pagination shape
+
+All paginated list endpoints return a consistent envelope:
+
+```json
+{
+  "count": 42,
+  "offset": 0,
+  "page_size": 50,
+  "results": [...]
+}
+```
+
+Query parameters: `?offset=0&page_size=50` (max `200`). This shape is stable for the lifetime of `v1`.
 
 ## How deprecation works
 
@@ -41,14 +63,11 @@ For endpoints being retired, return `410 Gone` with a JSON body explaining what 
 
 ```json
 {
-  "detail": "This endpoint was removed in 1.x.0. Use /api/replacement/ instead.",
+  "detail": "This endpoint was removed in 1.x.0. Use /api/v1/replacement/ instead.",
   "docs": "https://docs.visiban.com/api/replacement/"
 }
 ```
 
-## Why this approach
+## Future versioning
 
-- **Operators run specific versions.** A self-hosted operator who upgrades from 1.2 to 1.3 has full control over when the transition happens. They are not sharing the API with clients on older versions.
-- **Field-level compatibility is sufficient.** Adding new optional fields is non-breaking for existing clients. Removing fields is the only genuinely dangerous operation, and the policy above prevents it.
-- **URL prefixes create permanent technical debt.** A `/v1/` prefix implies a `/v2/` will eventually exist. Maintaining parallel URL namespaces for a self-hosted product imposes ongoing maintenance cost with no corresponding benefit for the operator.
-- **Simpler for integrators.** Scripts, webhooks, and CI pipelines that call the Visiban API do not need to track a version prefix or negotiate capability with the server. The URL they use today will continue to work in future minor releases.
+When a breaking change is unavoidable, a `/api/v2/` prefix will be introduced. Both versions will be served in parallel for at least one minor release cycle to allow integrators to migrate. Until a breaking change is required, only `v1` exists — there is no `/api/v2/` today.

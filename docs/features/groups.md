@@ -6,13 +6,13 @@ Groups organize boards and users into a hierarchy. A board can belong to one gro
 
 Each group has an optional **description** field — a short free-text summary of the group's purpose. The description appears on the group detail page and is inline-editable: click it to enter edit mode, then press **Enter** (or click outside) to save, or press **Escape** to cancel.
 
-The description is returned as `description` in `GET /api/groups/{id}/` and is writable via `PUT /api/groups/{id}/` (group admin required).
+The description is returned as `description` in `GET /api/v1/groups/{id}/` and is writable via `PUT /api/v1/groups/{id}/` (group admin required).
 
 ## Ancestor breadcrumb chain
 
 When viewing a group that has a parent, the group detail page shows a breadcrumb chain above the group name listing all ancestor groups from the root down to the immediate parent. Each ancestor is a clickable link. This makes it easy to orient yourself and navigate back up deep hierarchies.
 
-The full ancestor list is also available in the API: `GET /api/groups/{id}/` returns an `ancestors` array (see [Groups API](../api/groups.md)).
+The full ancestor list is also available in the API: `GET /api/v1/groups/{id}/` returns an `ancestors` array (see [Groups API](../api/groups.md)).
 
 ## Structure
 
@@ -74,7 +74,7 @@ If the link is invalid or expired, a countdown timer is shown and the user is au
 
 Any board can be moved to a different group or back to personal boards. Use the **Move to group** option in the board settings (gear icon in the toolbar). Only board admins and site admins can move a board.
 
-**API:** `POST /api/boards/{id}/move-group/` with `{ "group_id": 5 }` or `{ "group_id": null }` for personal.
+**API:** `POST /api/v1/boards/{id}/move-group/` with `{ "group_id": 5 }` or `{ "group_id": null }` for personal.
 
 ## Group shared labels
 
@@ -82,7 +82,7 @@ Group admins can define a shared label library for the group. New boards created
 
 Labels are managed from the **Settings** tab on the group detail page. Changes to a group label (rename, recolor) propagate to all boards that inherited it; deletions only remove the label from the group library — boards that already have the label keep it.
 
-**API:** `GET/POST /api/groups/{id}/labels/`, `PATCH/DELETE /api/groups/{id}/labels/{label_id}/`
+**API:** `GET/POST /api/v1/groups/{id}/labels/`, `PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/`
 
 ## Group board defaults
 
@@ -95,7 +95,7 @@ Group admins can configure defaults that apply to every new board created in the
 
 Board defaults are configured from the **Settings** tab on the group detail page.
 
-**API:** `PATCH /api/groups/{id}/board-defaults/`
+**API:** `PATCH /api/v1/groups/{id}/board-defaults/`
 
 ## Transferring group ownership
 
@@ -103,7 +103,7 @@ Only the **current owner** of a group can transfer ownership to another user. Th
 
 After transfer, the previous owner becomes a regular admin — they are not removed from the group.
 
-**API:** `POST /api/groups/{id}/transfer-ownership/` with `{ "new_owner_id": 42, "confirmation": "Group Name" }`
+**API:** `POST /api/v1/groups/{id}/transfer-ownership/` with `{ "new_owner_id": 42, "confirmation": "Group Name" }`
 
 ## Starring groups
 

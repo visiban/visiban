@@ -147,7 +147,7 @@ The `columns.reordered` and `swimlanes.reordered` events include the full list o
 
 ### `card.moved` payload
 
-The `card.moved` event includes both the updated card and the movement record — the same shape returned by `POST /api/boards/{id}/cards/{id}/move/`:
+The `card.moved` event includes both the updated card and the movement record — the same shape returned by `POST /api/v1/boards/{id}/cards/{id}/move/`:
 
 ```json
 {

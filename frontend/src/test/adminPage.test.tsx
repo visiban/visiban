@@ -141,7 +141,7 @@ describe('AdminPage — access control', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
-    mockGetAdminUsers.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+    mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     mockGetAdminInviteLinks.mockResolvedValue([])
   })
 
@@ -166,7 +166,7 @@ describe('AdminPage — Settings tab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
-    mockGetAdminUsers.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+    mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     mockGetAdminInviteLinks.mockResolvedValue([])
   })
 
@@ -216,8 +216,8 @@ describe('AdminPage — Users tab', () => {
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({
       count: fakeAdminUsers.length,
-      next: null,
-      previous: null,
+      offset: 0,
+      page_size: 50,
       results: fakeAdminUsers,
     })
     mockGetAdminInviteLinks.mockResolvedValue([])
@@ -327,7 +327,7 @@ describe('AdminPage — Invite Links tab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
-    mockGetAdminUsers.mockResolvedValue({ count: 0, next: null, previous: null, results: [] })
+    mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     mockGetAdminInviteLinks.mockResolvedValue([])
 
     Object.defineProperty(window, 'location', {
@@ -399,7 +399,7 @@ describe('AdminPage — Escape key', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
-    mockGetAdminUsers.mockResolvedValue({ count: 2, next: null, previous: null, results: fakeAdminUsers })
+    mockGetAdminUsers.mockResolvedValue({ count: 2, offset: 0, page_size: 50, results: fakeAdminUsers })
     mockGetAdminInviteLinks.mockResolvedValue([])
   })
 

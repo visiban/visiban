@@ -122,7 +122,7 @@ class BoardFullMembersPrivacyTests(TestCase):
         self.client.force_authenticate(self.member)
 
     def test_members_list_user_fields_are_public_only(self):
-        response = self.client.get(f"/api/boards/{self.board.id}/full/")
+        response = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(response.status_code, 200)
         members = response.data.get("members", [])
         self.assertGreater(len(members), 0, "Expected at least one member in the list")
@@ -152,7 +152,7 @@ class CardAssigneePrivacyTests(TestCase):
         self.client.force_authenticate(self.member)
 
     def test_card_assignee_exposes_only_public_fields(self):
-        response = self.client.get(f"/api/boards/{self.board.id}/full/")
+        response = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(response.status_code, 200)
         cards = response.data.get("cards", [])
         card = next((c for c in cards if c["id"] == self.card.id), None)
@@ -161,7 +161,7 @@ class CardAssigneePrivacyTests(TestCase):
         _assert_board_user_shape(self, assignee, "card.assignee")
 
     def test_card_detail_assignee_exposes_only_public_fields(self):
-        response = self.client.get(f"/api/boards/{self.board.id}/cards/{self.card.id}/")
+        response = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/")
         self.assertEqual(response.status_code, 200)
         assignee = response.data.get("assignee")
         _assert_board_user_shape(self, assignee, "card detail assignee")
@@ -198,7 +198,7 @@ class MovementMovedByPrivacyTests(TestCase):
         self.client.force_authenticate(self.member)
 
     def test_movement_moved_by_exposes_only_public_fields(self):
-        response = self.client.get(f"/api/boards/{self.board.id}/cards/{self.card.id}/movements/")
+        response = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/movements/")
         self.assertEqual(response.status_code, 200)
         movements = response.data if isinstance(response.data, list) else response.data.get("results", [])
         self.assertGreater(len(movements), 0, "Expected at least one movement")
@@ -207,7 +207,7 @@ class MovementMovedByPrivacyTests(TestCase):
 
 
 class MeEndpointFullShapeTests(TestCase):
-    """/api/auth/me/ must still return the full UserSerializer shape for the current user."""
+    """/api/v1/auth/me/ must still return the full UserSerializer shape for the current user."""
 
     def setUp(self):
         self.user = User.objects.create_user(
@@ -219,9 +219,9 @@ class MeEndpointFullShapeTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_me_endpoint_returns_full_shape(self):
-        response = self.client.get("/api/auth/me/")
+        response = self.client.get("/api/v1/auth/me/")
         self.assertEqual(response.status_code, 200)
         data = response.data if not hasattr(response.data, "get") else response.data
         # The /me/ endpoint must still expose private fields for the current user.
         for field in ("email", "notif_card_assigned", "notif_mentioned", "close_editor_on_enter"):
-            self.assertIn(field, data, f"/api/auth/me/ missing expected field '{field}'")
+            self.assertIn(field, data, f"/api/v1/auth/me/ missing expected field '{field}'")

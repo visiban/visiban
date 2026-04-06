@@ -100,7 +100,7 @@ WebSocket events are registered with `transaction.on_commit()` inside a database
 - Events are **never broadcast for rolled-back transactions** — if a write fails and rolls back, no event fires.
 - Events fire **after** the transaction commits, so the data is guaranteed to be visible to any subsequent REST read by the time the event reaches clients.
 
-There is no at-least-once delivery guarantee — if a client is disconnected when an event fires, it will not be replayed. Clients should re-fetch the full board state (`GET /api/boards/{id}/full/`) on reconnect.
+There is no at-least-once delivery guarantee — if a client is disconnected when an event fires, it will not be replayed. Clients should re-fetch the full board state (`GET /api/v1/boards/{id}/full/`) on reconnect.
 
 ---
 
