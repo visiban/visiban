@@ -72,7 +72,40 @@ Broadcasts `card.unarchived` to all board WebSocket subscribers.
 ### `GET /api/v1/boards/{board_id}/cards/archived/`
 List all archived cards for the board, newest archived first. Available to all board members including viewers.
 
-**Response** — array of card objects, each with `archived_at` set.
+**Query parameters**
+
+| Parameter | Description |
+|---|---|
+| `offset` | Pagination offset (default: `0`) |
+
+**Response** — paginated envelope, page size fixed at 50:
+
+```json
+{
+  "count": 124,
+  "offset": 0,
+  "page_size": 50,
+  "results": [
+    { "id": 101, "uid": "3a9f1c2d7e4b8a05", "archived_at": "2026-03-20T12:00:00Z", "..." : "..." }
+  ]
+}
+```
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/status/`
+Check whether a card exists and whether it is archived. Used by the deep-link handler (`?card=`) to display a contextual message when the target card is not visible in the active board view.
+
+**Permissions:** any board member (viewer and above).
+
+**Response**
+```json
+{ "archived": true }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `archived` | boolean | `true` when the card exists but is archived; `false` when it is active |
+
+**Errors:** `404 Not Found` if the card does not belong to this board or has been hard-deleted.
 
 ---
 
@@ -83,7 +116,24 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 
 **Request**
 ```json
-{ "column_id": 3, "swimlane_id": 2, "position": 0 }
+{ "column_id": 3, "swimlane_id": 2, "position": 0, "version": 4 }
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `column_id` | ✓ | ID of the destination column (must belong to this board) |
+| `swimlane_id` | ✓ | ID of the destination swimlane (must belong to this board) |
+| `position` | | Target position within the destination cell (0-based, default: `0`) |
+| `version` | | Optimistic concurrency token. When provided, the server rejects the move with `409 Conflict` (`code: "version_conflict"`) if the card has been modified since the client last fetched it. Omitting this field disables the OCC check. |
+
+**Version conflict error**
+
+```json
+{
+  "code": "version_conflict",
+  "detail": "This card was modified by another user. Please refresh and try again.",
+  "current_version": 5
+}
 ```
 
 **Response**
