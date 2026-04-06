@@ -248,7 +248,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();
     }
-  }, [onCardAdded, onCardUpdated, onCardDeleted, onCardArchived, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted]);
 
   const { status: socketStatus } = useBoardSocket(board.id, handleSocketEvent);
 

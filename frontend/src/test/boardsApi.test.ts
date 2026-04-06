@@ -125,14 +125,14 @@ describe('Board API wrappers', () => {
     it('exportBoardCsv opens correct URL', () => {
       const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
       exportBoardCsv(5)
-      expect(openSpy).toHaveBeenCalledWith('http://localhost:8000/api/boards/5/export/', '_blank')
+      expect(openSpy).toHaveBeenCalledWith('http://localhost:8000/api/v1/boards/5/export/', '_blank')
       openSpy.mockRestore()
     })
 
     it('exportBoardJson opens URL with format=json', () => {
       const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
       exportBoardJson(5)
-      expect(openSpy).toHaveBeenCalledWith('http://localhost:8000/api/boards/5/export/?format=json', '_blank')
+      expect(openSpy).toHaveBeenCalledWith('http://localhost:8000/api/v1/boards/5/export/?format=json', '_blank')
       openSpy.mockRestore()
     })
   })

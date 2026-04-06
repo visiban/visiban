@@ -106,7 +106,7 @@ export const importBoard = (file: File, name?: string, groupId?: number) => {
   formData.append('file', file);
   if (name) formData.append('name', name);
   if (groupId) formData.append('group_id', String(groupId));
-  return client.post<Board>('/api/boards/import/', formData).then((r) => r.data);
+  return client.post<Board>('/api/v1/boards/import/', formData).then((r) => r.data);
 };
 
 // Share link
