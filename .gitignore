@@ -39,9 +39,6 @@ Thumbs.db
 # Docker
 pgdata/
 
-# Generated nginx config (produced by init-letsencrypt.sh from nginx/app.conf.template)
-nginx/app.conf
-
 # Let's Encrypt certs (managed by certbot container)
 certbot/
 
