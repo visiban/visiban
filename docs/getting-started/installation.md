@@ -45,6 +45,16 @@ This setup is for **local development only** — the Vite dev server is not suit
 
 On first boot the backend will print a one-time admin password — see [First Boot](first-boot.md).
 
+!!! warning "Accessing from a non-localhost address?"
+    The defaults in `.env.example` are configured for `localhost` only. If you access Visiban from a LAN IP address, hostname, or any address other than `127.0.0.1`, you must update two variables before starting the stack — otherwise API calls may fail and WebSocket connections will stay stuck on **Reconnecting**:
+
+    ```bash
+    ALLOWED_HOSTS=192.168.1.100          # or your LAN hostname
+    CORS_ALLOWED_ORIGINS=http://192.168.1.100:5173   # must match the exact origin the browser uses
+    ```
+
+    For production deployments behind nginx (where the frontend and backend share the same origin), the `CORS_ALLOWED_ORIGINS` value should match the nginx-served origin (e.g. `http://192.168.1.100:8080`), not the Vite dev server port.
+
 ### Troubleshooting
 
 **`db` container exits immediately / backend cannot connect**
@@ -97,6 +107,15 @@ cd frontend
 npm install
 npm run dev
 ```
+
+`npm run dev` expects the backend to be reachable at `http://localhost:8000`. Create `frontend/.env.local` (gitignored — never commit it) to tell Vite where the API is:
+
+```bash
+# frontend/.env.local — local dev only, never included in Docker builds
+VITE_API_URL=http://localhost:8000
+```
+
+A template with comments is at `frontend/.env.local.example`.
 
 ## Environment Variables
 
