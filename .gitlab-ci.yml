@@ -849,19 +849,18 @@ frontend-docker-push:
 # Pushes :latest images to GHCR on demand without running the full CI suite.
 # Click the play button on any pipeline's deploy stage to trigger.
 #
-# Variable: GHCR_SOURCE_BRANCH (default: main) — branch to build from.
-# Set via the pipeline's "Variables" section when triggering manually if you
-# need to build from a branch other than main.
+# Builds from the commit the pipeline is running on. To push from a specific
+# branch, trigger a pipeline on that branch (glab ci run -b <branch>) and
+# click play here.
 #
-# Note: spec.inputs and per-schedule config file paths require GitLab Premium.
-# These jobs use when: manual as the Free-tier equivalent.
+# Note: kaniko debug image has no git binary, so branch-switching inside the
+# job is not possible. spec.inputs and per-schedule config file paths also
+# require GitLab Premium — these manual jobs are the Free-tier equivalent.
 
 ghcr-push-backend:
   stage: deploy
   when: manual
   allow_failure: true
-  variables:
-    GHCR_SOURCE_BRANCH: main
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
@@ -871,8 +870,6 @@ ghcr-push-backend:
       printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
       "${GHCR_USER}" "${GHCR_TOKEN}"
       > /kaniko/.docker/config.json
-    - git fetch --depth 1 origin "${GHCR_SOURCE_BRANCH}"
-    - git checkout FETCH_HEAD
   script:
     - /kaniko/executor
         --context=backend
@@ -884,8 +881,6 @@ ghcr-push-frontend:
   stage: deploy
   when: manual
   allow_failure: true
-  variables:
-    GHCR_SOURCE_BRANCH: main
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
@@ -895,8 +890,6 @@ ghcr-push-frontend:
       printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
       "${GHCR_USER}" "${GHCR_TOKEN}"
       > /kaniko/.docker/config.json
-    - git fetch --depth 1 origin "${GHCR_SOURCE_BRANCH}"
-    - git checkout FETCH_HEAD
   script:
     - /kaniko/executor
         --context=frontend
