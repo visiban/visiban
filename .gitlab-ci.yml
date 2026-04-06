@@ -859,7 +859,7 @@ frontend-docker-push:
 ghcr-push-backend:
   stage: deploy
   when: manual
-  allow_failure: false
+  allow_failure: true
   variables:
     GHCR_SOURCE_BRANCH: main
   image:
@@ -883,7 +883,7 @@ ghcr-push-backend:
 ghcr-push-frontend:
   stage: deploy
   when: manual
-  allow_failure: false
+  allow_failure: true
   variables:
     GHCR_SOURCE_BRANCH: main
   image:
