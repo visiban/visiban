@@ -1,0 +1,1 @@
+The "Member + Moderator" entry in the role permissions popup is now labeled "Member (moderator flag)" to make clear it is a flag on the Member role rather than a separate role, and its description now includes "— ask an admin to enable" so occasional users know how to request the permission.

@@ -54,8 +54,8 @@ function RoleTooltip() {
           </div>
           {r.value === 'member' && (
             <div className="py-1 pl-3 border-l-2 border-slate-700 border-b border-slate-700">
-              <span className="text-xs font-semibold text-slate-300">Member + Moderator</span>
-              <span className="text-xs text-slate-500"> — Assign, edit, delete, and archive others' cards</span>
+              <span className="text-xs font-semibold text-slate-300">Member (moderator flag)</span>
+              <span className="text-xs text-slate-500"> — Assign, edit, delete, and archive others' cards — ask an admin to enable</span>
             </div>
           )}
         </Fragment>
