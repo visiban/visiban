@@ -23,8 +23,8 @@ set +a
 : "${DOMAIN:?Set DOMAIN=yourdomain.com in .env}"
 : "${CERTBOT_EMAIL:?Set CERTBOT_EMAIL=admin@yourdomain.com in .env}"
 
-echo "==> Generating nginx config for ${DOMAIN}..."
-DOMAIN="${DOMAIN}" envsubst '${DOMAIN}' < nginx/app.conf.template > nginx/app.conf
+# nginx renders nginx/app.conf.template at container startup — no host-side
+# envsubst step needed.
 
 echo "==> Building application images..."
 docker compose -f docker-compose.prod.yml build
