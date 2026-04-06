@@ -1,0 +1,3 @@
+- Assigning a card to a board member now requires Moderator or Admin access; members without this role see the assignee dropdown disabled with an explanatory tooltip, and receive a clear 403 message if they reach the API directly.
+- The Moderator tooltip in Board Settings → Members now lists all three entitlements: assign, edit, and delete/archive cards created by other members.
+- The `SelectDropdown` component gained a `disabledReason` prop so any disabled dropdown can surface a contextual explanation, and its disabled opacity was corrected to match the design system.

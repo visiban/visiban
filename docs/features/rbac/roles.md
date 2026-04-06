@@ -33,6 +33,7 @@ Visiban has five roles that control access at both the group and board level.
 | Manage board members | ✓ | ✓ | — | — | — |
 | **Cards** | | | | | |
 | Create / edit / move card | ✓ | ✓ | ✓ | — | — |
+| Assign card to member | ✓ | ✓ | mod† | — | — |
 | Delete own card | ✓ | ✓ | ✓ | — | — |
 | Delete any card | ✓ | ✓ | mod† | — | — |
 | Archive / restore own card | ✓ | ✓ | ✓ | — | — |
@@ -45,7 +46,8 @@ Visiban has five roles that control access at both the group and board level.
 | Delete any attachment | ✓ | ✓ | mod† | — | — |
 | Add / edit / delete checklist items | ✓ | ✓ | ✓ | ✓ | — |
 | View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Bulk card operations (move, assign, priority, delete) | ✓ | ✓ | ✓ | — | — |
+| Bulk card operations (move, priority, delete own) | ✓ | ✓ | ✓ | — | — |
+| Bulk assign cards | ✓ | ✓ | mod† | — | — |
 | **Export & Import** | | | | | |
 | Export board (CSV / JSON) | ✓ | ✓ | ✓ | — | — |
 | Import board from file | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -57,7 +59,7 @@ Visiban has five roles that control access at both the group and board level.
 
 ## Moderator entitlement
 
-Board admins can grant the **moderator** entitlement to any member or admin via the Members tab in Board Settings. A moderator can delete and archive cards and comments created by other users — normally a member can only perform these actions on their own content.
+Board admins can grant the **moderator** entitlement to any member or admin via the Members tab in Board Settings. A moderator can assign, edit, delete, and archive cards created by other users, and delete comments created by other users — normally a member can only perform these actions on their own content.
 
 Moderator is a boolean flag (`is_moderator`) on the board membership, not a separate role. It appears as a checkbox next to the role dropdown. Demoting a moderator to collaborator or viewer automatically clears the flag.
 

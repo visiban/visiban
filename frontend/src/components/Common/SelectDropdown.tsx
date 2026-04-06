@@ -11,6 +11,8 @@ interface Props<T extends string> {
   onChange: (value: T) => void;
   options: SelectDropdownOption<T>[];
   disabled?: boolean;
+  /** Shown as a tooltip on the trigger when disabled, explaining why. */
+  disabledReason?: string;
   /** "xs" for compact inline selects; "sm" for form-level selects */
   size?: "xs" | "sm";
   placeholder?: string;
@@ -22,6 +24,7 @@ export default function SelectDropdown<T extends string>({
   onChange,
   options,
   disabled = false,
+  disabledReason,
   size = "sm",
   placeholder,
   className = "",
@@ -54,8 +57,10 @@ export default function SelectDropdown<T extends string>({
         ref={triggerRef}
         type="button"
         disabled={disabled}
+        title={disabled && disabledReason ? disabledReason : undefined}
+        aria-label={disabled && disabledReason ? disabledReason : undefined}
         onClick={() => setOpen((v) => !v)}
-        className={`${triggerPadding} bg-slate-800 border rounded outline-none flex items-center gap-1 transition disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900
+        className={`${triggerPadding} bg-slate-800 border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900
           ${open
             ? "border-blue-400 text-blue-400"
             : "border-slate-600 text-slate-300 hover:border-slate-400"

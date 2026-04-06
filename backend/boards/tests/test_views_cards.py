@@ -602,3 +602,85 @@ class CardBoardScopingTests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
+class AssigneePermissionTests(TestCase):
+    """Tests for the assignee_id permission branch added to CardViewSet.update().
+
+    A regular member who did not create a card must receive a 403 with the
+    assignee-specific message when patching assignee_id, and the generic
+    "only edit cards you created" message for other fields.  Moderators and
+    card owners are allowed through in both cases.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.board, self.col, _, self.swim = _make_board(self.owner)
+
+        # A plain member who did NOT create the card under test
+        self.other_member = User.objects.create_user(username="other_member", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=self.other_member, role=BoardMembership.Role.MEMBER
+        )
+
+        # A member with the moderator flag
+        self.moderator = User.objects.create_user(username="moderator_user", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=self.moderator,
+            role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+
+        # Potential assignee (board member so validation passes)
+        self.assignee = User.objects.create_user(username="assignee_user", password="pass")
+        BoardMembership.objects.create(
+            board=self.board, user=self.assignee, role=BoardMembership.Role.MEMBER
+        )
+
+        # Card created by owner, not by other_member or moderator
+        self.card = _make_card(self.board, self.col, self.swim, self.owner)
+
+        self.client = APIClient()
+
+    def _url(self):
+        return f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/"
+
+    def test_non_owner_member_patching_assignee_id_gets_403_with_assign_message(self):
+        """A member who did not create the card sees the assignee-specific error."""
+        self.client.force_authenticate(self.other_member)
+        r = self.client.patch(self._url(), {"assignee_id": self.assignee.id})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(
+            "Assigning cards requires Moderator or Admin access",
+            r.json().get("detail", ""),
+        )
+
+    def test_non_owner_member_patching_non_assignee_field_gets_403_with_generic_message(self):
+        """Regression: the generic ownership message still fires for non-assignee fields."""
+        self.client.force_authenticate(self.other_member)
+        r = self.client.patch(self._url(), {"priority": "high"})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(
+            "You can only edit cards you created",
+            r.json().get("detail", ""),
+        )
+
+    @patch(PATCH_BROADCAST)
+    def test_moderator_can_patch_assignee_id_on_others_card(self, _):
+        """A member with is_moderator=True may assign any card regardless of ownership."""
+        self.client.force_authenticate(self.moderator)
+        r = self.client.patch(self._url(), {"assignee_id": self.assignee.id})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["assignee"]["id"], self.assignee.id)
+
+    @patch(PATCH_BROADCAST)
+    def test_card_owner_can_patch_assignee_id(self, _):
+        """The card's creator may assign it even if they are a plain member."""
+        # Re-create card owned by other_member so they are the owner
+        card = _make_card(self.board, self.col, self.swim, self.other_member, title="Mine")
+        self.client.force_authenticate(self.other_member)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{card.id}/",
+            {"assignee_id": self.assignee.id},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["assignee"]["id"], self.assignee.id)

@@ -335,7 +335,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           />
                           <span className="text-xs text-slate-400">Moderator</span>
                         </label>
-                        <span className="text-xs text-slate-600" title="Can delete and archive other members' content">ⓘ</span>
+                        <span className="relative group/mod-info">
+                          <span className="text-xs text-slate-400 cursor-default select-none" tabIndex={0} aria-label="What Moderator can do">ⓘ</span>
+                          <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 bg-slate-900 text-slate-200 text-xs rounded px-2 py-1.5 shadow-lg opacity-0 group-hover/mod-info:opacity-100 focus-within:opacity-100 transition-opacity delay-300 z-10">
+                            Can assign, edit, delete, and archive cards created by other members.
+                          </div>
+                        </span>
                       </div>
                     )}
 

@@ -500,6 +500,10 @@ class CardViewSet(viewsets.ModelViewSet):
         # perform_destroy, archive, and unarchive.
         if card.created_by_id != request.user.id:
             if not _can_modify_others_content(board, role, request.user):
+                if "assignee_id" in request.data:
+                    raise PermissionDenied(
+                        "Assigning cards requires Moderator or Admin access — ask a board admin."
+                    )
                 raise PermissionDenied("You can only edit cards you created.")
         with transaction.atomic():
             # Snapshot before update

@@ -131,9 +131,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       const updated = await updateCard(board.id, localCard.id, patch);
       setLocalCard(updated);
       onUpdated(updated);
-    } catch {
+    } catch (err) {
       setLocalCard(prev);
-      setSaveError("Failed to save — please try again.");
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setSaveError(detail ?? "Failed to save — please try again.");
     }
   };
 
@@ -326,6 +327,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const isCardOwner =
     currentUser != null && localCard.created_by === currentUser.id;
   const canDeleteOrArchive = canEdit && (isCardOwner || canModifyOthersContent);
+  const canAssign = canEdit && (isCardOwner || canModifyOthersContent);
 
   const canDeleteComment = (c: CardComment): boolean =>
     (c.author !== null && currentUser !== null && c.author.id === currentUser.id) ||
@@ -489,6 +491,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         label: userDisplayName(m.user),
                       })),
                     ]}
+                    disabled={!canAssign}
+                    disabledReason="Assigning cards requires Moderator or Admin access"
                     className="w-full"
                   />
                 </div>

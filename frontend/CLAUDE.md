@@ -74,6 +74,8 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Place before each item where `i > 0`; no manual `separatorBefore` prop needed
 - `SelectDropdown` handles this automatically; hand-rolled dropdowns (e.g. FilterBar) must add it manually
 
+**Disabled dropdowns must include an explanation** — when rendering `<SelectDropdown disabled={true}>`, always pass `disabledReason="..."`. The component renders it as a `title` attribute and `aria-label` on the trigger. A silently greyed-out control with no explanation is inaccessible and a dead end for all users.
+
 ## Modals and dialogs
 
 - Backdrop: `fixed inset-0 bg-black/60 z-50`
