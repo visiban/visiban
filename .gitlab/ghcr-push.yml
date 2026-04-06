@@ -1,0 +1,56 @@
+spec:
+  inputs:
+    source_branch:
+      default: main
+      description: "Branch to build and push as :latest on GHCR"
+---
+# Standalone pipeline for pushing :latest images to GHCR on demand.
+#
+# Use this as a one-off or scheduled push without triggering the full CI suite.
+#
+# Configure in GitLab:
+#   CI/CD → Schedules → New schedule → CI/CD configuration file: .gitlab/ghcr-push.yml
+#   or: CI/CD → Pipelines → Run pipeline (select this file as the config)
+#
+# Required CI variables (Protected+Masked project variables):
+#   GHCR_USER  — GitHub username or org that owns the GHCR packages
+#   GHCR_TOKEN — GitHub PAT with write:packages scope
+
+stages:
+  - push
+
+.ghcr-push-base:
+  stage: push
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - >-
+      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
+      "${GHCR_USER}" "${GHCR_TOKEN}"
+      > /kaniko/.docker/config.json
+    # Switch the working tree to the requested branch so the image is built
+    # from the right source regardless of which commit this pipeline was
+    # triggered on (important for scheduled runs on a detached HEAD).
+    - git fetch --depth 1 origin "$[[ inputs.source_branch ]]"
+    - git checkout FETCH_HEAD
+
+ghcr-push-backend:
+  extends: .ghcr-push-base
+  script:
+    - /kaniko/executor
+        --context=backend
+        --dockerfile=backend/Dockerfile
+        --destination=ghcr.io/${GHCR_USER}/visiban/backend:latest
+        --snapshot-mode=redo
+
+ghcr-push-frontend:
+  extends: .ghcr-push-base
+  script:
+    - /kaniko/executor
+        --context=frontend
+        --dockerfile=frontend/Dockerfile
+        --destination=ghcr.io/${GHCR_USER}/visiban/frontend:latest
+        --snapshot-mode=redo
+        --build-arg NODE_OPTIONS=--max-old-space-size=512
