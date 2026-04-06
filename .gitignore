@@ -1,6 +1,9 @@
 # Environment
 .env
 *.env
+# Vite local overrides — dev-only, must never be committed or included in Docker builds
+.env.local
+.env.*.local
 
 # Python
 __pycache__/
@@ -45,6 +48,9 @@ certbot/
 # Coverage
 backend/.coverage
 backend/htmlcov/
+
+# SonarQube analysis cache
+.sonar/
 
 # MkDocs generated site
 site/

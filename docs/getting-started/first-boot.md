@@ -65,13 +65,22 @@ cat /tmp/visiban_admin_password
 The init container only runs `migrate` — `ensure_site_admin` must be run manually after the first deploy:
 
 ```bash
+# Get the backend pod name first
+kubectl get pods -n visiban -l app.kubernetes.io/component=backend
+```
+
+Then run `ensure_site_admin`, replacing `<backend-pod>` with the pod name from the output above:
+
+```bash
 kubectl exec -it -n visiban <backend-pod> -- python manage.py ensure_site_admin
 ```
 
-Then retrieve the password from the file inside the pod:
+Then retrieve the password from the file inside the pod. Use the one-liner below to avoid copying the pod name manually:
 
 ```bash
-kubectl exec -n visiban <backend-pod> -- cat /tmp/visiban_admin_password
+kubectl exec -n visiban \
+  $(kubectl get pods -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') \
+  -- cat /tmp/visiban_admin_password
 ```
 
 Delete it once you have it:
@@ -85,8 +94,6 @@ If the admin already exists (e.g. the pod restarted before you retrieved the pas
 ```bash
 kubectl exec -it -n visiban <backend-pod> -- python manage.py changepassword admin
 ```
-
-Get the backend pod name with `kubectl get pods -n visiban`.
 
 ## Changing the password
 
