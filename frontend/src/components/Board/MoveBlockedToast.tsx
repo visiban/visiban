@@ -43,10 +43,14 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
           <span className="font-medium">{toastTitle(error)}</span> — {toastBody(error)}
         </p>
         {versionConflict ? null : hardBlocked ? (
-          // Hard mode: no override possible for any role. Show resolution hint instead.
-          <p className="mt-1.5 text-xs text-slate-400">
-            To unblock, move a card out of {error.column_name}, or ask an admin to raise the WIP limit.
-          </p>
+          // Hard mode: no override possible for any role.
+          // wip_hard_blocked shows a column-specific resolution hint; permission_denied
+          // has no actionable hint beyond the body text already shown.
+          error.code === "wip_hard_blocked" && (
+            <p className="mt-1.5 text-xs text-slate-400">
+              To unblock, move a card out of {error.column_name}, or ask an admin to raise the WIP limit.
+            </p>
+          )
         ) : (
           isAdmin && (
             <button
