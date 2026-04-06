@@ -868,13 +868,13 @@ ghcr-push-backend:
     - mkdir -p /kaniko/.docker
     - >-
       printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
+      "${CI_PROJECT_NAMESPACE}" "${GHCR_TOKEN}"
       > /kaniko/.docker/config.json
   script:
     - /kaniko/executor
         --context=backend
         --dockerfile=backend/Dockerfile
-        --destination=ghcr.io/${GHCR_USER}/visiban/backend:latest
+        --destination=ghcr.io/visiban/visiban/backend:latest
         --snapshot-mode=redo
 
 ghcr-push-frontend:
@@ -888,13 +888,13 @@ ghcr-push-frontend:
     - mkdir -p /kaniko/.docker
     - >-
       printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
+      "${CI_PROJECT_NAMESPACE}" "${GHCR_TOKEN}"
       > /kaniko/.docker/config.json
   script:
     - /kaniko/executor
         --context=frontend
         --dockerfile=frontend/Dockerfile
-        --destination=ghcr.io/${GHCR_USER}/visiban/frontend:latest
+        --destination=ghcr.io/visiban/visiban/frontend:latest
         --snapshot-mode=redo
         --build-arg NODE_OPTIONS=--max-old-space-size=512
 
