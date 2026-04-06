@@ -745,4 +745,83 @@ describe('CardDetail', () => {
       })
     })
   })
+  describe('save() error surfacing', () => {
+    it('shows the API detail message when save fails with a 403 detail', async () => {
+      const { updateCard } = await import('../api/cards')
+      const mockUC = updateCard as ReturnType<typeof vi.fn>
+      const err = Object.assign(new Error('Forbidden'), {
+        response: { data: { detail: 'Assigning cards requires Moderator or Admin access — ask a board admin.' } },
+      })
+      mockUC.mockRejectedValueOnce(err)
+      render(<CardDetail {...defaultProps()} />)
+      const titleInput = screen.getByDisplayValue('Test Card')
+      fireEvent.change(titleInput, { target: { value: 'Changed title' } })
+      fireEvent.blur(titleInput)
+      await waitFor(() => {
+        expect(screen.getByText('Assigning cards requires Moderator or Admin access — ask a board admin.')).toBeInTheDocument()
+      })
+    })
+
+    it('shows the fallback message when the error has no detail field', async () => {
+      const { updateCard } = await import('../api/cards')
+      const mockUC = updateCard as ReturnType<typeof vi.fn>
+      mockUC.mockRejectedValueOnce(new Error('Network error'))
+      render(<CardDetail {...defaultProps()} />)
+      const titleInput = screen.getByDisplayValue('Test Card')
+      fireEvent.change(titleInput, { target: { value: 'Changed title' } })
+      fireEvent.blur(titleInput)
+      await waitFor(() => {
+        expect(screen.getByText('Failed to save — please try again.')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('assignee SelectDropdown disabled state', () => {
+    it('assignee dropdown is enabled for card owner (member who created the card)', () => {
+      const props = defaultProps()
+      props.board = makeBoard({
+        current_user_role: 'member',
+        members: [{ id: 1, user: fakeUser, role: 'member', is_moderator: false, joined_at: '' }],
+      })
+      props.card = makeCard({ created_by: 1 }) // fakeUser is the creator
+      render(<CardDetail {...props} currentUser={fakeUser} />)
+      const trigger = screen.getByRole('button', { name: /Unassigned/ })
+      expect(trigger).not.toBeDisabled()
+    })
+
+    it('assignee dropdown is disabled for non-owner member without moderator flag', () => {
+      const otherUser: User = { ...fakeUser, id: 99, username: 'plain_member' }
+      const props = defaultProps()
+      props.board = makeBoard({
+        current_user_role: 'member',
+        members: [{ id: 2, user: otherUser, role: 'member', is_moderator: false, joined_at: '' }],
+      })
+      props.card = makeCard({ created_by: 1 }) // owned by fakeUser (id 1), not otherUser (id 99)
+      render(<CardDetail {...props} currentUser={otherUser} />)
+      const trigger = screen.getByRole('button', { name: /Assigning cards requires/ })
+      expect(trigger).toBeDisabled()
+    })
+
+    it('assignee dropdown is enabled for a moderator who does not own the card', () => {
+      const modUser: User = { ...fakeUser, id: 99, username: 'mod_member' }
+      const props = defaultProps()
+      props.board = makeBoard({
+        current_user_role: 'member',
+        members: [{ id: 2, user: modUser, role: 'member', is_moderator: true, joined_at: '' }],
+      })
+      props.card = makeCard({ created_by: 1 }) // owned by fakeUser, not modUser
+      render(<CardDetail {...props} currentUser={modUser} />)
+      const trigger = screen.getByRole('button', { name: /Unassigned/ })
+      expect(trigger).not.toBeDisabled()
+    })
+
+    it('assignee dropdown is enabled for an admin regardless of ownership', () => {
+      const props = defaultProps() // board.current_user_role defaults to 'admin'
+      props.card = makeCard({ created_by: 99 }) // owned by someone else
+      render(<CardDetail {...props} currentUser={fakeUser} />)
+      const trigger = screen.getByRole('button', { name: /Unassigned/ })
+      expect(trigger).not.toBeDisabled()
+    })
+  })
+
 })

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
@@ -47,10 +47,18 @@ function RoleTooltip() {
     <RoleInfoTooltip label="Role descriptions">
       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Role permissions</p>
       {ROLES.map((r) => (
-        <div key={r.value} className="py-1 border-b border-slate-700 last:border-0">
-          <span className="text-xs font-semibold text-slate-100 capitalize">{r.label}</span>
-          <span className="text-xs text-slate-400"> — {r.description}</span>
-        </div>
+        <Fragment key={r.value}>
+          <div className={`py-1 ${r.value !== 'viewer' && r.value !== 'member' ? 'border-b border-slate-700' : ''}`}>
+            <span className="text-xs font-semibold text-slate-100 capitalize">{r.label}</span>
+            <span className="text-xs text-slate-400"> — {r.description}</span>
+          </div>
+          {r.value === 'member' && (
+            <div className="py-1 pl-3 border-l-2 border-slate-700 border-b border-slate-700">
+              <span className="text-xs font-semibold text-slate-300">Member (moderator flag)</span>
+              <span className="text-xs text-slate-500"> — Assign, edit, delete, and archive others' cards — ask an admin to enable</span>
+            </div>
+          )}
+        </Fragment>
       ))}
     </RoleInfoTooltip>
   );
@@ -335,7 +343,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           />
                           <span className="text-xs text-slate-400">Moderator</span>
                         </label>
-                        <span className="text-xs text-slate-600" title="Can delete and archive other members' content">ⓘ</span>
+                        <span className="relative group/mod-info">
+                          <span className="text-xs text-slate-400 cursor-default select-none" tabIndex={0} aria-label="What Moderator can do">ⓘ</span>
+                          <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 bg-slate-900 text-slate-200 text-xs rounded px-2 py-1.5 shadow-lg opacity-0 group-hover/mod-info:opacity-100 focus-within:opacity-100 transition-opacity delay-300 z-10">
+                            Can assign, edit, delete, and archive cards created by other members.
+                          </div>
+                        </span>
                       </div>
                     )}
 

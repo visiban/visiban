@@ -32,7 +32,9 @@ Visiban has five roles that control access at both the group and board level.
 | Edit board structure (columns, swimlanes, labels) | ✓ | ✓ | — | — | — |
 | Manage board members | ✓ | ✓ | — | — | — |
 | **Cards** | | | | | |
-| Create / edit / move card | ✓ | ✓ | ✓ | — | — |
+| Create / edit card | ✓ | ✓ | ✓ | — | — |
+| Move card (drag-and-drop, column / swimlane change) | ✓ | ✓ | move† | — | — |
+| Assign card to member | ✓ | ✓ | mod† | — | — |
 | Delete own card | ✓ | ✓ | ✓ | — | — |
 | Delete any card | ✓ | ✓ | mod† | — | — |
 | Archive / restore own card | ✓ | ✓ | ✓ | — | — |
@@ -45,7 +47,8 @@ Visiban has five roles that control access at both the group and board level.
 | Delete any attachment | ✓ | ✓ | mod† | — | — |
 | Add / edit / delete checklist items | ✓ | ✓ | ✓ | ✓ | — |
 | View cards & movement history | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Bulk card operations (move, assign, priority, delete) | ✓ | ✓ | ✓ | — | — |
+| Bulk card operations (move, priority, delete own) | ✓ | ✓ | ✓ | — | — |
+| Bulk assign cards | ✓ | ✓ | mod† | — | — |
 | **Export & Import** | | | | | |
 | Export board (CSV / JSON) | ✓ | ✓ | ✓ | — | — |
 | Import board from file | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -55,9 +58,11 @@ Visiban has five roles that control access at both the group and board level.
 
 **†** `mod` = only members with the moderator entitlement. Regular members can only perform these actions on their own content.
 
+**†** `move` = Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member that the moving user did not create requires the moderator entitlement or Admin role.
+
 ## Moderator entitlement
 
-Board admins can grant the **moderator** entitlement to any member or admin via the Members tab in Board Settings. A moderator can delete and archive cards and comments created by other users — normally a member can only perform these actions on their own content.
+Board admins can grant the **moderator** entitlement to any member or admin via the Members tab in Board Settings. A moderator can assign, edit, delete, and archive cards created by other users, and delete comments created by other users — normally a member can only perform these actions on their own content.
 
 Moderator is a boolean flag (`is_moderator`) on the board membership, not a separate role. It appears as a checkbox next to the role dropdown. Demoting a moderator to collaborator or viewer automatically clears the flag.
 

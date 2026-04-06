@@ -500,6 +500,10 @@ class CardViewSet(viewsets.ModelViewSet):
         # perform_destroy, archive, and unarchive.
         if card.created_by_id != request.user.id:
             if not _can_modify_others_content(board, role, request.user):
+                if "assignee_id" in request.data:
+                    raise PermissionDenied(
+                        "Assigning cards requires Moderator or Admin access — ask a board admin."
+                    )
                 raise PermissionDenied("You can only edit cards you created.")
         with transaction.atomic():
             # Snapshot before update
@@ -611,6 +615,27 @@ class CardViewSet(viewsets.ModelViewSet):
             Card.objects.select_for_update().select_related("column", "swimlane"),
             pk=pk, board=board,
         )
+
+        # Ownership/assignment gate: any member may move unassigned cards or
+        # cards they created. The assignee of a card may also move it (they own
+        # the work). Moving a card assigned to a different user and not created
+        # by the requestor requires Moderator or Admin access.
+        if (
+            card.assignee_id is not None
+            and card.created_by_id != request.user.id
+            and card.assignee_id != request.user.id
+            and not _can_modify_others_content(board, role, request.user)
+        ):
+            return Response(
+                {
+                    "code": "permission_denied",
+                    "detail": (
+                        "Moving a card assigned to another member requires "
+                        "Moderator or Admin access — ask a board admin."
+                    ),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # Optimistic concurrency control — reject stale writes.  Clients send
         # the version they have; if it doesn't match the DB, another user has
