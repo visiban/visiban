@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
@@ -47,15 +47,19 @@ function RoleTooltip() {
     <RoleInfoTooltip label="Role descriptions">
       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Role permissions</p>
       {ROLES.map((r) => (
-        <div key={r.value} className="py-1 border-b border-slate-700">
-          <span className="text-xs font-semibold text-slate-100 capitalize">{r.label}</span>
-          <span className="text-xs text-slate-400"> — {r.description}</span>
-        </div>
+        <Fragment key={r.value}>
+          <div className={`py-1 ${r.value !== 'viewer' && r.value !== 'member' ? 'border-b border-slate-700' : ''}`}>
+            <span className="text-xs font-semibold text-slate-100 capitalize">{r.label}</span>
+            <span className="text-xs text-slate-400"> — {r.description}</span>
+          </div>
+          {r.value === 'member' && (
+            <div className="py-1 pl-3 border-l-2 border-slate-700 border-b border-slate-700">
+              <span className="text-xs font-semibold text-slate-300">Member + Moderator</span>
+              <span className="text-xs text-slate-500"> — Assign, edit, delete, and archive others' cards</span>
+            </div>
+          )}
+        </Fragment>
       ))}
-      <div className="py-1 pl-3 border-l-2 border-slate-700 mt-0.5">
-        <span className="text-xs font-semibold text-slate-300">Member + Moderator</span>
-        <span className="text-xs text-slate-500"> — Assign, edit, delete, and archive others' cards</span>
-      </div>
     </RoleInfoTooltip>
   );
 }
