@@ -208,6 +208,16 @@ class CardViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
         return qs
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        # Cap search results after ordering is applied — slicing before filter_queryset()
+        # would prevent OrderingFilter from calling .order_by() on the queryset.
+        # The full board is always loaded via /full/; search is for targeted lookup only.
+        if request.query_params.get("search", "").strip():
+            queryset = queryset[:200]
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         board = self._board()
@@ -215,7 +225,9 @@ class CardViewSet(viewsets.ModelViewSet):
         # Pre-compute member IDs and board labels once per request so
         # CardSerializer.__init__ does not re-query per card (N+1 fix — #490).
         ctx["_member_ids"] = _get_effective_member_ids(board)
-        ctx["_board_labels_qs"] = Label.objects.filter(board=board)
+        # Use board.labels.all() to hit the prefetch cache populated by
+        # get_board_for_user(), avoiding a redundant Label query per request.
+        ctx["_board_labels_qs"] = board.labels.all()
         return ctx
 
     def perform_create(self, serializer):
@@ -345,7 +357,9 @@ class CardViewSet(viewsets.ModelViewSet):
                 transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.archived", {"card_uid": card_uid}))
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
-            context={"request": request, "board": card.board},
+            # Use the board already fetched by _board_and_role() — avoids a
+            # deferred card.board FK hit since board is not in select_related here.
+            context={"request": request, "board": board},
         ).data)
 
     @action(detail=True, methods=["post"])
@@ -414,7 +428,9 @@ class CardViewSet(viewsets.ModelViewSet):
                 transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
-            context={"request": request, "board": card.board},
+            # Use the board already fetched by _board_and_role() — avoids a
+            # deferred card.board FK hit since board is not in select_related here.
+            context={"request": request, "board": board},
         ).data)
 
     _ARCHIVED_PAGE_SIZE = 50

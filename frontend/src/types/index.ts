@@ -66,6 +66,8 @@ export interface BoardTemplateColumn {
 }
 
 export interface BoardTemplate {
+  // NOTE: id is a UUID string (not an integer), intentionally different from other entities.
+  // Templates use a UUID primary key as their stable external identifier — no separate uid field.
   id: string;
   name: string;
   slug: string;
@@ -172,7 +174,8 @@ export interface Notification {
   card_title: string | null;
   board_id: number | null;
   board_name: string | null;
-  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | '';
+  // Backend enforces blank=False with ActionType choices — '' is not a valid value post-migration 0041.
+  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite';
   read: boolean;
   created_at: string;
 }

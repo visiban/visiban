@@ -93,6 +93,13 @@ Create a board in this group. Requires group admin. Boards created here inherit 
 | `template` | No | Template name to pre-populate columns/swimlanes. Valid values: `kanban`, `scrum`, `crm` |
 | `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"Swimlane"` |
 
+### `GET /api/v1/groups/{id}/descendant-boards/`
+List all boards in this group and all of its descendant subgroups that the requesting user can access. This answers "what boards live anywhere inside this group subtree?" — including boards in deeply nested subgroups. Requires group membership.
+
+**Response** — array of board summary objects (same shape as `GET /api/v1/groups/{id}/boards/`).
+
+**Errors:** `403 Forbidden` if the caller is not a group member; `404 Not Found` if the group does not exist.
+
 ---
 
 ## Invite links

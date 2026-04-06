@@ -142,8 +142,8 @@ Time-in-stage heatmap derived from `CardMovement` records.
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
-| `days` | integer | `30` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |
-| `stalled_days` | integer | `7` | Must be a positive integer (`≥ 1`). Returns `400` if non-integer or `≤ 0`. |
+| `days` | integer | `30` | Must be a positive integer (`≥ 1`, `≤ 365`). Returns `400` if non-integer, `≤ 0`, or `> 365`. |
+| `stalled_days` | integer | board's `staleness_threshold_days` | When provided, overrides the board setting for stalled-card detection in this request only. Must be a positive integer (`≥ 1`, `≤ 90`). Returns `400` if non-integer, `≤ 0`, or `> 90`. Omit to use the board's configured threshold. |
 
 **Response shape:**
 
@@ -154,12 +154,19 @@ Time-in-stage heatmap derived from `CardMovement` records.
   "done_columns": ["Done"],
   "board_medians": { "Backlog": 2.0, "In Progress": 5.5 },
   "stalled_threshold_days": 7,
+  "staleness_threshold_days": 7,
+  "stale_warning_pct": 75,
   "swimlanes": [
     {
       "id": 1,
       "name": "Acme Corp",
       "avg_days_per_column": { "Backlog": 1.5, "In Progress": 8.0 },
       "is_outlier": { "Backlog": false, "In Progress": true },
+      "age_avg_days_per_column": { "Backlog": 2.1, "In Progress": 9.3 },
+      "age_is_outlier": { "Backlog": false, "In Progress": true },
+      "throughput_avg_days_per_column": { "Backlog": 1.2, "In Progress": 7.5 },
+      "throughput_card_count_per_column": { "Backlog": 4, "In Progress": 2 },
+      "throughput_is_outlier": { "Backlog": false, "In Progress": true },
       "deal_velocity_days": 12.3,
       "stalled_cards": [
         { "id": 42, "title": "Fix login bug", "days_since_move": 14 }
@@ -176,13 +183,19 @@ Time-in-stage heatmap derived from `CardMovement` records.
 | `days` | integer | The window used for the query, mirrored from the `days` query parameter. |
 | `columns` | list[str] | All column names on the board in position order, including done columns. Preserved for backward compatibility — consumers that need only active columns should subtract `done_columns`. |
 | `done_columns` | list[str] | Column names where `is_done=True`. These columns are excluded from the dwell-time heatmap. The `avg_days_per_column`, `is_outlier`, and `board_medians` dicts contain keys only for active (non-done) columns. |
-| `board_medians` | object | Median dwell time in days per active column, keyed by column name. Done columns are omitted. |
-| `stalled_threshold_days` | integer | Effective threshold used for stalled-card detection. Equals the board's `staleness_threshold_days` by default, or the `stalled_days` query parameter value when provided. |
-| `staleness_threshold_days` | integer | The board's configured staleness threshold in days. Used for heatmap cell coloring. Always reflects the board setting regardless of any `stalled_days` override. |
-| `stale_warning_pct` | integer | The board's warning percentage (0--100). Controls the yellow/green boundary in the heatmap. |
-| `swimlanes[].avg_days_per_column` | object | Average dwell time in days for each active column for this swimlane. Done columns are omitted. A `null` value means the swimlane has no movement data for that column in the requested window. |
+| `board_medians` | object | Median dwell time in days per active column, keyed by column name. Done columns are omitted. Preserved for backward compatibility — prefer `age_avg_days_per_column` for current-dwell snapshots. |
+| `stalled_threshold_days` | integer | Effective threshold used for stalled-card detection in this response. Equals `staleness_threshold_days` when `stalled_days` is not provided, or the supplied `stalled_days` value otherwise. |
+| `staleness_threshold_days` | integer | The board's configured staleness threshold in days. Used for heatmap outlier coloring (`is_outlier`, `age_is_outlier`, `throughput_is_outlier`). Always reflects the board setting regardless of any `stalled_days` override. |
+| `stale_warning_pct` | integer | The board's warning percentage (0–100). Controls the yellow/green boundary in the heatmap. |
+| `swimlanes[].avg_days_per_column` | object | **Deprecated.** Period-filtered average dwell time per active column (clamped entry). Kept for backward compatibility — prefer `throughput_avg_days_per_column` instead. |
+| `swimlanes[].is_outlier` | object | Whether `avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. Done columns are omitted. |
+| `swimlanes[].age_avg_days_per_column` | object | Snapshot of current dwell time for cards **presently sitting** in each active column (i.e. how long each currently-dwelling card has been in its column, averaged per column). Cards in done columns are excluded. `null` when the column has no currently-dwelling cards. |
+| `swimlanes[].age_is_outlier` | object | Whether `age_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
+| `swimlanes[].throughput_avg_days_per_column` | object | Average dwell time for cards that **exited** each active column during the period window. Cards still dwelling (not yet moved out) are excluded. `null` when no cards exited during the window. |
+| `swimlanes[].throughput_card_count_per_column` | object | Number of cards that exited each active column during the period window. `0` means no cards exited. |
+| `swimlanes[].throughput_is_outlier` | object | Whether `throughput_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
 | `swimlanes[].deal_velocity_days` | number or null | Average days between a card's first and last movement within the period for this swimlane. `null` when there is no velocity data. |
-| `swimlanes[].is_outlier` | object | Whether the swimlane's average for each active column meets or exceeds `staleness_threshold_days`. Done columns are omitted. |
+| `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "title", "days_since_move" }`. |
 
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
 
@@ -203,13 +216,13 @@ Board-level movement history for all cards on the board, sorted newest first. Re
 |---|---|---|
 | `swimlane_id` | integer | Filter by the card's current swimlane |
 | `to_column_id` | integer | Filter by destination column |
-| `assignee_id` | integer | Filter by card assignee |
+| `moved_by_id` | integer | Filter by the user who performed the move |
 | `moved_after` | ISO date | Include movements on or after this date (e.g. `2026-01-01`) |
 | `moved_before` | ISO date | Include movements on or before this date |
 | `exclude_type` | comma-separated string | Exclude movement types (e.g. `archived,unarchived` hides system events) |
 | `offset` | integer | Pagination offset (default: `0`) |
 
-When neither `moved_after` nor `moved_before` is specified, results default to the last 30 days.
+When neither `moved_after` nor `moved_before` is specified, the full movement history is returned (no default date cutoff). Results are always paginated to `page_size: 50` so the absence of a date window does not cause runaway queries.
 
 **Response**
 ```json
@@ -474,10 +487,25 @@ Create a swimlane. Requires board admin.
 
 > Swimlane names are unique per board. Creating a swimlane with a name that already exists on the same board returns `400 Bad Request`.
 
+Swimlane response objects include the following fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id`, `uid` | integer, string | Database ID and stable 16-char hex UID (read-only) |
+| `name` | string | Swimlane name |
+| `position` | integer | Display order (0-based) |
+| `color` | string | Hex color code |
+| `is_collapsed` | boolean | Whether the swimlane row is collapsed in the board view |
+| `created_at` | string | ISO 8601 timestamp of swimlane creation |
+| `contact_email` | string | Admin-only — contact email for this swimlane (empty string if unset) |
+| `notes` | string | Admin-only — internal notes (empty string if unset) |
+
+`contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
+
 ### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin.
 
-**Writable fields:** `name`, `color`, `contact_email`, `notes`
+**Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`
 
 ### `DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Delete a swimlane. Requires board admin.
