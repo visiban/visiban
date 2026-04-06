@@ -844,6 +844,67 @@ frontend-docker-push:
       /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile \
         ${DESTINATIONS} --snapshot-mode=redo
 
+# ─── GHCR manual push ─────────────────────────────────────────────────────────
+#
+# Pushes :latest images to GHCR on demand without running the full CI suite.
+# Click the play button on any pipeline's deploy stage to trigger.
+#
+# Variable: GHCR_SOURCE_BRANCH (default: main) — branch to build from.
+# Set via the pipeline's "Variables" section when triggering manually if you
+# need to build from a branch other than main.
+#
+# Note: spec.inputs and per-schedule config file paths require GitLab Premium.
+# These jobs use when: manual as the Free-tier equivalent.
+
+ghcr-push-backend:
+  stage: deploy
+  when: manual
+  allow_failure: false
+  variables:
+    GHCR_SOURCE_BRANCH: main
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - >-
+      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
+      "${GHCR_USER}" "${GHCR_TOKEN}"
+      > /kaniko/.docker/config.json
+    - git fetch --depth 1 origin "${GHCR_SOURCE_BRANCH}"
+    - git checkout FETCH_HEAD
+  script:
+    - /kaniko/executor
+        --context=backend
+        --dockerfile=backend/Dockerfile
+        --destination=ghcr.io/${GHCR_USER}/visiban/backend:latest
+        --snapshot-mode=redo
+
+ghcr-push-frontend:
+  stage: deploy
+  when: manual
+  allow_failure: false
+  variables:
+    GHCR_SOURCE_BRANCH: main
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - >-
+      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
+      "${GHCR_USER}" "${GHCR_TOKEN}"
+      > /kaniko/.docker/config.json
+    - git fetch --depth 1 origin "${GHCR_SOURCE_BRANCH}"
+    - git checkout FETCH_HEAD
+  script:
+    - /kaniko/executor
+        --context=frontend
+        --dockerfile=frontend/Dockerfile
+        --destination=ghcr.io/${GHCR_USER}/visiban/frontend:latest
+        --snapshot-mode=redo
+        --build-arg NODE_OPTIONS=--max-old-space-size=512
+
 # ─── GitHub Release ────────────────────────────────────────────────────────────
 #
 # Runs only on version tag pipelines, after both images are confirmed pushed.
