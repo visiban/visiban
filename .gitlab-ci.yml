@@ -807,6 +807,13 @@ frontend-docker-build:
     # QEMU binfmt_misc registrations (qemu-user-static, persistent via systemd)
     # are inherited by the buildkitd container, enabling linux/arm64 emulation.
     - docker buildx create --driver docker-container --bootstrap --use
+  after_script:
+    # Remove all non-default buildx builders created by this job. Each job
+    # creates a docker-container driver builder (a BuildKit daemon container +
+    # cache volume on the host). Without explicit removal the containers and
+    # their cache volumes accumulate on the runner's Docker tmpfs and exhaust
+    # space within a few builds.
+    - docker buildx ls --format '{{.Name}}' | grep -v '^default' | xargs -r docker buildx rm || true
 
 backend-docker-push:
   extends: .docker-push-common
@@ -882,6 +889,8 @@ ghcr-push-backend:
         --push
         --tag ghcr.io/visiban/visiban/backend:latest
         backend/
+  after_script:
+    - docker buildx ls --format '{{.Name}}' | grep -v '^default' | xargs -r docker buildx rm || true
 
 ghcr-push-frontend:
   stage: deploy
@@ -900,6 +909,8 @@ ghcr-push-frontend:
         --push
         --tag ghcr.io/visiban/visiban/frontend:latest
         frontend/
+  after_script:
+    - docker buildx ls --format '{{.Name}}' | grep -v '^default' | xargs -r docker buildx rm || true
 
 # ─── GitHub Release ────────────────────────────────────────────────────────────
 #
