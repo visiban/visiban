@@ -986,7 +986,6 @@ class CardViewSet(viewsets.ModelViewSet):
                 size=file.size,
                 uploaded_by=request.user,
             )
-            card.refresh_from_db()
             card_data = _refetched_card_data(card, request, board)
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
