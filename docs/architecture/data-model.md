@@ -13,7 +13,14 @@ User
  ├── timezone (str)
  ├── date_format (str)
  ├── time_format (str)
- └── number_locale (str)
+ ├── number_locale (str)
+ ├── notif_card_assigned (bool, default true — notify when a card is assigned to this user)
+ ├── notif_mentioned (bool, default true — notify on @mention in card description)
+ ├── notif_due_soon (bool, default false — notify when a card's due date is approaching)
+ ├── notif_card_moved (bool, default false — notify when a card is moved)
+ ├── notif_comment_added (bool, default false — notify when a comment is added to an assigned card)
+ ├── notif_board_invite (bool, default true — notify when added to a board)
+ └── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
 
 Group
  ├── owner → User
@@ -29,6 +36,8 @@ Board
  ├── enforce_wip_limits (bool — block moves into over-limit columns; default true)
  ├── enforce_wip_hard (bool — hard-block mode with no admin override; default false)
  ├── enforce_weight_limits (bool — block moves that exceed column weight budget; default true)
+ ├── description (text, optional — board description; blank = no description)
+ ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
  ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
  ├── allowed_priorities (JSON — restricts available card priorities; empty = all allowed)
  ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
@@ -43,6 +52,14 @@ Card
  ├── board → Board
  ├── column → Column
  ├── swimlane → Swimlane
+ ├── title (str, max 500 chars)
+ ├── description (text, optional)
+ ├── priority (str — low | medium | high | urgent; default medium)
+ ├── due_date (date, nullable)
+ ├── weight (int, default 1 — used for column weight budget enforcement)
+ ├── position (int — sort order within the cell)
+ ├── created_by (→ User, nullable — set to null if the creator account is deleted)
+ ├── version (int, default 1 — optimistic concurrency control; incremented on every mutation; clients send the version they have; 409 returned if the card has been modified in the meantime)
  ├── assignee → User (nullable)
  ├── labels → Label (M2M)
  ├── archived_at (datetime, nullable — soft-delete timestamp; null = active)
@@ -75,7 +92,7 @@ SavedFilter
 Notification
  ├── recipient → User
  ├── actor → User (nullable — the user who triggered the notification)
- ├── action_type (str — assigned | mentioned | card_moved | stale)
+ ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite)
  ├── verb (str — human-readable summary)
  ├── card → Card (nullable)
  ├── board → Board (nullable)
@@ -100,6 +117,10 @@ The `is_site_admin` flag grants access to the Visiban admin panel (user manageme
 `default_board` is a foreign key to `Board` with `on_delete=SET_NULL`. After login, the frontend redirects to this board if set. The frontend verifies access before redirecting to prevent an IDOR leak via a stale FK.
 
 `close_editor_on_enter` controls whether pressing Enter in the new-card inline editor submits and closes the editor (default true). Shift+Enter always inserts a newline regardless of this setting.
+
+The `notif_*` boolean fields store per-user notification preferences. Each flag maps to one `action_type` on the `Notification` model. Defaults follow the principle of least surprise: events directly targeting the user (`card_assigned`, `mentioned`, `board_invite`) are on by default; ambient events (`due_soon`, `card_moved`, `comment_added`) are off by default to avoid noise. Users can change preferences from their profile settings page.
+
+`has_completed_tour` is set to true the first time the onboarding tour completes. The frontend reads this field on login and skips the tour for returning users.
 
 ### Board
 
@@ -143,7 +164,9 @@ Saved filters are private to the owning user — there is no sharing across boar
 
 ### Notification
 
-Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection). The `verb` field stores a human-readable summary. The `actor` and `action_type` fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.
+Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite). The `verb` field stores a human-readable summary. The `actor` and `action_type` fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.
+
+The `board_invite` action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the `card` FK is null for this action type.
 
 ### InviteLink
 
