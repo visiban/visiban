@@ -801,7 +801,12 @@ frontend-docker-build:
   before_script:
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
-    - docker buildx use multiarch
+    # Create a fresh docker-container driver builder for this job. The builder
+    # instance config lives in the job container's home dir (ephemeral), so we
+    # cannot reuse a builder created on the host by another user. The host's
+    # QEMU binfmt_misc registrations (qemu-user-static, persistent via systemd)
+    # are inherited by the buildkitd container, enabling linux/arm64 emulation.
+    - docker buildx create --driver docker-container --bootstrap --use
 
 backend-docker-push:
   extends: .docker-push-common
@@ -868,7 +873,7 @@ ghcr-push-backend:
   image: docker:28-cli
   before_script:
     - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
-    - docker buildx use multiarch
+    - docker buildx create --driver docker-container --bootstrap --use
   script:
     - docker buildx build
         --platform linux/amd64,linux/arm64
@@ -885,7 +890,7 @@ ghcr-push-frontend:
   image: docker:28-cli
   before_script:
     - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
-    - docker buildx use multiarch
+    - docker buildx create --driver docker-container --bootstrap --use
   script:
     - docker buildx build
         --platform linux/amd64,linux/arm64
