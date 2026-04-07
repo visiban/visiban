@@ -1,0 +1,3173 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Swimlane pipeline board — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.0.0-rc.11/architecture/open-core-boundary/">
+      
+      
+        <link rel="prev" href="../scaling/">
+      
+      
+        <link rel="next" href="../api-versioning/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Open-Core Boundary - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#open-core-boundary" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Open-Core Boundary
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Security
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_16" id="__nav_3_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#classification-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Classification table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-rulings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detailed rulings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed rulings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oidc-authentication-oss-vs-saml-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OIDC authentication (OSS) vs SAML (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audit-log-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audit log (split)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wip-enforcement-oss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WIP enforcement (OSS)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#movement-history-view-oss-vs-export-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movement history: view (OSS) vs export (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-swimlane-analytics-basic-oss-vs-advanced-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-swimlane analytics: basic (OSS) vs advanced (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outgoing-webhooks-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outgoing webhooks (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pats-oss-vs-service-account-tokens-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATs (OSS) vs service account tokens (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transactional email notifications (OSS) vs channel integrations (Enterprise)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-retention-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data retention (split)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oss-extension-points-implementation-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OSS extension points — implementation status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Audit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="open-core-boundary">Open-Core Boundary<a class="headerlink" href="#open-core-boundary" title="Permanent link">&para;</a></h1>
+<p>This document records the OSS vs enterprise classification for every feature area where the boundary has been formally decided. It is the canonical reference — when a feature appears here, the ruling supersedes any informal discussion in issue comments.</p>
+<p><strong>Guiding principle:</strong> "Can a small team work together effectively without this?" If no → OSS core. If yes → enterprise candidate.</p>
+<hr />
+<h2 id="classification-table">Classification table<a class="headerlink" href="#classification-table" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Classification</th>
+<th>Rationale summary</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Username/password login</td>
+<td>OSS</td>
+<td>Authentication prerequisite</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Google OAuth</td>
+<td>OSS</td>
+<td>Existing stack</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GitHub OAuth</td>
+<td>OSS</td>
+<td>Existing stack</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GitLab OAuth</td>
+<td>OSS</td>
+<td>Existing stack</td>
+<td>—</td>
+</tr>
+<tr>
+<td>OIDC authentication (generic)</td>
+<td>OSS</td>
+<td>Extension of existing OAuth stack; no new dependency</td>
+<td>#349</td>
+</tr>
+<tr>
+<td>SSO / SAML</td>
+<td>Enterprise</td>
+<td>See OIDC vs SAML ruling below</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Card-level activity (CardMovement)</td>
+<td>OSS</td>
+<td>Core collaborative feature — teams need their own card history</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System-wide compliance audit log</td>
+<td>Enterprise</td>
+<td>Compliance tooling; card-level history in OSS is sufficient for small teams</td>
+<td>#350→enterprise</td>
+</tr>
+<tr>
+<td>Hard WIP enforcement</td>
+<td>OSS</td>
+<td>Core Kanban mechanism; soft-only enforcement does not work</td>
+<td>#344</td>
+</tr>
+<tr>
+<td>Outgoing webhooks</td>
+<td>Enterprise</td>
+<td>Integration with external services; small teams can work inside Visiban without them</td>
+<td>#345→enterprise</td>
+</tr>
+<tr>
+<td>Saved filters per user per board</td>
+<td>OSS</td>
+<td>Basic productivity feature for boards with many swimlanes</td>
+<td>#343</td>
+</tr>
+<tr>
+<td>Movement history search + filter view</td>
+<td>OSS</td>
+<td>Teams need to query their own audit trail</td>
+<td>#342</td>
+</tr>
+<tr>
+<td>Movement history delivery report export (CSV/PDF)</td>
+<td>Enterprise</td>
+<td>Formatted compliance/client reporting artifact</td>
+<td>#342 note</td>
+</tr>
+<tr>
+<td>Per-swimlane analytics (basic)</td>
+<td>OSS</td>
+<td>Teams managing work per client/swimlane need row-level visibility</td>
+<td>#341</td>
+</tr>
+<tr>
+<td>Advanced analytics (velocity trends, CFD, exports)</td>
+<td>Enterprise</td>
+<td>Beyond basic visibility; serves analytics/compliance buyers</td>
+<td>#341 note</td>
+</tr>
+<tr>
+<td>Single-swimlane focus mode</td>
+<td>OSS</td>
+<td>Core navigation for boards with many swimlanes</td>
+<td>#340</td>
+</tr>
+<tr>
+<td>Read-only board share / guest link (basic)</td>
+<td>OSS</td>
+<td>Sharing status with external stakeholders is a basic collaboration need</td>
+<td>#348</td>
+</tr>
+<tr>
+<td>Branded client portal / custom-domain share</td>
+<td>Enterprise</td>
+<td>White-label extension of base share link</td>
+<td>#348 note</td>
+</tr>
+<tr>
+<td>User offboarding flow (deactivate + transfer)</td>
+<td>OSS</td>
+<td>Basic team membership management</td>
+<td>#347</td>
+</tr>
+<tr>
+<td>Invite link controls (expiry, single-use, revoke)</td>
+<td>OSS</td>
+<td>Basic security hygiene for any team onboarding members</td>
+<td>#346</td>
+</tr>
+<tr>
+<td>External ref field on Card (PR/issue link)</td>
+<td>OSS</td>
+<td>Basic workflow data field; Phase 1 of GitHub/GitLab integration</td>
+<td>#352 Phase 1</td>
+</tr>
+<tr>
+<td>Auto PR-to-card link via webhooks</td>
+<td>Enterprise</td>
+<td>Depends on enterprise webhook feature</td>
+<td>#352 Phase 2</td>
+</tr>
+<tr>
+<td>URL filter state persistence (bookmarkable views)</td>
+<td>OSS</td>
+<td>Basic navigation feature for all users</td>
+<td>#353 OSS portion</td>
+</tr>
+<tr>
+<td>Filtered share link for external clients</td>
+<td>Enterprise</td>
+<td>Combines base share token with filter state; guest-link layer</td>
+<td>#353 enterprise portion</td>
+</tr>
+<tr>
+<td>Dark/light mode theme toggle</td>
+<td>OSS</td>
+<td>Basic accessibility; per-user preference</td>
+<td>#355</td>
+</tr>
+<tr>
+<td>Org-enforced theme policy (white-label)</td>
+<td>Enterprise</td>
+<td>Org-level branding control</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Transactional email notifications (SMTP)</td>
+<td>OSS</td>
+<td>Core async-team collaboration; teams with absent members need email delivery</td>
+<td>#356</td>
+</tr>
+<tr>
+<td>External channel delivery (Slack, Teams)</td>
+<td>Enterprise</td>
+<td>Third-party service integrations</td>
+<td>enterprise #34</td>
+</tr>
+<tr>
+<td>Inbound card creation via email</td>
+<td>Enterprise</td>
+<td>Integration concern; teams can create cards directly</td>
+<td>enterprise #1</td>
+</tr>
+<tr>
+<td>PATs (user-tied, full-access)</td>
+<td>OSS</td>
+<td>Machine credentials for CI/CD</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Service account tokens (board-scoped, read-only/write)</td>
+<td>Enterprise</td>
+<td>Strict security policy orgs; small teams work around it with PATs</td>
+<td>enterprise #17</td>
+</tr>
+<tr>
+<td>SAML 2.0 / ADFS</td>
+<td>Enterprise</td>
+<td>Separate library; enterprise identity buyers</td>
+<td>enterprise #4</td>
+</tr>
+<tr>
+<td>Automation rules (if/then triggers)</td>
+<td>Enterprise</td>
+<td>Advanced automation; small teams work without it</td>
+<td>enterprise #8</td>
+</tr>
+<tr>
+<td>IP allowlisting</td>
+<td>Enterprise</td>
+<td>Organization-scale access control</td>
+<td>enterprise #7</td>
+</tr>
+<tr>
+<td>Custom RBAC roles</td>
+<td>Enterprise</td>
+<td>Granular permissions beyond admin/member/viewer</td>
+<td>enterprise #6</td>
+</tr>
+<tr>
+<td>SLA tracking and aging alerts</td>
+<td>Enterprise</td>
+<td>Advanced time-tracking; small teams use cycle time data in OSS</td>
+<td>enterprise #10</td>
+</tr>
+<tr>
+<td>Recurring cards</td>
+<td>Enterprise</td>
+<td>Automation concern</td>
+<td>enterprise #11</td>
+</tr>
+<tr>
+<td>Advanced analytics (cycle time dists, CFD)</td>
+<td>Enterprise</td>
+<td>Beyond OSS basic analytics</td>
+<td>enterprise #12</td>
+</tr>
+<tr>
+<td>Scheduled report emails</td>
+<td>Enterprise</td>
+<td>Automated digest delivery</td>
+<td>enterprise #13</td>
+</tr>
+<tr>
+<td>Custom dashboards (multi-board widgets)</td>
+<td>Enterprise</td>
+<td>Advanced cross-board visibility</td>
+<td>enterprise #14</td>
+</tr>
+<tr>
+<td>Slack/Teams notifications</td>
+<td>Enterprise</td>
+<td>Third-party integrations</td>
+<td>enterprise #16</td>
+</tr>
+<tr>
+<td>Board template visual editor</td>
+<td>Enterprise</td>
+<td>Basic template creation via API/admin is sufficient for OSS</td>
+<td>enterprise #3</td>
+</tr>
+<tr>
+<td>Data retention policies (auto-delete/archive)</td>
+<td>Enterprise</td>
+<td>Compliance/legal-hold tooling; manual archiving is OSS</td>
+<td>enterprise #19</td>
+</tr>
+<tr>
+<td>Multi-tenancy / organization management</td>
+<td>Enterprise</td>
+<td>Multiple groups under one billing entity</td>
+<td>enterprise #21</td>
+</tr>
+<tr>
+<td>Usage quotas and plan limits</td>
+<td>Enterprise</td>
+<td>SaaS tier management</td>
+<td>enterprise #22</td>
+</tr>
+<tr>
+<td>White-labeling</td>
+<td>Enterprise</td>
+<td>Custom branding</td>
+<td>enterprise #23</td>
+</tr>
+<tr>
+<td>External tool import wizard</td>
+<td>Enterprise</td>
+<td>Migration tooling</td>
+<td>enterprise #24</td>
+</tr>
+<tr>
+<td>Form engine for card intake</td>
+<td>Enterprise</td>
+<td>Borderline; revisit if intake teams are a common OSS persona</td>
+<td>enterprise #32</td>
+</tr>
+<tr>
+<td>Google Calendar integration</td>
+<td>Enterprise</td>
+<td>External service</td>
+<td>enterprise #2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="detailed-rulings">Detailed rulings<a class="headerlink" href="#detailed-rulings" title="Permanent link">&para;</a></h2>
+<h3 id="oidc-authentication-oss-vs-saml-enterprise">OIDC authentication (OSS) vs SAML (Enterprise)<a class="headerlink" href="#oidc-authentication-oss-vs-saml-enterprise" title="Permanent link">&para;</a></h3>
+<p>Generic OIDC via <code>allauth.socialaccount.providers.openid_connect</code> is OSS. It is an extension of the Google/GitHub/GitLab OAuth stack already in the codebase; the library (<code>django-allauth</code>) is already a dependency, so no new package is required.</p>
+<p>SAML and ADFS require a separate library (e.g. <code>python3-saml</code> or <code>djangosaml2</code>) and serve a different customer segment — enterprises with centralized identity management. SAML remains enterprise.</p>
+<blockquote>
+<p><strong>Status: Tech Preview.</strong> The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow against a real identity provider has not been validated. The boundary ruling is final; the feature is not yet ready for production use. See also: <a href="../../administration/authentication/">Authentication docs</a>.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Classification</th>
+<th>Status</th>
+<th>Library</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google OAuth</td>
+<td>OSS</td>
+<td>Shipped</td>
+<td><code>allauth</code> (already present)</td>
+</tr>
+<tr>
+<td>GitHub OAuth</td>
+<td>OSS</td>
+<td>Shipped</td>
+<td><code>allauth</code> (already present)</td>
+</tr>
+<tr>
+<td>GitLab OAuth</td>
+<td>OSS</td>
+<td>Shipped</td>
+<td><code>allauth</code> (already present)</td>
+</tr>
+<tr>
+<td>Generic OIDC</td>
+<td>OSS</td>
+<td><strong>Tech Preview — end-to-end untested</strong></td>
+<td><code>allauth</code> (already present)</td>
+</tr>
+<tr>
+<td>SAML 2.0 / ADFS</td>
+<td>Enterprise</td>
+<td>Planned</td>
+<td>separate library required</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Issue:</strong> #349</p>
+<hr />
+<h3 id="audit-log-split">Audit log (split)<a class="headerlink" href="#audit-log-split" title="Permanent link">&para;</a></h3>
+<p>The audit log is split across OSS and enterprise by scope:</p>
+<p><strong>OSS — card-level activity</strong></p>
+<p><code>CardMovement</code> and <code>CardActivity</code> record what happened to individual cards. This is a core collaborative feature that teams rely on daily. It exists in the OSS codebase and will stay there.</p>
+<p><strong>Enterprise — system-wide compliance audit log</strong></p>
+<p>A compliance audit log records board lifecycle events (created, deleted, archived), membership changes, and admin actions. It may export to a SIEM and enforce configurable retention policies. This serves security and compliance buyers, not small teams.</p>
+<p><strong>OSS extension points required</strong> (before the enterprise audit log can be built):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># boards/signals.py — OSS fires these; enterprise subscribes</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">post_board_created</span>    <span class="c1"># sender=Board, kwargs: board, actor</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">post_board_deleted</span>    <span class="c1"># sender=Board, kwargs: board_id, name, actor</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">post_member_added</span>     <span class="c1"># sender=BoardMembership, kwargs: board, user, role, actor</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">post_member_removed</span>   <span class="c1"># sender=BoardMembership, kwargs: board, user, actor</span>
+</code></pre></div>
+<p>A <code>VISIBAN_AUDIT_BACKEND</code> setting (defaulting to <code>NullAuditBackend</code>) must be defined in OSS settings so enterprise can register its audit recorder without modifying OSS files.</p>
+<p><strong>Issue:</strong> OSS extension points tracked in #350 (transferred to enterprise repo; OSS signal work tracked separately).</p>
+<hr />
+<h3 id="wip-enforcement-oss">WIP enforcement (OSS)<a class="headerlink" href="#wip-enforcement-oss" title="Permanent link">&para;</a></h3>
+<p>WIP limits (<code>wip_limit</code> field on Column) exist in OSS. The enforcement mode — soft (advisory toast) vs hard (blocked move) — is a board-level setting that belongs in OSS. A small team using WIP limits cannot manage capacity effectively with soft-only enforcement.</p>
+<p>The board setting <code>enforce_wip_hard</code> (boolean, default <code>false</code>) toggles between modes. No enterprise extension point is needed.</p>
+<p><strong>Issue:</strong> #344. Note: enterprise repo issue #9 was closed as a duplicate; work belongs here.</p>
+<hr />
+<h3 id="movement-history-view-oss-vs-export-enterprise">Movement history: view (OSS) vs export (Enterprise)<a class="headerlink" href="#movement-history-view-oss-vs-export-enterprise" title="Permanent link">&para;</a></h3>
+<p>The board-level movement history view — filterable by swimlane, column, date range, and assignee — is OSS. Without it, teams cannot query their own audit trail.</p>
+<p>Structured delivery report export (CSV/PDF, formatted for client or QBR presentation) is enterprise. The OSS view must expose a <code>movement_history_export</code> signal/hook so enterprise can attach export formatters without modifying OSS view code.</p>
+<p><strong>Issue:</strong> #342</p>
+<hr />
+<h3 id="per-swimlane-analytics-basic-oss-vs-advanced-enterprise">Per-swimlane analytics: basic (OSS) vs advanced (Enterprise)<a class="headerlink" href="#per-swimlane-analytics-basic-oss-vs-advanced-enterprise" title="Permanent link">&para;</a></h3>
+<p>Basic per-swimlane analytics — cards in flight, average cycle time, cards moved to Done in the last 30 days — is OSS. Teams managing work per client/swimlane need row-level visibility.</p>
+<p>Advanced analytics (velocity trends over time, bottleneck detection, historical period comparisons, exportable reports) are enterprise.</p>
+<p>The OSS analytics page must expose an <code>ANALYTICS_EXTENSIONS</code> registration point so enterprise can add panels without modifying OSS view files.</p>
+<p><strong>Issue:</strong> #341</p>
+<hr />
+<h3 id="outgoing-webhooks-enterprise">Outgoing webhooks (Enterprise)<a class="headerlink" href="#outgoing-webhooks-enterprise" title="Permanent link">&para;</a></h3>
+<p>Outgoing webhooks are classified enterprise. A small team can track work end-to-end inside Visiban without pushing events to external systems.</p>
+<p><strong>OSS extension point required:</strong> The OSS core must fire card-level signals so enterprise can subscribe the webhook dispatcher without wrapping individual view methods:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># boards/signals.py — required before enterprise webhook feature (#39) can be built</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">post_card_created</span>    <span class="c1"># sender=Card, kwargs: card, actor</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">post_card_moved</span>      <span class="c1"># sender=Card, kwargs: card, from_column, to_column, actor</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">post_card_closed</span>     <span class="c1"># sender=Card, kwargs: card, actor</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">post_card_updated</span>    <span class="c1"># sender=Card, kwargs: card, changed_fields, actor</span>
+</code></pre></div>
+<p>A <code>VISIBAN_WEBHOOK_BACKEND</code> registration pattern must also be defined in OSS settings.</p>
+<p><strong>Issue:</strong> enterprise #39 (transferred from OSS #345).</p>
+<hr />
+<h3 id="pats-oss-vs-service-account-tokens-enterprise">PATs (OSS) vs service account tokens (Enterprise)<a class="headerlink" href="#pats-oss-vs-service-account-tokens-enterprise" title="Permanent link">&para;</a></h3>
+<p>OSS Personal Access Tokens are user-tied, carry the user's full access rights, and are limited to 10 per user. They are sufficient for small teams doing CI/CD automation.</p>
+<p>Enterprise service account tokens are not tied to a real user account. They support board-scoped permissions (read-only vs read-write) and are intended for strict security environments where personal-credential use in automation is prohibited.</p>
+<p><strong>Boundary documentation:</strong> see <a href="../../features/personal-access-tokens/">Personal Access Tokens</a> for OSS PAT scope. The service-account distinction must be documented in the enterprise repo before enterprise #17 is implemented.</p>
+<hr />
+<h3 id="transactional-email-notifications-oss-vs-channel-integrations-enterprise">Transactional email notifications (OSS) vs channel integrations (Enterprise)<a class="headerlink" href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise" title="Permanent link">&para;</a></h3>
+<p>SMTP delivery of in-app notification events (card assigned, @mention, due date, card moved) is OSS. Teams with members who are not watching the board all day need email delivery to collaborate effectively.</p>
+<p>Slack/Teams channel delivery and other third-party integrations are enterprise.</p>
+<p><strong>OSS extension point required:</strong> The OSS notification system must fire a <code>post_notification_created</code> signal so enterprise can subscribe additional delivery backends (Slack, Teams, email templates) without modifying OSS files.</p>
+<p><strong>Issue:</strong> OSS transactional email tracked in #356. Enterprise channel delivery in enterprise #34.</p>
+<hr />
+<h3 id="data-retention-split">Data retention (split)<a class="headerlink" href="#data-retention-split" title="Permanent link">&para;</a></h3>
+<p>Manual card archiving is OSS (existing feature). Automated retention policies (auto-archive or delete cards older than an admin-configured threshold) are enterprise compliance tooling.</p>
+<p><strong>Issue:</strong> enterprise #19.</p>
+<hr />
+<h2 id="oss-extension-points-implementation-status">OSS extension points — implementation status<a class="headerlink" href="#oss-extension-points-implementation-status" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Extension point</th>
+<th>Required by</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>post_board_created/deleted/member_added/removed</code> signals</td>
+<td>Enterprise audit log (enterprise #28)</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>VISIBAN_AUDIT_BACKEND</code> setting</td>
+<td>Enterprise audit log</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>post_card_created/moved/closed/updated</code> signals</td>
+<td>Enterprise webhooks (enterprise #39), automation (enterprise #8)</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>VISIBAN_WEBHOOK_BACKEND</code> setting</td>
+<td>Enterprise webhooks</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>VISIBAN_AUTOMATION_BACKEND</code> setting</td>
+<td>Enterprise automation (enterprise #8)</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>movement_history_export</code> hook</td>
+<td>Enterprise delivery report export (#342 enterprise)</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>ANALYTICS_EXTENSIONS</code> registration</td>
+<td>Enterprise advanced analytics (#341 enterprise)</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>post_notification_created</code> signal</td>
+<td>Enterprise channel delivery (enterprise #34)</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>BaseSnapshotStorage</code> / <code>SNAPSHOT_STORAGE_BACKEND</code></td>
+<td>Enterprise S3 snapshots (enterprise #37)</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td><code>post_reminder_due</code> signal</td>
+<td>Enterprise reminder delivery (enterprise #35)</td>
+<td>Not yet implemented</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
