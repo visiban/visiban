@@ -65,7 +65,14 @@ class ServeMediaView(APIView):
         if content_type in _safe_inline_types:
             disposition = "inline"
         else:
-            disposition = f'attachment; filename="{attachment.filename}"'
+            # Sanitize before embedding in the header — a bare double-quote in the
+            # filename triggers Django's BadHeaderError and returns HTTP 500 to every
+            # subsequent download attempt for that attachment.  Strip path components
+            # as an additional guard; the stored filename should already be clean after
+            # the fix in cards.py but defense-in-depth covers existing rows.
+            import os
+            safe_name = os.path.basename(attachment.filename).replace('"', '_')
+            disposition = f'attachment; filename="{safe_name}"'
 
         if django_settings.DEBUG:
             # Development: serve the file directly through Django. Not used in

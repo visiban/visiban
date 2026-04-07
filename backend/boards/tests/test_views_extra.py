@@ -173,6 +173,26 @@ class CardAttachmentTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertEqual(r.json()["filename"], "test.txt")
 
+    def test_upload_filename_with_double_quote_is_sanitized(self):
+        """Filenames containing double-quotes must be sanitized at upload time (#682).
+
+        A bare " stored in CardAttachment.filename causes Django's BadHeaderError
+        on every subsequent download, effectively DoS-ing that attachment for all
+        board members.  The upload endpoint must replace " with _ before storing.
+        """
+        content = b"payload"
+        upload = io.BytesIO(content)
+        upload.name = 'evil"name.pdf'
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/",
+            {"file": upload},
+            format="multipart",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        stored_filename = r.json()["filename"]
+        self.assertNotIn('"', stored_filename,
+            "Double-quote must be replaced before storing the filename")
+
     def test_upload_missing_file_rejected(self):
         r = self.client.post(
             f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/",
