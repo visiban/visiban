@@ -158,9 +158,12 @@ if [[ "$ERRORS" -gt 0 ]]; then
 fi
 
 # Commit and push branch
+# Include changelog.d/ so that fragment deletions from assemble-changelog.sh
+# are committed — without this, deleted fragments are left as unstaged changes
+# and re-accumulate on main after the next pull.
 git add CHANGELOG.md .env.example docker-compose.yml docker-compose.prod.yml \
         frontend/package.json README.md docs/index.md docs/getting-started/installation.md \
-        helm/visiban/values.yaml
+        helm/visiban/values.yaml changelog.d/
 git commit -m "chore: release ${TAG}"
 git push -u origin "$RELEASE_BRANCH"
 
