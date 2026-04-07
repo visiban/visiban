@@ -212,6 +212,18 @@ fi
 glab release create "$TAG" --name "$TAG" --notes-file "$NOTES_FILE"
 rm -f "$NOTES_FILE"
 
+# Close any remaining open issues in the milestone so the milestone ends clean.
+# Issues closed by MR auto-close are already handled at merge time; this catches
+# any audit-generated or manually-created issues that were fixed without an
+# explicit "Closes #N" reference in the MR description.
+MILESTONE_TITLE="${VERSION%.*}.x"  # e.g. "1.0" from "1.0.3", "1.x" from "1.2.0"
+# For a major.minor.patch version, derive the milestone as major.minor.
+if [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+ ]]; then
+  MILESTONE_TITLE="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+fi
+echo "Closing open milestone issues for '${MILESTONE_TITLE}'..."
+"$(dirname "$0")/close-milestone-issues.sh" "$MILESTONE_TITLE" || true
+
 # Deploy docs with mike
 echo "Deploying docs..."
 pip install --quiet -r docs/requirements.txt

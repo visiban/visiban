@@ -3,8 +3,8 @@ daphne==4.1.2
 channels==4.3.2
 channels-redis==4.3.0
 djangorestframework==3.16.1
-psycopg2-binary==2.9.10
-django-allauth==65.14.1
+psycopg2-binary==2.9.11
+django-allauth==65.14.3
 dj-rest-auth==7.1.1
 django-cors-headers==4.9.0
 django-environ==0.13.0
