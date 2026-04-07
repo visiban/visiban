@@ -48,3 +48,25 @@ Replace `http://localhost:8000` with your public domain in all callback URLs.
 
 !!! note
     OAuth callbacks are routed through `/_allauth/` paths handled by the backend. Ensure your production nginx config proxies `/_allauth/` to the backend — the provided `nginx/app.conf.template` already includes this block.
+
+## Generic OIDC (OpenID Connect)
+
+Visiban supports any standards-compliant OpenID Connect provider (Keycloak, Authentik, Dex, Azure AD, Okta, etc.) via the generic OIDC backend.
+
+1. Create a confidential client in your identity provider with:
+   - Grant type: **Authorization Code**
+   - Redirect URI: `https://yourdomain.com/_allauth/browser/v1/auth/provider/callback` (replace with your domain; use `http://localhost:8000` for local dev)
+2. Add to `.env`:
+
+```
+OIDC_CLIENT_ID=your-client-id
+OIDC_SECRET=your-client-secret
+OIDC_SERVER_URL=https://idp.example.com/realms/my-realm
+OIDC_PROVIDER_NAME=SSO        # optional — controls the login button label
+```
+
+All three of `OIDC_CLIENT_ID`, `OIDC_SECRET`, and `OIDC_SERVER_URL` must be set for OIDC to be enabled; setting only one or two has no effect.
+
+`OIDC_SERVER_URL` must be the issuer root URL. Visiban appends `/.well-known/openid-configuration` to discover token and userinfo endpoints automatically.
+
+Scopes requested: `openid`, `email`, `profile`.

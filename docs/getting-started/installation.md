@@ -134,6 +134,12 @@ A template with comments is at `frontend/.env.local.example`.
 | `DJANGO_SUPERUSER_USERNAME` | No | Override bootstrap admin username (default: `admin`) |
 | `DJANGO_SUPERUSER_EMAIL` | No | Override bootstrap admin email (default: `admin@localhost`) |
 | `ACCOUNT_EMAIL_VERIFICATION` | No | Email verification mode: `none` (default — no verification required, works without SMTP), `optional` (sends verification email but allows login without it), or `mandatory` (blocks login until email is verified) |
+| `SECURE_HSTS_SECONDS` | No | HTTP Strict-Transport-Security max-age in seconds (default: `0` in development, `31536000` — 1 year — in production when `DEBUG=false`). **Warning:** setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. `300`) when first enabling HTTPS, then increase once you confirm everything works. |
+| `DJANGO_ADMIN_ALLOWED_IPS` | No | Comma-separated list of IP addresses (or CIDR blocks) allowed to access `/admin/`. In production the default is loopback only (`127.0.0.1`, `::1`). Set this to your management network range if you need non-loopback access. Also documented in [Secret Rotation](../administration/secret-rotation.md). |
+| `OIDC_CLIENT_ID` | No | OIDC provider client ID — required when using generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three `OIDC_*` vars must be set together to enable OIDC login. See [OAuth Setup](oauth.md). |
+| `OIDC_SECRET` | No | OIDC provider client secret. |
+| `OIDC_SERVER_URL` | No | OIDC issuer URL, e.g. `https://idp.example.com/realms/my-realm`. Must be the issuer root — allauth appends `.well-known/openid-configuration` to discover endpoints. |
+| `OIDC_PROVIDER_NAME` | No | Display name shown on the OIDC login button (default: `SSO`). |
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
 
