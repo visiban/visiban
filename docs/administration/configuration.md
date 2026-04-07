@@ -10,7 +10,7 @@ Copy `.env.example` to `.env` in the repository root and fill in the values belo
 
 | Variable | Description | Example / default |
 |---|---|---|
-| `DJANGO_SECRET_KEY` | Django signing key. Generate with: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` | *generated value* |
+| `DJANGO_SECRET_KEY` | Django signing key. Generate with: `python -c "import secrets; print(secrets.token_urlsafe(50))"` | *generated value* |
 | `DATABASE_URL` | PostgreSQL connection string | `postgres://visiban:visiban@db:5432/visiban` |
 | `POSTGRES_PASSWORD` | Must match the password in `DATABASE_URL` | `visiban` (dev only) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth — leave blank to disable | *optional* |
