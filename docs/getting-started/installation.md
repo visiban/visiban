@@ -140,6 +140,7 @@ A template with comments is at `frontend/.env.local.example`.
 | `OIDC_SECRET` | No | OIDC provider client secret. |
 | `OIDC_SERVER_URL` | No | OIDC issuer URL, e.g. `https://idp.example.com/realms/my-realm`. Must be the issuer root — allauth appends `.well-known/openid-configuration` to discover endpoints. |
 | `OIDC_PROVIDER_NAME` | No | Display name shown on the OIDC login button (default: `SSO`). |
+| `MAX_UPLOAD_SIZE_BYTES` | No | Maximum file size for card attachment uploads in bytes (default: `10485760` — 10 MB). Increase for teams with large attachment needs; decrease to limit storage use. |
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
 
