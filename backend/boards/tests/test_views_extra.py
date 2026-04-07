@@ -173,16 +173,21 @@ class CardAttachmentTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         self.assertEqual(r.json()["filename"], "test.txt")
 
-    def test_upload_filename_with_double_quote_is_sanitized(self):
-        """Filenames containing double-quotes must be sanitized at upload time (#682).
+    def test_upload_filename_path_traversal_is_sanitized(self):
+        """Path-separator characters in filenames must be stripped at upload time (#682).
 
-        A bare " stored in CardAttachment.filename causes Django's BadHeaderError
-        on every subsequent download, effectively DoS-ing that attachment for all
-        board members.  The upload endpoint must replace " with _ before storing.
+        os.path.basename() is applied to the uploaded filename before storing, so a
+        path-traversal attempt like `../../etc/evil.pdf` is stored as just `evil.pdf`.
+
+        Note: a bare double-quote cannot be tested via HTTP because it breaks the
+        multipart Content-Disposition encoding in Django's test client before reaching
+        the view.  The serve-time double-quote defense is covered in
+        test_serve_media_access.py::ServeMediaContentDispositionTests.
         """
-        content = b"payload"
+        # Use real PDF magic bytes so the MIME allowlist check passes.
+        content = b"%PDF-1.4 minimal"
         upload = io.BytesIO(content)
-        upload.name = 'evil"name.pdf'
+        upload.name = "../../etc/evil.pdf"
         r = self.client.post(
             f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/",
             {"file": upload},
@@ -190,8 +195,10 @@ class CardAttachmentTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
         stored_filename = r.json()["filename"]
-        self.assertNotIn('"', stored_filename,
-            "Double-quote must be replaced before storing the filename")
+        self.assertNotIn("/", stored_filename,
+            "Path separators must be stripped by os.path.basename before storing")
+        self.assertNotIn("..", stored_filename,
+            "Path traversal sequences must not survive in the stored filename")
 
     def test_upload_missing_file_rejected(self):
         r = self.client.post(
