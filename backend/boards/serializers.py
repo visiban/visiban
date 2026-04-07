@@ -253,10 +253,9 @@ class BoardSerializer(serializers.ModelSerializer):
         if not value:
             return value
         valid = {p[0] for p in Card.Priority.choices}
-        invalid = [v for v in value if v not in valid]
-        if invalid:
+        if any(v not in valid for v in value):
             raise serializers.ValidationError(
-                f"Invalid priority values: {invalid}. Must be one of {sorted(valid)}."
+                f"Invalid priority value. Must be one of: {sorted(valid)}."
             )
         return value
 

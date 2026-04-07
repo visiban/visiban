@@ -321,7 +321,7 @@ class AllowedPrioritiesValidationTests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Invalid priority values", str(r.data))
+        self.assertIn("Invalid priority value", str(r.data))
 
     @patch(PATCH_BROADCAST)
     def test_empty_list_accepted(self, _):
