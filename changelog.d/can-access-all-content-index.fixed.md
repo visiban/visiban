@@ -1,1 +1,0 @@
-Add partial DB index on User.can_access_all_content — reduces the site-admin lookup on every board page load from a full user table scan to an index scan covering only the tiny set of users with that flag set.

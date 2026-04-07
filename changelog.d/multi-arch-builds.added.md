@@ -1,1 +1,0 @@
-Container images published to GHCR and the GitLab registry are now multi-arch manifests covering `linux/amd64` and `linux/arm64` — users on Apple Silicon Macs and Linux ARM64 servers pull the correct native slice automatically. Built using `docker buildx` with QEMU emulation on AMD64 runner VMs; no ARM64 runner required.

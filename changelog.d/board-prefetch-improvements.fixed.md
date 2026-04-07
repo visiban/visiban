@@ -1,1 +1,0 @@
-Eliminate two redundant queries per board request: board memberships are now prefetched alongside the board load so get_members() reads from cache; is_starred on mutation responses now uses the already-prefetched favorites list instead of issuing a live EXISTS query.

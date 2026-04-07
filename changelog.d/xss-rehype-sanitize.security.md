@@ -1,1 +1,0 @@
-Fix stored XSS in RichTextEditor: sanitize HTML output via rehype-sanitize, blocking script injection through card descriptions and comments. Also bump picomatch and brace-expansion to patch CVEs GHSA-3v7f-55p6-f55p, GHSA-c2c7-rcm5-vvqj, and GHSA-f886-m6hf-6m8v.

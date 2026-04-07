@@ -1,1 +1,0 @@
-Added `ANALYTICS_EXTENSIONS` hook to `boards/hooks.py`. The `/summary/` endpoint now reads enterprise analytics panel extensions from this list instead of returning a hardcoded empty array, allowing enterprise to register additional panels without modifying OSS files.

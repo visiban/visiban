@@ -1,1 +1,0 @@
-Switch README pipeline and coverage badges to native GitLab SVG endpoints; batch notification action_type backfill migration with `iterator(chunk_size=500)` + `bulk_update` to avoid long table locks on large production instances.

@@ -1,1 +1,0 @@
-Added "My cards" one-click filter button to the board filter bar, extracted card-filter logic to a shared `filterCards` utility, and documented the server/client search split with an inline architectural comment.

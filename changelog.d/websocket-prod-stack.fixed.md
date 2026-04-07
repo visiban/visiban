@@ -1,1 +1,0 @@
-WebSocket connections in the production Docker Compose stack are now reliable — nginx renders its config from a template at startup (no pre-generated host file required) and uses a proper `connection_upgrade` map, so real-time board updates are delivered correctly without manual setup steps.

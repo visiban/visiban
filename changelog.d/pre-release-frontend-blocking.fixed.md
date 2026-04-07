@@ -1,4 +1,0 @@
-- Fixed CardDetail delete/archive confirmation overlay missing dialog accessibility semantics — now uses `ModalWrapper` with proper `role="dialog"`, focus trapping, and Escape handling (#546)
-- Fixed GroupDetail transfer ownership and delete group modals missing dialog accessibility semantics (#483)
-- Fixed CardItem recently-moved dot violating three design system rules: corrected size (`w-2`), color token (`bg-blue-500`), and visibility behavior (#547)
-- Removed phantom `BoardMovement` TypeScript interface and consolidated to `CardMovement`; removed non-existent `card_id` field from movement types (#548)
