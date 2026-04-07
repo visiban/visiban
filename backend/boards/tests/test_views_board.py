@@ -1,4 +1,4 @@
-"""Tests for BoardViewSet actions: full, summary, analytics, members, destroy."""
+"""Tests for BoardViewSet actions: full, summary, analytics, members, destroy, validation."""
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -292,3 +292,51 @@ class BoardMembersTests(TestCase):
                 action_type=Notification.ActionType.BOARD_INVITE,
             ).exists()
         )
+
+
+class AllowedPrioritiesValidationTests(TestCase):
+    """BoardSerializer.validate_allowed_priorities rejects invalid enum values."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner2", password="pass")
+        self.board, _, _ = _make_board(self.owner, name="PriBoard")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    @patch(PATCH_BROADCAST)
+    def test_valid_priorities_accepted(self, _):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low", "high"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.allowed_priorities, ["low", "high"])
+
+    def test_invalid_priority_rejected(self):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low", "bogus"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Invalid priority value", str(r.data))
+
+    @patch(PATCH_BROADCAST)
+    def test_empty_list_accepted(self, _):
+        # Empty list means "all priorities allowed" — always valid.
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": []},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_all_valid_priorities_accepted(self):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low", "medium", "high", "urgent"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
