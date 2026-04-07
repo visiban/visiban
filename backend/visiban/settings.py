@@ -183,8 +183,8 @@ WHITENOISE_USE_FINDERS = DEBUG  # serve un-collected files in development only
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Maximum upload size: 10 MB
-MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+# Maximum upload size. Operators can override via MAX_UPLOAD_SIZE_BYTES env var.
+MAX_UPLOAD_SIZE = env.int("MAX_UPLOAD_SIZE_BYTES", default=10 * 1024 * 1024)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
