@@ -151,3 +151,22 @@ class ServeMediaContentDispositionTests(TestCase):
         disposition = r.get("Content-Disposition", "inline")
         self.assertEqual(disposition, "inline",
             "JPEG images should be served inline for a better UX")
+
+    def test_filename_with_double_quote_does_not_500(self):
+        """A filename containing a double-quote must not trigger BadHeaderError (#682).
+
+        Before the fix, embedding a bare " in Content-Disposition caused Django to
+        raise BadHeaderError and return HTTP 500 for every subsequent download of
+        that attachment.  The view must sanitize the filename and return 200.
+        """
+        # Bypass the upload sanitization by writing the bad filename directly so
+        # we verify the media-serve fallback independently of the creation path.
+        att = self._make_attachment(b"data", 'evil"name.pdf', "application/pdf")
+        att.filename = 'evil"name.pdf'
+        att.save()
+        r = self.client.get(f"/media/{att.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        disposition = r.get("Content-Disposition", "")
+        self.assertIn("attachment", disposition)
+        self.assertNotIn('"evil"name', disposition,
+            "Bare double-quote inside filename value must be escaped/replaced")

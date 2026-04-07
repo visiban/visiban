@@ -1,6 +1,7 @@
 """CardViewSet — CRUD endpoints for cards on a board, including move, archive, comments, etc."""
 
 import datetime
+import os
 
 import django_filters
 from django.db import transaction
@@ -979,7 +980,9 @@ class CardViewSet(viewsets.ModelViewSet):
             attachment = CardAttachment.objects.create(
                 card=card,
                 file=file,
-                filename=file.name,
+                # Sanitize filename: strip path separators and replace bare
+                # double-quotes so they cannot break the Content-Disposition header.
+                filename=os.path.basename(file.name).replace('"', '_'),
                 size=file.size,
                 uploaded_by=request.user,
             )
