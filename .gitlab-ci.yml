@@ -773,398 +773,128 @@ frontend-docker-build:
 
 # ─── Docker push (multi-arch: amd64 + arm64) ─────────────────────────────────
 #
-# Pushes backend and frontend images to the GitLab container registry after
-# every merge to main. Runs unconditionally on main so images are always
-# up to date regardless of which files changed.
+# Builds and pushes multi-arch images (linux/amd64 + linux/arm64) using
+# docker buildx with QEMU emulation. The host Docker daemon is accessed via
+# the socket mount in config.toml:
+#   volumes = ["/var/run/docker.sock:/var/run/docker.sock"]
 #
-# Tags: latest (for Helm chart) + short SHA (for rollback).
-# Pruning: configure a cleanup policy in Settings → Packages & Registries →
-#   Cleanup policies to keep the last N tags — this costs zero runner minutes.
+# Runner VM prerequisites (one-time setup, both VMs):
+#   apt-get install -y qemu-user-static binfmt-support
+#   docker buildx create --name multiarch --driver docker-container --bootstrap --use
 #
-# On tag pipelines, images are also pushed to GHCR (ghcr.io/visiban/visiban/*)
-# so public users can pull without GitLab credentials.
-# GHCR push requires GHCR_TOKEN and GHCR_USER CI variables (set in Phase 0.3).
-# Main-branch merges push to the GitLab registry only (latest + short SHA).
+# On main-branch merges: pushes linux/amd64+arm64 to the GitLab registry
+#   with :latest and :<short-sha> tags.
+# On tag pipelines: additionally pushes to GHCR with :<tag> and :latest tags.
 #
-# Multi-arch strategy:
-#   1. Per-arch kaniko jobs push arch-suffixed tags (:sha-amd64, :sha-arm64)
-#   2. A manifest job uses crane to merge them into an OCI image index
-#      (:sha, :latest, :TAG on release tags — supports docker pull on any arch)
-#   3. arm64 jobs require a runner tagged [arm64] and CI variable
-#      ENABLE_ARM64_BUILD=true. They carry allow_failure: true so the pipeline
-#      succeeds on amd64-only infrastructure; the manifest job then produces a
-#      single-arch index until an arm64 runner is registered.
+# --provenance=false prevents buildx from pushing an extra attestation manifest
+# that confuses older registry clients.
+#
+# The ARM64 slice is QEMU-emulated on AMD64 runners — slower than native but
+# acceptable for release-tag pipelines. The linux/arm64 image works natively
+# on both Linux ARM64 servers and Apple Silicon Macs.
 
-backend-docker-push-amd64:
+.docker-push-common:
   stage: deploy
+  # docker:28-cli provides the Docker CLI + buildx plugin without a bundled
+  # daemon — the host daemon is reached via the socket mount.
+  image: docker:28-cli
+  before_script:
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
+    - docker buildx use multiarch
+
+backend-docker-push:
+  extends: .docker-push-common
   needs: [backend-test-coverage]
-  resource_group: kaniko-build-amd64
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
-      "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
-      "ghcr.io" "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
   script:
     - |
-      DESTINATIONS="--destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}-amd64 \
-                    --destination=${CI_REGISTRY_IMAGE}/backend:latest-amd64"
+      TAGS="--tag ${CI_REGISTRY_IMAGE}/backend:latest \
+            --tag ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}"
       if [ -n "${CI_COMMIT_TAG}" ]; then
-        DESTINATIONS="${DESTINATIONS} \
-          --destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}-amd64 \
-          --destination=ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-amd64 \
-          --destination=ghcr.io/visiban/visiban/backend:latest-amd64"
+        TAGS="${TAGS} \
+          --tag ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG} \
+          --tag ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG} \
+          --tag ghcr.io/visiban/visiban/backend:latest"
       fi
-      /kaniko/executor --context=backend --dockerfile=backend/Dockerfile \
-        --custom-platform linux/amd64 \
-        ${DESTINATIONS} --snapshot-mode=redo
+      docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        --file backend/Dockerfile \
+        --provenance=false \
+        --push \
+        ${TAGS} \
+        backend/
 
-backend-docker-push-arm64:
-  stage: deploy
-  needs: [backend-test-coverage]
-  tags: [arm64]
-  allow_failure: true
-  resource_group: kaniko-build-arm64
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/ && $ENABLE_ARM64_BUILD == "true"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $ENABLE_ARM64_BUILD == "true"'
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
-      "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
-      "ghcr.io" "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
-  script:
-    - |
-      DESTINATIONS="--destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}-arm64 \
-                    --destination=${CI_REGISTRY_IMAGE}/backend:latest-arm64"
-      if [ -n "${CI_COMMIT_TAG}" ]; then
-        DESTINATIONS="${DESTINATIONS} \
-          --destination=${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}-arm64 \
-          --destination=ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-arm64 \
-          --destination=ghcr.io/visiban/visiban/backend:latest-arm64"
-      fi
-      /kaniko/executor --context=backend --dockerfile=backend/Dockerfile \
-        --custom-platform linux/arm64 \
-        ${DESTINATIONS} --snapshot-mode=redo
-
-backend-manifest:
-  stage: deploy
-  needs:
-    - job: backend-docker-push-amd64
-    - job: backend-docker-push-arm64
-      optional: true
-  image:
-    name: gcr.io/go-containerregistry/crane:debug
-    entrypoint: [""]
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  before_script:
-    - mkdir -p /root/.docker
-    - >-
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
-      "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
-      "ghcr.io" "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /root/.docker/config.json
-  script:
-    - |
-      # Assemble GitLab registry manifest list (SHA tag + latest)
-      GL_ARCH="-m ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}-amd64"
-      if crane manifest "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}-arm64" >/dev/null 2>&1; then
-        GL_ARCH="${GL_ARCH} -m ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}-arm64"
-      fi
-      # shellcheck disable=SC2086
-      crane index append ${GL_ARCH} \
-        -t "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}" \
-        -t "${CI_REGISTRY_IMAGE}/backend:latest"
-
-      # On release tags, also merge GHCR arch images into a multi-arch index
-      if [ -n "${CI_COMMIT_TAG}" ]; then
-        GHCR_ARCH="-m ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-amd64"
-        if crane manifest "ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-arm64" >/dev/null 2>&1; then
-          GHCR_ARCH="${GHCR_ARCH} -m ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-arm64"
-        fi
-        # shellcheck disable=SC2086
-        crane index append ${GHCR_ARCH} \
-          -t "ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}" \
-          -t "ghcr.io/visiban/visiban/backend:latest"
-      fi
-
-frontend-docker-push-amd64:
-  stage: deploy
+frontend-docker-push:
+  extends: .docker-push-common
   needs: [frontend-test]
-  resource_group: kaniko-build-amd64
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
-      "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
-      "ghcr.io" "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
   script:
     - |
-      DESTINATIONS="--destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}-amd64 \
-                    --destination=${CI_REGISTRY_IMAGE}/frontend:latest-amd64"
+      TAGS="--tag ${CI_REGISTRY_IMAGE}/frontend:latest \
+            --tag ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}"
       if [ -n "${CI_COMMIT_TAG}" ]; then
-        DESTINATIONS="${DESTINATIONS} \
-          --destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG}-amd64 \
-          --destination=ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-amd64 \
-          --destination=ghcr.io/visiban/visiban/frontend:latest-amd64"
+        TAGS="${TAGS} \
+          --tag ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG} \
+          --tag ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG} \
+          --tag ghcr.io/visiban/visiban/frontend:latest"
       fi
-      /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile \
-        --custom-platform linux/amd64 \
-        ${DESTINATIONS} --snapshot-mode=redo \
-        --build-arg NODE_OPTIONS=--max-old-space-size=512
-
-frontend-docker-push-arm64:
-  stage: deploy
-  needs: [frontend-test]
-  tags: [arm64]
-  allow_failure: true
-  resource_group: kaniko-build-arm64
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/ && $ENABLE_ARM64_BUILD == "true"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $ENABLE_ARM64_BUILD == "true"'
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
-      "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
-      "ghcr.io" "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
-  script:
-    - |
-      DESTINATIONS="--destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}-arm64 \
-                    --destination=${CI_REGISTRY_IMAGE}/frontend:latest-arm64"
-      if [ -n "${CI_COMMIT_TAG}" ]; then
-        DESTINATIONS="${DESTINATIONS} \
-          --destination=${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG}-arm64 \
-          --destination=ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-arm64 \
-          --destination=ghcr.io/visiban/visiban/frontend:latest-arm64"
-      fi
-      /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile \
-        --custom-platform linux/arm64 \
-        ${DESTINATIONS} --snapshot-mode=redo \
-        --build-arg NODE_OPTIONS=--max-old-space-size=512
-
-frontend-manifest:
-  stage: deploy
-  needs:
-    - job: frontend-docker-push-amd64
-    - job: frontend-docker-push-arm64
-      optional: true
-  image:
-    name: gcr.io/go-containerregistry/crane:debug
-    entrypoint: [""]
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  before_script:
-    - mkdir -p /root/.docker
-    - >-
-      printf '{"auths":{"%s":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
-      "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
-      "ghcr.io" "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /root/.docker/config.json
-  script:
-    - |
-      # Assemble GitLab registry manifest list (SHA tag + latest)
-      GL_ARCH="-m ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}-amd64"
-      if crane manifest "${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}-arm64" >/dev/null 2>&1; then
-        GL_ARCH="${GL_ARCH} -m ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}-arm64"
-      fi
-      # shellcheck disable=SC2086
-      crane index append ${GL_ARCH} \
-        -t "${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}" \
-        -t "${CI_REGISTRY_IMAGE}/frontend:latest"
-
-      # On release tags, also merge GHCR arch images into a multi-arch index
-      if [ -n "${CI_COMMIT_TAG}" ]; then
-        GHCR_ARCH="-m ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-amd64"
-        if crane manifest "ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-arm64" >/dev/null 2>&1; then
-          GHCR_ARCH="${GHCR_ARCH} -m ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-arm64"
-        fi
-        # shellcheck disable=SC2086
-        crane index append ${GHCR_ARCH} \
-          -t "ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}" \
-          -t "ghcr.io/visiban/visiban/frontend:latest"
-      fi
+      docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        --file frontend/Dockerfile \
+        --build-arg NODE_OPTIONS=--max-old-space-size=512 \
+        --provenance=false \
+        --push \
+        ${TAGS} \
+        frontend/
 
 # ─── GHCR manual push ─────────────────────────────────────────────────────────
 #
-# Pushes :latest images to GHCR on demand without running the full CI suite.
-# Multi-arch: trigger the amd64 job first, then arm64 (if runner is available),
-# then the manifest job to assemble the final multi-arch index.
-# Click the play button on any pipeline's deploy stage to trigger in order.
+# Pushes multi-arch :latest images to GHCR on demand without running the full
+# CI suite. Click the play button on any pipeline's deploy stage to trigger.
 #
 # Builds from the commit the pipeline is running on. To push from a specific
 # branch, trigger a pipeline on that branch (glab ci run -b <branch>) and
 # click play here.
-#
-# Note: kaniko debug image has no git binary, so branch-switching inside the
-# job is not possible. spec.inputs and per-schedule config file paths also
-# require GitLab Premium — these manual jobs are the Free-tier equivalent.
 
-ghcr-push-backend-amd64:
+ghcr-push-backend:
   stage: deploy
   when: manual
   allow_failure: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
+  image: docker:28-cli
   before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
+    - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
+    - docker buildx use multiarch
   script:
-    - /kaniko/executor
-        --context=backend
-        --dockerfile=backend/Dockerfile
-        --destination=ghcr.io/visiban/visiban/backend:latest-amd64
-        --custom-platform linux/amd64
-        --snapshot-mode=redo
+    - docker buildx build
+        --platform linux/amd64,linux/arm64
+        --file backend/Dockerfile
+        --provenance=false
+        --push
+        --tag ghcr.io/visiban/visiban/backend:latest
+        backend/
 
-ghcr-push-backend-arm64:
+ghcr-push-frontend:
   stage: deploy
   when: manual
   allow_failure: true
-  tags: [arm64]
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
+  image: docker:28-cli
   before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
+    - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
+    - docker buildx use multiarch
   script:
-    - /kaniko/executor
-        --context=backend
-        --dockerfile=backend/Dockerfile
-        --destination=ghcr.io/visiban/visiban/backend:latest-arm64
-        --custom-platform linux/arm64
-        --snapshot-mode=redo
-
-ghcr-push-backend-manifest:
-  stage: deploy
-  when: manual
-  allow_failure: true
-  needs:
-    - job: ghcr-push-backend-amd64
-    - job: ghcr-push-backend-arm64
-      optional: true
-  image:
-    name: gcr.io/go-containerregistry/crane:debug
-    entrypoint: [""]
-  before_script:
-    - mkdir -p /root/.docker
-    - >-
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /root/.docker/config.json
-  script:
-    - |
-      ARCH="-m ghcr.io/visiban/visiban/backend:latest-amd64"
-      if crane manifest "ghcr.io/visiban/visiban/backend:latest-arm64" >/dev/null 2>&1; then
-        ARCH="${ARCH} -m ghcr.io/visiban/visiban/backend:latest-arm64"
-      fi
-      # shellcheck disable=SC2086
-      crane index append ${ARCH} -t "ghcr.io/visiban/visiban/backend:latest"
-
-ghcr-push-frontend-amd64:
-  stage: deploy
-  when: manual
-  allow_failure: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
-  script:
-    - /kaniko/executor
-        --context=frontend
-        --dockerfile=frontend/Dockerfile
-        --destination=ghcr.io/visiban/visiban/frontend:latest-amd64
-        --custom-platform linux/amd64
-        --snapshot-mode=redo
+    - docker buildx build
+        --platform linux/amd64,linux/arm64
+        --file frontend/Dockerfile
         --build-arg NODE_OPTIONS=--max-old-space-size=512
-
-ghcr-push-frontend-arm64:
-  stage: deploy
-  when: manual
-  allow_failure: true
-  tags: [arm64]
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - >-
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /kaniko/.docker/config.json
-  script:
-    - /kaniko/executor
-        --context=frontend
-        --dockerfile=frontend/Dockerfile
-        --destination=ghcr.io/visiban/visiban/frontend:latest-arm64
-        --custom-platform linux/arm64
-        --snapshot-mode=redo
-        --build-arg NODE_OPTIONS=--max-old-space-size=512
-
-ghcr-push-frontend-manifest:
-  stage: deploy
-  when: manual
-  allow_failure: true
-  needs:
-    - job: ghcr-push-frontend-amd64
-    - job: ghcr-push-frontend-arm64
-      optional: true
-  image:
-    name: gcr.io/go-containerregistry/crane:debug
-    entrypoint: [""]
-  before_script:
-    - mkdir -p /root/.docker
-    - >-
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
-      > /root/.docker/config.json
-  script:
-    - |
-      ARCH="-m ghcr.io/visiban/visiban/frontend:latest-amd64"
-      if crane manifest "ghcr.io/visiban/visiban/frontend:latest-arm64" >/dev/null 2>&1; then
-        ARCH="${ARCH} -m ghcr.io/visiban/visiban/frontend:latest-arm64"
-      fi
-      # shellcheck disable=SC2086
-      crane index append ${ARCH} -t "ghcr.io/visiban/visiban/frontend:latest"
+        --provenance=false
+        --push
+        --tag ghcr.io/visiban/visiban/frontend:latest
+        frontend/
 
 # ─── GitHub Release ────────────────────────────────────────────────────────────
 #
@@ -1176,7 +906,7 @@ ghcr-push-frontend-manifest:
 github-release:
   stage: deploy
   image: alpine:3.19
-  needs: [backend-manifest, frontend-manifest]
+  needs: [backend-docker-push, frontend-docker-push]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
