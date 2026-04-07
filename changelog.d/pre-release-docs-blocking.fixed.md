@@ -1,7 +1,0 @@
-- Fixed `board.md` incorrectly documenting `exclude_type=archived,restored` — correct value is `archived,unarchived` (#553)
-- Fixed invite-only registration mode described as admin-created accounts in two admin pages (#554)
-- Fixed `GET /api/auth/providers/` docs missing `oidc` and `oidc_name` fields (#526)
-- Fixed `GET /api/boards/{id}/summary/` docs missing `active_cards`, `done_30d`, `avg_cycle_days`, and `extension_panels` fields (#526)
-- Fixed card list filter docs: added 5 undocumented params, removed non-existent `?label=` param (#526)
-- Fixed admin users list response docs missing `can_access_all_content`, `has_completed_tour`, and `owned_boards` fields (#551)
-- Fixed admin deactivate endpoint docs incorrectly stating transfer recipients must be direct board members — group-inherited membership is also accepted (#552)

@@ -10,6 +10,177 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [1.0.0-rc.11] — 2026-04-07
+
+---
+
+
+### Added
+- Enforce case-insensitive username uniqueness — a PostgreSQL functional index now prevents `Kelly` and `kelly` from coexisting. Existing collisions are resolved automatically by the migration (winner keeps username, losers pick a new one via a non-dismissable modal on next login). A new `POST /api/auth/choose-username/` endpoint lets affected users (and API/PAT clients) set a new username.
+- Board invite notifications now display a "View board" link and navigate directly to the board when clicked.
+- Added backend test coverage for group labels and board defaults endpoints.
+- Added operator upgrade guide (`docs/administration/upgrade.md`) covering standard Docker Compose upgrade steps, zero-downtime migration rules, multi-replica deployment safety, rollback guidance, and migration status checks.
+- A compact/expanded card layout toggle in the board toolbar lets users reduce card height and hide secondary metadata (labels, checklist, due date, attachments) while keeping the priority badge and assignee visible. The preference is saved per-user in localStorage and applies across all boards.
+- Add `GET /api/groups/{id}/descendant-boards/` endpoint that returns all boards in a group and its full descendant subtree, fixing deeply nested boards being invisible in GroupDetail and the sidebar. Add "Recent boards" section to the sidebar showing the last 5 visited boards with group breadcrumb, persisted to localStorage. Auto-expand ancestor groups in the sidebar on direct navigation to a board URL.
+- Analytics heatmap now has Age and Throughput view modes. Age mode shows how long cards have been sitting in each column right now. Throughput mode shows average dwell for cards that exited each column within the selected period (7, 30, or 90 days), with a per-column card count tooltip. The selected mode is remembered per board in localStorage.
+- Added GitLab issue templates (Bug, Feature) and a "Finding your first issue" section to CONTRIBUTING.md to improve first-time contributor experience. Added a version compatibility quick-reference table to the upgrade guide.
+- The Analytics tab now displays an amber "Beta" badge and a notice strip at the top of the Analytics view to communicate that the feature is still evolving and results may change.
+- Stalled cards section in the Analytics view is now a proper table with Swimlane, Card, and Days Stalled columns, pagination (25 per page), and visual styling consistent with the Age/Throughput heatmap above it.
+- Operators can now configure the maximum card attachment upload size via the `MAX_UPLOAD_SIZE_BYTES` environment variable (default: 10 MB).
+- Users now receive a notification when they are added to a board — the notification appears in the bell dropdown and respects a new "Board invites" preference in Settings → Notifications (default: on)
+- Added "My cards" one-click filter button to the board filter bar, extracted card-filter logic to a shared `filterCards` utility, and documented the server/client search split with an inline architectural comment.
+- Add granular React error boundaries around the board grid, card detail panel, analytics, summary, and movement history views — a crash in one section no longer takes down the entire application.
+- Add optimistic concurrency control (OCC) for card moves — concurrent edits to the same card are detected and rejected with a 409 Conflict response instead of silently overwriting.
+- Add tab-focus board reconciliation — the board automatically re-fetches its full state when the browser tab regains focus, recovering from any WebSocket events missed during tab suspension or sleep.
+- Release pipelines now publish pre-built Docker images to GHCR (`ghcr.io/visiban/visiban/*`), so self-hosters can pull images directly instead of building from source
+- Version tag pipelines automatically create a GitHub Release with changelog notes and GHCR image references
+- A new GitHub Actions workflow bridges GitHub issues to GitLab, so contributors can file issues on either platform
+- Container images published to GHCR and the GitLab registry are now multi-arch manifests covering `linux/amd64` and `linux/arm64` — users on Apple Silicon Macs and Linux ARM64 servers pull the correct native slice automatically. Built using `docker buildx` with QEMU emulation on AMD64 runner VMs; no ARM64 runner required.
+- In-app notification bell in the navbar shows unread count badge, lists recent notifications, and navigates to the relevant board or card on click. Board-invite notifications are sent when a member is added. Archived-card deep-links from notifications now show a contextual "This card has been archived" message instead of a generic "Card not found" banner.
+- Add `sonar-project.properties` to suppress confirmed false positives (test passwords, CI credentials, seed data PRNG, migration complexity).
+
+### Changed
+- Upgrade Django 5.1 → 5.2 LTS and bump djangorestframework, channels, channels-redis, django-cors-headers, django-filter, and django-environ to their latest compatible releases.
+- CI: `backend-test-coverage` now combines shard artifacts instead of re-running the full test suite, reducing the job from ~10 minutes to ~30 seconds.
+- Changelog workflow now uses fragment files in changelog.d/ instead of direct CHANGELOG.md edits — eliminates merge conflicts between concurrent branches
+- Redesign group creation modal: close by default after creation, show inline subgroup creation for top-level groups, and close immediately for subgroup creation.
+- Reorganized the board toolbar into three semantic zones (view navigation, board controls, utilities/status), reducing visual clutter from 5 dividers to 2. Converted keyboard shortcuts and settings buttons to icon-only with tooltips, moved Archived toggle next to Filters, and removed the permanent "Space + drag to pan" hint (now in the keyboard shortcuts overlay). Added a reusable Tooltip component.
+
+### Fixed
+- Invite link join flow no longer requires a second click — authenticated users are joined automatically on arrival; OAuth users are joined immediately after provider redirect without landing on the Dashboard first; password login/register users are joined automatically when returned to the join page (#433)
+- JSON and CSV importers now create weight change activity records for cards with non-default weights.
+- Fixed OAuth callback URLs returning 404 in production — added Nginx proxy for /accounts/ allauth routes.
+- Fixed N+1 query in CardSerializer — member ID and label lookups are now computed once per request instead of once per card.
+- Fixed broadcast deferral in 6 card mutation actions — comments, attachments, and checklist writes now correctly use transaction.atomic() so WebSocket events only fire after commit.
+- Fixed critical API reference errors — corrected wrong field names, added missing fields, and documented WebSocket event protocol.
+- Fixed 5 documentation blockers — corrected version references, added security audit page to navigation, updated APP_VERSION example, and added SECURITY.md vulnerability reporting policy.
+- Changed card update and move permission checks from block-list to allow-list pattern — new roles now default to denied rather than allowed.
+- Replace bare `except Exception` with `except IntegrityError` in saved filter creation so programming errors are no longer swallowed as misleading duplicate-name responses.
+- Added `ANALYTICS_EXTENSIONS` hook to `boards/hooks.py`. The `/summary/` endpoint now reads enterprise analytics panel extensions from this list instead of returning a hardcoded empty array, allowing enterprise to register additional panels without modifying OSS files.
+- Fixed CardDetail panel accessibility: changed role from complementary to dialog with proper ARIA attributes and focus management.
+- Fixed WebSocket event handlers firing redundant API calls on receiving clients for column delete, swimlane delete, and board update events.
+- Fixed 4 API documentation inaccuracies: removed stale share_token and card_id fields, corrected due_before query param name, removed ghost must_change_username from admin docs.
+- Added explicit permission classes to 7 views that previously relied on the global default.
+- Fixed redundant board fetch in swimlane viewset, added select_related for archive/unarchive, and batched group membership queries to eliminate N+1.
+- Fixed text-blue-400 color token misuse on Dashboard and GroupDetail action buttons, and migrated hand-rolled modals to ModalWrapper.
+- Fixed ArchivedCardsPanel accessibility: added dialog role, ARIA attributes, focus management, and focus rings on interactive elements.
+- Fixed spoofable client IP extraction in group invite audit logging and added missing username-change gate on group join endpoint.
+- Introduced `BoardUserSerializer` with only `id`, `username`, `display_name`, and `avatar_url` to prevent private user fields (notification preferences, UI preferences, `can_access_all_content`) from leaking to other board members via board API payloads.
+- Fix `card_count` annotation on the board list endpoint to exclude archived cards, so the count matches the number of cards actually visible on the board.
+- Convert checklist item RBAC write checks from block-list to allow-list, consistent with the card update/move pattern fixed in #495, so future roles do not silently inherit write access.
+- Added release-specific upgrade note to `docs/administration/upgrade.md` documenting the required pre-deploy SQL step for instances upgrading from any pre-1.0 release to 1.0.0, where `groups/0003_placeholder` must be manually inserted into `django_migrations` before running `manage.py migrate`.
+- Wrap all broadcast `on_commit` calls in explicit `transaction.atomic()` blocks across `columns`, `swimlanes`, `labels`, `boards`, and `cards` views so broadcasts are always deferred and never fire synchronously when `ATOMIC_REQUESTS=False`.
+- WebSocket deletion events (`card.deleted`, `column.deleted`, `swimlane.deleted`, `label.deleted`) now broadcast stable UIDs instead of integer PKs, locking in a consistent event schema before the 1.0 public contract.
+- `Notification.action_type` no longer allows blank strings: a data migration backfills existing empty rows from verb content, the field constraint is tightened, and the TypeScript type is narrowed to a union of valid values.
+- Document that `boards/0005` (Customer → Swimlane rename) requires a maintenance window (stop → migrate → start) when upgrading from any pre-1.0 release. Added a `!!! warning` callout to the "Upgrading to 1.0.0" section of the upgrade guide.
+- Fix three N+1 query patterns: add `prefetch_related('labels')` to `GroupViewSet.get_queryset()` (#579); add the same prefetch plus annotations to the `subgroups` action queryset so each subgroup doesn't issue count and label queries separately (#580); add `select_related('column', 'swimlane')` to the card fetch in `CardViewSet.move` so `card.column.name/uid` and `card.swimlane.name/uid` don't each trigger a separate query when building the `CardMovement` record (#581). `SwimlaneViewSet._board_and_role()` double-call is already resolved by per-request caching (#382).
+- Fix `PRIORITY_COLORS` mapping to match the design spec: low=blue-500 (#3B82F6), medium=orange-500 (#F97316), high=red-500 (#EF4444), urgent=red-700 (#B91C1C). Previous mapping had low=gray and medium=blue, causing inverted card borders and priority pills.
+- Add focus-on-open to `OffboardingModal` so the close button receives focus when the modal appears, improving keyboard accessibility. Add `htmlFor`/`id` associations to `ForceChangePasswordModal` inputs for screen reader accessibility. Add 7 unit tests covering `ForceChangePasswordModal` happy path, validation, server errors, and fallback error handling.
+- Fix permissions matrix: "Delete attachments" now correctly shows `Own` for Collaborator (not `✓`), matching the API enforcement that collaborators and members may only delete their own attachments unless they hold the moderator entitlement.
+- Fixed `card.archived` WebSocket event to broadcast `card_uid` (string) instead of `card_id` (integer), consistent with all other removal events (#595)
+- Fixed N+1 query in `GroupViewSet.members` — ancestor memberships now loaded in a single batched query (#602)
+- Removed legacy plaintext `token` column from `group_invite_links` — all tokens now stored as SHA-256 hashes (#605)
+- Fixed false Helm/gunicorn WebSocket warning in deployment docs — daphne is the default (#596)
+- Added Invite Links tab documentation to admin panel reference (#597)
+- Fixed board template count in feature index: eleven templates, not six (#598)
+- Documented API versioning decision: no /v1/ prefix, explicit deprecation policy (#604)
+- Fixed `BoardCell` background to `bg-slate-950`, restoring the three-level board depth (#599)
+- Fixed `BoardCell` card layout from multi-column CSS grid to single-column vertical flex (#600)
+- Fixed focus trap in `OffboardingModal` and `ConfirmDialog` — keyboard users can no longer Tab out of open modals (#601)
+- Refactored JSON board import to use `bulk_create` — imports near the 500-card ceiling are now 10–20× faster (#603)
+- Fix latent N+1 in `_card_queryset` by adding `column` and `swimlane` to `select_related`, and replace per-row `Card.objects.create()` loop in CSV import with `bulk_create` to reduce up to ~1,500 individual INSERTs to three bulk operations.
+- Fix five pre-release performance blockers: analytics endpoint now filters cards to the analysis window instead of loading all-time history; archived cards endpoint is paginated (50/page with offset); CardViewSet caches board+role per request (eliminates 2–3 redundant board fetches per mutation); BoardFullSerializer.get_cards() reuses the prefetched labels queryset; SwimlaneViewSet.reorder acquires a row lock to prevent concurrent reorder races.
+- Fixed share link URL generated by the `POST /api/boards/{id}/share/` endpoint — was missing the `/api` prefix, producing an unreachable URL.
+- Added missing `notif_board_invite` field to the `User` TypeScript interface and `updateCurrentUser` API call.
+- Collapsed column headers in the board view are now keyboard-accessible: focusable via Tab, activatable with Enter/Space.
+- Theme and registration-mode radio groups now use native `<input type="radio">` inputs (sr-only) inside `<label>` containers, preserving arrow-key navigation for keyboard users.
+- Added upgrade guide notes for `groups/0012` (plaintext token column drop) covering the required maintenance window.
+- Fixed N+1 query on `GET /api/admin/users/` — owned boards are now loaded in a single query across the full page instead of one query per user.
+- Unified dashboard modal patterns (CreateGroup, Join Group, Delete Board) — consistent label styling, button variants, focus rings, Enter key behavior, and footer layout.
+- Re-raise `asyncio.CancelledError` in WebSocket ping loop for proper task cancellation propagation; use `[[` in shell scripts for safer conditional tests.
+- Reduce cognitive complexity in admin views and permissions; extract duplicated event name and permission message constants in card and board views.
+- Fixed analytics heatmap Age and Throughput modes showing identical values — throughput now counts only cards that exited a column during the period, not cards currently dwelling in it (#641)
+- Fixed analytics heatmap showing a blank gap above the table in Age mode caused by an empty description line rendered between the toggle and the data (#641)
+- Added tooltip and title text to the Age/Throughput toggle buttons and column headers in the analytics heatmap, explaining what each metric measures (#641)
+- Expanded the "Template: Sales Pipeline" seed board from 5 swimlanes and 14 cards to 11 swimlanes and 99 cards, restoring the richness lost in a prior regeneration (#641)
+- Increased movement history time spread in seed data (7–25 days per stage, up from 5–15) so the 90-day throughput analytics view shows data across all pipeline columns (#641)
+- Fix two N+1 query regressions: `notify_new_mentions` now fetches `card.board` via `select_related` instead of a deferred FK hit, and `CardViewSet.update` scopes `refresh_from_db` to `fields=["version"]` to preserve the labels prefetch cache.
+- Group write actions: extend `select_related` ancestor chain to all actions (not just `retrieve`) so `_require_group_admin` / `_require_group_member` avoid lazy parent FK queries on nested groups.
+- Board import/create responses: re-fetch board with `_member_count`, `_card_count`, and `_is_starred` annotations before serializing, eliminating 3–4 fallback queries per response.
+- Group board creation: replaced `group.labels.exists()` + iteration (2 queries) with `list(group.labels.all())` (1 query).
+- `BoardFullSerializer`: site-admin users are now fetched once per `/full/` request and threaded through context, eliminating a duplicate `can_access_all_content` query.
+- `CardMovementTimeline` now surfaces a visible error message instead of silently showing "No activity yet." when the card history API call fails; card-level movements endpoint now consistently passes request context to the serializer.
+- Uploading a file whose name contains a double-quote character no longer causes HTTP 500 errors for all subsequent downloads of that attachment; the filename is now sanitized at upload time and again when the file is served (#682)
+- Server-side enum validation added to `Board.allowed_priorities` — PATCH requests with invalid priority strings now return 400 instead of silently storing arbitrary values.
+- Bumped `psycopg2-binary` to 2.9.11 and `django-allauth` to 65.14.3; verified `axios@1.14.0` lockfile is clean (no 1.14.1 supply-chain artefacts) (#687)
+- Fixed redundant `card.refresh_from_db()` call in attachment upload that unnecessarily cleared the prefetch cache before `_refetched_card_data()`.
+- Fixed `_card_count` annotation in group boards listing and descendant-boards endpoint including archived cards in the count, diverging from the board list view which correctly excludes them.
+- Switch README pipeline and coverage badges to native GitLab SVG endpoints; batch notification action_type backfill migration with `iterator(chunk_size=500)` + `bulk_update` to avoid long table locks on large production instances.
+- Fix analytics endpoint issuing a live swimlane query on every request — swimlanes are now loaded into a list before the loop, consistent with how columns and the summary endpoint already handle it.
+- Assigning a card to a board member now requires Moderator or Admin access; members without this role see the assignee dropdown disabled with an explanatory tooltip, and receive a clear 403 message if they reach the API directly.
+- The Moderator tooltip in Board Settings → Members now lists all three entitlements: assign, edit, and delete/archive cards created by other members.
+- The `SelectDropdown` component gained a `disabledReason` prop so any disabled dropdown can surface a contextual explanation, and its disabled opacity was corrected to match the design system.
+- Eliminate two redundant queries per board request: board memberships are now prefetched alongside the board load so get_members() reads from cache; is_starred on mutation responses now uses the already-prefetched favorites list instead of issuing a live EXISTS query.
+- Add partial DB index on User.can_access_all_content — reduces the site-admin lookup on every board page load from a full user table scan to an index scan covering only the tiny set of users with that flag set.
+- Fixed Escape key not closing the card detail panel. The root cause was that `ModalWrapper` (used for the delete/archive confirmation dialog embedded inside the panel) registered its `useEscapeStack` handler at priority 40 even when `open=false` — silently consuming every Escape and preventing the panel-close handler at priority 30 from firing. The handler now returns `false` when the modal is not open, allowing the event to pass through. Additionally fixed Escape not working when the description rich-text editor is in edit mode: the editor's `onKeyDown` handler was calling `stopPropagation()` for all keys including Escape, which prevented the event from reaching the document-level listener. Pressing Escape while editing now exits edit mode first; a second press closes the panel.
+- Fixed the `benchmark.py` management command's `_bench_summary` function to call the real `BoardViewSet.summary()` view via `APIClient.force_authenticate()` instead of reimplementing a partial subset of the summary logic. The old implementation only exercised 2 of the ~7 queries the actual endpoint runs, so N+1 regressions in the summary endpoint went undetected. The per-benchmark query budget has also been corrected from 6 to 10 to match `SummaryQueryCountTests.BUDGET`.
+- Fixed `frontend/.env.local` leaking into Docker builds when images are built locally, causing `VITE_API_URL=http://localhost:8000` to be baked into the bundle and breaking WebSocket connections for all non-localhost clients. Added explicit `.env.local` exclusions to `.dockerignore` and `.gitignore`, created `frontend/.env.local.example` documenting all three deployment scenarios, and added the missing `/accounts/` OAuth callback location to the Helm nginx ConfigMap.
+- ---
+- Fixed label and checklist items not appearing in card history on imported boards. Both JSON and CSV import paths now emit `LABEL_CHANGE` and `CHECKLIST_ITEM_ADDED` activity records, consistent with the live card update path.
+- JSON board export now includes `archived_at` per card and `schema_version: 2`. Import restores archived card state, movement `movement_type` and `notes`, and comment timestamps — achieving full round-trip fidelity for JSON. CSV import/export remains intentionally limited.
+- Fix N+1 query pattern on the archived cards endpoint and the group boards listing endpoint.
+- Fix member card edit ownership gate and optimize bulk_update for column/swimlane reorder, `.only()` on site-admin user query, and prefetch-cache usage in stale card notifications.
+- Fixed N+1 on label write endpoints — `LabelViewSet` now caches the board/role lookup per request, matching the pattern used by `ColumnViewSet` and `SwimlaneViewSet`.
+- Fixed N+1 in `AdminUserDeactivateView` transfer validation — transfer target users and boards are now bulk-fetched in two queries before the validation loop instead of one query per entry.
+- Fix card search 500 regression (slice after OrderingFilter), archive/unarchive deferred board FK hit, redundant Label query in card serializer context, Notification.action_type TypeScript type (removed stale empty-string member), and API docs gaps (moved_by_id filter, analytics age/throughput fields, card status endpoint, archived cards pagination, move OCC version field, swimlane fields, groups descendant-boards endpoint).
+- Fixed group members endpoint exposing full user PII (email, notification preferences, admin flags) to all group members — now returns the same narrow `BoardUser` shape used by board membership endpoints (#549)
+- Fixed `_require_group_admin` and `_require_group_member` issuing one database query per ancestor group level — now batches into a single query (#545)
+- Fixed missing `groups/migrations/0003` sequence gap with a documented placeholder migration (#550)
+- Pinned `drf-spectacular==0.29.0` in `backend/requirements.txt` for reproducible builds (#555)
+- Introduce `/api/v1/` URL path versioning across all endpoints; add `OffsetCountPagination` with a unified `{count, offset, page_size, results}` envelope; add `owner` field to `BoardFullSerializer`; fix unbatched migration backfill in `0040`; pin axios to `1.14.0` and add override to block malicious `1.14.1`; update all docs, tests, and frontend API clients to reflect the new paths and pagination shape.
+- Fixed `board.md` incorrectly documenting `exclude_type=archived,restored` — correct value is `archived,unarchived` (#553)
+- Fixed invite-only registration mode described as admin-created accounts in two admin pages (#554)
+- Fixed `GET /api/auth/providers/` docs missing `oidc` and `oidc_name` fields (#526)
+- Fixed `GET /api/boards/{id}/summary/` docs missing `active_cards`, `done_30d`, `avg_cycle_days`, and `extension_panels` fields (#526)
+- Fixed card list filter docs: added 5 undocumented params, removed non-existent `?label=` param (#526)
+- Fixed admin users list response docs missing `can_access_all_content`, `has_completed_tour`, and `owned_boards` fields (#551)
+- Fixed admin deactivate endpoint docs incorrectly stating transfer recipients must be direct board members — group-inherited membership is also accepted (#552)
+- Fixed CardDetail delete/archive confirmation overlay missing dialog accessibility semantics — now uses `ModalWrapper` with proper `role="dialog"`, focus trapping, and Escape handling (#546)
+- Fixed GroupDetail transfer ownership and delete group modals missing dialog accessibility semantics (#483)
+- Fixed CardItem recently-moved dot violating three design system rules: corrected size (`w-2`), color token (`bg-blue-500`), and visibility behavior (#547)
+- Removed phantom `BoardMovement` TypeScript interface and consolidated to `CardMovement`; removed non-existent `card_id` field from movement types (#548)
+- Security, performance, and correctness fixes from the pre-release Wave 1 audit:
+- Use `can_access_all_content` (not `is_site_admin`) in `get_accessible_group_ids()` to match the documented privilege model
+- Gate OpenAPI schema endpoints (`/api/schema/`) to authenticated users
+- Add 64 KB size limit on `state_json` in saved filters to prevent unbounded storage growth
+- Create `BoardMembership` row for owner when a board is created inside a group
+- Use `_prefetched_memberships` cache in `get_board_role()` and `_get_effective_member_ids()` to eliminate redundant membership queries per request
+- Pass `_member_ids` and `_board_labels_qs` context in `_refetched_card_data()` to avoid 2–4 extra queries per card mutation response
+- Use label prefetch cache for label-name lookups in `CardViewSet.update()` (eliminates 2 live DB queries per card edit)
+- Use `bulk_create` for columns, swimlanes, and labels in both JSON and CSV board imports (was one INSERT per object)
+- Add `prefetch_related("checklist_items")` to checklist GET card fetch
+- Add structured `logger.warning()` on board access denial for security observability
+- The "Member + Moderator" entry in the role permissions popup is now labeled "Member (moderator flag)" to make clear it is a flag on the Member role rather than a separate role, and its description now includes "— ask an admin to enable" so occasional users know how to request the permission.
+- Fixed the Analytics view showing all dashes in the 7-day and 30-day Throughput windows after a board had been seeded more than 30 days ago. Movement timestamps in `seed_demo_data.py` and `seed_template_boards.py` were anchored to a hardcoded date; they are now generated relative to today so re-seeding always produces data within the active analytics windows. The static anchor is retained only on the `--export` path used by CI to keep fixture files stable.
+- Fixed SonarCloud scan error caused by `**` wildcards in `sonar.tests` — moved glob filtering to `sonar.test.inclusions` which supports wildcards; `sonar.tests` is now a plain directory list.
+- WebSocket connections in the production Docker Compose stack are now reliable — nginx renders its config from a template at startup (no pre-generated host file required) and uses a proper `connection_upgrade` map, so real-time board updates are delivered correctly without manual setup steps.
+- Real-time board updates (card moves, column changes) are now delivered correctly to all connected users in production Docker deployments — the WebSocket no longer falls back to `localhost` when the app is served from a non-localhost origin.
+
+### Security
+- Harden auth surface: reject PATs for deactivated users, enforce Django password validators on password change and admin user creation, fix X-Forwarded-For trust model in admin IP middleware, add explicit login brute-force rate limits.
+- Tighten Django lower bound to `>=5.2.12` (CVE-2025-64459, CVSS 9.1) and pin axios to exact version `1.13.6` (removes `^` caret to prevent automatic upgrade to the compromised `1.14.x` line).
+- Confirm `_validate_upload_mime` rejects `text/plain`/`text/csv` files containing HTML or script markers; add regression tests and Content-Disposition assertion for media downloads.
+- Replace `CurrentUserSerializer` denylist test with an allowlist test so any new field added to the serializer requires an explicit writable/read-only decision.
+- Fix stored XSS in card description view mode by composing `rehype-sanitize` after `rehypeRaw` in `RichTextEditor`. Raw HTML is now sanitized against an allowlist that preserves only the `color:` style values written by the Tiptap Color extension.
+- Resolved SAST/SonarQube security findings: removed hardcoded DATABASE_URL from docker-compose.yml, stopped logging the generated admin password via logger.warning (now written to stdout only), replaced hardcoded benchmark password with secrets.token_urlsafe, fixed ReDoS-vulnerable regex in join token extraction, corrected /app/media ownership in Dockerfile.prod, and tightened .dockerignore. Updated SonarQube suppression rule keys for CI YAML findings (#639).
+- Fixed a TOCTOU race in `ensure_site_admin` where the password file was briefly world-readable between creation and `chmod`; the file is now created with `0o600` permissions atomically via `os.open`.
+- UserSearchView: removed `email__icontains` filter to prevent silent email-existence oracle for authenticated callers.
+- Added HTTP security headers: `SECURE_HSTS_SECONDS`, `SECURE_CONTENT_TYPE_NOSNIFF`, `X_FRAME_OPTIONS`, and `SECURE_REFERRER_POLICY`. HSTS is configurable via env var for operators who need a staged rollout.
+- Removed `staleness_threshold_days` from `PublicBoardSerializer` — this internal config value was visible to anonymous share-link visitors and is not needed client-side.
+- Add `O_NOFOLLOW` flag to `ensure_site_admin` password-file write to prevent symlink attacks in world-writable `/tmp`.
+- Bumped `requests` 2.32.4 to 2.33.0 (CVE-2026-25645) and `cryptography` 46.0.5 to 46.0.6 (CVE-2026-34073).
+- Add `.dockerignore` files and non-root user to backend Dockerfiles to prevent sensitive files from being copied into images and reduce container attack surface.
+- Fix stored XSS in RichTextEditor: sanitize HTML output via rehype-sanitize, blocking script injection through card descriptions and comments. Also bump picomatch and brace-expansion to patch CVEs GHSA-3v7f-55p6-f55p, GHSA-c2c7-rcm5-vvqj, and GHSA-f886-m6hf-6m8v.
 ## [1.0.0-rc.10] — 2026-03-29
 
 ### Added

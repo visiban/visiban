@@ -1,3 +1,0 @@
-- Release pipelines now publish pre-built Docker images to GHCR (`ghcr.io/visiban/visiban/*`), so self-hosters can pull images directly instead of building from source
-- Version tag pipelines automatically create a GitHub Release with changelog notes and GHCR image references
-- A new GitHub Actions workflow bridges GitHub issues to GitLab, so contributors can file issues on either platform

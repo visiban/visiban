@@ -1,1 +1,0 @@
-Add focus-on-open to `OffboardingModal` so the close button receives focus when the modal appears, improving keyboard accessibility. Add `htmlFor`/`id` associations to `ForceChangePasswordModal` inputs for screen reader accessibility. Add 7 unit tests covering `ForceChangePasswordModal` happy path, validation, server errors, and fallback error handling.

@@ -1,1 +1,0 @@
-Fix permissions matrix: "Delete attachments" now correctly shows `Own` for Collaborator (not `✓`), matching the API enforcement that collaborators and members may only delete their own attachments unless they hold the moderator entitlement.

@@ -1,1 +1,0 @@
-In-app notification bell in the navbar shows unread count badge, lists recent notifications, and navigates to the relevant board or card on click. Board-invite notifications are sent when a member is added. Archived-card deep-links from notifications now show a contextual "This card has been archived" message instead of a generic "Card not found" banner.

@@ -136,8 +136,8 @@ docker pull ghcr.io/visiban/visiban/frontend:latest
 Pin to a specific release for production:
 
 ```bash
-docker pull ghcr.io/visiban/visiban/backend:v1.0.0-rc.10
-docker pull ghcr.io/visiban/visiban/frontend:v1.0.0-rc.10
+docker pull ghcr.io/visiban/visiban/backend:v1.0.0-rc.11
+docker pull ghcr.io/visiban/visiban/frontend:v1.0.0-rc.11
 ```
 
 All release tags are listed at [github.com/visiban/visiban/releases](https://github.com/visiban/visiban/releases).

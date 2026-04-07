@@ -1,1 +1,0 @@
-Real-time board updates (card moves, column changes) are now delivered correctly to all connected users in production Docker deployments — the WebSocket no longer falls back to `localhost` when the app is served from a non-localhost origin.

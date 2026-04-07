@@ -1,1 +1,0 @@
-Document that `boards/0005` (Customer → Swimlane rename) requires a maintenance window (stop → migrate → start) when upgrading from any pre-1.0 release. Added a `!!! warning` callout to the "Upgrading to 1.0.0" section of the upgrade guide.

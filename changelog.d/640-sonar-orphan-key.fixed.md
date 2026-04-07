@@ -1,1 +1,0 @@
-Fixed SonarCloud scan abort caused by orphan `regex_tests` entry in `sonar.issue.ignore.multicriteria` missing its `ruleKey`/`resourceKey` definitions.
