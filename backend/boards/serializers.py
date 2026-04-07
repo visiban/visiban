@@ -249,6 +249,17 @@ class BoardSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("stale_warning_pct must be between 0 and 100.")
         return value
 
+    def validate_allowed_priorities(self, value):
+        if not value:
+            return value
+        valid = {p[0] for p in Card.Priority.choices}
+        invalid = [v for v in value if v not in valid]
+        if invalid:
+            raise serializers.ValidationError(
+                f"Invalid priority values: {invalid}. Must be one of {sorted(valid)}."
+            )
+        return value
+
     def get_member_count(self, obj):
         # Use the annotation injected by BoardViewSet.get_queryset() when available
         # to avoid a subquery per board on the list endpoint.
